@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+.env
+.env.*
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.cache/*
+!.cache/.gitkeep
+
+# Local/editor files
+.DS_Store
+.idea/
+.vscode/
+
+# AI assistant local state
+.codex/
+.agents/
+.claude/
+.cursor/
+.windsurf/
+.aider*
+CLAUDE.md
+AGENTS.md
+
+# tmp
+/tmp

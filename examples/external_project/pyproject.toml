@@ -1,0 +1,13 @@
+[project]
+name = "my-robot-project"
+version = "0.1.0"
+description = "Example downstream GeneLab extension package."
+requires-python = ">=3.12"
+dependencies = ["genelab"]
+
+[project.entry-points."genelab.extensions"]
+my_robot_project = "my_robot_project.tasks:register"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,10 @@
+* text=auto
+
+*.npy binary
+*.STL binary
+*.stl binary
+*.step binary
+*.STEP binary
+*.usd binary
+*.usda text
+*.pdf binary

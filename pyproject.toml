@@ -1,0 +1,108 @@
+[project]
+name = "genelab"
+version = "0.1.0"
+description = "Isaac Lab API for RL and robotics research powered by Genesis."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "genesis-world",
+]
+
+[project.optional-dependencies]
+torch-cpu = ["torch"]
+torch-cu118 = ["torch"]
+torch-cu121 = ["torch"]
+torch-cu124 = ["torch"]
+torch-cu126 = ["torch"]
+torch-cu128 = ["torch"]
+torch-cu130 = ["torch"]
+
+[project.scripts]
+genelab = "genelab.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pyright>=1.1.390",
+    "ruff>=0.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/genelab"]
+
+[tool.uv]
+conflicts = [
+    [
+        { extra = "torch-cpu" },
+        { extra = "torch-cu118" },
+        { extra = "torch-cu121" },
+        { extra = "torch-cu124" },
+        { extra = "torch-cu126" },
+        { extra = "torch-cu128" },
+        { extra = "torch-cu130" },
+    ],
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "torch-cpu" },
+    { index = "pytorch-cu118", extra = "torch-cu118" },
+    { index = "pytorch-cu121", extra = "torch-cu121" },
+    { index = "pytorch-cu124", extra = "torch-cu124" },
+    { index = "pytorch-cu126", extra = "torch-cu126" },
+    { index = "pytorch-cu128", extra = "torch-cu128" },
+    { index = "pytorch-cu130", extra = "torch-cu130" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu118"
+url = "https://download.pytorch.org/whl/cu118"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.pyright]
+include = ["src/genelab"]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+
+[tool.pytest.ini_options]
+addopts = ["-ra"]
+pythonpath = ["examples/genelab_examples/src"]
+testpaths = ["tests"]
