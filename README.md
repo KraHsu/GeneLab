@@ -91,6 +91,8 @@ uv run genelab project new my_robot_project
 
 ## Documentation
 
+- [Documentation site](https://krahsu.github.io/GeneLab/) — full guides, CLI reference, concepts,
+  and auto-generated API docs. Bilingual (English default, 中文 at `/zh/`).
 - [Examples](examples/README.md): bundled tasks, demo scripts, config overrides, and downstream
   project integration.
 - [中文 README](docs/README_CN.md): concise Chinese project overview.
