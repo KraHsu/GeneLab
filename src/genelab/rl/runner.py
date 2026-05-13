@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 from genelab.cache import ensure_project_cache
 from genelab.registry import TASKS
 from genelab.rl.config import RslRlOnPolicyRunnerCfg
+from genelab.rl.distributed import is_main_process
 from genelab.rl.rsl_rl_wrapper import RslRlVecEnvWrapper
 
 if TYPE_CHECKING:
@@ -62,7 +63,7 @@ def _runner_cfg_to_dict(cfg: RslRlOnPolicyRunnerCfg) -> dict[str, Any]:
     return data
 
 
-def _resolve_log_dir(log_root: Path, experiment_name: str, run_name: str) -> Path:
+def resolve_log_dir(log_root: Path, experiment_name: str, run_name: str) -> Path:
     timestamp = dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     suffix = f"_{run_name}" if run_name else ""
     return log_root / experiment_name / f"{timestamp}{suffix}"
@@ -117,8 +118,9 @@ def train_task(
     from rsl_rl.runners import OnPolicyRunner
 
     log_root = log_root or Path("logs") / "rsl_rl"
-    log_dir = _resolve_log_dir(log_root, agent_cfg.experiment_name, agent_cfg.run_name)
-    _save_run_params(log_dir, env_cfg, agent_cfg)
+    log_dir = resolve_log_dir(log_root, agent_cfg.experiment_name, agent_cfg.run_name)
+    if is_main_process():
+        _save_run_params(log_dir, env_cfg, agent_cfg)
 
     runner = OnPolicyRunner(
         cast(Any, wrapped),
