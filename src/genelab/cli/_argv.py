@@ -15,7 +15,7 @@ _GLOBAL_BOOL_FLAGS: Final[frozenset[str]] = frozenset(
 _RUN_BOOL_SHORTCUTS: Final[frozenset[str]] = frozenset({"-v", "--vis", "--gpu"})
 
 RUNNER_KEYS: Final[frozenset[str]] = frozenset(
-    {"num_envs", "checkpoint", "max_iterations", "seed", "log_dir", "agent"}
+    {"num_envs", "checkpoint", "max_iterations", "seed", "log_dir", "agent", "gpus"}
 )
 
 

@@ -283,6 +283,120 @@ def test_cli_parses_agent_flag_value() -> None:
     assert overrides == {"agent": "random", "num_envs": "4"}
 
 
+def test_cli_parses_gpus_flag_into_runner_args() -> None:
+    from genelab.cli import RUNNER_KEYS, parse_run_args, split_runner_keys
+
+    assert "gpus" in RUNNER_KEYS
+    task_id, overrides = parse_run_args(["External-Fake-Task-v0", "--gpus", "4"])
+
+    assert task_id == "External-Fake-Task-v0"
+    assert overrides == {"gpus": "4"}
+
+    runner_args = split_runner_keys(overrides)
+    assert runner_args == {"gpus": "4"}
+    assert overrides == {}
+
+
+def test_strip_gpus_flag_removes_both_forms() -> None:
+    from genelab.cli import _strip_gpus_flag
+
+    assert _strip_gpus_flag(
+        ["train", "TASK", "--gpus", "4", "--num-envs", "8"]
+    ) == ["train", "TASK", "--num-envs", "8"]
+    assert _strip_gpus_flag(["--gpus=2", "--num-envs", "8"]) == ["--num-envs", "8"]
+    assert _strip_gpus_flag(["--num-envs", "8"]) == ["--num-envs", "8"]
+
+
+def test_has_log_dir_flag_recognises_both_spellings() -> None:
+    from genelab.cli import _has_log_dir_flag
+
+    assert _has_log_dir_flag(["--log-dir", "/tmp/x"])
+    assert _has_log_dir_flag(["--log_dir", "/tmp/x"])
+    assert _has_log_dir_flag(["--log-dir=/tmp/x"])
+    assert _has_log_dir_flag(["--log_dir=/tmp/x"])
+    assert not _has_log_dir_flag(["--num-envs", "8"])
+
+
+def test_relaunch_under_torchrun_builds_expected_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dataclasses import dataclass
+
+    from genelab.cli import _relaunch_under_torchrun
+
+    @dataclass
+    class _FakeAgentCfg:
+        experiment_name: str = "test-exp"
+        run_name: str = "unit"
+
+    captured: dict[str, object] = {}
+
+    def _fake_execvp(file: str, args: list[str]) -> None:
+        captured["file"] = file
+        captured["args"] = args
+
+    monkeypatch.setattr("genelab.cli.os.execvp", _fake_execvp)
+    monkeypatch.setattr(
+        "genelab.cli.sys.argv",
+        ["genelab", "train", "TASK_ID", "--gpus", "4", "--num-envs", "8"],
+    )
+
+    _relaunch_under_torchrun(4, _FakeAgentCfg(), runner_args={"num_envs": "8"})
+
+    args = captured["args"]
+    assert isinstance(args, list)
+    # python -m torch.distributed.run --standalone --nproc_per_node=4 -m genelab.cli ...
+    assert args[1:7] == [
+        "-m",
+        "torch.distributed.run",
+        "--standalone",
+        "--nproc_per_node=4",
+        "-m",
+        "genelab.cli",
+    ]
+    # --gpus and its value were stripped from the forwarded tokens
+    assert "--gpus" not in args
+    # The original train TASK_ID --num-envs 8 was forwarded
+    assert "train" in args and "TASK_ID" in args and "--num-envs" in args and "8" in args
+    # A --log-dir was injected because the original argv had none
+    assert "--log-dir" in args
+    log_dir_index = args.index("--log-dir")
+    assert "test-exp" in args[log_dir_index + 1]
+
+
+def test_relaunch_under_torchrun_preserves_explicit_log_dir(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dataclasses import dataclass
+
+    from genelab.cli import _relaunch_under_torchrun
+
+    @dataclass
+    class _FakeAgentCfg:
+        experiment_name: str = "exp"
+        run_name: str = ""
+
+    captured: dict[str, object] = {}
+
+    def _fake_execvp(file: str, args: list[str]) -> None:
+        captured["args"] = args
+
+    monkeypatch.setattr("genelab.cli.os.execvp", _fake_execvp)
+    monkeypatch.setattr(
+        "genelab.cli.sys.argv",
+        ["genelab", "train", "TASK", "--gpus", "2", "--log-dir", "/tmp/keep-this"],
+    )
+
+    _relaunch_under_torchrun(2, _FakeAgentCfg(), runner_args={"log_dir": "/tmp/keep-this"})
+
+    args = captured["args"]
+    assert isinstance(args, list)
+    # The user's explicit --log-dir is forwarded; we should not inject another.
+    assert args.count("--log-dir") == 1
+    log_dir_index = args.index("--log-dir")
+    assert args[log_dir_index + 1] == "/tmp/keep-this"
+
+
 def test_cli_rejects_invalid_agent_kind(monkeypatch: pytest.MonkeyPatch) -> None:
     from genelab import cli as cli_module
 
