@@ -323,7 +323,7 @@ def _dispatch_train(task: _RunnableTask, runner_args: dict[str, str]) -> None:
         num_envs=int(num_envs_raw) if num_envs_raw is not None else None,
         max_iterations=int(max_iter_raw) if max_iter_raw is not None else None,
         seed=int(seed_raw) if seed_raw is not None else None,
-        log_root=Path(log_dir_raw) if log_dir_raw is not None else None,
+        log_dir=Path(log_dir_raw) if log_dir_raw is not None else None,
     )
 
 
