@@ -1,7 +1,5 @@
 """Reward manager: weights and sums reward terms per environment per step."""
 
-from __future__ import annotations
-
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING

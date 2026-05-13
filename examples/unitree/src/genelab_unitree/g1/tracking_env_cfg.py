@@ -7,8 +7,6 @@ GeneLab's slim manager system. The motion file path must be supplied at runtime,
         --agent zero --env.commands.motion.motion_file /path/to/clip.npz
 """
 
-from __future__ import annotations
-
 import math
 
 from genelab import mdp

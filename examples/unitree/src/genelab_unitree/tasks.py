@@ -1,7 +1,5 @@
 """GeneLab extension entry point: registers the G1 velocity tracking + motion imitation tasks."""
 
-from __future__ import annotations
-
 from genelab.configs import TaskCfg
 from genelab.registry import (
     ENVS,

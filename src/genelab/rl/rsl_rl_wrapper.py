@@ -1,7 +1,5 @@
 """Adapter from ``ManagerBasedRlEnv`` to the RSL-RL VecEnv interface."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any
 
 import torch

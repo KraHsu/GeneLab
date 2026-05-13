@@ -6,8 +6,6 @@ damping / effort triple; the per-joint dictionaries fan those values out by rege
 GeneLab's manager-based env can index them by joint name.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Final
 

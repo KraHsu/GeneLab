@@ -1,7 +1,5 @@
 """Command manager: per-term command generators with periodic resampling."""
 
-from __future__ import annotations
-
 import abc
 from copy import deepcopy
 from dataclasses import dataclass

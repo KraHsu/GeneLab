@@ -4,8 +4,6 @@ Ported from ``mjlab.utils.lab_api.math``; trimmed to the surface used by GeneLab
 All quaternions use the ``(w, x, y, z)`` convention.
 """
 
-from __future__ import annotations
-
 import torch
 
 

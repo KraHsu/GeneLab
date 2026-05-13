@@ -1,7 +1,5 @@
 """Action manager: routes a flat action tensor to per-term controllers."""
 
-from __future__ import annotations
-
 import abc
 from copy import deepcopy
 from dataclasses import dataclass
