@@ -16,6 +16,12 @@ torch-cu124 = ["torch"]
 torch-cu126 = ["torch"]
 torch-cu128 = ["torch"]
 torch-cu130 = ["torch"]
+rl = [
+    "tensordict",
+    "rsl_rl_lib>=5.2.0",
+    "gymnasium>=1.0",
+    "tensorboard>=2.20.0",
+]
 
 [project.scripts]
 genelab = "genelab.cli:main"
@@ -44,6 +50,15 @@ conflicts = [
         { extra = "torch-cu126" },
         { extra = "torch-cu128" },
         { extra = "torch-cu130" },
+    ],
+    # rsl_rl_lib needs torch>=2.6 which is not published on the older CUDA indices.
+    [
+        { extra = "rl" },
+        { extra = "torch-cu118" },
+    ],
+    [
+        { extra = "rl" },
+        { extra = "torch-cu121" },
     ],
 ]
 
@@ -97,6 +112,16 @@ explicit = true
 include = ["src/genelab"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
+# torch's stub package doesn't re-export many factory functions; silence rather than sprinkle
+# `# pyright: ignore` everywhere.
+reportPrivateImportUsage = false
+# rsl_rl / tensordict / genesis live behind the [rl] / sim extras and are conditional imports.
+reportMissingImports = false
+reportMissingTypeStubs = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownParameterType = false
 
 [tool.ruff]
 line-length = 100
@@ -104,5 +129,5 @@ src = ["src"]
 
 [tool.pytest.ini_options]
 addopts = ["-ra"]
-pythonpath = ["examples/genelab_examples/src"]
+pythonpath = ["examples/genelab_examples/src", "examples/unitree/src"]
 testpaths = ["tests"]

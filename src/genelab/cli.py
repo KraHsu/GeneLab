@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import re
 from textwrap import dedent
-from typing import Literal, Protocol, cast, runtime_checkable
+from typing import Final, Literal, Protocol, cast, runtime_checkable
 
 from genelab import __version__
 from genelab.cache import CACHE_DIR, ensure_project_cache
@@ -139,12 +139,12 @@ def main(argv: list[str] | None = None) -> None:
         _print_registry(cast(RegistryKind, args.kind))
         return
     if args.command in {"play", "train"}:
-        task = _configured_task(args)
+        task, runner_args = _configured_task(args, args.command)
         try:
             if args.command == "play":
-                task.play()
+                _dispatch_play(task, runner_args)
             else:
-                task.train()
+                _dispatch_train(task, runner_args)
         except NotImplementedError as exc:
             raise SystemExit(str(exc)) from exc
         return
@@ -203,18 +203,89 @@ def _find_task_index(tokens: list[str]) -> int | None:
     return None
 
 
-def _configured_task(args: argparse.Namespace) -> _RunnableTask:
+_RUNNER_KEYS: Final[frozenset[str]] = frozenset(
+    {"num_envs", "checkpoint", "max_iterations", "seed", "log_dir"}
+)
+
+
+def _configured_task(
+    args: argparse.Namespace, command: str
+) -> tuple[_RunnableTask, dict[str, str]]:
     task_id, overrides = _parse_run_args(cast(list[str], args.args))
     try:
         task = cast(_RunnableTask, TASKS.get(task_id))
     except KeyError as exc:
         raise SystemExit(str(exc)) from exc
 
+    runner_args: dict[str, str] = {}
+    for key in list(overrides.keys()):
+        if key in _RUNNER_KEYS:
+            runner_args[key] = overrides.pop(key)
+
+    # When running in play mode, retarget the --vis / --gpu shortcuts at the play_env so users
+    # don't have to write the full dotted path.
+    if command == "play":
+        play_env = getattr(task.cfg, "play_env", None)
+        if play_env is not None:
+            for short_key in ("env.scene.vis", "env.scene.gpu", "env.scene.steps", "env.scene.dt"):
+                if short_key in overrides:
+                    overrides[short_key.replace("env.", "play_env.", 1)] = overrides.pop(short_key)
+
     try:
         apply_overrides(task.cfg, overrides)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
-    return task
+    return task, runner_args
+
+
+def _dispatch_play(task: _RunnableTask, runner_args: dict[str, str]) -> None:
+    task_cfg = getattr(task, "cfg", None)
+    agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
+    checkpoint_raw = runner_args.get("checkpoint")
+    num_envs_raw = runner_args.get("num_envs")
+    if checkpoint_raw is None and num_envs_raw is None and agent_cfg is None:
+        task.play()
+        return
+    from genelab.rl import play_task
+
+    task_id = getattr(task_cfg, "name", None)
+    if not isinstance(task_id, str):
+        raise SystemExit("task config is missing 'name'; cannot route through RL play helper")
+    play_task(
+        task_id,
+        checkpoint=Path(checkpoint_raw) if checkpoint_raw is not None else None,
+        num_envs=int(num_envs_raw) if num_envs_raw is not None else None,
+    )
+
+
+def _dispatch_train(task: _RunnableTask, runner_args: dict[str, str]) -> None:
+    task_cfg = getattr(task, "cfg", None)
+    agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
+    if agent_cfg is None:
+        task.train()
+        return
+    from genelab.rl import RslRlOnPolicyRunnerCfg, train_task
+
+    if not isinstance(agent_cfg, RslRlOnPolicyRunnerCfg):
+        raise SystemExit(
+            f"task agent cfg has unsupported type {type(agent_cfg).__name__}; expected RslRlOnPolicyRunnerCfg"
+        )
+    task_id = getattr(task_cfg, "name", None)
+    if not isinstance(task_id, str):
+        raise SystemExit("task config is missing 'name'; cannot route through RL train helper")
+
+    num_envs_raw = runner_args.get("num_envs")
+    max_iter_raw = runner_args.get("max_iterations")
+    seed_raw = runner_args.get("seed")
+    log_dir_raw = runner_args.get("log_dir")
+    train_task(
+        task_id,
+        agent_cfg,
+        num_envs=int(num_envs_raw) if num_envs_raw is not None else None,
+        max_iterations=int(max_iter_raw) if max_iter_raw is not None else None,
+        seed=int(seed_raw) if seed_raw is not None else None,
+        log_root=Path(log_dir_raw) if log_dir_raw is not None else None,
+    )
 
 
 def _parse_run_args(tokens: list[str]) -> tuple[str, dict[str, str]]:
