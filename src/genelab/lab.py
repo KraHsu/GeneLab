@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from genelab.configs import ManagerBasedEnvCfg, TaskCfg, apply_overrides
+from genelab.mdp.noise import Gnoise, NoiseCfg, Unoise
 from genelab.registry import (
     ENVS,
     ROBOTS,
@@ -14,6 +15,7 @@ from genelab.registry import (
     load_entrypoint_extensions,
     load_extension_module,
 )
+from genelab.sensor import Sensor, SensorCfg
 
 
 class ManagerBasedEnv(Protocol):
@@ -39,11 +41,16 @@ __all__ = [
     "ROBOTS",
     "TASKS",
     "GenesisBackendCfg",
+    "Gnoise",
     "ManagerBasedEnv",
     "ManagerBasedEnvCfg",
+    "NoiseCfg",
     "Registry",
     "RegistryEntry",
+    "Sensor",
+    "SensorCfg",
     "TaskCfg",
+    "Unoise",
     "apply_overrides",
     "load_builtin_registries",
     "load_entrypoint_extensions",

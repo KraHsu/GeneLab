@@ -44,6 +44,11 @@ def generated_commands(env: "ManagerBasedRlEnv", command_name: str) -> torch.Ten
     return env.command_manager.get_command(command_name)
 
 
+def sensor_data(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
+    """Return the per-step cached tensor of the named sensor."""
+    return env.sensors[sensor_name].data
+
+
 # --------------------------------------------------------------------- motion imitation
 
 
