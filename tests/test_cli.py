@@ -272,6 +272,56 @@ def test_cli_run_args_accept_flags_after_task() -> None:
     }
 
 
+def test_cli_parses_agent_flag_value() -> None:
+    from genelab.cli import _parse_run_args  # pyright: ignore[reportPrivateUsage]
+
+    task_id, overrides = _parse_run_args(
+        ["External-Fake-Task-v0", "--agent", "random", "--num_envs", "4"]
+    )
+
+    assert task_id == "External-Fake-Task-v0"
+    assert overrides == {"agent": "random", "num_envs": "4"}
+
+
+def test_cli_rejects_invalid_agent_kind(monkeypatch: pytest.MonkeyPatch) -> None:
+    from genelab import cli as cli_module
+
+    def _fake_play(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("play_task should not run when --agent value is invalid")
+
+    fake_rl = type("FakeRl", (), {"play_task": staticmethod(_fake_play), "AgentKind": str})
+    monkeypatch.setitem(__import__("sys").modules, "genelab.rl", fake_rl)
+
+    try:
+        cli_module.main(
+            ["--import", "tests.fake_extension", "play", "External-Fake-Task-v0", "--agent", "bogus"]
+        )
+    except SystemExit as exc:
+        assert "--agent" in str(exc)
+    else:
+        raise AssertionError("expected invalid --agent value to exit")
+
+
+def test_cli_routes_agent_through_play_task(monkeypatch: pytest.MonkeyPatch) -> None:
+    from genelab import cli as cli_module
+
+    captured: dict[str, object] = {}
+
+    def _fake_play(task_id: str, **kwargs: object) -> None:
+        captured["task_id"] = task_id
+        captured.update(kwargs)
+
+    fake_rl = type("FakeRl", (), {"play_task": staticmethod(_fake_play), "AgentKind": str})
+    monkeypatch.setitem(__import__("sys").modules, "genelab.rl", fake_rl)
+
+    cli_module.main(
+        ["--import", "tests.fake_extension", "play", "External-Fake-Task-v0", "--agent", "random"]
+    )
+
+    assert captured["task_id"] == "External-Fake-Task-v0"
+    assert captured["agent"] == "random"
+
+
 def test_core_namespaces_do_not_import_example_objects() -> None:
     import genelab.envs as envs
     import genelab.robots as robots

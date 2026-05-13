@@ -7,10 +7,11 @@ from genelab.rl.config import (
     RslRlPpoAlgorithmCfg,
 )
 from genelab.rl.rsl_rl_wrapper import RslRlVecEnvWrapper
-from genelab.rl.runner import play_task, train_task
+from genelab.rl.runner import AgentKind, play_task, train_task
 from genelab.rl.vecenv import VecEnvBase
 
 __all__ = [
+    "AgentKind",
     "RslRlBaseRunnerCfg",
     "RslRlModelCfg",
     "RslRlOnPolicyRunnerCfg",

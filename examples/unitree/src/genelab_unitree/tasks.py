@@ -1,4 +1,4 @@
-"""GeneLab extension entry point: registers the G1 velocity tracking task."""
+"""GeneLab extension entry point: registers the G1 velocity tracking + motion imitation tasks."""
 
 from __future__ import annotations
 
@@ -15,19 +15,28 @@ from genelab_unitree.g1 import (
     G1RobotCfg,
     get_g1_robot_cfg,
     unitree_g1_ppo_runner_cfg,
+    unitree_g1_tracking_env_cfg,
+    unitree_g1_tracking_ppo_runner_cfg,
     unitree_g1_velocity_env_cfg,
 )
 
-TASK_ID = "Genelab-Velocity-Flat-Unitree-G1-v0"
+VELOCITY_TASK_ID = "Genelab-Velocity-Flat-Unitree-G1-v0"
+TRACKING_TASK_ID = "Genelab-Tracking-Flat-Unitree-G1-v0"
 ROBOT_NAME = "unitree-g1"
-ENV_NAME = "g1-velocity-flat-env"
+VELOCITY_ENV_NAME = "g1-velocity-flat-env"
+TRACKING_ENV_NAME = "g1-tracking-flat-env"
 
 
-def _build_env(play: bool = False):
-    """Late-import the env class so importing this module doesn't pull Genesis."""
+def _build_velocity_env(play: bool = False):
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
     return ManagerBasedRlEnv(unitree_g1_velocity_env_cfg(play=play))
+
+
+def _build_tracking_env(play: bool = False):
+    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
+    return ManagerBasedRlEnv(unitree_g1_tracking_env_cfg(play=play))
 
 
 class G1VelocityTask:
@@ -35,8 +44,8 @@ class G1VelocityTask:
 
     def __init__(self) -> None:
         self.cfg = TaskCfg(
-            name=TASK_ID,
-            env_name=ENV_NAME,
+            name=VELOCITY_TASK_ID,
+            env_name=VELOCITY_ENV_NAME,
             robot_name=ROBOT_NAME,
             env=unitree_g1_velocity_env_cfg(play=False),
             play_env=unitree_g1_velocity_env_cfg(play=True),
@@ -58,6 +67,38 @@ class G1VelocityTask:
         train_task(self.cfg.name, agent)
 
 
+class G1TrackingTask:
+    """Motion-imitation task wrapper.
+
+    The clip path is not committed; pass ``--env.commands.motion.motion_file PATH`` (or override
+    ``self.cfg.env.commands_cfg["motion"].motion_file``) before invoking play/train.
+    """
+
+    def __init__(self) -> None:
+        self.cfg = TaskCfg(
+            name=TRACKING_TASK_ID,
+            env_name=TRACKING_ENV_NAME,
+            robot_name=ROBOT_NAME,
+            env=unitree_g1_tracking_env_cfg(play=False),
+            play_env=unitree_g1_tracking_env_cfg(play=True),
+            agent=unitree_g1_tracking_ppo_runner_cfg(),
+            trainable=True,
+        )
+
+    def play(self) -> None:
+        from genelab.rl import play_task
+
+        play_task(self.cfg.name, agent="zero")
+
+    def train(self) -> None:
+        from genelab.rl import RslRlOnPolicyRunnerCfg, train_task
+
+        agent = self.cfg.agent
+        if not isinstance(agent, RslRlOnPolicyRunnerCfg):
+            raise TypeError(f"agent cfg has unexpected type {type(agent).__name__}")
+        train_task(self.cfg.name, agent)
+
+
 def register() -> None:
     if ROBOT_NAME not in ROBOTS:
         register_robot(
@@ -66,17 +107,31 @@ def register() -> None:
             description="Unitree G1 (29-DoF humanoid) for Genesis.",
             cfg_type=G1RobotCfg,
         )
-    if ENV_NAME not in ENVS:
+    if VELOCITY_ENV_NAME not in ENVS:
         register_env(
-            ENV_NAME,
-            lambda: _build_env(play=False),
+            VELOCITY_ENV_NAME,
+            lambda: _build_velocity_env(play=False),
             description="Unitree G1 velocity tracking on flat ground.",
             cfg_type=type(None),
         )
-    if TASK_ID not in TASKS:
+    if TRACKING_ENV_NAME not in ENVS:
+        register_env(
+            TRACKING_ENV_NAME,
+            lambda: _build_tracking_env(play=False),
+            description="Unitree G1 motion imitation (BeyondMimic-style) on flat ground.",
+            cfg_type=type(None),
+        )
+    if VELOCITY_TASK_ID not in TASKS:
         register_task(
-            TASK_ID,
+            VELOCITY_TASK_ID,
             G1VelocityTask,
             description="PPO velocity tracking for Unitree G1 (flat).",
+            cfg_type=TaskCfg,
+        )
+    if TRACKING_TASK_ID not in TASKS:
+        register_task(
+            TRACKING_TASK_ID,
+            G1TrackingTask,
+            description="PPO motion imitation for Unitree G1 (flat); requires --env.commands.motion.motion_file.",
             cfg_type=TaskCfg,
         )

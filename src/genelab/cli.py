@@ -204,8 +204,10 @@ def _find_task_index(tokens: list[str]) -> int | None:
 
 
 _RUNNER_KEYS: Final[frozenset[str]] = frozenset(
-    {"num_envs", "checkpoint", "max_iterations", "seed", "log_dir"}
+    {"num_envs", "checkpoint", "max_iterations", "seed", "log_dir", "agent"}
 )
+
+_AGENT_KINDS: Final[frozenset[str]] = frozenset({"zero", "random", "trained"})
 
 
 def _configured_task(
@@ -243,10 +245,20 @@ def _dispatch_play(task: _RunnableTask, runner_args: dict[str, str]) -> None:
     agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
     checkpoint_raw = runner_args.get("checkpoint")
     num_envs_raw = runner_args.get("num_envs")
-    if checkpoint_raw is None and num_envs_raw is None and agent_cfg is None:
+    agent_raw = runner_args.get("agent")
+    if agent_raw is not None and agent_raw not in _AGENT_KINDS:
+        raise SystemExit(
+            f"--agent must be one of {{zero, random, trained}}; got {agent_raw!r}"
+        )
+    if (
+        checkpoint_raw is None
+        and num_envs_raw is None
+        and agent_raw is None
+        and agent_cfg is None
+    ):
         task.play()
         return
-    from genelab.rl import play_task
+    from genelab.rl import AgentKind, play_task
 
     task_id = getattr(task_cfg, "name", None)
     if not isinstance(task_id, str):
@@ -255,6 +267,7 @@ def _dispatch_play(task: _RunnableTask, runner_args: dict[str, str]) -> None:
         task_id,
         checkpoint=Path(checkpoint_raw) if checkpoint_raw is not None else None,
         num_envs=int(num_envs_raw) if num_envs_raw is not None else None,
+        agent=cast("AgentKind | None", agent_raw),
     )
 
 
