@@ -7,8 +7,6 @@ Quadrants tensors on ``cuda:0`` while ``gs.device`` is ``cuda:{LOCAL_RANK}``,
 producing a device-mismatch error during scene build.
 """
 
-from __future__ import annotations
-
 import os
 
 
