@@ -1,7 +1,5 @@
 """Train / play helpers wiring ``ManagerBasedRlEnv`` to RSL-RL's ``OnPolicyRunner``."""
 
-from __future__ import annotations
-
 import dataclasses
 import datetime as dt
 import json
