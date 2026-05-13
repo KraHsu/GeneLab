@@ -120,12 +120,12 @@ def unitree_g1_tracking_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg = ManagerBasedRlEnvCfg(
         scene=SceneCfg(
             num_envs=4096 if not play else 1,
-            dt=0.005,
+            dt=0.002,
             substeps=1,
             env_spacing=(2.5, 2.5),
             vis=play,
         ),
-        decimation=4,
+        decimation=10,
         episode_length_s=10.0 if not play else 1e9,
         device="cuda",
         robot=robot_entity_cfg,
