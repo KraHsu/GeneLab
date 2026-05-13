@@ -256,13 +256,13 @@ def test_config_overrides_update_nested_task_config() -> None:
 
 
 def test_cli_run_args_accept_flags_after_task() -> None:
-    from genelab.cli import _normalize_run_flags, _parse_run_args  # pyright: ignore[reportPrivateUsage]
+    from genelab.cli import normalize_argv, parse_run_args
 
-    argv = _normalize_run_flags(
+    argv = normalize_argv(
         ["play", "--steps", "5", "GeneLab-Rubiks-Play-v0", "--vis", "--env.robot.gap", "0.002"]
     )
     assert argv is not None
-    task_id, overrides = _parse_run_args(argv[1:])
+    task_id, overrides = parse_run_args(argv[1:])
 
     assert task_id == "GeneLab-Rubiks-Play-v0"
     assert overrides == {
@@ -273,9 +273,9 @@ def test_cli_run_args_accept_flags_after_task() -> None:
 
 
 def test_cli_parses_agent_flag_value() -> None:
-    from genelab.cli import _parse_run_args  # pyright: ignore[reportPrivateUsage]
+    from genelab.cli import parse_run_args
 
-    task_id, overrides = _parse_run_args(
+    task_id, overrides = parse_run_args(
         ["External-Fake-Task-v0", "--agent", "random", "--num_envs", "4"]
     )
 
