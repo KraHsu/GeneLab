@@ -1,7 +1,5 @@
 """PPO config for the Unitree G1 velocity tracking task."""
 
-from __future__ import annotations
-
 from genelab.rl import RslRlModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
 
 

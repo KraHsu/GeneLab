@@ -1,7 +1,5 @@
 """Verify the unitree extension registers task / robot / env entries correctly."""
 
-from __future__ import annotations
-
 import pytest
 
 torch = pytest.importorskip("torch")

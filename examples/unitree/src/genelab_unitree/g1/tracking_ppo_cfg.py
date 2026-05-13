@@ -3,8 +3,6 @@
 Mirrors ``mjlab.tasks.tracking.config.g1.rl_cfg`` so behaviour matches the BeyondMimic baseline.
 """
 
-from __future__ import annotations
-
 from genelab.rl import RslRlModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
 
 

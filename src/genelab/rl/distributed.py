@@ -10,8 +10,6 @@ When ``WORLD_SIZE == 1`` (the default), these helpers no-op so single-GPU
 training paths stay untouched.
 """
 
-from __future__ import annotations
-
 import os
 from typing import Final
 

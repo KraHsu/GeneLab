@@ -1,7 +1,5 @@
 """Gymnasium-flavoured VectorEnv protocol used by GeneLab RL wrappers."""
 
-from __future__ import annotations
-
 from typing import Any, Protocol
 
 import torch

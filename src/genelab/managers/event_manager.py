@@ -1,7 +1,5 @@
 """Event manager: startup / reset / interval-scheduled side effects."""
 
-from __future__ import annotations
-
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
