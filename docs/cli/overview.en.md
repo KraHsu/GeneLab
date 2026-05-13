@@ -1,7 +1,7 @@
 # CLI overview
 
-`genelab` is exposed as a console script via the `genelab = "genelab.cli:main"` entry point. With
-`uv` you typically invoke it as:
+`genelab` is exposed as a console script via the `genelab = "genelab.cli:main"` entry point.
+With `uv` the canonical invocation is:
 
 ```bash
 uv run genelab [GLOBAL OPTIONS] <subcommand> [ARGS]
@@ -21,26 +21,22 @@ uv run genelab [GLOBAL OPTIONS] <subcommand> [ARGS]
 
 ## Global options
 
-These flags work in front of any subcommand:
+The following flags accept any position in front of the subcommand:
 
-- `--version` — print the GeneLab version and exit.
-- `--import MODULE` — eagerly import an extension module before dispatching. Repeatable. Useful
-  when you want to load an extension that does not (yet) ship a `genelab.extensions` entry point.
-- `--no-entry-points` — skip auto-discovery of installed extensions via the `genelab.extensions`
-  entry-point group. Combine with `--import` for fully explicit, reproducible loading.
+| Flag | Effect |
+|------|--------|
+| `--version` | Print the GeneLab version and exit. |
+| `--import MODULE` | Eagerly import an extension module before dispatching. Repeatable. Useful for extensions that do not (yet) ship a `genelab.extensions` entry point. |
+| `--no-entry-points` | Skip auto-discovery via the `genelab.extensions` entry-point group. Combined with `--import`, produces a fully explicit, reproducible loading order. |
 
-## Extension loading
+## Extension discovery order
 
-When the CLI starts, it discovers extensions in this order:
-
-1. **Entry points** under the `genelab.extensions` group (auto, unless `--no-entry-points`).
-2. **Explicit `--import MODULE` flags** (repeatable).
-3. **Programmatic** `genelab.registry.load_extension_module(...)` (used by tests and embedding
-   scripts).
-
-See [Extensions](../concepts/extensions.md) for details on writing a downstream extension.
+On startup the CLI discovers extensions through three pathways, in order: entry-point
+auto-discovery, explicit `--import MODULE` flags, then programmatic
+`genelab.registry.load_extension_module(...)` calls.
 
 ## See also
 
-- [Play and Train](play-train.md) — config override grammar, multi-GPU training, checkpoints.
-- [Project new](project-new.md) — extension package scaffolding.
+- [Play and Train](play-train.md)
+- [Project new](project-new.md)
+- [Extensions](../concepts/extensions.md)

@@ -1,6 +1,6 @@
 # Configs
 
-GeneLab's config system is a small dataclass hierarchy under `genelab.configs`:
+The config system is a small dataclass hierarchy under `genelab.configs`:
 
 ```
 TaskCfg
@@ -15,12 +15,12 @@ TaskCfg
 ```
 
 `TaskCfg.env` is typed `object` on purpose — downstream extensions plug their own env dataclass
-into it without touching core. Most users will subclass `ManagerBasedEnvCfg` for their `env` field.
+into it without touching core. Most users subclass `ManagerBasedEnvCfg` for their `env` field.
 
 ## apply_overrides
 
-The headline function is `apply_overrides(cfg, dict)`, which parses dotted paths and applies them
-to the config tree:
+The headline function is `apply_overrides(cfg, dict)`, which parses dotted paths and applies
+them to the config tree:
 
 ```python
 from genelab.configs import apply_overrides
@@ -35,7 +35,8 @@ apply_overrides(cfg, {
 
 ### Type coercion
 
-Strings are coerced using the field's type hint on the target dataclass. Supported targets:
+String values are coerced using the field's type hint on the target dataclass. Supported
+targets:
 
 | Hint | Accepted strings |
 |------|------------------|
@@ -47,16 +48,16 @@ Strings are coerced using the field's type hint on the target dataclass. Support
 | `tuple[T, ...]` | comma-separated, each element coerced as `T` |
 | `str` | identity |
 
-If a path doesn't resolve to a known field or the value can't be coerced, `apply_overrides` raises
-a descriptive error early — failures surface at config build time, not at simulation runtime.
+When a path does not resolve to a known field or a value cannot be coerced, `apply_overrides`
+raises a descriptive error at config build time, not at simulation runtime.
 
-### CLI integration
+### Forwarding from the CLI
 
-The `play` / `train` subcommands forward every `--<a.b.c> VALUE` flag into `apply_overrides`. The
-three short flags (`--vis`, `--gpu`, `--steps`) rewrite to `env.scene.{vis,gpu,steps}` overrides
-before forwarding. See [Play and Train](../cli/play-train.md).
+The `play` / `train` subcommands forward every `--<a.b.c> VALUE` flag into `apply_overrides`.
+The three scene shortcuts (`--vis`, `--gpu`, `--steps`) rewrite to `env.scene.{vis,gpu,steps}`
+overrides before forwarding.
 
-## API
+## See also
 
-The full auto-generated reference for `genelab.configs` is on the
-[API Reference](../api/reference.md) page.
+- [Play and Train](../cli/play-train.md)
+- [API Reference](../api/reference.md)
