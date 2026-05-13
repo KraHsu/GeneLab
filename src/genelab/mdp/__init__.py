@@ -13,6 +13,7 @@ from genelab.mdp.events import (
     reset_joints_to_default,
     reset_root_state_uniform,
 )
+from genelab.mdp.noise import Gnoise, NoiseCfg, Unoise
 from genelab.mdp.observations import (
     base_ang_vel,
     base_lin_vel,
@@ -25,6 +26,7 @@ from genelab.mdp.observations import (
     projected_gravity,
     robot_body_ori_b,
     robot_body_pos_b,
+    sensor_data,
 )
 from genelab.mdp.rewards import (
     action_rate_l2,
@@ -51,13 +53,16 @@ from genelab.mdp.terminations import (
 )
 
 __all__ = [
+    "Gnoise",
     "JointPositionAction",
     "JointPositionActionCfg",
     "MotionCommand",
     "MotionCommandCfg",
     "MotionLoader",
+    "NoiseCfg",
     "UniformVelocityCommand",
     "UniformVelocityCommandCfg",
+    "Unoise",
     "action_rate_l2",
     "bad_anchor_ori",
     "bad_anchor_pos_z_only",
@@ -88,6 +93,7 @@ __all__ = [
     "robot_body_ori_b",
     "robot_body_pos_b",
     "root_height_below",
+    "sensor_data",
     "time_out",
     "track_angular_velocity_z_exp",
     "track_linear_velocity_xy_exp",

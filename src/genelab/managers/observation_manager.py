@@ -11,20 +11,23 @@ from genelab.managers.manager_term_cfg import ManagerTermBaseCfg
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.mdp.noise import NoiseCfg
 
 
 @dataclass
 class ObservationTermCfg(ManagerTermBaseCfg):
-    """Observation term: optional scale + clip applied to the raw tensor."""
+    """Observation term: optional noise / scale / clip applied to the raw tensor."""
 
     scale: float | None = None
     clip: tuple[float, float] | None = None
+    noise: "NoiseCfg | None" = None
 
 
 @dataclass
 class ObservationGroupCfg:
     terms: dict[str, ObservationTermCfg] = field(default_factory=dict)
     concatenate_terms: bool = True
+    enable_corruption: bool = False
 
 
 class ObservationManager:
@@ -67,6 +70,8 @@ class ObservationManager:
                 value = term_cfg.func(self._env, **term_cfg.params)
                 if value.dim() == 1:
                     value = value.unsqueeze(-1)
+                if term_cfg.noise is not None and group_cfg.enable_corruption:
+                    value = term_cfg.noise.apply(value)
                 if term_cfg.scale is not None:
                     value = value * term_cfg.scale
                 if term_cfg.clip is not None:
