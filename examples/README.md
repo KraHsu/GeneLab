@@ -5,9 +5,6 @@ ship built-in tasks; example tasks are loaded like any other external project.
 
 ## Available Examples
 
-- [Rubik's Cube](rubiks/README.md): force-driven Rubik's cube Genesis scene and torque probe script.
-- [Wuji Hand](wuji_hand/README.md): fixed-trajectory Wuji hand playback scene and compatibility
-  wrapper script.
 - [GeneLab Example Extension](genelab_examples/README.md): one Python project that registers the
   Rubik's cube and Wuji hand tasks.
 - [External Project](external_project/README.md): minimal standalone Python package that extends
