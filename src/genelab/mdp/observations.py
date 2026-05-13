@@ -46,6 +46,7 @@ def generated_commands(env: "ManagerBasedRlEnv", command_name: str) -> torch.Ten
 
 # --------------------------------------------------------------------- motion imitation
 
+
 def _motion_command(env: "ManagerBasedRlEnv", command_name: str) -> MotionCommand:
     term = env.command_manager._terms[command_name]  # pyright: ignore[reportPrivateUsage]
     return cast(MotionCommand, term)

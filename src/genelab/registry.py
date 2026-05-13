@@ -36,7 +36,9 @@ class Registry[T]:
     ) -> RegistryEntry[T]:
         if name in self._entries:
             raise ValueError(f"{self.kind} already registered: {name}")
-        entry = RegistryEntry(name=name, description=description, factory=factory, cfg_type=cfg_type)
+        entry = RegistryEntry(
+            name=name, description=description, factory=factory, cfg_type=cfg_type
+        )
         self._entries[name] = entry
         return entry
 

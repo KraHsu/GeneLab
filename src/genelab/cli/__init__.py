@@ -177,7 +177,9 @@ def train_cmd(ctx: typer.Context) -> None:
 
 @project_app.command("new", help="Create an external project skeleton.")
 def project_new_cmd(
-    name: Annotated[str, typer.Argument(help="Directory and distribution name for the new project.")],
+    name: Annotated[
+        str, typer.Argument(help="Directory and distribution name for the new project.")
+    ],
     path: Annotated[
         Path,
         typer.Option(
@@ -231,9 +233,7 @@ def _load_extensions(state: _RootState) -> None:
         load_extension_module(module_name)
 
 
-def _configured_task(
-    tokens: list[str], *, command: str
-) -> tuple[_RunnableTask, dict[str, str]]:
+def _configured_task(tokens: list[str], *, command: str) -> tuple[_RunnableTask, dict[str, str]]:
     try:
         task_id, overrides = parse_run_args(tokens)
     except SystemExit as exc:
@@ -273,15 +273,8 @@ def _dispatch_play(task: _RunnableTask, runner_args: dict[str, str]) -> None:
     num_envs_raw = runner_args.get("num_envs")
     agent_raw = runner_args.get("agent")
     if agent_raw is not None and agent_raw not in _AGENT_KINDS:
-        raise SystemExit(
-            f"--agent must be one of {{zero, random, trained}}; got {agent_raw!r}"
-        )
-    if (
-        checkpoint_raw is None
-        and num_envs_raw is None
-        and agent_raw is None
-        and agent_cfg is None
-    ):
+        raise SystemExit(f"--agent must be one of {{zero, random, trained}}; got {agent_raw!r}")
+    if checkpoint_raw is None and num_envs_raw is None and agent_raw is None and agent_cfg is None:
         task.play()
         return
     from genelab.rl import AgentKind, play_task

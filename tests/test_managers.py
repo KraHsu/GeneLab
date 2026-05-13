@@ -79,11 +79,14 @@ def test_reward_manager_weights_and_sums_and_scales_by_dt() -> None:
     }
     mgr = RewardManager(cfg, env)
     out = mgr.compute(dt=0.1)
-    expected = torch.tensor([(1.0 * 2.0 + 0.5 * -1.0) * 0.1] * 0 + [
-        (1.0 * 2.0 - 0.5) * 0.1,
-        (2.0 * 2.0 - 0.5) * 0.1,
-        (3.0 * 2.0 - 0.5) * 0.1,
-    ])
+    expected = torch.tensor(
+        [(1.0 * 2.0 + 0.5 * -1.0) * 0.1] * 0
+        + [
+            (1.0 * 2.0 - 0.5) * 0.1,
+            (2.0 * 2.0 - 0.5) * 0.1,
+            (3.0 * 2.0 - 0.5) * 0.1,
+        ]
+    )
     assert torch.allclose(out, expected, atol=1e-6)
 
 
@@ -116,9 +119,7 @@ def test_event_manager_dispatches_by_mode() -> None:
     cfg = {
         "boot": EventTermCfg(mode="startup", func=startup_fn),
         "reset_pose": EventTermCfg(mode="reset", func=reset_fn),
-        "push": EventTermCfg(
-            mode="interval", interval_range_s=(0.01, 0.01), func=interval_fn
-        ),
+        "push": EventTermCfg(mode="interval", interval_range_s=(0.01, 0.01), func=interval_fn),
     }
     mgr = EventManager(cfg, env)
     mgr.apply("startup")
@@ -147,11 +148,7 @@ class _DummyCommand(CommandTerm):
 
 def test_command_manager_resamples_after_time_window() -> None:
     env = _FakeEnv(num_envs=2)
-    cfg = {
-        "twist": CommandTermCfg(
-            class_type=_DummyCommand, resampling_time_range=(1.0, 1.0)
-        )
-    }
+    cfg = {"twist": CommandTermCfg(class_type=_DummyCommand, resampling_time_range=(1.0, 1.0))}
     mgr = CommandManager(cfg, env)
     # Force initial resample via reset
     mgr.reset(torch.arange(2))

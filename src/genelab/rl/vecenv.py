@@ -11,8 +11,7 @@ class VecEnvBase(Protocol):
 
     def reset(
         self,
-    ) -> tuple[dict[str, torch.Tensor], dict[str, Any]]:
-        ...
+    ) -> tuple[dict[str, torch.Tensor], dict[str, Any]]: ...
 
     def step(
         self, actions: torch.Tensor
@@ -22,8 +21,6 @@ class VecEnvBase(Protocol):
         torch.Tensor,
         torch.Tensor,
         dict[str, Any],
-    ]:
-        ...
+    ]: ...
 
-    def close(self) -> None:
-        ...
+    def close(self) -> None: ...
