@@ -1,7 +1,5 @@
 """Smoke tests for the RL config dataclasses + the RSL-RL VecEnv wrapper attribute surface."""
 
-from __future__ import annotations
-
 from typing import Any
 
 import pytest

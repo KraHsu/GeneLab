@@ -1,7 +1,5 @@
 """Reusable reward term functions for locomotion tasks."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, cast
 
 import torch

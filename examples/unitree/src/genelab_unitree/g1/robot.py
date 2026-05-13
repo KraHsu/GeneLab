@@ -1,7 +1,5 @@
 """Unitree G1 robot factory."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final

@@ -3,8 +3,6 @@
 Mirrors ``mjlab.tasks.velocity.config.g1`` adapted to GeneLab's slim manager system.
 """
 
-from __future__ import annotations
-
 import math
 
 from genelab import mdp

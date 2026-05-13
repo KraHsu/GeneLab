@@ -4,8 +4,6 @@ This is a slim port of ``mjlab.envs.manager_based_rl_env`` adapted to Genesis. T
 a single articulated robot, a ground plane, and the seven manager-style MDP hooks.
 """
 
-from __future__ import annotations
-
 import math
 import re
 from dataclasses import dataclass, field
