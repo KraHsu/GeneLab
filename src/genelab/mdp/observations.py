@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 import torch
 
 from genelab.mdp.commands.motion_command import MotionCommand
+from genelab.sensor.contact import ContactSensor
 from genelab.utils.math import matrix_from_quat, subtract_frame_transforms
 
 if TYPE_CHECKING:
@@ -42,6 +43,46 @@ def last_action(env: "ManagerBasedRlEnv") -> torch.Tensor:
 
 def generated_commands(env: "ManagerBasedRlEnv", command_name: str) -> torch.Tensor:
     return env.command_manager.get_command(command_name)
+
+
+def sensor_data(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
+    """Return the per-step cached tensor of the named sensor."""
+    return env.sensors[sensor_name].data
+
+
+def _contact_sensor(env: "ManagerBasedRlEnv", sensor_name: str) -> ContactSensor:
+    sensor = env.sensors[sensor_name]
+    if not isinstance(sensor, ContactSensor):
+        raise TypeError(
+            f"sensor {sensor_name!r} is not a ContactSensor (got {type(sensor).__name__})"
+        )
+    return sensor
+
+
+def foot_air_time(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
+    """Current air time per foot (zero while in contact)."""
+    return _contact_sensor(env, sensor_name).data.current_air_time
+
+
+def foot_contact(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
+    """Binary contact mask per foot as a float tensor."""
+    return _contact_sensor(env, sensor_name).data.found.float()
+
+
+def foot_contact_forces(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
+    """Per-foot contact force, compressed via ``sign(f) * log1p(|f|)`` and flattened to ``(B, N*3)``."""
+    force = _contact_sensor(env, sensor_name).data.force
+    return (force.sign() * torch.log1p(force.abs())).reshape(force.shape[0], -1)
+
+
+def height_scan(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
+    """Per-ray heights from a ``TerrainHeightSensor`` (positive = above terrain)."""
+    out = env.sensors[sensor_name].data
+    if not isinstance(out, torch.Tensor):
+        raise TypeError(
+            f"sensor {sensor_name!r} does not return a height tensor (got {type(out).__name__})"
+        )
+    return out
 
 
 # --------------------------------------------------------------------- motion imitation

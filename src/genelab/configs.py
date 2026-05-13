@@ -5,6 +5,8 @@ from pathlib import Path
 from types import UnionType
 from typing import Any, cast, get_args, get_origin, get_type_hints
 
+from genelab.sensor import SensorCfg
+
 type _Annotation = object
 
 
@@ -19,6 +21,7 @@ class SceneCfg:
     substeps: int = 4
     num_envs: int = 1
     env_spacing: tuple[float, float] = (2.0, 2.0)
+    sensors: tuple[SensorCfg, ...] = field(default_factory=tuple)
 
 
 @dataclass
