@@ -41,3 +41,6 @@ AGENTS.md
 
 # train log
 /logs
+
+# mkdocs build output
+/site/
