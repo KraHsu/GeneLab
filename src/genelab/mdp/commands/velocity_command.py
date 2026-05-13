@@ -1,7 +1,5 @@
 """Uniform random twist (lin_vel_x, lin_vel_y, ang_vel_z) command generator."""
 
-from __future__ import annotations
-
 import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING

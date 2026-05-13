@@ -1,7 +1,5 @@
 """Smoke tests for the slim manager port. Uses a fake env so Genesis is not required."""
 
-from __future__ import annotations
-
 from typing import Any
 
 import torch

@@ -1,7 +1,5 @@
 """RSL-RL configuration dataclasses (mirror of ``mjlab.rl.config`` with tensorboard default)."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
