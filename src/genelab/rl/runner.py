@@ -7,7 +7,7 @@ import datetime as dt
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from genelab.cache import ensure_project_cache
 from genelab.registry import TASKS
@@ -16,6 +16,8 @@ from genelab.rl.rsl_rl_wrapper import RslRlVecEnvWrapper
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
+AgentKind = Literal["zero", "random", "trained"]
 
 
 def _resolve_env_cfg(task_id: str, play: bool) -> Any:
@@ -136,12 +138,19 @@ def play_task(
     *,
     checkpoint: Path | None = None,
     num_envs: int | None = None,
+    agent: AgentKind | None = None,
     agent_cfg: RslRlOnPolicyRunnerCfg | None = None,
     deterministic: bool = True,
     max_steps: int | None = None,
 ) -> None:
-    """Replay a trained policy (or run zero actions when ``checkpoint`` is None)."""
+    """Replay a policy. ``agent`` selects between ``"zero"``, ``"random"``, and ``"trained"``.
+
+    When ``agent`` is ``None``, defaults to ``"trained"`` if ``checkpoint`` is set, else ``"zero"``.
+    """
     ensure_project_cache()
+    kind: AgentKind = agent if agent is not None else ("trained" if checkpoint is not None else "zero")
+    if kind == "trained" and checkpoint is None:
+        raise SystemExit("agent='trained' requires a --checkpoint path")
     env_cfg = _resolve_env_cfg(task_id, play=True)
     if num_envs is not None:
         env_cfg.scene.num_envs = int(num_envs)
@@ -150,13 +159,23 @@ def play_task(
 
     import torch
 
-    def _zero_policy(_obs: Any) -> "torch.Tensor":
-        return torch.zeros(env.num_envs, wrapped.num_actions, device=env.device)
+    action_shape = (env.num_envs, wrapped.num_actions)
+    device = env.device
 
     policy: Any
-    if checkpoint is None:
+    if kind == "zero":
+        def _zero_policy(_obs: Any) -> "torch.Tensor":
+            return torch.zeros(action_shape, device=device)
+
         policy = _zero_policy
+    elif kind == "random":
+        def _random_policy(_obs: Any) -> "torch.Tensor":
+            return 2.0 * torch.rand(action_shape, device=device) - 1.0
+
+        policy = _random_policy
     else:
+        assert kind == "trained"
+        assert checkpoint is not None
         resolved_agent_cfg = agent_cfg
         if resolved_agent_cfg is None:
             task = TASKS.get(task_id)

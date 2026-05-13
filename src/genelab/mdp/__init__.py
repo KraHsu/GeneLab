@@ -1,7 +1,13 @@
 """Reusable MDP term library (observations, rewards, terminations, events, commands, actions)."""
 
 from genelab.mdp.actions import JointPositionAction, JointPositionActionCfg
-from genelab.mdp.commands import UniformVelocityCommand, UniformVelocityCommandCfg
+from genelab.mdp.commands import (
+    MotionCommand,
+    MotionCommandCfg,
+    MotionLoader,
+    UniformVelocityCommand,
+    UniformVelocityCommandCfg,
+)
 from genelab.mdp.events import (
     push_by_setting_velocity,
     reset_joints_to_default,
@@ -14,7 +20,11 @@ from genelab.mdp.observations import (
     joint_pos_rel,
     joint_vel_rel,
     last_action,
+    motion_anchor_ori_b,
+    motion_anchor_pos_b,
     projected_gravity,
+    robot_body_ori_b,
+    robot_body_pos_b,
 )
 from genelab.mdp.rewards import (
     action_rate_l2,
@@ -22,17 +32,36 @@ from genelab.mdp.rewards import (
     flat_orientation_l2,
     joint_acc_l2,
     joint_pos_limits,
+    motion_global_anchor_orientation_error_exp,
+    motion_global_anchor_position_error_exp,
+    motion_global_body_angular_velocity_error_exp,
+    motion_global_body_linear_velocity_error_exp,
+    motion_relative_body_orientation_error_exp,
+    motion_relative_body_position_error_exp,
     track_angular_velocity_z_exp,
     track_linear_velocity_xy_exp,
 )
-from genelab.mdp.terminations import bad_orientation, root_height_below, time_out
+from genelab.mdp.terminations import (
+    bad_anchor_ori,
+    bad_anchor_pos_z_only,
+    bad_motion_body_pos_z_only,
+    bad_orientation,
+    root_height_below,
+    time_out,
+)
 
 __all__ = [
     "JointPositionAction",
     "JointPositionActionCfg",
+    "MotionCommand",
+    "MotionCommandCfg",
+    "MotionLoader",
     "UniformVelocityCommand",
     "UniformVelocityCommandCfg",
     "action_rate_l2",
+    "bad_anchor_ori",
+    "bad_anchor_pos_z_only",
+    "bad_motion_body_pos_z_only",
     "bad_orientation",
     "base_ang_vel",
     "base_lin_vel",
@@ -44,10 +73,20 @@ __all__ = [
     "joint_pos_rel",
     "joint_vel_rel",
     "last_action",
+    "motion_anchor_ori_b",
+    "motion_anchor_pos_b",
+    "motion_global_anchor_orientation_error_exp",
+    "motion_global_anchor_position_error_exp",
+    "motion_global_body_angular_velocity_error_exp",
+    "motion_global_body_linear_velocity_error_exp",
+    "motion_relative_body_orientation_error_exp",
+    "motion_relative_body_position_error_exp",
     "projected_gravity",
     "push_by_setting_velocity",
     "reset_joints_to_default",
     "reset_root_state_uniform",
+    "robot_body_ori_b",
+    "robot_body_pos_b",
     "root_height_below",
     "time_out",
     "track_angular_velocity_z_exp",

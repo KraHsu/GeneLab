@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import torch
+
+from genelab.mdp.commands.motion_command import MotionCommand
+from genelab.utils.math import matrix_from_quat, subtract_frame_transforms
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
@@ -41,3 +44,62 @@ def last_action(env: "ManagerBasedRlEnv") -> torch.Tensor:
 
 def generated_commands(env: "ManagerBasedRlEnv", command_name: str) -> torch.Tensor:
     return env.command_manager.get_command(command_name)
+
+
+# --------------------------------------------------------------------- motion imitation
+
+def _motion_command(env: "ManagerBasedRlEnv", command_name: str) -> MotionCommand:
+    term = env.command_manager._terms[command_name]  # pyright: ignore[reportPrivateUsage]
+    return cast(MotionCommand, term)
+
+
+def motion_anchor_pos_b(env: "ManagerBasedRlEnv", command_name: str) -> torch.Tensor:
+    """Anchor-frame reference position expressed in the robot's anchor frame."""
+    cmd = _motion_command(env, command_name)
+    pos, _ = subtract_frame_transforms(
+        cmd.robot_anchor_pos_w,
+        cmd.robot_anchor_quat_w,
+        cmd.anchor_pos_w,
+        cmd.anchor_quat_w,
+    )
+    return pos.view(env.num_envs, -1)
+
+
+def motion_anchor_ori_b(env: "ManagerBasedRlEnv", command_name: str) -> torch.Tensor:
+    """6D anchor-frame orientation (first two columns of the rotation matrix)."""
+    cmd = _motion_command(env, command_name)
+    _, ori = subtract_frame_transforms(
+        cmd.robot_anchor_pos_w,
+        cmd.robot_anchor_quat_w,
+        cmd.anchor_pos_w,
+        cmd.anchor_quat_w,
+    )
+    mat = matrix_from_quat(ori)
+    return mat[..., :2].reshape(mat.shape[0], -1)
+
+
+def robot_body_pos_b(env: "ManagerBasedRlEnv", command_name: str) -> torch.Tensor:
+    """Per-body positions in the robot's anchor frame (privileged critic obs)."""
+    cmd = _motion_command(env, command_name)
+    num_bodies = len(cmd.cfg.body_names)
+    pos_b, _ = subtract_frame_transforms(
+        cmd.robot_anchor_pos_w[:, None, :].expand(-1, num_bodies, -1),
+        cmd.robot_anchor_quat_w[:, None, :].expand(-1, num_bodies, -1),
+        cmd.robot_body_pos_w,
+        cmd.robot_body_quat_w,
+    )
+    return pos_b.reshape(env.num_envs, -1)
+
+
+def robot_body_ori_b(env: "ManagerBasedRlEnv", command_name: str) -> torch.Tensor:
+    """Per-body 6D orientations in the robot's anchor frame."""
+    cmd = _motion_command(env, command_name)
+    num_bodies = len(cmd.cfg.body_names)
+    _, ori_b = subtract_frame_transforms(
+        cmd.robot_anchor_pos_w[:, None, :].expand(-1, num_bodies, -1),
+        cmd.robot_anchor_quat_w[:, None, :].expand(-1, num_bodies, -1),
+        cmd.robot_body_pos_w,
+        cmd.robot_body_quat_w,
+    )
+    mat = matrix_from_quat(ori_b)
+    return mat[..., :2].reshape(mat.shape[0], -1)
