@@ -217,7 +217,7 @@ def test_body_velocity_sensor_bias_randomizes_on_reset() -> None:
     ).build()
     sensor.bind(env)
     first = sensor.data.clone()
-    assert ((first.abs() <= 0.1 + 1e-6).all())
+    assert (first.abs() <= 0.1 + 1e-6).all()
     assert first.std() > 0.0  # initial bias should already vary across envs
     sensor.reset(torch.arange(64))
     second = sensor.data
@@ -284,9 +284,7 @@ def test_contact_sensor_explicit_link_names_resolves_indices() -> None:
 
 def test_contact_sensor_regex_match() -> None:
     env = _FakeContactEnv(num_envs=1, link_names=("base", "left_foot", "right_foot"))
-    sensor = ContactSensorCfg(
-        name="f", link_names_expr=r"_foot$", track_air_time=False
-    ).build()
+    sensor = ContactSensorCfg(name="f", link_names_expr=r"_foot$", track_air_time=False).build()
     sensor.bind(env)
     assert sensor.link_names == ["left_foot", "right_foot"]
 

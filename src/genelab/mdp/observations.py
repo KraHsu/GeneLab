@@ -53,7 +53,9 @@ def sensor_data(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
 def _contact_sensor(env: "ManagerBasedRlEnv", sensor_name: str) -> ContactSensor:
     sensor = env.sensors[sensor_name]
     if not isinstance(sensor, ContactSensor):
-        raise TypeError(f"sensor {sensor_name!r} is not a ContactSensor (got {type(sensor).__name__})")
+        raise TypeError(
+            f"sensor {sensor_name!r} is not a ContactSensor (got {type(sensor).__name__})"
+        )
     return sensor
 
 
