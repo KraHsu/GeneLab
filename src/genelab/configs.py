@@ -153,7 +153,10 @@ def _coerce_value(raw_value: str, current: object, annotation: _Annotation | Non
             if len(item_types) == 2 and item_types[1] is Ellipsis:
                 coerced = tuple(_coerce_scalar(value, item_types[0]) for value in values)
             else:
-                coerced = tuple(_coerce_scalar(value, typ) for value, typ in zip(values, item_types, strict=True))
+                coerced = tuple(
+                    _coerce_scalar(value, typ)
+                    for value, typ in zip(values, item_types, strict=True)
+                )
             return coerced
         item_type = item_types[0] if item_types else str
         return [_coerce_scalar(value, item_type) for value in values]

@@ -157,7 +157,9 @@ class RubiksPlayEnv:
                 steps=cfg.legacy_turn.steps,
             )
             return None
-        force_cfg = replace(cfg.force_controller, verbose=cfg.force_controller.verbose or cfg.scene.vis)
+        force_cfg = replace(
+            cfg.force_controller, verbose=cfg.force_controller.verbose or cfg.scene.vis
+        )
         return ForceDrivenCubeController(cube, scene=scene, spec=spec, config=force_cfg)
 
 
