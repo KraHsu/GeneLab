@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "genesis-world",
+    "typer>=0.12",
+    "rich>=13",
+    "questionary>=2",
 ]
 
 [project.optional-dependencies]
