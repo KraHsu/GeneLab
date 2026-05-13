@@ -324,9 +324,7 @@ class ManagerBasedRlEnv:
         self._num_links = max(len(link_names), 1)
 
         cfg = self.cfg.robot
-        self._default_joint_pos = self._build_per_joint_tensor(
-            cfg.default_joint_pos, default=0.0
-        )
+        self._default_joint_pos = self._build_per_joint_tensor(cfg.default_joint_pos, default=0.0)
         self._joint_kp = self._build_per_joint_tensor(cfg.joint_kp, default=0.0)
         self._joint_kv = self._build_per_joint_tensor(cfg.joint_kv, default=0.0)
         if isinstance(cfg.action_scale, dict):
@@ -449,7 +447,9 @@ class ManagerBasedRlEnv:
 
     # ------------------------------------------------------------------ rollout
 
-    def reset(self, env_ids: torch.Tensor | None = None) -> tuple[dict[str, torch.Tensor], dict[str, Any]]:
+    def reset(
+        self, env_ids: torch.Tensor | None = None
+    ) -> tuple[dict[str, torch.Tensor], dict[str, Any]]:
         if env_ids is None:
             env_ids = torch.arange(self._num_envs, device=self._device)
         self._reset_idx(env_ids)

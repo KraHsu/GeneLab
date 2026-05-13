@@ -17,7 +17,9 @@ def wuji_joint_names(side: str) -> list[str]:
     """Return Wuji hand joint names in the MuJoCo trajectory order."""
     if side not in SIDES:
         raise ValueError(f"side must be one of {SIDES}, got {side!r}")
-    return [f"{side}_finger{finger}_joint{joint}" for finger in range(1, 6) for joint in range(1, 5)]
+    return [
+        f"{side}_finger{finger}_joint{joint}" for finger in range(1, 6) for joint in range(1, 5)
+    ]
 
 
 def resolve_description_dir(desc_dir: Path | str = DEFAULT_DESC_DIR) -> Path:

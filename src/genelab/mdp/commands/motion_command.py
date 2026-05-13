@@ -231,9 +231,7 @@ class MotionCommand(CommandTerm):
         )
         pose_jitter = sample_uniform(pose_lo, pose_hi, (n, 6), device=self.device)
         root_pos = root_pos + pose_jitter[:, 0:3]
-        delta_quat = quat_from_euler_xyz(
-            pose_jitter[:, 3], pose_jitter[:, 4], pose_jitter[:, 5]
-        )
+        delta_quat = quat_from_euler_xyz(pose_jitter[:, 3], pose_jitter[:, 4], pose_jitter[:, 5])
         root_ori = quat_mul(delta_quat, root_ori)
 
         vel_keys = ("x", "y", "z", "roll", "pitch", "yaw")
@@ -273,9 +271,7 @@ class MotionCommand(CommandTerm):
         # Yaw-only delta between robot anchor and motion anchor; share z from the motion clip.
         delta_pos_w = robot_anchor_pos_w.clone()
         delta_pos_w[..., 2] = anchor_pos_w[..., 2]
-        delta_ori_w = yaw_quat(
-            quat_mul(robot_anchor_quat_w, quat_inv(anchor_quat_w))
-        )
+        delta_ori_w = yaw_quat(quat_mul(robot_anchor_quat_w, quat_inv(anchor_quat_w)))
 
         self.body_quat_relative_w = quat_mul(delta_ori_w, self.body_quat_w)
         self.body_pos_relative_w = delta_pos_w + quat_apply(

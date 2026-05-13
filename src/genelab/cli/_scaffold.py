@@ -55,9 +55,7 @@ def create_project_skeleton(
         if file_path.exists() and file_path.is_dir():
             raise SystemExit(f"cannot overwrite directory with scaffold file: {file_path}")
         if file_path.exists() and not force:
-            raise SystemExit(
-                f"scaffold file already exists: {file_path}; use --force to overwrite"
-            )
+            raise SystemExit(f"scaffold file already exists: {file_path}; use --force to overwrite")
         file_path.write_text(content, encoding="utf-8")
 
     render_project_created(target, resolved_task_id)

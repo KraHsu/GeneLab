@@ -148,7 +148,9 @@ def play_task(
     When ``agent`` is ``None``, defaults to ``"trained"`` if ``checkpoint`` is set, else ``"zero"``.
     """
     ensure_project_cache()
-    kind: AgentKind = agent if agent is not None else ("trained" if checkpoint is not None else "zero")
+    kind: AgentKind = (
+        agent if agent is not None else ("trained" if checkpoint is not None else "zero")
+    )
     if kind == "trained" and checkpoint is None:
         raise SystemExit("agent='trained' requires a --checkpoint path")
     env_cfg = _resolve_env_cfg(task_id, play=True)
@@ -164,11 +166,13 @@ def play_task(
 
     policy: Any
     if kind == "zero":
+
         def _zero_policy(_obs: Any) -> "torch.Tensor":
             return torch.zeros(action_shape, device=device)
 
         policy = _zero_policy
     elif kind == "random":
+
         def _random_policy(_obs: Any) -> "torch.Tensor":
             return 2.0 * torch.rand(action_shape, device=device) - 1.0
 
