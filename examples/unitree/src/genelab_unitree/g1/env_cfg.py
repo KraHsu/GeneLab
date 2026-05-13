@@ -18,12 +18,13 @@ from genelab.managers import (
 from genelab.mdp.actions.joint_position import JointPositionActionCfg
 from genelab.mdp.commands.velocity_command import UniformVelocityCommandCfg
 from genelab.mdp.noise import Unoise
-from genelab.sensor import BodyVelocitySensorCfg
+from genelab.sensor import BodyVelocitySensorCfg, ContactSensorCfg
 from genelab_unitree.g1.constants import G1_ACTION_SCALE
 from genelab_unitree.g1.robot import get_g1_robot_cfg
 
 # IMU site offset from the pelvis link origin; matches g1.xml's <site name="imu_in_pelvis">.
 _IMU_OFFSET = (0.04525, 0.0, -0.08339)
+_G1_FOOT_LINKS = ("left_ankle_roll_link", "right_ankle_roll_link")
 
 
 def _obs_terms() -> dict[str, ObservationTermCfg]:
@@ -58,7 +59,17 @@ def _policy_obs_group() -> ObservationGroupCfg:
 
 
 def _critic_obs_group() -> ObservationGroupCfg:
-    return ObservationGroupCfg(enable_corruption=False, terms=_obs_terms())
+    terms = _obs_terms()
+    terms["foot_air_time"] = ObservationTermCfg(
+        func=mdp.foot_air_time, params={"sensor_name": "feet_ground_contact"}
+    )
+    terms["foot_contact"] = ObservationTermCfg(
+        func=mdp.foot_contact, params={"sensor_name": "feet_ground_contact"}
+    )
+    terms["foot_contact_forces"] = ObservationTermCfg(
+        func=mdp.foot_contact_forces, params={"sensor_name": "feet_ground_contact"}
+    )
+    return ObservationGroupCfg(enable_corruption=False, terms=terms)
 
 
 def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
@@ -84,6 +95,11 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                     link_name="pelvis",
                     offset=_IMU_OFFSET,
                     measure="ang_vel",
+                ),
+                ContactSensorCfg(
+                    name="feet_ground_contact",
+                    link_names=_G1_FOOT_LINKS,
+                    track_air_time=True,
                 ),
             ),
         ),
