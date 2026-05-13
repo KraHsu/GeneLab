@@ -1,5 +1,8 @@
 # GeneLab
 
+> **本文已迁移至 [文档站点（中文）](https://krahsu.github.io/GeneLab/zh/)。**
+> 完整中文文档（CLI 参考、核心概念、API 自动生成参考）请见站点；本文件保留以兼容旧链接。
+
 GeneLab 是一个面向强化学习与机器人研究的 Isaac Lab 风格 API，由
 [Genesis](https://github.com/Genesis-Embodied-AI/Genesis) 提供仿真后端。它保留了机器人、
 环境、任务注册，manager-based MDP 配置，以及 CLI 调度这些常见组织方式。
