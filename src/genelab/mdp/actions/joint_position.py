@@ -94,5 +94,3 @@ class JointPositionAction(ActionTerm):
             control(self._target, dof_indices)
         except TypeError:
             control(self._target)
-
-

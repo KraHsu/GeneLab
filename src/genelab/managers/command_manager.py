@@ -37,12 +37,10 @@ class CommandTerm(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def command(self) -> torch.Tensor:
-        ...
+    def command(self) -> torch.Tensor: ...
 
     @abc.abstractmethod
-    def _resample_command(self, env_ids: torch.Tensor) -> None:
-        ...
+    def _resample_command(self, env_ids: torch.Tensor) -> None: ...
 
     def _update_command(self) -> None:
         """Optional hook called every step (e.g., heading-based velocity rewrite)."""

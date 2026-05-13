@@ -175,7 +175,9 @@ def test_cli_outputs_registered_hint(capsys: pytest.CaptureFixture[str]) -> None
     assert "genelab list tasks" in capsys.readouterr().out
 
 
-def test_core_does_not_register_example_tasks_by_default(capsys: pytest.CaptureFixture[str]) -> None:
+def test_core_does_not_register_example_tasks_by_default(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     main(["--no-entry-points", "list", "tasks"])
 
     assert "GeneLab-Rubiks-Play-v0" not in capsys.readouterr().out
@@ -300,9 +302,12 @@ def test_cli_parses_gpus_flag_into_runner_args() -> None:
 def test_strip_gpus_flag_removes_both_forms() -> None:
     from genelab.cli import _strip_gpus_flag
 
-    assert _strip_gpus_flag(
-        ["train", "TASK", "--gpus", "4", "--num-envs", "8"]
-    ) == ["train", "TASK", "--num-envs", "8"]
+    assert _strip_gpus_flag(["train", "TASK", "--gpus", "4", "--num-envs", "8"]) == [
+        "train",
+        "TASK",
+        "--num-envs",
+        "8",
+    ]
     assert _strip_gpus_flag(["--gpus=2", "--num-envs", "8"]) == ["--num-envs", "8"]
     assert _strip_gpus_flag(["--num-envs", "8"]) == ["--num-envs", "8"]
 
@@ -408,7 +413,14 @@ def test_cli_rejects_invalid_agent_kind(monkeypatch: pytest.MonkeyPatch) -> None
 
     try:
         cli_module.main(
-            ["--import", "tests.fake_extension", "play", "External-Fake-Task-v0", "--agent", "bogus"]
+            [
+                "--import",
+                "tests.fake_extension",
+                "play",
+                "External-Fake-Task-v0",
+                "--agent",
+                "bogus",
+            ]
         )
     except SystemExit as exc:
         assert "--agent" in str(exc)
