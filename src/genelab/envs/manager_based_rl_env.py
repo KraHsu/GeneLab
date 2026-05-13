@@ -229,6 +229,16 @@ class ManagerBasedRlEnv:
 
     def _build_scene(self) -> None:
         """Initialize Genesis and build the parallel scene."""
+        from genelab.rl.distributed import pin_cuda_device
+
+        pinned = pin_cuda_device()
+        if pinned is not None:
+            # Distributed: force GPU backend and align self._device with the cuda:{LOCAL_RANK}
+            # string rsl_rl's OnPolicyRunner enforces. Genesis will pick the same device since
+            # pin_cuda_device() set torch.cuda.current_device() to LOCAL_RANK.
+            self.cfg.scene.gpu = True
+            self._device = pinned
+
         import genesis as gs  # type: ignore[import-not-found]
 
         gs_init = getattr(gs, "init", None)

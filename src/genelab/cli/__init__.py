@@ -1,9 +1,11 @@
 """Unified Typer + Rich command-line entry point for registered GeneLab tasks."""
 
+import os
+import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Final, Protocol, cast
+from typing import Annotated, Any, Final, Protocol, cast
 
 import typer
 
@@ -312,6 +314,12 @@ def _dispatch_train(task: _RunnableTask, runner_args: dict[str, str]) -> None:
     if not isinstance(task_id, str):
         raise SystemExit("task config is missing 'name'; cannot route through RL train helper")
 
+    gpus_raw = runner_args.pop("gpus", None)
+    gpus = int(gpus_raw) if gpus_raw is not None else 1
+    if gpus > 1 and "TORCHELASTIC_RUN_ID" not in os.environ:
+        _relaunch_under_torchrun(gpus, agent_cfg, runner_args)
+        return
+
     num_envs_raw = runner_args.get("num_envs")
     max_iter_raw = runner_args.get("max_iterations")
     seed_raw = runner_args.get("seed")
@@ -324,6 +332,67 @@ def _dispatch_train(task: _RunnableTask, runner_args: dict[str, str]) -> None:
         seed=int(seed_raw) if seed_raw is not None else None,
         log_root=Path(log_dir_raw) if log_dir_raw is not None else None,
     )
+
+
+def _relaunch_under_torchrun(
+    gpus: int,
+    agent_cfg: Any,
+    runner_args: dict[str, str],
+) -> None:
+    """Re-exec the current ``train`` invocation under torchrun.
+
+    The parent precomputes the log directory and forwards it via ``--log-dir`` so all
+    ranks land in the same directory (avoiding per-rank timestamp drift). The original
+    argv is forwarded verbatim minus the ``--gpus N`` tokens so env overrides such as
+    ``--env.scene.steps 5`` survive the relaunch.
+    """
+    from genelab.rl.runner import resolve_log_dir
+
+    log_root_raw = runner_args.get("log_dir")
+    log_root = Path(log_root_raw) if log_root_raw else Path("logs") / "rsl_rl"
+    log_dir = resolve_log_dir(log_root, agent_cfg.experiment_name, agent_cfg.run_name)
+
+    inner = _strip_gpus_flag(sys.argv[1:])
+    if not _has_log_dir_flag(inner):
+        inner += ["--log-dir", str(log_dir)]
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "torch.distributed.run",
+        "--standalone",
+        f"--nproc_per_node={gpus}",
+        "-m",
+        "genelab.cli",
+        *inner,
+    ]
+    os.execvp(cmd[0], cmd)
+
+
+def _strip_gpus_flag(tokens: list[str]) -> list[str]:
+    """Drop ``--gpus N`` (two-token form) and ``--gpus=N`` (single-token) from tokens."""
+    out: list[str] = []
+    skip_next = False
+    for tok in tokens:
+        if skip_next:
+            skip_next = False
+            continue
+        if tok == "--gpus":
+            skip_next = True
+            continue
+        if tok.startswith("--gpus="):
+            continue
+        out.append(tok)
+    return out
+
+
+def _has_log_dir_flag(tokens: list[str]) -> bool:
+    for t in tokens:
+        if t in {"--log-dir", "--log_dir"}:
+            return True
+        if t.startswith("--log-dir=") or t.startswith("--log_dir="):
+            return True
+    return False
 
 
 def main(argv: list[str] | None = None) -> None:
