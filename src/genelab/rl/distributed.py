@@ -41,15 +41,19 @@ def is_main_process() -> bool:
 
 
 def pin_cuda_device() -> str | None:
-    """Bind the current process to ``cuda:{LOCAL_RANK}`` when running under torchrun.
+    """Return the canonical ``cuda:{LOCAL_RANK}`` string for this worker.
 
-    Returns the canonical ``cuda:{LOCAL_RANK}`` string when applied, otherwise ``None``.
+    The bootstrap in ``genelab.cli._bootstrap`` has already rewritten
+    ``LOCAL_RANK`` to ``0`` and pinned ``CUDA_VISIBLE_DEVICES`` to a single
+    physical GPU (Quadrants, Genesis's compute backend, only honors
+    ``CUDA_VISIBLE_DEVICES``, not ``torch.cuda.set_device()``). So in every
+    distributed worker this returns ``"cuda:0"`` — the rank's only visible
+    device — which also matches what rsl_rl's ``OnPolicyRunner`` expects given
+    the rewritten ``LOCAL_RANK``.
 
-    Genesis selects its CUDA device from ``torch.cuda.current_device()`` (see
-    ``genesis/utils/misc.py``), and rsl_rl's ``OnPolicyRunner`` insists on
-    ``device == f"cuda:{LOCAL_RANK}"`` (see ``rsl_rl/runners/on_policy_runner.py``).
-    Both contracts are satisfied by calling ``torch.cuda.set_device(LOCAL_RANK)``
-    once, before ``gs.init()`` runs.
+    The explicit ``torch.cuda.set_device`` call is kept defensively: if the
+    bootstrap was bypassed, it still aligns ``torch.cuda.current_device()``
+    so ``gs.init`` picks the visible device.
     """
     if not is_distributed():
         return None
