@@ -233,9 +233,12 @@ class ManagerBasedRlEnv:
 
         pinned = pin_cuda_device()
         if pinned is not None:
-            # Distributed: force GPU backend and align self._device with the cuda:{LOCAL_RANK}
-            # string rsl_rl's OnPolicyRunner enforces. Genesis will pick the same device since
-            # pin_cuda_device() set torch.cuda.current_device() to LOCAL_RANK.
+            # Distributed: force GPU backend and align self._device with rsl_rl's
+            # expected cuda:{LOCAL_RANK} string. The CLI bootstrap has already set
+            # CUDA_VISIBLE_DEVICES per rank and rewritten LOCAL_RANK to 0, so this
+            # ends up as "cuda:0" — the rank's only visible device. That single
+            # visible-device setup is what makes Quadrants (Genesis's compute
+            # backend) allocate its tensors on the right physical GPU.
             self.cfg.scene.gpu = True
             self._device = pinned
 
