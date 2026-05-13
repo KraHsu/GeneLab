@@ -32,10 +32,13 @@ jobs:
       - uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
+          cache-suffix: docs
           python-version: "3.12"
       - run: uv sync --extra docs --extra torch-cpu
       - run: uv run mkdocs build --strict
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
