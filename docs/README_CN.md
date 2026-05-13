@@ -30,7 +30,7 @@ uv run genelab --help
 `uv run ...` 会在该环境中运行命令。裸 `genelab` 命令只有在已激活 `.venv`，或 GeneLab 已安装到
 当前 Python 环境后才可用。
 
-如果工作流需要直接使用 PyTorch，请只安装一个 backend extra：
+请只安装一个 backend extra 的 PyTorch：
 
 ```bash
 # 仅 CPU 或非 NVIDIA 开发机器。
