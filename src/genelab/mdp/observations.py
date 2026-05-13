@@ -73,6 +73,16 @@ def foot_contact_forces(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Ten
     return (force.sign() * torch.log1p(force.abs())).reshape(force.shape[0], -1)
 
 
+def height_scan(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
+    """Per-ray heights from a ``TerrainHeightSensor`` (positive = above terrain)."""
+    out = env.sensors[sensor_name].data
+    if not isinstance(out, torch.Tensor):
+        raise TypeError(
+            f"sensor {sensor_name!r} does not return a height tensor (got {type(out).__name__})"
+        )
+    return out
+
+
 # --------------------------------------------------------------------- motion imitation
 
 
