@@ -104,6 +104,10 @@ class RobotState:
         self.joint_pos = z(num_envs, num_dofs)
         self.joint_vel = z(num_envs, num_dofs)
         self.link_pos = z(num_envs, num_links, 3)
+        self.link_quat_w = z(num_envs, num_links, 4)
+        self.link_quat_w[..., 0] = 1.0
+        self.link_lin_vel_w = z(num_envs, num_links, 3)
+        self.link_ang_vel_w = z(num_envs, num_links, 3)
 
 
 class ManagerBasedRlEnv:
@@ -196,6 +200,16 @@ class ManagerBasedRlEnv:
         return list(self._link_names)
 
     @property
+    def body_names(self) -> list[str]:
+        """Alias for ``link_names`` to match mjlab's terminology."""
+        return list(self._link_names)
+
+    @property
+    def env_origins(self) -> torch.Tensor:
+        """Per-env world-frame offset ``[num_envs, 3]``; zeros when Genesis uses local frames."""
+        return self._env_origins
+
+    @property
     def default_joint_pos(self) -> torch.Tensor:
         return self._default_joint_pos
 
@@ -251,6 +265,16 @@ class ManagerBasedRlEnv:
                 self._device = str(gs_device())  # type: ignore[misc]
             except TypeError:
                 self._device = str(gs_device)
+        self._env_origins = self._compute_env_origins()
+
+    def _compute_env_origins(self) -> torch.Tensor:
+        """Per-env world-frame offset. Defaults to zeros; Genesis runs each env in its own frame."""
+        scene_origins = getattr(self._scene, "envs_offset", None)
+        if scene_origins is None:
+            scene_origins = getattr(self._scene, "env_origins", None)
+        if scene_origins is not None:
+            return _to_tensor(scene_origins, self._device).reshape(self._num_envs, 3)
+        return torch.zeros(self._num_envs, 3, device=self._device)
 
     def _build_robot_introspection(self) -> None:
         """Resolve joint / link names and default pose / gain tensors.
@@ -341,11 +365,79 @@ class ManagerBasedRlEnv:
             rs.joint_vel = joint_vel_full.index_select(-1, self._actuated_dof_idx)
         except AttributeError:
             pass
+        # Per-link state — populated lazily, only when the Genesis getter is available.
+        for attr, target in (
+            ("get_links_pos", "link_pos"),
+            ("get_links_quat", "link_quat_w"),
+            ("get_links_vel", "link_lin_vel_w"),
+            ("get_links_ang", "link_ang_vel_w"),
+        ):
+            getter = getattr(robot, attr, None)
+            if getter is None:
+                continue
+            try:
+                value = getter()
+            except Exception:
+                continue
+            tensor = _to_tensor(value, self._device)
+            if tensor.dim() == 2:
+                tensor = tensor.unsqueeze(0).expand(self._num_envs, -1, -1)
+            setattr(rs, target, tensor)
         # Convert root-frame quantities to body frame for the policy.
         rs.root_lin_vel_b = _quat_rotate_inverse(rs.root_quat, rs.root_lin_vel_w)
         rs.root_ang_vel_b = _quat_rotate_inverse(rs.root_quat, rs.root_ang_vel_w)
         gravity_w = torch.tensor([0.0, 0.0, -1.0], device=self._device).expand_as(rs.root_lin_vel_w)
         rs.projected_gravity_b = _quat_rotate_inverse(rs.root_quat, gravity_w)
+
+    # ------------------------------------------------------------------ reference state
+
+    def write_joint_state_to_sim(
+        self,
+        joint_pos: torch.Tensor,
+        joint_vel: torch.Tensor,
+        env_ids: torch.Tensor,
+    ) -> None:
+        """Write actuated-joint positions / velocities for ``env_ids`` (size ``[N, num_dofs]``)."""
+        if env_ids.numel() == 0:
+            return
+        set_pos = getattr(self._robot, "set_dofs_position", None)
+        set_vel = getattr(self._robot, "set_dofs_velocity", None)
+        if set_pos is not None:
+            try:
+                set_pos(joint_pos, self._actuated_dof_idx, envs_idx=env_ids)
+            except TypeError:
+                set_pos(joint_pos, self._actuated_dof_idx)
+        if set_vel is not None:
+            try:
+                set_vel(joint_vel, self._actuated_dof_idx, envs_idx=env_ids)
+            except TypeError:
+                set_vel(joint_vel, self._actuated_dof_idx)
+
+    def write_root_state_to_sim(
+        self,
+        root_pos: torch.Tensor,
+        root_quat: torch.Tensor,
+        root_lin_vel_w: torch.Tensor,
+        root_ang_vel_w: torch.Tensor,
+        env_ids: torch.Tensor,
+    ) -> None:
+        """Write floating-base pose + velocity for ``env_ids`` (each size ``[N, 3 or 4]``)."""
+        if env_ids.numel() == 0:
+            return
+        robot = self._robot
+        for fn_name, value in (
+            ("set_pos", root_pos),
+            ("set_quat", root_quat),
+            ("set_vel", root_lin_vel_w),
+            ("set_ang", root_ang_vel_w),
+        ):
+            fn = getattr(robot, fn_name, None)
+            if fn is None:
+                continue
+            try:
+                fn(value, envs_idx=env_ids)
+            except TypeError:
+                fn(value)
 
     # ------------------------------------------------------------------ rollout
 

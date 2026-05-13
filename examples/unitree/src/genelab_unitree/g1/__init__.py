@@ -4,6 +4,8 @@ from genelab_unitree.g1.constants import G1_ACTION_SCALE, G1_DEFAULT_JOINT_POS, 
 from genelab_unitree.g1.env_cfg import unitree_g1_velocity_env_cfg
 from genelab_unitree.g1.ppo_cfg import unitree_g1_ppo_runner_cfg
 from genelab_unitree.g1.robot import G1_MJCF_PATH, G1RobotCfg, get_g1_robot_cfg
+from genelab_unitree.g1.tracking_env_cfg import unitree_g1_tracking_env_cfg
+from genelab_unitree.g1.tracking_ppo_cfg import unitree_g1_tracking_ppo_runner_cfg
 
 __all__ = [
     "G1_ACTION_SCALE",
@@ -14,5 +16,7 @@ __all__ = [
     "G1RobotCfg",
     "get_g1_robot_cfg",
     "unitree_g1_ppo_runner_cfg",
+    "unitree_g1_tracking_env_cfg",
+    "unitree_g1_tracking_ppo_runner_cfg",
     "unitree_g1_velocity_env_cfg",
 ]
