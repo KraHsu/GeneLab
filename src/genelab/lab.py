@@ -15,7 +15,19 @@ from genelab.registry import (
     load_entrypoint_extensions,
     load_extension_module,
 )
-from genelab.sensor import ContactData, ContactSensor, ContactSensorCfg, Sensor, SensorCfg
+from genelab.sensor import (
+    ContactData,
+    ContactSensor,
+    ContactSensorCfg,
+    GridPattern,
+    RayCastData,
+    RayCastSensor,
+    RayCastSensorCfg,
+    Sensor,
+    SensorCfg,
+    TerrainHeightSensor,
+    TerrainHeightSensorCfg,
+)
 
 
 class ManagerBasedEnv(Protocol):
@@ -45,14 +57,20 @@ __all__ = [
     "ContactSensorCfg",
     "GenesisBackendCfg",
     "Gnoise",
+    "GridPattern",
     "ManagerBasedEnv",
     "ManagerBasedEnvCfg",
     "NoiseCfg",
+    "RayCastData",
+    "RayCastSensor",
+    "RayCastSensorCfg",
     "Registry",
     "RegistryEntry",
     "Sensor",
     "SensorCfg",
     "TaskCfg",
+    "TerrainHeightSensor",
+    "TerrainHeightSensorCfg",
     "Unoise",
     "apply_overrides",
     "load_builtin_registries",

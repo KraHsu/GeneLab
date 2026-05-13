@@ -11,7 +11,15 @@ from genelab.managers import (
     ObservationTermCfg,
 )
 from genelab.mdp.noise import Gnoise, Unoise
-from genelab.sensor import BodyVelocitySensorCfg, ContactSensorCfg, Sensor, SensorCfg
+from genelab.sensor import (
+    BodyVelocitySensorCfg,
+    ContactSensorCfg,
+    GridPattern,
+    RayCastSensorCfg,
+    Sensor,
+    SensorCfg,
+    TerrainHeightSensorCfg,
+)
 
 
 @dataclass
@@ -362,3 +370,113 @@ def test_contact_sensor_rejects_unresolved_links() -> None:
         assert "'c'" in str(exc)
     else:
         raise AssertionError("expected ValueError for unknown link")
+
+
+# --------------------------------------------------------------------- RayCast / TerrainHeight
+
+
+class _FakeTerrainState:
+    def __init__(
+        self,
+        num_envs: int,
+        num_links: int,
+        device: str,
+        link_pos: torch.Tensor,
+    ) -> None:
+        self.link_pos = link_pos
+        self.link_quat_w = torch.zeros(num_envs, num_links, 4, device=device)
+        self.link_quat_w[..., 0] = 1.0
+        self.link_lin_vel_w = torch.zeros(num_envs, num_links, 3, device=device)
+        self.link_ang_vel_w = torch.zeros(num_envs, num_links, 3, device=device)
+
+
+class _FakeTerrainEnv:
+    def __init__(
+        self,
+        num_envs: int,
+        link_names: tuple[str, ...],
+        link_pos: torch.Tensor,
+    ) -> None:
+        self.num_envs = num_envs
+        self.device = "cpu"
+        self.link_names = list(link_names)
+        self.robot_state = _FakeTerrainState(num_envs, len(link_names), self.device, link_pos)
+
+
+def test_grid_pattern_generates_expected_count_and_shape() -> None:
+    pattern = GridPattern(resolution=0.5, size=(2.0, 1.0), direction=(0.0, 0.0, -1.0))
+    starts, dirs = pattern.generate("cpu")
+    assert pattern.num_rays() == 5 * 3
+    assert starts.shape == (15, 3)
+    assert dirs.shape == (15, 3)
+    assert torch.allclose(dirs[0], torch.tensor([0.0, 0.0, -1.0]))
+    # Outer corners are at the configured extent.
+    assert torch.allclose(starts[..., 0].max(), torch.tensor(1.0))
+    assert torch.allclose(starts[..., 0].min(), torch.tensor(-1.0))
+
+
+def test_raycast_sensor_returns_link_z_distance_on_flat_plane() -> None:
+    link_pos = torch.tensor([[[0.0, 0.0, 1.2]]])
+    env = _FakeTerrainEnv(1, ("torso",), link_pos)
+    sensor = RayCastSensorCfg(
+        name="r",
+        link_name="torso",
+        pattern=GridPattern(resolution=0.5, size=(1.0, 1.0)),
+        max_distance=5.0,
+    ).build()
+    sensor.bind(env)
+    data = sensor.data
+    # 9 rays in a 3x3 grid; each starts at link_pos.z=1.2 and hits z=0 → distance 1.2.
+    assert data.distances.shape == (1, 9)
+    assert torch.allclose(data.distances, torch.full((1, 9), 1.2))
+    assert torch.allclose(data.hit_pos_w[..., 2], torch.zeros(1, 9))
+    assert torch.allclose(data.normals_w[..., 2], torch.ones(1, 9))
+
+
+def test_raycast_sensor_clamps_at_max_distance_when_no_intersection() -> None:
+    # Link is below ground → upward-only hit; default backend treats as miss → max_distance.
+    link_pos = torch.tensor([[[0.0, 0.0, -1.0]]])
+    env = _FakeTerrainEnv(1, ("torso",), link_pos)
+    sensor = RayCastSensorCfg(
+        name="r",
+        link_name="torso",
+        pattern=GridPattern(resolution=1.0, size=(0.0, 0.0)),
+        max_distance=3.0,
+    ).build()
+    sensor.bind(env)
+    data = sensor.data
+    assert torch.allclose(data.distances, torch.full_like(data.distances, 3.0))
+
+
+def test_terrain_height_sensor_returns_link_height_on_flat_plane() -> None:
+    # Two envs at different heights — height_scan output is constant across rays.
+    link_pos = torch.tensor([[[0.0, 0.0, 0.8]], [[1.0, 1.0, 1.5]]])
+    env = _FakeTerrainEnv(2, ("torso",), link_pos)
+    sensor = TerrainHeightSensorCfg(
+        name="h",
+        link_name="torso",
+        pattern=GridPattern(resolution=0.5, size=(1.0, 1.0)),
+    ).build()
+    sensor.bind(env)
+    heights = sensor.data
+    assert heights.shape == (2, 9)
+    assert torch.allclose(heights[0], torch.full((9,), 0.8))
+    assert torch.allclose(heights[1], torch.full((9,), 1.5))
+
+
+def test_terrain_height_sensor_lifecycle_propagates_to_inner_sensor() -> None:
+    link_pos = torch.tensor([[[0.0, 0.0, 1.0]]])
+    env = _FakeTerrainEnv(1, ("torso",), link_pos)
+    sensor = TerrainHeightSensorCfg(
+        name="h",
+        link_name="torso",
+        pattern=GridPattern(resolution=1.0, size=(0.0, 0.0)),
+    ).build()
+    sensor.bind(env)
+    _ = sensor.data
+    assert sensor._cache_valid is True
+    sensor.update(0.02)
+    assert sensor._cache_valid is False
+    _ = sensor.data
+    sensor.reset(torch.tensor([0]))
+    assert sensor._cache_valid is False
