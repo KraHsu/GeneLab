@@ -9,13 +9,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-torch-cpu = ["torch"]
-torch-cu118 = ["torch"]
-torch-cu121 = ["torch"]
-torch-cu124 = ["torch"]
-torch-cu126 = ["torch"]
-torch-cu128 = ["torch"]
-torch-cu130 = ["torch"]
+# Genesis requires torch>=2.8.0 (older versions emit a runtime "not supported" warning).
+# PyTorch only publishes torch>=2.8 wheels for cu126 and newer (and the CPU index), so the
+# older cu118 / cu121 / cu124 extras are intentionally not offered.
+torch-cpu = ["torch>=2.8.0"]
+torch-cu126 = ["torch>=2.8.0"]
+torch-cu128 = ["torch>=2.8.0"]
+torch-cu130 = ["torch>=2.8.0"]
 rl = [
     "tensordict",
     "rsl_rl_lib>=5.2.0",
@@ -44,30 +44,15 @@ packages = ["src/genelab"]
 conflicts = [
     [
         { extra = "torch-cpu" },
-        { extra = "torch-cu118" },
-        { extra = "torch-cu121" },
-        { extra = "torch-cu124" },
         { extra = "torch-cu126" },
         { extra = "torch-cu128" },
         { extra = "torch-cu130" },
-    ],
-    # rsl_rl_lib needs torch>=2.6 which is not published on the older CUDA indices.
-    [
-        { extra = "rl" },
-        { extra = "torch-cu118" },
-    ],
-    [
-        { extra = "rl" },
-        { extra = "torch-cu121" },
     ],
 ]
 
 [tool.uv.sources]
 torch = [
     { index = "pytorch-cpu", extra = "torch-cpu" },
-    { index = "pytorch-cu118", extra = "torch-cu118" },
-    { index = "pytorch-cu121", extra = "torch-cu121" },
-    { index = "pytorch-cu124", extra = "torch-cu124" },
     { index = "pytorch-cu126", extra = "torch-cu126" },
     { index = "pytorch-cu128", extra = "torch-cu128" },
     { index = "pytorch-cu130", extra = "torch-cu130" },
@@ -76,21 +61,6 @@ torch = [
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-cu118"
-url = "https://download.pytorch.org/whl/cu118"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-cu121"
-url = "https://download.pytorch.org/whl/cu121"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-cu124"
-url = "https://download.pytorch.org/whl/cu124"
 explicit = true
 
 [[tool.uv.index]]

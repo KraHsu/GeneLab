@@ -39,13 +39,18 @@ If your workflow needs PyTorch directly, install exactly one backend extra:
 uv sync --extra torch-cpu
 
 # NVIDIA machines; choose the CUDA wheel supported by your driver.
-uv sync --extra torch-cu118
-uv sync --extra torch-cu121
-uv sync --extra torch-cu124
 uv sync --extra torch-cu126
 uv sync --extra torch-cu128
 uv sync --extra torch-cu130
 ```
+
+> **PyTorch version requirement.** Genesis requires `torch>=2.8.0` — older builds emit a
+> `'torch<2.8.0' is not supported` warning at import time and may break Genesis runtime
+> assumptions. All `torch-*` extras pin `torch>=2.8.0`, so `uv sync` will pull a compatible
+> wheel automatically. PyTorch only publishes 2.8+ wheels on the `cpu`, `cu126`, `cu128`, and
+> `cu130` indices; older CUDA flavours (`cu118` / `cu121` / `cu124`) are intentionally not
+> offered as extras. If you already have an older `torch` in your environment, run
+> `uv sync --reinstall-package torch --extra torch-cuXXX` to refresh it.
 
 If you are not sure which CUDA build to use, check `nvidia-smi` and follow the PyTorch installation
 selector for your platform.
