@@ -5,6 +5,10 @@ Enables ``python -m genelab.cli ...`` (and therefore
 exposed by the ``genelab`` console script.
 """
 
+from genelab.cli._bootstrap import pin_visible_device_for_rank
+
+pin_visible_device_for_rank()
+
 from genelab.cli import main
 
 if __name__ == "__main__":
