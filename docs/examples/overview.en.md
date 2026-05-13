@@ -5,42 +5,32 @@ tests for the CLI and registry.
 
 ## genelab_examples
 
-Path: [`examples/genelab_examples/`](https://github.com/KraHsu/GeneLab/tree/main/examples/genelab_examples)
-
-The canonical in-tree extension. Two tasks are wired up:
+The canonical in-tree extension, wiring two tasks:
 
 - **`wuji_hand`** — a hand-manipulation task.
 - **`rubiks`** — a Rubik's cube task.
 
-`pyproject.toml` declares the `genelab.extensions` entry point, so this extension is discovered
-automatically when the package is installed (it is also on `pytest`'s `pythonpath` via the
-project's `pyproject.toml`, allowing the tests to import from it without installation).
+`pyproject.toml` declares the `genelab.extensions` entry point, so the extension is discovered
+automatically once installed. The project's `pyproject.toml` also adds the source directory to
+pytest's `pythonpath`, so tests can import from it without installation. Source at
+`examples/genelab_examples/`.
 
 ## unitree
 
-Path: [`examples/unitree/`](https://github.com/KraHsu/GeneLab/tree/main/examples/unitree)
+Two PPO tasks on the Unitree G1 humanoid — velocity tracking and motion imitation — ported from
+mjlab and adapted to Genesis. Same extension shape as `genelab_examples` (entry point,
+`register()`, per-module registration files). Source at `examples/unitree/`.
 
-A robot example focused on Unitree platforms. Same extension shape as `genelab_examples` —
-entry point, `register()`, and per-module registration files.
+A complete hands-on walkthrough (install, train, checkpoint replay, motion imitation) lives in
+[Quickstart §5](../getting-started/quickstart.md#unitree-g1).
 
 ## external_project
 
-Path: [`examples/external_project/`](https://github.com/KraHsu/GeneLab/tree/main/examples/external_project)
-
-A minimal downstream project template. This is what `genelab project new` produces, kept in-tree
-as a reference for the scaffolding output.
-
-## Using an example
-
-```bash
-# Confirm the example tasks are visible.
-uv run genelab list tasks
-
-# Play a task with visualization.
-uv run genelab play wuji_hand --vis --steps 200
-```
+A minimal downstream project template. `genelab project new` produces a project of the same
+shape; this directory is kept in-tree as a reference for the scaffolding output. Source at
+`examples/external_project/`.
 
 ## See also
 
-- [Project new](../cli/project-new.md) — scaffold your own extension.
-- [Extensions](../concepts/extensions.md) — how extensions are discovered and loaded.
+- [Quickstart](../getting-started/quickstart.md)
+- [Extensions](../concepts/extensions.md)
