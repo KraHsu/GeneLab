@@ -15,7 +15,7 @@ from genelab.registry import (
     load_entrypoint_extensions,
     load_extension_module,
 )
-from genelab.sensor import Sensor, SensorCfg
+from genelab.sensor import ContactData, ContactSensor, ContactSensorCfg, Sensor, SensorCfg
 
 
 class ManagerBasedEnv(Protocol):
@@ -40,6 +40,9 @@ __all__ = [
     "ENVS",
     "ROBOTS",
     "TASKS",
+    "ContactData",
+    "ContactSensor",
+    "ContactSensorCfg",
     "GenesisBackendCfg",
     "Gnoise",
     "ManagerBasedEnv",

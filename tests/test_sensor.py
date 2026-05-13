@@ -11,7 +11,7 @@ from genelab.managers import (
     ObservationTermCfg,
 )
 from genelab.mdp.noise import Gnoise, Unoise
-from genelab.sensor import BodyVelocitySensorCfg, Sensor, SensorCfg
+from genelab.sensor import BodyVelocitySensorCfg, ContactSensorCfg, Sensor, SensorCfg
 
 
 @dataclass
@@ -225,3 +225,140 @@ def test_body_velocity_sensor_rejects_unknown_link() -> None:
         assert "nonexistent" in str(exc)
     else:
         raise AssertionError("expected ValueError for unknown link_name")
+
+
+# --------------------------------------------------------------------- ContactSensor
+
+
+class _FakeRobot:
+    def __init__(self, contact_force: torch.Tensor) -> None:
+        # contact_force shape: (num_envs, num_links, 3)
+        self._contact_force = contact_force
+
+    def get_links_net_contact_force(self) -> torch.Tensor:
+        return self._contact_force
+
+    def set_contact_force(self, contact_force: torch.Tensor) -> None:
+        self._contact_force = contact_force
+
+
+class _FakeContactEnv:
+    def __init__(self, num_envs: int, link_names: tuple[str, ...]) -> None:
+        self.num_envs = num_envs
+        self.device = "cpu"
+        self.link_names = list(link_names)
+        self.robot = _FakeRobot(torch.zeros(num_envs, len(link_names), 3))
+
+
+def test_contact_sensor_explicit_link_names_resolves_indices() -> None:
+    env = _FakeContactEnv(num_envs=2, link_names=("base", "left_foot", "right_foot", "head"))
+    sensor = ContactSensorCfg(
+        name="feet", link_names=("left_foot", "right_foot"), track_air_time=False
+    ).build()
+    sensor.bind(env)
+    assert sensor.link_names == ["left_foot", "right_foot"]
+    env.robot.set_contact_force(
+        torch.tensor(
+            [
+                [[0, 0, 0], [0, 0, 50.0], [0, 0, 0], [0, 0, 0]],
+                [[0, 0, 0], [0, 0, 0], [0, 0, 30.0], [0, 0, 0]],
+            ]
+        )
+    )
+    sensor.update(0.02)
+    data = sensor.data
+    assert data.force_norm.shape == (2, 2)
+    assert torch.allclose(data.force_norm[0], torch.tensor([50.0, 0.0]))
+    assert torch.allclose(data.force_norm[1], torch.tensor([0.0, 30.0]))
+    assert data.found.dtype == torch.bool
+    assert torch.equal(data.found, torch.tensor([[True, False], [False, True]]))
+
+
+def test_contact_sensor_regex_match() -> None:
+    env = _FakeContactEnv(num_envs=1, link_names=("base", "left_foot", "right_foot"))
+    sensor = ContactSensorCfg(
+        name="f", link_names_expr=r"_foot$", track_air_time=False
+    ).build()
+    sensor.bind(env)
+    assert sensor.link_names == ["left_foot", "right_foot"]
+
+
+def test_contact_sensor_air_time_state_machine() -> None:
+    env = _FakeContactEnv(num_envs=1, link_names=("foot",))
+    sensor = ContactSensorCfg(name="c", link_names=("foot",), track_air_time=True).build()
+    sensor.bind(env)
+
+    in_air = torch.zeros(1, 1, 3)
+    in_contact = torch.tensor([[[0.0, 0.0, 100.0]]])
+    dt = 0.05
+
+    env.robot.set_contact_force(in_air)
+    sensor.update(dt)  # tick 1 in air
+    assert torch.allclose(sensor.data.current_air_time, torch.tensor([[dt]]))
+    assert torch.allclose(sensor.data.current_contact_time, torch.tensor([[0.0]]))
+
+    sensor._invalidate_cache()
+    sensor.update(dt)  # tick 2 in air
+    assert torch.allclose(sensor.data.current_air_time, torch.tensor([[2 * dt]]))
+
+    env.robot.set_contact_force(in_contact)
+    sensor._invalidate_cache()
+    sensor.update(dt)  # landing tick
+    d = sensor.data
+    assert torch.allclose(d.current_air_time, torch.tensor([[0.0]]))
+    assert torch.allclose(d.last_air_time, torch.tensor([[3 * dt]]))
+    assert torch.allclose(d.current_contact_time, torch.tensor([[dt]]))
+
+    sensor._invalidate_cache()
+    sensor.update(dt)  # continued contact
+    assert torch.allclose(sensor.data.current_contact_time, torch.tensor([[2 * dt]]))
+
+    env.robot.set_contact_force(in_air)
+    sensor._invalidate_cache()
+    sensor.update(dt)  # lift-off
+    d = sensor.data
+    assert torch.allclose(d.current_contact_time, torch.tensor([[0.0]]))
+    assert torch.allclose(d.last_contact_time, torch.tensor([[3 * dt]]))
+    assert torch.allclose(d.current_air_time, torch.tensor([[dt]]))
+
+
+def test_contact_sensor_reset_clears_state_for_env_ids_only() -> None:
+    env = _FakeContactEnv(num_envs=2, link_names=("foot",))
+    sensor = ContactSensorCfg(name="c", link_names=("foot",), track_air_time=True).build()
+    sensor.bind(env)
+    env.robot.set_contact_force(torch.zeros(2, 1, 3))
+    for _ in range(3):
+        sensor._invalidate_cache()
+        sensor.update(0.1)
+    assert torch.allclose(sensor.data.current_air_time, torch.tensor([[0.3], [0.3]]))
+    sensor.reset(torch.tensor([0]))
+    sensor._invalidate_cache()
+    sensor.update(0.1)
+    out = sensor.data.current_air_time
+    assert torch.allclose(out[0], torch.tensor([0.1]))
+    assert torch.allclose(out[1], torch.tensor([0.4]))
+
+
+def test_contact_sensor_force_threshold_controls_found_bit() -> None:
+    env = _FakeContactEnv(num_envs=1, link_names=("foot",))
+    sensor = ContactSensorCfg(
+        name="c", link_names=("foot",), force_threshold=10.0, track_air_time=False
+    ).build()
+    sensor.bind(env)
+    env.robot.set_contact_force(torch.tensor([[[0.0, 0.0, 5.0]]]))
+    sensor.update(0.02)
+    assert sensor.data.found.item() is False
+    env.robot.set_contact_force(torch.tensor([[[0.0, 0.0, 12.0]]]))
+    sensor._invalidate_cache()
+    sensor.update(0.02)
+    assert sensor.data.found.item() is True
+
+
+def test_contact_sensor_rejects_unresolved_links() -> None:
+    env = _FakeContactEnv(num_envs=1, link_names=("a", "b"))
+    try:
+        ContactSensorCfg(name="x", link_names=("c",)).build().bind(env)
+    except ValueError as exc:
+        assert "'c'" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for unknown link")
