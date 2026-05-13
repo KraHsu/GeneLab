@@ -17,6 +17,8 @@ class SceneCfg:
     steps: int = 240
     dt: float = 0.01
     substeps: int = 4
+    num_envs: int = 1
+    env_spacing: tuple[float, float] = (2.0, 2.0)
 
 
 @dataclass
@@ -61,13 +63,17 @@ class TaskCfg:
     """Registry-facing task configuration.
 
     ``env`` intentionally accepts an arbitrary dataclass so examples and downstream projects can
-    plug in their own environment configs without changing the core registry or CLI.
+    plug in their own environment configs without changing the core registry or CLI. ``play_env``
+    optionally provides a play-mode variant (curriculum off, push off). ``agent`` carries an
+    RL runner cfg (e.g. ``RslRlOnPolicyRunnerCfg``) when the task is trainable.
     """
 
     name: str
     env_name: str
     robot_name: str
     env: object
+    play_env: object | None = None
+    agent: object | None = None
     trainable: bool = False
 
 
@@ -93,15 +99,30 @@ def _set_dotted_value(root: object, dotted_path: str, raw_value: str) -> None:
         raise ValueError(f"invalid override path: {dotted_path!r}")
     target = root
     for part in parts[:-1]:
-        if not hasattr(target, part):
-            raise ValueError(f"unknown override path: {dotted_path!r}")
-        target = getattr(target, part)
+        target = _descend(target, part, dotted_path)
     field_name = parts[-1]
+    if isinstance(target, dict):
+        if field_name not in target:
+            raise ValueError(f"unknown override path: {dotted_path!r}")
+        current = target[field_name]
+        annotation = None
+        target[field_name] = _coerce_value(raw_value, current, annotation)
+        return
     if not hasattr(target, field_name):
         raise ValueError(f"unknown override path: {dotted_path!r}")
     current = getattr(target, field_name)
     annotation = _field_annotation(target, field_name)
     setattr(target, field_name, _coerce_value(raw_value, current, annotation))
+
+
+def _descend(target: object, key: str, dotted_path: str) -> object:
+    if isinstance(target, dict):
+        if key not in target:
+            raise ValueError(f"unknown override path: {dotted_path!r}")
+        return target[key]
+    if not hasattr(target, key):
+        raise ValueError(f"unknown override path: {dotted_path!r}")
+    return getattr(target, key)
 
 
 def _field_annotation(obj: object, field_name: str) -> _Annotation | None:
