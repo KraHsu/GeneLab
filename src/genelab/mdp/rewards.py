@@ -18,7 +18,7 @@ def track_linear_velocity_xy_exp(
     cmd = env.command_manager.get_command(command_name)[:, :2]
     vel = env.robot_state.root_lin_vel_b[:, :2]
     err = torch.sum((cmd - vel) ** 2, dim=-1)
-    return torch.exp(-err / (std ** 2))
+    return torch.exp(-err / (std**2))
 
 
 def track_angular_velocity_z_exp(
@@ -27,19 +27,17 @@ def track_angular_velocity_z_exp(
     cmd = env.command_manager.get_command(command_name)[:, 2]
     vel = env.robot_state.root_ang_vel_b[:, 2]
     err = (cmd - vel) ** 2
-    return torch.exp(-err / (std ** 2))
+    return torch.exp(-err / (std**2))
 
 
 def action_rate_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
-    return torch.sum(
-        (env.action_manager.action - env.action_manager.prev_action) ** 2, dim=-1
-    )
+    return torch.sum((env.action_manager.action - env.action_manager.prev_action) ** 2, dim=-1)
 
 
 def joint_acc_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
     # Approximate joint acceleration as joint_vel change per step (best-effort).
     vel = env.robot_state.joint_vel
-    return torch.sum(vel ** 2, dim=-1) * 0.0  # placeholder — proper accel would need history
+    return torch.sum(vel**2, dim=-1) * 0.0  # placeholder — proper accel would need history
 
 
 def flat_orientation_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
@@ -50,7 +48,7 @@ def flat_orientation_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
 def joint_pos_limits(env: "ManagerBasedRlEnv") -> torch.Tensor:
     """L2 of joint-position excursion past ±π (cheap stand-in for true limit penalty)."""
     excess = (env.robot_state.joint_pos.abs() - 3.14).clamp(min=0.0)
-    return torch.sum(excess ** 2, dim=-1)
+    return torch.sum(excess**2, dim=-1)
 
 
 def feet_air_time(
@@ -75,14 +73,13 @@ def feet_air_time(
 
 # --------------------------------------------------------------------- motion imitation
 
+
 def _motion_command(env: "ManagerBasedRlEnv", command_name: str) -> MotionCommand:
     term = env.command_manager._terms[command_name]  # pyright: ignore[reportPrivateUsage]
     return cast(MotionCommand, term)
 
 
-def _body_index_filter(
-    cmd: MotionCommand, body_names: tuple[str, ...] | None
-) -> list[int]:
+def _body_index_filter(cmd: MotionCommand, body_names: tuple[str, ...] | None) -> list[int]:
     return [
         i
         for i, name in enumerate(cmd.cfg.body_names)

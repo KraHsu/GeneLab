@@ -89,7 +89,9 @@ class RubiksCubeSpec:
 
     @property
     def sticker_count(self) -> int:
-        return sum(1 for coord in iter_cubie_coords(self.include_hidden_core) for _ in exposed_faces(coord))
+        return sum(
+            1 for coord in iter_cubie_coords(self.include_hidden_core) for _ in exposed_faces(coord)
+        )
 
 
 def iter_cubie_coords(include_hidden_core: bool = True) -> tuple[Coord, ...]:
@@ -166,7 +168,9 @@ def to_mjcf_xml(spec: RubiksCubeSpec | None = None) -> str:
     worldbody = ET.SubElement(root, "worldbody")
     for coord in coords:
         name = cubie_name(coord)
-        body = ET.SubElement(worldbody, "body", {"name": name, "pos": _fmt(cubie_center(coord, spec))})
+        body = ET.SubElement(
+            worldbody, "body", {"name": name, "pos": _fmt(cubie_center(coord, spec))}
+        )
         ET.SubElement(body, "freejoint", {"name": f"{name}_free"})
         ET.SubElement(
             body,
@@ -226,6 +230,7 @@ def to_mjcf_xml(spec: RubiksCubeSpec | None = None) -> str:
 
     ET.indent(root, space="  ")
     return ET.tostring(root, encoding="unicode") + "\n"
+
 
 def write_mjcf(path: str | Path, spec: RubiksCubeSpec | None = None) -> Path:
     """Write the cube MJCF file and return its path."""

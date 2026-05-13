@@ -22,7 +22,9 @@ class RubiksRobot:
 
     def write_asset(self, output: Path | None = None) -> Path:
         spec = self.cfg.spec()
-        path = output or self.cfg.asset_output or Path(tempfile.gettempdir()) / "rubiks_cube_3x3x3.xml"
+        path = (
+            output or self.cfg.asset_output or Path(tempfile.gettempdir()) / "rubiks_cube_3x3x3.xml"
+        )
         return write_mjcf(path, spec)
 
 

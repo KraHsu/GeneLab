@@ -38,13 +38,11 @@ class ActionTerm(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def action_dim(self) -> int:
-        ...
+    def action_dim(self) -> int: ...
 
     @property
     @abc.abstractmethod
-    def raw_actions(self) -> torch.Tensor:
-        ...
+    def raw_actions(self) -> torch.Tensor: ...
 
     @abc.abstractmethod
     def process_actions(self, actions: torch.Tensor) -> None:

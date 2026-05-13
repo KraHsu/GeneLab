@@ -84,13 +84,17 @@ class _EntityLike(Protocol):
 
     def control_dofs_position(self, position: FloatArray, dof_indices: list[int]) -> None: ...
 
-    def set_dofs_position(self, position: FloatArray, dof_indices: list[int], zero_velocity: bool) -> None: ...
+    def set_dofs_position(
+        self, position: FloatArray, dof_indices: list[int], zero_velocity: bool
+    ) -> None: ...
 
 
 class _ForceRangeEntityLike(_EntityLike, Protocol):
     def get_dofs_force_range(self, dof_indices: list[int]) -> tuple[ArrayLike, ArrayLike]: ...
 
-    def set_dofs_force_range(self, lower: FloatArray, upper: FloatArray, dofs_idx_local: list[int]) -> None: ...
+    def set_dofs_force_range(
+        self, lower: FloatArray, upper: FloatArray, dofs_idx_local: list[int]
+    ) -> None: ...
 
 
 class _ViewerLike(Protocol):
@@ -247,10 +251,7 @@ def run_wuji_hand(config: WujiHandRunConfig) -> None:
         apply_wuji_gains(hand, mapping.dof_indices)
 
         if mapping.missing_joint_names:
-            print(
-                "[WARN] Missing Wuji joints skipped: "
-                + ", ".join(mapping.missing_joint_names)
-            )
+            print("[WARN] Missing Wuji joints skipped: " + ", ".join(mapping.missing_joint_names))
         print(
             f"Wuji {config.side} hand running in Genesis: "
             f"asset={mjcf_path}, trajectory={trajectory.shape[0]}x{trajectory.shape[1]}, "
