@@ -7,7 +7,7 @@ def unitree_g1_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     return RslRlOnPolicyRunnerCfg(
         seed=42,
         num_steps_per_env=24,
-        max_iterations=3000,
+        max_iterations=30_000,
         save_interval=50,
         experiment_name="g1_velocity_flat",
         logger="tensorboard",

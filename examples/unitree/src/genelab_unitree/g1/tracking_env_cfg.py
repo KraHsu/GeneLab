@@ -227,6 +227,15 @@ def unitree_g1_tracking_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             mode="interval",
             interval_range_s=(1.0, 3.0),
             func=mdp.push_by_setting_velocity,
-            params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
+            params={
+                "velocity_range": {
+                    "x": (-0.5, 0.5),
+                    "y": (-0.5, 0.5),
+                    "z": (-0.4, 0.4),
+                    "roll": (-0.52, 0.52),
+                    "pitch": (-0.52, 0.52),
+                    "yaw": (-0.78, 0.78),
+                },
+            },
         )
     return cfg
