@@ -20,6 +20,7 @@ jobs:
       - uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
+          cache-suffix: lint
           python-version: "3.12"
       - run: uv sync --extra torch-cpu
       - run: uv run ruff check
@@ -32,6 +33,7 @@ jobs:
       - uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
+          cache-suffix: typecheck
           python-version: "3.12"
       - run: uv sync --extra torch-cpu
       - run: uv run pyright
@@ -43,6 +45,7 @@ jobs:
       - uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
+          cache-suffix: test
           python-version: "3.12"
       - run: uv sync --extra torch-cpu
       - run: uv run pytest
