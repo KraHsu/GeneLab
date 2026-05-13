@@ -1,17 +1,24 @@
 # GeneLab
 
+[中文](docs/README_CN.md)|EN
+
 GeneLab is an Isaac Lab-inspired API for RL and robotics research powered by
 [Genesis](https://github.com/Genesis-Embodied-AI/Genesis). It keeps the familiar shape of registered
 robots, environments, tasks, manager-based MDP configuration, and CLI dispatch, while using Genesis
 as the simulation backend.
 
+- [Documentation](https://krahsu.github.io/GeneLab/) — full guides, CLI reference, concepts,
+  and auto-generated API docs. Bilingual (English default, 中文 at `/zh/`).
+- [Examples](examples/README.md) — bundled tasks, demo scripts, config overrides, and downstream
+  project integration.
+
 ## Goals
 
-- Provide small registries for robots, environments, and tasks.
-- Keep core API layers separate from example assets and demo scripts.
-- Use manager-style config hooks for actions, observations, rewards, events, and terminations.
-- Keep Genesis backend integration explicit and easy to extend.
-- Support downstream robotics projects through a stable package layout and CLI.
+- Small registries for robots, environments, and tasks.
+- Core API layers separated from example assets and demo scripts.
+- Manager-style config hooks for actions, observations, rewards, events, and terminations.
+- Explicit, easy-to-extend Genesis backend integration.
+- A stable package layout and CLI for downstream robotics projects.
 
 ## Requirements
 
@@ -20,7 +27,7 @@ as the simulation backend.
 
 ## Setup
 
-Run setup from the repository root:
+From the repository root:
 
 ```bash
 uv sync
@@ -32,16 +39,17 @@ the dependencies pinned by `uv.lock`. `uv run ...` runs commands inside that env
 `genelab` command works only after `.venv` is activated or GeneLab is installed into the active
 Python environment.
 
-If your workflow needs PyTorch directly, install exactly one backend extra:
+Pick exactly one `torch-*` extra — they are **mutually exclusive**:
+
+| Extra | Hardware target |
+|-------|----------------|
+| `torch-cpu` | CPU-only or non-NVIDIA development machines. |
+| `torch-cu126` | NVIDIA, CUDA 12.6 driver. |
+| `torch-cu128` | NVIDIA, CUDA 12.8 driver. |
+| `torch-cu130` | NVIDIA, CUDA 13.0 driver. |
 
 ```bash
-# CPU-only or non-NVIDIA development machines.
-uv sync --extra torch-cpu
-
-# NVIDIA machines; choose the CUDA wheel supported by your driver.
-uv sync --extra torch-cu126
-uv sync --extra torch-cu128
-uv sync --extra torch-cu130
+uv sync --extra torch-cpu        # one of the above
 ```
 
 > **PyTorch version requirement.** Genesis requires `torch>=2.8.0` — older builds emit a
@@ -49,11 +57,8 @@ uv sync --extra torch-cu130
 > assumptions. All `torch-*` extras pin `torch>=2.8.0`, so `uv sync` will pull a compatible
 > wheel automatically. PyTorch only publishes 2.8+ wheels on the `cpu`, `cu126`, `cu128`, and
 > `cu130` indices; older CUDA flavours (`cu118` / `cu121` / `cu124`) are intentionally not
-> offered as extras. If you already have an older `torch` in your environment, run
-> `uv sync --reinstall-package torch --extra torch-cuXXX` to refresh it.
-
-If you are not sure which CUDA build to use, check `nvidia-smi` and follow the PyTorch installation
-selector for your platform.
+> offered as extras. An older `torch` already in the environment can be refreshed with
+> `uv sync --reinstall-package torch --extra torch-cuXXX`.
 
 Create project-local cache folders used by Genesis/Quadrants and Matplotlib:
 
@@ -64,7 +69,6 @@ uv run genelab cache
 ## CLI
 
 ```bash
-uv run genelab
 uv run genelab --help
 uv run genelab list robots
 uv run genelab list envs
@@ -73,29 +77,21 @@ uv run genelab list tasks
 
 ## Core API
 
-- `genelab.registry`: registries, registration helpers, and extension loading.
-- `genelab.configs`: reusable dataclass configs, including `ManagerBasedEnvCfg` and `TaskCfg`.
-- `genelab.lab`: public API facade for registry and manager-based environment primitives.
-- `genelab.envs`, `genelab.robots`, `genelab.tasks`: thin core namespaces for registry helpers.
+- `genelab.registry` — registries, registration helpers, and extension loading.
+- `genelab.configs` — reusable dataclass configs, including `ManagerBasedEnvCfg` and `TaskCfg`.
+- `genelab.lab` — public API facade for registry and manager-based environment primitives.
+- `genelab.envs`, `genelab.robots`, `genelab.tasks` — thin core namespaces for registry helpers.
 - `genelab.actuator`, `genelab.entity`, `genelab.scene`, `genelab.sensor`, `genelab.terrains`,
-  and `genelab.rl`: extension namespaces for robotics research code.
+  and `genelab.rl` — extension namespaces for robotics research code.
 
-Downstream projects should live in their own Python packages and register robots, environments, and
-tasks through GeneLab's registry and extension hooks. See
-[`examples/external_project/`](examples/external_project/README.md) for a minimal package, or start
-one with:
+Downstream projects live in their own Python packages and register robots, environments, and
+tasks through GeneLab's registry and extension hooks. The minimal template lives at
+[`examples/external_project/`](examples/external_project/README.md); a fresh scaffold is
+generated with:
 
 ```bash
 uv run genelab project new my_robot_project
 ```
-
-## Documentation
-
-- [Documentation site](https://krahsu.github.io/GeneLab/) — full guides, CLI reference, concepts,
-  and auto-generated API docs. Bilingual (English default, 中文 at `/zh/`).
-- [Examples](examples/README.md): bundled tasks, demo scripts, config overrides, and downstream
-  project integration.
-- [中文 README](docs/README_CN.md): concise Chinese project overview.
 
 ## Verification
 

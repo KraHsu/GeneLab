@@ -9,15 +9,27 @@
 uv run genelab play <task-id> [短标志] [-- 覆盖项]
 ```
 
-### 短标志
+短标志可放在 `<task-id>` 前或后；CLI 内部会自动整理顺序。
 
-这三个短标志会被改写为对应的 `env.scene.*` override：
+### 场景短标志
+
+下列短标志会被改写为对应的 `env.scene.*` override：
 
 | 标志 | 等价 override | 作用 |
 |------|--------------|------|
 | `--vis` | `env.scene.vis=true` | 开启 Genesis 可视化。 |
 | `--gpu N` | `env.scene.gpu=N` | 把 rollout 锁定到指定 GPU。 |
 | `--steps N` | `env.scene.steps=N` | 限制 episode 步数。 |
+
+### 运行时标志
+
+任务携带 RL agent 配置时，`play` 还接受下列 runner 侧标志：
+
+| 标志 | 作用 |
+|------|------|
+| `--checkpoint PATH` | 加载已训练策略并做推理 rollout；会让 `--agent` 默认为 `trained`。 |
+| `--num-envs N` | 覆盖任务注册时的 env 数量（并行环境数）。 |
+| `--agent {zero,random,trained}` | 选择策略来源。设置 `--checkpoint` 时默认 `trained`，否则默认 `zero`。 |
 
 ### Override 语法
 
@@ -30,14 +42,8 @@ uv run genelab play <task-id> \
   --env.observations.include_velocity true
 ```
 
-点路径会沿 `TaskCfg` 的 dataclass 树（通常以 `env.*` 为根）下钻。字符串值按目标字段类型注解
-自动转换 —— 支持 `int`、`float`、`bool`、`Path`、`list[...]`、`tuple[...]`。详细的转换规则
-和如何处理 union 与 `Literal` 见 [配置系统](../concepts/configs.md)。
-
-!!! tip "短标志位置"
-    CLI 内的 `_normalize_run_flags` 会把 `play --steps 5 <task-id> ...` 改写成
-    `play <task-id> --steps 5 ...`，让 `argparse.REMAINDER` 正常工作。短标志放在任务 ID 前后
-    都可以。
+点路径沿 `TaskCfg` 的 dataclass 树（通常以 `env.*` 为根）下钻。字符串值按目标字段类型注解
+自动转换 —— 支持 `int`、`float`、`bool`、`Path`、`list[...]`、`tuple[...]`。
 
 ## train
 
@@ -45,19 +51,20 @@ uv run genelab play <task-id> \
 uv run genelab train <task-id> [短标志] [-- 覆盖项]
 ```
 
-`train` 需要任务暴露一个 RL runner（通常是 `rsl_rl_lib`）。Override 语法与 `play` 一致。额外标志：
+`train` 需要任务暴露一个 RL runner（通常是 `rsl_rl_lib`）。Override 语法与 `play` 一致。
 
 | 标志 | 作用 |
 |------|------|
-| `--gpus N` | 通过 `torchrun` 启动 `N` 进程分布式训练。 |
+| `--gpus N` | 通过 `torchrun --standalone --nproc_per_node=N` 启动分布式训练。任务自身的 runner 必须支持 `torchrun`。 |
 | `--checkpoint PATH` | 从 checkpoint 文件继续训练。 |
+| `--num-envs N` | 覆盖任务注册时的 env 数量（并行环境数）。 |
+| `--max-iterations N` | 限制 PPO 学习迭代次数。 |
+| `--seed N` | 覆盖 runner 使用的随机种子。 |
+| `--log-dir PATH` | 覆盖日志根目录，默认 `logs/<runner>/<experiment>/<run>`。 |
+| `--agent {zero,random,trained}` | 转发给 runner；多用于诊断式运行。 |
 
-### 多 GPU
-
-`--gpus N` 会把底层训练入口包装成 `torchrun --standalone --nproc_per_node=N`。任务自身的 runner
-必须支持 `torchrun`；依赖 Genesis 全局状态的环境通常天然兼容。
-
-设置 `--gpus N` 时 CLI 还会按所选设备掩码 `CUDA_VISIBLE_DEVICES`，让每个 rank 看到独立 GPU。
+当 `--gpus N > 1` 时，CLI 还会按所选设备掩码 `CUDA_VISIBLE_DEVICES`，让每个 rank 看到独立
+GPU。
 
 ## 示例
 
@@ -72,7 +79,7 @@ uv run genelab train wuji_hand --gpus 4 --env.actions.scale 0.3
 uv run genelab train wuji_hand --checkpoint logs/wuji_hand/run_42/model_100.pt
 ```
 
-## 另见
+## See also
 
-- [配置系统](../concepts/configs.md) —— `apply_overrides` 完整语义。
-- [注册表](../concepts/registry.md) —— `<task-id>` 如何解析。
+- [配置系统](../concepts/configs.md)
+- [注册表](../concepts/registry.md)
