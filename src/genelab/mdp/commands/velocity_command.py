@@ -85,5 +85,3 @@ class UniformVelocityCommand(CommandTerm):
             self.cfg.ranges.ang_vel_z[1],
         )
         self._command[self._is_standing] = 0.0
-
-

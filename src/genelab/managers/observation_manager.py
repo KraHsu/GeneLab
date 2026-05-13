@@ -76,7 +76,9 @@ class ObservationManager:
                 out[group_name] = torch.zeros(self.num_envs, 0, device=self.device)
                 continue
             out[group_name] = (
-                torch.cat(tensors, dim=-1) if group_cfg.concatenate_terms else torch.stack(tensors, dim=-1)
+                torch.cat(tensors, dim=-1)
+                if group_cfg.concatenate_terms
+                else torch.stack(tensors, dim=-1)
             )
         # Cache dimensions for downstream wrappers
         self._group_dims = {g: [int(t.shape[-1]) for t in (out[g],)] for g in out}

@@ -10,11 +10,13 @@ from dataclasses import dataclass
 from typing import Final
 
 
-def _reflected_inertia(rotor_inertias: tuple[float, float, float], gears: tuple[float, float, float]) -> float:
+def _reflected_inertia(
+    rotor_inertias: tuple[float, float, float], gears: tuple[float, float, float]
+) -> float:
     """Two-stage planetary reflected inertia (port of mjlab ``reflected_inertia_from_two_stage_planetary``)."""
     i0, i1, i2 = rotor_inertias
     g0, g1, g2 = gears
-    return i0 * (g0 * g1 * g2) ** 2 + i1 * (g1 * g2) ** 2 + i2 * g2 ** 2
+    return i0 * (g0 * g1 * g2) ** 2 + i1 * (g1 * g2) ** 2 + i2 * g2**2
 
 
 ARMATURE_5020 = _reflected_inertia((0.139e-4, 0.017e-4, 0.169e-4), (1.0, 1 + 46 / 18, 1 + 56 / 16))
@@ -25,10 +27,10 @@ ARMATURE_4010 = _reflected_inertia((0.068e-4, 0.0, 0.0), (1.0, 5.0, 5.0))
 NATURAL_FREQ: Final = 10 * 2.0 * 3.1415926535
 DAMPING_RATIO: Final = 2.0
 
-STIFFNESS_5020 = ARMATURE_5020 * NATURAL_FREQ ** 2
-STIFFNESS_7520_14 = ARMATURE_7520_14 * NATURAL_FREQ ** 2
-STIFFNESS_7520_22 = ARMATURE_7520_22 * NATURAL_FREQ ** 2
-STIFFNESS_4010 = ARMATURE_4010 * NATURAL_FREQ ** 2
+STIFFNESS_5020 = ARMATURE_5020 * NATURAL_FREQ**2
+STIFFNESS_7520_14 = ARMATURE_7520_14 * NATURAL_FREQ**2
+STIFFNESS_7520_22 = ARMATURE_7520_22 * NATURAL_FREQ**2
+STIFFNESS_4010 = ARMATURE_4010 * NATURAL_FREQ**2
 
 DAMPING_5020 = 2.0 * DAMPING_RATIO * ARMATURE_5020 * NATURAL_FREQ
 DAMPING_7520_14 = 2.0 * DAMPING_RATIO * ARMATURE_7520_14 * NATURAL_FREQ

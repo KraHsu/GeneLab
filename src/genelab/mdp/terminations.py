@@ -34,6 +34,7 @@ def root_height_below(env: "ManagerBasedRlEnv", min_height: float) -> torch.Tens
 
 # --------------------------------------------------------------------- motion imitation
 
+
 def _motion_command(env: "ManagerBasedRlEnv", command_name: str) -> MotionCommand:
     term = env.command_manager._terms[command_name]  # pyright: ignore[reportPrivateUsage]
     return cast(MotionCommand, term)
@@ -47,9 +48,7 @@ def bad_anchor_pos_z_only(
     return torch.abs(cmd.anchor_pos_w[:, -1] - cmd.robot_anchor_pos_w[:, -1]) > threshold
 
 
-def bad_anchor_ori(
-    env: "ManagerBasedRlEnv", command_name: str, threshold: float
-) -> torch.Tensor:
+def bad_anchor_ori(env: "ManagerBasedRlEnv", command_name: str, threshold: float) -> torch.Tensor:
     """True when the tilt error between robot anchor and reference exceeds ``threshold``.
 
     Uses the body-frame gravity z-component as a tilt proxy (simpler than a full geodesic
