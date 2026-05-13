@@ -1,7 +1,5 @@
 """Joint-position action term: ``target = default + scale * raw_action`` (PD-controlled)."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 

@@ -12,8 +12,6 @@ The motion file is a numpy NPZ with the same schema mjlab uses, so clips convert
 - ``body_ang_vel_w`` : (T, num_bodies, 3)
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
