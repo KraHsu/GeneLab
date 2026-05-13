@@ -45,7 +45,7 @@ class RslRlBaseRunnerCfg:
     num_steps_per_env: int = 24
     max_iterations: int = 300
     obs_groups: dict[str, tuple[str, ...]] = field(
-        default_factory=lambda: {"policy": ("policy",), "critic": ("critic",)}
+        default_factory=lambda: {"actor": ("policy",), "critic": ("critic",)}
     )
     save_interval: int = 50
     experiment_name: str = "exp1"
