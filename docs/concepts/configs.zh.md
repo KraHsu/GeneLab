@@ -15,7 +15,7 @@ TaskCfg
 ```
 
 `TaskCfg.env` 类型刻意写成 `object` —— 下游扩展无需触碰核心即可接入自己的 env dataclass。
-大多数用户会把 `ManagerBasedEnvCfg` 的子类放进 `env` 字段。
+大多数情况下 `env` 字段会是 `ManagerBasedEnvCfg` 的子类。
 
 ## apply_overrides
 
@@ -46,15 +46,15 @@ apply_overrides(cfg, {
 | `tuple[T, ...]` | 逗号分隔，每个元素按 `T` 转换 |
 | `str` | 原样 |
 
-如果点路径无法解析到已知字段，或值无法转换，`apply_overrides` 会在配置构造期就抛出明确错误，
+当点路径无法解析到已知字段，或值无法转换时，`apply_overrides` 在配置构造期就抛出明确错误，
 避免错误延后到仿真运行时才暴露。
 
-### CLI 集成
+### CLI 转发路径
 
-`play` / `train` 把每个 `--<a.b.c> VALUE` 标志转发给 `apply_overrides`。三个短标志
+`play` / `train` 把每个 `--<a.b.c> VALUE` 标志转发给 `apply_overrides`。三个场景短标志
 （`--vis`、`--gpu`、`--steps`）在转发前被改写为 `env.scene.{vis,gpu,steps}`。
-详见 [play 与 train](../cli/play-train.md)。
 
-## API
+## See also
 
-`genelab.configs` 的完整自动生成参考见 [API 参考](../api/reference.md)。
+- [play 与 train](../cli/play-train.md)
+- [API 参考](../api/reference.md)
