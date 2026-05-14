@@ -1,3 +1,4 @@
+import re
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -34,6 +35,12 @@ from genelab_examples.rubiks.sim import (
 from genelab_examples.wuji_hand.sim import build_joint_mapping, trajectory_target
 
 type FloatArray = NDArray[np.floating]
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_RE.sub("", text)
 
 
 class _FakeLink:
@@ -192,7 +199,7 @@ def test_play_help_documents_runner_keys(capsys: pytest.CaptureFixture[str]) -> 
 
     main(["play", "--help"])
 
-    out = capsys.readouterr().out
+    out = _strip_ansi(capsys.readouterr().out)
     for key in RUNNER_KEYS:
         assert key in out, f"runner key {key!r} missing from `play --help`"
 
@@ -200,7 +207,7 @@ def test_play_help_documents_runner_keys(capsys: pytest.CaptureFixture[str]) -> 
 def test_play_help_documents_short_flag_grammar(capsys: pytest.CaptureFixture[str]) -> None:
     main(["play", "--help"])
 
-    out = capsys.readouterr().out
+    out = _strip_ansi(capsys.readouterr().out)
     assert "--vis" in out
     assert "--gpu" in out
     assert "--steps" in out
