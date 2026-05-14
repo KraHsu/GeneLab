@@ -1,9 +1,11 @@
 """Reusable reward term functions for locomotion tasks."""
 
+import re
 from typing import TYPE_CHECKING, cast
 
 import torch
 
+from genelab.managers.reward_manager import RewardTermCfg
 from genelab.mdp.commands.motion_command import MotionCommand
 from genelab.utils.math import quat_error_magnitude
 
@@ -43,6 +45,93 @@ def joint_acc_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
 def flat_orientation_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
     """Penalise tilt: the xy components of body-frame gravity should be zero."""
     return torch.sum(env.robot_state.projected_gravity_b[:, :2] ** 2, dim=-1)
+
+
+def upright_exp(env: "ManagerBasedRlEnv", std: float = 0.45) -> torch.Tensor:
+    """``exp(-||projected_gravity_xy||^2 / std^2)`` — positive reward for an upright base.
+
+    Port of mjlab's ``upright`` reward (flat-ground variant). Saturates near zero tilt
+    instead of growing unbounded like an L2 penalty, which matches the policy gradients
+    the reference implementation relies on.
+    """
+    xy_squared = torch.sum(env.robot_state.projected_gravity_b[:, :2] ** 2, dim=-1)
+    return torch.exp(-xy_squared / (std * std))
+
+
+class variable_posture:
+    """Reward for staying near the default pose, with per-joint, speed-dependent tolerance.
+
+    Port of ``mjlab.tasks.velocity.mdp.rewards.variable_posture``. Std dicts map joint name
+    regex → std value; per joint the *last* matching pattern wins (same convention as
+    ``RobotEntityCfg.default_joint_pos``). Joints with no match keep the supplied ``default``.
+
+    At each step the active std vector is chosen per env from the command magnitude:
+
+    * ``total_speed = ||lin_vel_xy|| + |ang_vel_z|``
+    * standing if ``total_speed < walking_threshold``
+    * walking if ``walking_threshold <= total_speed < running_threshold``
+    * running otherwise
+
+    Reward: ``exp(-mean((joint_pos - default)^2 / std^2))``.
+    """
+
+    def __init__(self, cfg: RewardTermCfg, env: "ManagerBasedRlEnv") -> None:
+        self._env = env
+        params = cfg.params
+        default = float(params.get("default_std", 1.0))
+        std_standing = params.get("std_standing", {})
+        std_walking = params.get("std_walking", {})
+        std_running = params.get("std_running", {})
+        self._std_standing = self._build_std(std_standing, default)
+        self._std_walking = self._build_std(std_walking, default)
+        self._std_running = self._build_std(std_running, default)
+
+    def _build_std(self, mapping: dict[str, float], default: float) -> torch.Tensor:
+        out = torch.full((len(self._env.joint_names),), default, device=self._env.device)
+        for pattern, value in mapping.items():
+            try:
+                regex = re.compile(pattern)
+            except re.error:
+                regex = re.compile(re.escape(pattern))
+            for i, name in enumerate(self._env.joint_names):
+                if regex.fullmatch(name) or regex.search(name):
+                    out[i] = float(value)
+        return out
+
+    def __call__(
+        self,
+        env: "ManagerBasedRlEnv",
+        command_name: str,
+        std_standing: dict[str, float] | None = None,
+        std_walking: dict[str, float] | None = None,
+        std_running: dict[str, float] | None = None,
+        default_std: float = 1.0,
+        walking_threshold: float = 0.05,
+        running_threshold: float = 1.5,
+    ) -> torch.Tensor:
+        del std_standing, std_walking, std_running, default_std  # consumed at __init__
+
+        command = env.command_manager.get_command(command_name)
+        linear_speed = torch.norm(command[:, :2], dim=-1)
+        angular_speed = torch.abs(command[:, 2])
+        total_speed = linear_speed + angular_speed
+
+        standing_mask = (total_speed < walking_threshold).float().unsqueeze(-1)
+        walking_mask = (
+            ((total_speed >= walking_threshold) & (total_speed < running_threshold))
+            .float()
+            .unsqueeze(-1)
+        )
+        running_mask = (total_speed >= running_threshold).float().unsqueeze(-1)
+
+        std = (
+            self._std_standing * standing_mask
+            + self._std_walking * walking_mask
+            + self._std_running * running_mask
+        )
+
+        error = env.robot_state.joint_pos - env.default_joint_pos
+        return torch.exp(-torch.mean((error * error) / (std * std), dim=-1))
 
 
 def joint_pos_limits(env: "ManagerBasedRlEnv") -> torch.Tensor:

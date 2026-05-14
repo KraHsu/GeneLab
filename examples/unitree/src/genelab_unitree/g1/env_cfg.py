@@ -26,6 +26,46 @@ from genelab_unitree.g1.robot import get_g1_robot_cfg
 _IMU_OFFSET = (0.04525, 0.0, -0.08339)
 _G1_FOOT_LINKS = ("left_ankle_roll_link", "right_ankle_roll_link")
 
+# Per-joint posture standard deviations used by the ``pose`` reward. Smaller std =
+# tighter tolerance. Lower body looser at running speed; arms/wrists looser to allow
+# natural swing. Mirrors mjlab's G1 std table verbatim.
+_G1_POSE_STD_WALKING: dict[str, float] = {
+    # Lower body.
+    r".*hip_pitch.*": 0.3,
+    r".*hip_roll.*": 0.15,
+    r".*hip_yaw.*": 0.15,
+    r".*knee.*": 0.35,
+    r".*ankle_pitch.*": 0.25,
+    r".*ankle_roll.*": 0.1,
+    # Waist.
+    r".*waist_yaw.*": 0.2,
+    r".*waist_roll.*": 0.08,
+    r".*waist_pitch.*": 0.1,
+    # Arms.
+    r".*shoulder_pitch.*": 0.15,
+    r".*shoulder_roll.*": 0.15,
+    r".*shoulder_yaw.*": 0.1,
+    r".*elbow.*": 0.15,
+    r".*wrist.*": 0.3,
+}
+
+_G1_POSE_STD_RUNNING: dict[str, float] = {
+    r".*hip_pitch.*": 0.5,
+    r".*hip_roll.*": 0.2,
+    r".*hip_yaw.*": 0.2,
+    r".*knee.*": 0.6,
+    r".*ankle_pitch.*": 0.35,
+    r".*ankle_roll.*": 0.15,
+    r".*waist_yaw.*": 0.3,
+    r".*waist_roll.*": 0.08,
+    r".*waist_pitch.*": 0.2,
+    r".*shoulder_pitch.*": 0.5,
+    r".*shoulder_roll.*": 0.2,
+    r".*shoulder_yaw.*": 0.15,
+    r".*elbow.*": 0.35,
+    r".*wrist.*": 0.3,
+}
+
 
 def _obs_terms() -> dict[str, ObservationTermCfg]:
     return {
@@ -128,8 +168,8 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 heading_control_stiffness=0.5,
                 ranges=UniformVelocityCommandCfg.Ranges(
                     lin_vel_x=(-1.0, 1.0),
-                    lin_vel_y=(-0.5, 0.5),
-                    ang_vel_z=(-0.7, 0.7),
+                    lin_vel_y=(-1.0, 1.0),
+                    ang_vel_z=(-0.5, 0.5),
                     heading=(-math.pi, math.pi),
                 ),
             )
@@ -145,12 +185,26 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 weight=2.0,
                 params={"command_name": "twist", "std": math.sqrt(0.5)},
             ),
-            "upright": RewardTermCfg(func=mdp.flat_orientation_l2, weight=-1.0),
+            "upright": RewardTermCfg(
+                func=mdp.upright_exp,
+                weight=1.0,
+                params={"std": math.sqrt(0.2)},
+            ),
+            "pose": RewardTermCfg(
+                func=mdp.variable_posture,
+                weight=1.0,
+                params={
+                    "command_name": "twist",
+                    "walking_threshold": 0.05,
+                    "running_threshold": 1.5,
+                    "default_std": 0.3,
+                    "std_standing": {".*": 0.05},
+                    "std_walking": _G1_POSE_STD_WALKING,
+                    "std_running": _G1_POSE_STD_RUNNING,
+                },
+            ),
             "action_rate": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.1),
             "dof_limits": RewardTermCfg(func=mdp.joint_pos_limits, weight=-1.0),
-            "feet_air_time": RewardTermCfg(
-                func=mdp.feet_air_time, weight=0.5, params={"threshold": 0.4}
-            ),
         },
         terminations_cfg={
             "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
@@ -163,7 +217,12 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 mode="reset",
                 func=mdp.reset_root_state_uniform,
                 params={
-                    "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "z": (0.01, 0.05)},
+                    "pose_range": {
+                        "x": (-0.5, 0.5),
+                        "y": (-0.5, 0.5),
+                        "z": (0.01, 0.05),
+                        "yaw": (-math.pi, math.pi),
+                    },
                     "velocity_range": {},
                 },
             ),
@@ -173,8 +232,17 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     if not play:
         cfg.events_cfg["push_robot"] = EventTermCfg(
             mode="interval",
-            interval_range_s=(10.0, 15.0),
+            interval_range_s=(1.0, 3.0),
             func=mdp.push_by_setting_velocity,
-            params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
+            params={
+                "velocity_range": {
+                    "x": (-0.5, 0.5),
+                    "y": (-0.5, 0.5),
+                    "z": (-0.4, 0.4),
+                    "roll": (-0.52, 0.52),
+                    "pitch": (-0.52, 0.52),
+                    "yaw": (-0.78, 0.78),
+                },
+            },
         )
     return cfg
