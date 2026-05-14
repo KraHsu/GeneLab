@@ -1,11 +1,13 @@
 """Unit tests for :mod:`genelab.terrains`.
 
 The generator is Genesis-free: it builds a 2D layout and kwargs dict for
-``gs.morphs.Terrain``. The importer is gated on Genesis availability via
-``importorskip`` for the integration smoke at the bottom.
+``gs.morphs.Terrain``. The importer is gated on Genesis runtime availability via
+the ``genesis_runtime`` fixture (skipped when ``libEGL`` is missing, e.g. on the
+default headless CI runner).
 """
 
 from collections import Counter
+from typing import Any
 
 import pytest
 import torch
@@ -181,10 +183,8 @@ def test_importer_heightfield_blocks_pre_spawn() -> None:
         _ = importer.terrain_scale
 
 
-def test_importer_spawns_and_exposes_height_field() -> None:
-    gs = pytest.importorskip("genesis")
-    if not getattr(gs, "_initialized", False):
-        gs.init(backend=gs.cpu, logging_level="warning")
+def test_importer_spawns_and_exposes_height_field(genesis_runtime: Any) -> None:
+    gs = genesis_runtime
     cfg = TerrainGeneratorCfg(
         num_rows=2,
         num_cols=2,
