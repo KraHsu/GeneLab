@@ -23,6 +23,16 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 - `TerrainImporter` gains `heightfield_tensor(device, dtype)` (device-keyed cache),
   `horizontal_scale`, `vertical_scale`, and `terrain_origin` accessors used by the
   ray-cast sampler.
+- `TerrainImporter` tracks per-env curriculum state via `terrain_levels` /
+  `terrain_cols` / `spawn_pos`; `init_per_env_state(num_envs, device)` is called once
+  by `InteractiveScene.build()` post-Genesis-build. `update_env_origins(env_ids)`
+  recomputes spawn origins after a level change.
+- `genelab.mdp.curriculums.terrain_levels_vel`: curriculum term that promotes /
+  demotes each env's terrain level by how far it walked from spawn (XY distance vs
+  configurable `distance_threshold` and `demote_ratio`), then writes the new spawn
+  pose into the sim via `Articulation.write_root_state`.
+- `docs/concepts/terrains.{en,zh}.md`: bilingual concept page covering the generator,
+  importer, sensor integration, curriculum, and known failure modes.
 - `genelab.actuator` namespace with `ActuatorBase` and three concrete electromechanical
   models: `ImplicitPDActuator` (Genesis-internal PD), `IdealPDActuator` (Python-side PD
   via `control_dofs_force`), `DCMotorActuator` (`IdealPD` plus driving-direction torque

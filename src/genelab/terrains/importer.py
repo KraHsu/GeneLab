@@ -22,6 +22,10 @@ class TerrainImporter:
         self.generator = TerrainGenerator(cfg)
         self._gs_handle: Any = None
         self._hf_tensor_cache: dict[tuple[str, torch.dtype], torch.Tensor] = {}
+        # Per-env curriculum state, allocated by ``init_per_env_state`` post-build.
+        self._terrain_levels: torch.Tensor | None = None
+        self._terrain_cols: torch.Tensor | None = None
+        self._spawn_pos: torch.Tensor | None = None
 
     # ------------------------------------------------------------------ lifecycle
 
@@ -95,3 +99,60 @@ class TerrainImporter:
     @property
     def gs_handle(self) -> Any:
         return self._gs_handle
+
+    # ------------------------------------------------------------------ curriculum state
+
+    def init_per_env_state(self, num_envs: int, device: str) -> None:
+        """Allocate per-env terrain level / column / spawn buffers (idempotent).
+
+        Called by :class:`genelab.scene.InteractiveScene` after Genesis ``scene.build``.
+        Each env starts at row 0 (the easiest difficulty when the cfg is shaped as a
+        curriculum) and is assigned a column deterministically from ``cfg.seed``.
+        """
+        if self._terrain_levels is not None:
+            return
+        cfg = self.cfg
+        self._terrain_levels = torch.zeros(num_envs, dtype=torch.long, device=device)
+        gen = torch.Generator(device="cpu")
+        gen.manual_seed(cfg.seed + 1)
+        cols_cpu = torch.randint(0, cfg.num_cols, (num_envs,), generator=gen, dtype=torch.long)
+        self._terrain_cols = cols_cpu.to(device)
+        origins = self.generator.env_origins.to(device)
+        self._spawn_pos = origins[self._terrain_levels, self._terrain_cols].clone()
+
+    @property
+    def terrain_levels(self) -> torch.Tensor:
+        """Per-env current row index, shape ``(num_envs,)`` int64."""
+        if self._terrain_levels is None:
+            raise RuntimeError(
+                "TerrainImporter.terrain_levels accessed before init_per_env_state()"
+            )
+        return self._terrain_levels
+
+    @property
+    def terrain_cols(self) -> torch.Tensor:
+        """Per-env column index, shape ``(num_envs,)`` int64."""
+        if self._terrain_cols is None:
+            raise RuntimeError("TerrainImporter.terrain_cols accessed before init_per_env_state()")
+        return self._terrain_cols
+
+    @property
+    def spawn_pos(self) -> torch.Tensor:
+        """Per-env spawn origin, shape ``(num_envs, 3)``."""
+        if self._spawn_pos is None:
+            raise RuntimeError("TerrainImporter.spawn_pos accessed before init_per_env_state()")
+        return self._spawn_pos
+
+    def update_env_origins(self, env_ids: torch.Tensor) -> torch.Tensor:
+        """Recompute ``spawn_pos[env_ids]`` from the current ``terrain_levels`` / ``terrain_cols``.
+
+        Returns the newly written origins, shape ``(len(env_ids), 3)`` — callers feed this
+        directly to ``Articulation.write_root_state`` to relocate the envs.
+        """
+        levels = self.terrain_levels
+        cols = self.terrain_cols
+        spawn = self.spawn_pos
+        origins = self.generator.env_origins.to(spawn.device)
+        new_pos = origins[levels[env_ids], cols[env_ids]]
+        spawn[env_ids] = new_pos
+        return new_pos
