@@ -98,6 +98,7 @@ plugins:
             Registry: 注册表
             Configs: 配置系统
             Sensors: 传感器
+            Terrains: 地形
             Extensions: 扩展加载
             Examples: 示例
             Inverted Pendulum: 倒立摆
@@ -162,6 +163,7 @@ nav:
       - Configs: concepts/configs.md
       - Actuators: concepts/actuators.md
       - Sensors: concepts/sensors.md
+      - Terrains: concepts/terrains.md
       - Extensions: concepts/extensions.md
   - Examples:
       - Overview: examples/overview.md
