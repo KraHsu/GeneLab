@@ -22,6 +22,7 @@ import torch
 
 from genelab.entity import Articulation, ArticulationCfg, RigidObject, RigidObjectCfg
 from genelab.entity._torch import to_tensor
+from genelab.terrains import TerrainImporter
 
 
 class InteractiveScene:
@@ -45,6 +46,11 @@ class InteractiveScene:
         self._entities: dict[str, Articulation | RigidObject] = {}
         for name, entity_cfg in dict(scene_cfg.entities).items():
             self._entities[name] = self._make_entity(name, entity_cfg)
+        # Terrain is optional. When None, ``build()`` adds a default flat plane (matches
+        # M2 behavior); when set, the importer spawns a Genesis ``Terrain`` morph instead.
+        self._terrain: TerrainImporter | None = (
+            TerrainImporter(scene_cfg.terrain) if scene_cfg.terrain is not None else None
+        )
 
     def add_entity(self, name: str, cfg: ArticulationCfg | RigidObjectCfg) -> None:
         """Register an additional entity before ``build()``."""
@@ -95,7 +101,10 @@ class InteractiveScene:
             sim_options=sim_options,
             show_viewer=self._sim_cfg.vis,
         )
-        self._gs_scene.add_entity(gs.morphs.Plane())
+        if self._terrain is None:
+            self._gs_scene.add_entity(gs.morphs.Plane())
+        else:
+            self._terrain.spawn(self._gs_scene)
         for entity in self._entities.values():
             entity.spawn(self._gs_scene)
 
@@ -197,3 +206,8 @@ class InteractiveScene:
     @property
     def gs_scene(self) -> Any:
         return self._gs_scene
+
+    @property
+    def terrain(self) -> TerrainImporter | None:
+        """The active :class:`TerrainImporter`, or ``None`` for the default flat plane."""
+        return self._terrain
