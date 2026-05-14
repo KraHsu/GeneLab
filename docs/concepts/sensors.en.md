@@ -73,6 +73,28 @@ The velocimeter math is `v_site = v_link + ω × (R_link · offset)` rotated int
 matching MuJoCo's lever-arm convention so a GeneLab-trained policy reads the same signal as the
 mjlab reference.
 
+### IMUSensor
+
+Inertial Measurement Unit at a site rigidly attached to a link. Outputs orientation
+(`link_quat_w`), body-frame projected unit gravity, and body-frame linear / angular
+acceleration. Accelerations are computed by finite difference of the world-frame velocity
+buffers; the first control step after every `reset` returns zero acceleration to avoid a
+spurious spike from a stale `prev` value — document this in any reward / observation term
+that consumes `lin_acc_b` or `ang_acc_b` near reset boundaries.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `link_name` | `str` | Link the IMU is rigidly attached to. |
+| `offset` | `tuple[float, float, float]` | Site position in the link's local frame; contributes the lever-arm term to linear acceleration. |
+| `gravity_bias` | `bool` | When `True`, output is the specific force `R^T (a_w - g_w)` — matches a real accelerometer at rest reading `+g` along its up axis. |
+| `bias_range_lin_acc` | `tuple[float, float] \| None` | Per-env constant accelerometer bias resampled on `reset`. |
+| `bias_range_ang_acc` | `tuple[float, float] \| None` | Per-env constant gyro-derivative bias resampled on `reset`. |
+
+`IMUSensor` does not output linear or angular velocity — that remains the role of
+`BodyVelocitySensor`, which can coexist on the same link when both signals are needed. The
+finite-difference at the control rate is **not** filtered internally; layer
+`ObservationTermCfg.noise` + `scale` on top, or apply a custom EMA in the observation term.
+
 ### ContactSensor
 
 Per-link aggregate of `robot.get_links_net_contact_force()`. With `track_air_time=True`, an
