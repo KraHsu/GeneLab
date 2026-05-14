@@ -8,6 +8,11 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `RingPattern` and `HemispherePattern` ray-cast patterns alongside the existing
+  `GridPattern`. `RingPattern` covers multi-line LIDAR sweeps (`num_horizontal × num_vertical`
+  rays, automatic wrap-around handling on a 360° span); `HemispherePattern` distributes rays
+  on a spherical cap via a Fibonacci lattice with configurable pole axis and half-angle.
+  `RayCastSensorCfg.pattern` is now typed `GridPattern | RingPattern | HemispherePattern`.
 - `genelab.terrains` namespace with `SubTerrainCfg` (abstract) and five concrete
   sub-terrains: `FlatPatchCfg`, `PyramidStairsCfg`, `RandomRoughCfg`, `SlopeCfg`,
   `WaveCfg`. `TerrainGeneratorCfg` composes them into a 2D grid (random by proportion
