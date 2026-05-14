@@ -14,5 +14,6 @@ def ensure_project_cache() -> None:
 
     XDG_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     MATPLOTLIB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    (XDG_CACHE_DIR / "genesis").mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("XDG_CACHE_HOME", str(XDG_CACHE_DIR))
     os.environ.setdefault("MPLCONFIGDIR", str(MATPLOTLIB_CACHE_DIR))
