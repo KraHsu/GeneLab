@@ -107,6 +107,24 @@ velocimeter 计算公式为 `v_site = v_link + ω × (R_link · offset)`，再�
 配套的观测 term —— `mdp.foot_air_time`、`mdp.foot_contact`、`mdp.foot_contact_forces` ——
 直接读取这个数据类。
 
+### FrameTransformerSensor
+
+无状态的正向运动学探针：输出一个或多个目标系相对于单一源系的位姿，源 / 目标在各自
+link 局部系下都支持刚性偏移。数据类同时暴露世界系位姿与源系位姿，下游 reward /
+observation term 可按需取用而不必自行复合运算。典型场景：在 base link 系下读取末端执行器
+位姿、对比两个脚尖系做步态约束、把负载位姿表达在抓取点局部系下。
+
+| 字段 | 类型 | 含义 |
+|------|------|------|
+| `source_link_name` | `str` | 表达 target 所用的参考系。 |
+| `source_offset_pos` | `tuple[float, float, float]` | 源端在 link 局部系下的位移偏移。 |
+| `source_offset_quat` | `tuple[float, float, float, float]` | 源端旋转偏移（wxyz）。 |
+| `target_frames` | `tuple[TargetFrameCfg, ...]` | 保序的 target 列表 —— 输出 `N` 轴顺序即 cfg 顺序。 |
+
+每个 `TargetFrameCfg` 含 `link_name`、可选的 `name`（默认为 `link_name`）、`offset_pos`
+与 `offset_quat`。传感器属性 `target_names: tuple[str, ...]` 暴露给下游按名字定位列。
+`bind` 会拒绝未知 link 名以及空 `target_frames`。
+
 ### Ray-cast patterns
 
 `RayCastSensorCfg.pattern` 接受三种内置 pattern 数据类。自定义 pattern 满足同一非正式协议

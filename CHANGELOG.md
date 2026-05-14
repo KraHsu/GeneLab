@@ -8,6 +8,14 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `FrameTransformerSensor` (with `FrameTransformerSensorCfg`, `TargetFrameCfg`, and
+  `FrameTransformerData`): stateless forward-kinematics probe that outputs the world-frame
+  pose AND source-frame pose for one or more target frames relative to a single source
+  frame. Both source and target support rigid local-frame offsets (position + quaternion).
+  `target_frames` is order-preserving so observation terms can slice by position; the
+  matching `target_names: tuple[str, ...]` attribute exposes column identities. `bind`
+  rejects unknown link names and empty `target_frames` (mirrors the contact-sensor
+  unresolved-link error path).
 - `IMUSensor` (with `IMUSensorCfg` and `IMUData`) sits alongside `BodyVelocitySensor` and
   outputs orientation, body-frame projected unit gravity, and body-frame linear / angular
   acceleration at a site rigidly attached to a link. Accelerations are computed by finite
