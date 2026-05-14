@@ -8,6 +8,13 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `IMUSensor` (with `IMUSensorCfg` and `IMUData`) sits alongside `BodyVelocitySensor` and
+  outputs orientation, body-frame projected unit gravity, and body-frame linear / angular
+  acceleration at a site rigidly attached to a link. Accelerations are computed by finite
+  difference of the world-frame velocity buffers; the first control step after each
+  `reset` returns zero acceleration (deliberate — avoids a spurious spike from a stale
+  prev buffer). `gravity_bias=True` (default) follows the real-IMU specific-force
+  convention. Per-env `bias_range_lin_acc` / `bias_range_ang_acc` resample on every reset.
 - `RingPattern` and `HemispherePattern` ray-cast patterns alongside the existing
   `GridPattern`. `RingPattern` covers multi-line LIDAR sweeps (`num_horizontal × num_vertical`
   rays, automatic wrap-around handling on a 360° span); `HemispherePattern` distributes rays

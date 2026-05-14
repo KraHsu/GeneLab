@@ -17,6 +17,7 @@ from genelab.sensor import (
     ContactSensorCfg,
     GridPattern,
     HemispherePattern,
+    IMUSensorCfg,
     RayCastSensorCfg,
     RingPattern,
     Sensor,
@@ -598,3 +599,116 @@ def test_raycast_sensor_with_upward_hemisphere_clamps_to_max_distance() -> None:
     data = sensor.data
     assert data.distances.shape == (1, 16)
     assert torch.allclose(data.distances, torch.full((1, 16), 4.0))
+
+
+# --------------------------------------------------------------------- IMUSensor
+
+
+def test_imu_sensor_static_link_reads_negative_body_gravity() -> None:
+    env = _FakeRobotEnv()
+    sensor = IMUSensorCfg(name="imu", link_name="pelvis", gravity_bias=True).build()
+    sensor.bind(env)
+    sensor.update(0.02)
+    data = sensor.data
+    assert data.orientation.shape == (2, 4)
+    assert torch.allclose(data.orientation[0], torch.tensor([1.0, 0.0, 0.0, 0.0]))
+    # Identity quat → projected gravity is (0, 0, -1).
+    assert torch.allclose(data.projected_gravity_b[0], torch.tensor([0.0, 0.0, -1.0]))
+    # First step zero-acceleration + gravity bias → lin_acc_b ≈ -g_b = (0, 0, +9.81).
+    assert torch.allclose(data.lin_acc_b[0], torch.tensor([0.0, 0.0, 9.81]), atol=1e-5)
+    assert torch.allclose(data.ang_acc_b[0], torch.zeros(3), atol=1e-6)
+
+
+def test_imu_sensor_first_step_after_reset_returns_zero_acc() -> None:
+    env = _FakeRobotEnv()
+    sensor = IMUSensorCfg(name="imu", link_name="pelvis", gravity_bias=False).build()
+    sensor.bind(env)
+    # Prime the sensor with a non-trivial velocity to seed _prev.
+    env.robot_state.link_lin_vel_w[:, 0] = torch.tensor([1.0, 0.0, 0.0])
+    env.robot_state.link_ang_vel_w[:, 0] = torch.tensor([0.0, 1.0, 0.0])
+    sensor.update(0.02)
+    # Now reset env 0 → first-step flag re-armed.
+    sensor.reset(torch.tensor([0]))
+    env.robot_state.link_lin_vel_w[:, 0] = torch.tensor([5.0, 0.0, 0.0])
+    sensor.update(0.02)
+    data = sensor.data
+    assert torch.allclose(data.lin_acc_b[0], torch.zeros(3), atol=1e-6)
+    assert torch.allclose(data.ang_acc_b[0], torch.zeros(3), atol=1e-6)
+
+
+def test_imu_sensor_finite_diff_linear_acceleration() -> None:
+    # Two ticks with constant world-frame velocity ramp v = a * t → lin_acc_b ≈ a.
+    env = _FakeRobotEnv()
+    sensor = IMUSensorCfg(name="imu", link_name="pelvis", gravity_bias=False).build()
+    sensor.bind(env)
+    dt = 0.02
+    a = torch.tensor([2.0, -1.5, 0.5])
+    env.robot_state.link_lin_vel_w[:, 0] = 0.0 * a
+    sensor.update(dt)  # primes prev
+    env.robot_state.link_lin_vel_w[:, 0] = 1.0 * dt * a
+    sensor.update(dt)
+    data = sensor.data
+    expected = a
+    assert torch.allclose(data.lin_acc_b[0], expected, atol=1e-5)
+
+
+def test_imu_sensor_finite_diff_angular_acceleration() -> None:
+    env = _FakeRobotEnv()
+    sensor = IMUSensorCfg(name="imu", link_name="pelvis", gravity_bias=False).build()
+    sensor.bind(env)
+    dt = 0.02
+    env.robot_state.link_ang_vel_w[:, 0] = torch.tensor([1.0, 0.0, 0.0])
+    sensor.update(dt)  # primes prev
+    env.robot_state.link_ang_vel_w[:, 0] = torch.tensor([1.1, 0.0, 0.0])
+    sensor.update(dt)
+    data = sensor.data
+    assert torch.allclose(data.ang_acc_b[0], torch.tensor([0.1 / dt, 0.0, 0.0]), atol=1e-5)
+
+
+def test_imu_sensor_lin_acc_bias_randomizes_on_reset() -> None:
+    torch.manual_seed(0)
+    env = _FakeRobotEnv(num_envs=64)
+    sensor = IMUSensorCfg(
+        name="imu",
+        link_name="pelvis",
+        gravity_bias=False,
+        bias_range_lin_acc=(-0.5, 0.5),
+    ).build()
+    sensor.bind(env)
+    sensor.update(0.02)
+    first = sensor.data.lin_acc_b.clone()
+    # First-step acceleration is zero across envs; bias is the sole non-zero contribution.
+    assert (first.abs() <= 0.5 + 1e-6).all()
+    assert first.std() > 0.0
+    sensor.reset(torch.arange(64))
+    sensor.update(0.02)
+    second = sensor.data.lin_acc_b
+    assert not torch.equal(first, second)
+
+
+def test_imu_sensor_coexists_with_body_velocity_sensor() -> None:
+    env = _FakeRobotEnv()
+    env.robot_state.link_lin_vel_w[:, 0] = torch.tensor([1.0, 0.0, 0.0])
+    env.robot_state.link_ang_vel_w[:, 0] = torch.tensor([0.0, 0.0, 0.5])
+    imu = IMUSensorCfg(name="imu", link_name="pelvis", gravity_bias=False).build()
+    bv = BodyVelocitySensorCfg(name="bv", link_name="pelvis", measure="lin_vel").build()
+    imu.bind(env)
+    bv.bind(env)
+    imu.update(0.02)
+    bv.update(0.02)
+    # IMU at first step returns zero accel; BodyVelocity returns body-frame velocity.
+    imu_data = imu.data
+    bv_data = bv.data
+    assert torch.allclose(imu_data.lin_acc_b[0], torch.zeros(3), atol=1e-6)
+    assert torch.allclose(bv_data[0], torch.tensor([1.0, 0.0, 0.0]), atol=1e-6)
+
+
+def test_imu_sensor_rejects_unknown_link() -> None:
+    env = _FakeRobotEnv()
+    sensor = IMUSensorCfg(name="x", link_name="nonexistent").build()
+    try:
+        sensor.bind(env)
+    except ValueError as exc:
+        assert "nonexistent" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for unknown link_name")
