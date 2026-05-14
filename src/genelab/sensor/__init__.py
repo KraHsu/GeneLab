@@ -2,6 +2,7 @@
 
 from genelab.sensor.body_velocity import BodyVelocitySensor, BodyVelocitySensorCfg
 from genelab.sensor.contact import ContactData, ContactSensor, ContactSensorCfg
+from genelab.sensor.imu import IMUData, IMUSensor, IMUSensorCfg
 from genelab.sensor.ray_cast import (
     GridPattern,
     HemispherePattern,
@@ -21,6 +22,9 @@ __all__ = [
     "ContactSensorCfg",
     "GridPattern",
     "HemispherePattern",
+    "IMUData",
+    "IMUSensor",
+    "IMUSensorCfg",
     "RayCastData",
     "RayCastSensor",
     "RayCastSensorCfg",
