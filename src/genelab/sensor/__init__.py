@@ -4,9 +4,11 @@ from genelab.sensor.body_velocity import BodyVelocitySensor, BodyVelocitySensorC
 from genelab.sensor.contact import ContactData, ContactSensor, ContactSensorCfg
 from genelab.sensor.ray_cast import (
     GridPattern,
+    HemispherePattern,
     RayCastData,
     RayCastSensor,
     RayCastSensorCfg,
+    RingPattern,
 )
 from genelab.sensor.sensor import Sensor, SensorCfg
 from genelab.sensor.terrain_height import TerrainHeightSensor, TerrainHeightSensorCfg
@@ -18,9 +20,11 @@ __all__ = [
     "ContactSensor",
     "ContactSensorCfg",
     "GridPattern",
+    "HemispherePattern",
     "RayCastData",
     "RayCastSensor",
     "RayCastSensorCfg",
+    "RingPattern",
     "Sensor",
     "SensorCfg",
     "TerrainHeightSensor",
