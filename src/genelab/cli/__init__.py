@@ -61,10 +61,10 @@ class _RegistryKindArg(str, Enum):
 _AGENT_KINDS: Final[frozenset[str]] = frozenset({"zero", "random", "trained"})
 
 _PLAY_RETARGETED_KEYS: Final[tuple[str, ...]] = (
-    "env.scene.vis",
-    "env.scene.gpu",
-    "env.scene.steps",
-    "env.scene.dt",
+    "env.simulation.vis",
+    "env.simulation.gpu",
+    "env.simulation.steps",
+    "env.simulation.dt",
 )
 
 
@@ -72,10 +72,10 @@ _RUN_FLAGS_HELP: Final[str] = """\
 Shorthand flags rewritten into env overrides:
 
 \b
-  -v, --vis        Enable the Genesis viewer (env.scene.vis=true).
-  --gpu            Use the GPU backend (env.scene.gpu=true).
-  --steps N        Run for N steps (env.scene.steps=N).
-  --dt SECONDS     Override the sim timestep (env.scene.dt=SECONDS).
+  -v, --vis        Enable the Genesis viewer (env.simulation.vis=true).
+  --gpu            Use the GPU backend (env.simulation.gpu=true).
+  --steps N        Run for N steps (env.simulation.steps=N).
+  --dt SECONDS     Override the sim timestep (env.simulation.dt=SECONDS).
   --a.b.c VALUE    Set any dotted cfg path.
 
 Runner flags (used when an RL runner is engaged):
@@ -318,7 +318,7 @@ def _configured_task(tokens: list[str], *, command: str) -> tuple[_RunnableTask,
 
     # In play mode, retarget the short --vis / --gpu / --steps / --dt shortcuts at the
     # task's play_env when one is configured. Keeps `genelab play TASK --vis` working
-    # without forcing users to spell `play_env.scene.vis`.
+    # without forcing users to spell `play_env.simulation.vis`.
     if command == "play" and getattr(task.cfg, "play_env", None) is not None:
         for short_key in _PLAY_RETARGETED_KEYS:
             if short_key in overrides:
@@ -402,7 +402,7 @@ def _relaunch_under_torchrun(
     The parent precomputes the log directory and forwards it via ``--log-dir`` so all
     ranks land in the same directory (avoiding per-rank timestamp drift). The original
     argv is forwarded verbatim minus the ``--gpus N`` tokens so env overrides such as
-    ``--env.scene.steps 5`` survive the relaunch.
+    ``--env.simulation.steps 5`` survive the relaunch.
     """
     from genelab.rl.runner import resolve_log_dir
 

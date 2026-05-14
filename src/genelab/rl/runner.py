@@ -109,7 +109,7 @@ def train_task(
     ensure_project_cache()
     env_cfg = _resolve_env_cfg(task_id, play=False)
     if num_envs is not None:
-        env_cfg.scene.num_envs = int(num_envs)
+        env_cfg.simulation.num_envs = int(num_envs)
     if seed is not None:
         env_cfg.seed = int(seed)
         agent_cfg.seed = int(seed)
@@ -162,7 +162,7 @@ def play_task(
         raise SystemExit("agent='trained' requires a --checkpoint path")
     env_cfg = _resolve_env_cfg(task_id, play=True)
     if num_envs is not None:
-        env_cfg.scene.num_envs = int(num_envs)
+        env_cfg.simulation.num_envs = int(num_envs)
     env = _build_env(env_cfg)
     wrapped = RslRlVecEnvWrapper(env, clip_actions=None)
 

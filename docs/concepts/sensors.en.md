@@ -22,22 +22,22 @@ class Sensor[T](ABC):
     def _compute_data(self) -> T: ...
 ```
 
-The env wires the lifecycle automatically: sensors built from `SceneCfg.sensors` get `update`
-called after `_refresh_robot_state` and `reset` called from inside `_reset_idx`, so reward and
-observation terms always see fresh sensor data.
+The env wires the lifecycle automatically: sensors built from `InteractiveSceneCfg.sensors`
+get `update` called after each articulation refresh and `reset` called from inside
+`_reset_idx`, so reward and observation terms always see fresh sensor data.
 
 ## Registering on a scene
 
-`SceneCfg.sensors` is a tuple of `SensorCfg`. `ManagerBasedRlEnv.__init__` calls `build()` on
-each cfg and binds the resulting sensor to the env. Access at runtime is via
+`InteractiveSceneCfg.sensors` is a tuple of `SensorCfg`. `ManagerBasedRlEnv.__init__` calls
+`build()` on each cfg and binds the resulting sensor to the env. Access at runtime is via
 `env.sensors[name].data`.
 
 ```python
-from genelab.configs import SceneCfg
+from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.sensor import BodyVelocitySensorCfg, ContactSensorCfg
 
-scene = SceneCfg(
-    num_envs=4096,
+simulation = SimulationCfg(num_envs=4096)
+scene = InteractiveSceneCfg(
     sensors=(
         BodyVelocitySensorCfg(
             name="imu_lin_vel",
@@ -177,7 +177,8 @@ class JointTorqueSensor(Sensor[torch.Tensor]):
         return self._env.joint_kp * (rs.joint_pos - self._env.default_joint_pos)
 ```
 
-Add the cfg to `SceneCfg.sensors` and the sensor is reachable as `env.sensors[name].data`.
+Add the cfg to `InteractiveSceneCfg.sensors` and the sensor is reachable as
+`env.sensors[name].data`.
 
 ## See also
 

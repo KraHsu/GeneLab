@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from genelab.configs import ManagerBasedEnvCfg, SceneCfg
+from genelab.configs import ManagerBasedEnvCfg, SimulationCfg
 
 from genelab_examples.wuji_hand.assets import DEFAULT_DESC_DIR, DEFAULT_TRAJECTORY
 
@@ -17,6 +17,8 @@ class WujiRobotCfg:
 
 @dataclass
 class WujiEnvCfg(ManagerBasedEnvCfg):
-    scene: SceneCfg = field(default_factory=lambda: SceneCfg(steps=0, dt=0.01, substeps=1))
+    simulation: SimulationCfg = field(
+        default_factory=lambda: SimulationCfg(steps=0, dt=0.01, substeps=1)
+    )
     robot: WujiRobotCfg = field(default_factory=WujiRobotCfg)
     reset_interval: int = 500

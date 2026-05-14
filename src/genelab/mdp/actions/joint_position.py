@@ -54,7 +54,7 @@ class JointPositionAction(ActionTerm):
         self._joint_indices = torch.tensor(matched, dtype=torch.long, device=self.device)
 
         if isinstance(cfg.scale, dict):
-            scale = env._build_per_joint_tensor(cfg.scale, default=1.0)  # type: ignore[attr-defined]
+            scale = env.articulation.build_per_joint_tensor(cfg.scale, default=1.0)
             self._scale = scale[self._joint_indices]
         else:
             self._scale = torch.full((len(matched),), float(cfg.scale), device=self.device)
@@ -84,12 +84,8 @@ class JointPositionAction(ActionTerm):
             control = getattr(self._env.robot, "set_dofs_position_target", None)
         if control is None:
             return
-        # Use the env-resolved actuated DoF indices (global), filtered by joint mask.
-        actuated_idx = getattr(self._env, "_actuated_dof_idx", None)
-        if actuated_idx is not None:
-            dof_indices = actuated_idx.index_select(0, self._joint_indices)
-        else:
-            dof_indices = self._joint_indices
+        # Use the articulation-resolved actuated DoF indices (global), filtered by joint mask.
+        dof_indices = self._env.articulation.actuated_dof_idx.index_select(0, self._joint_indices)
         try:
             control(self._target, dof_indices)
         except TypeError:
