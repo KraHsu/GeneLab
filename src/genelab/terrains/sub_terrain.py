@@ -73,3 +73,40 @@ class RandomRoughCfg(SubTerrainCfg):
             "step": self.step,
             "downsampled_scale": self.downsampled_scale,
         }
+
+
+@dataclass
+class SlopeCfg(SubTerrainCfg):
+    """Linearly inclined patch.
+
+    ``slope`` is signed: negative tilts down along Genesis's default direction,
+    matching the ``-0.5`` default that ``gs.morphs.Terrain`` ships for the
+    built-in ``sloped_terrain`` preset.
+    """
+
+    slope: float = -0.5
+
+    def genesis_type(self) -> str:
+        return "sloped_terrain"
+
+    def to_genesis_params(self) -> dict[str, Any]:
+        return {"slope": self.slope}
+
+
+@dataclass
+class WaveCfg(SubTerrainCfg):
+    """Sinusoidal undulations across the patch.
+
+    ``num_waves`` is the wave-cycle count across the cell; ``amplitude`` is the
+    half peak-to-peak height in metres. Defaults match Genesis built-ins
+    (``num_waves=2.0``, ``amplitude=0.1``).
+    """
+
+    num_waves: float = 2.0
+    amplitude: float = 0.1
+
+    def genesis_type(self) -> str:
+        return "wave_terrain"
+
+    def to_genesis_params(self) -> dict[str, Any]:
+        return {"num_waves": self.num_waves, "amplitude": self.amplitude}
