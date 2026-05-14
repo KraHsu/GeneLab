@@ -6,15 +6,19 @@ from genelab.terrains.sub_terrain import (
     FlatPatchCfg,
     PyramidStairsCfg,
     RandomRoughCfg,
+    SlopeCfg,
     SubTerrainCfg,
+    WaveCfg,
 )
 
 __all__ = [
     "FlatPatchCfg",
     "PyramidStairsCfg",
     "RandomRoughCfg",
+    "SlopeCfg",
     "SubTerrainCfg",
     "TerrainGenerator",
     "TerrainGeneratorCfg",
     "TerrainImporter",
+    "WaveCfg",
 ]
