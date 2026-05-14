@@ -1,5 +1,6 @@
 """Sensor abstraction + obs-noise pipeline. Uses a fake env so Genesis is not required."""
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,7 +16,9 @@ from genelab.sensor import (
     BodyVelocitySensorCfg,
     ContactSensorCfg,
     GridPattern,
+    HemispherePattern,
     RayCastSensorCfg,
+    RingPattern,
     Sensor,
     SensorCfg,
     TerrainHeightSensorCfg,
@@ -478,3 +481,120 @@ def test_terrain_height_sensor_lifecycle_propagates_to_inner_sensor() -> None:
     _ = sensor.data
     sensor.reset(torch.tensor([0]))
     assert sensor._cache_valid is False
+
+
+# --------------------------------------------------------------------- Pattern: Ring / Hemisphere
+
+
+def test_ring_pattern_full_sweep_does_not_duplicate_endpoint() -> None:
+    pattern = RingPattern(
+        num_horizontal=8,
+        num_vertical=1,
+        horizontal_fov_deg=(-180.0, 180.0),
+        vertical_fov_deg=(0.0, 0.0),
+    )
+    starts, dirs = pattern.generate("cpu")
+    assert pattern.num_rays() == 8
+    assert starts.shape == (8, 3) and dirs.shape == (8, 3)
+    assert torch.allclose(starts, torch.zeros(8, 3))
+    # All rays sit in the horizontal plane.
+    assert torch.allclose(dirs[..., 2], torch.zeros(8), atol=1e-6)
+    # Unit norm.
+    assert torch.allclose(dirs.norm(dim=-1), torch.ones(8), atol=1e-6)
+    # 360° sweep with N=8 means azimuth step = 45°; first ray points along -x.
+    # The closing endpoint (+180°) must not equal the opening (-180°): both map to (-1, 0, 0)
+    # in cartesian. Confirm no duplicate by checking the last ray is at +135°, not +180°.
+    last_dir = dirs[-1]
+    expected_last = torch.tensor(
+        [math.cos(math.radians(135.0)), math.sin(math.radians(135.0)), 0.0]
+    )
+    assert torch.allclose(last_dir, expected_last, atol=1e-6)
+
+
+def test_ring_pattern_multi_line_lidar_layout() -> None:
+    pattern = RingPattern(
+        num_horizontal=4,
+        num_vertical=3,
+        horizontal_fov_deg=(0.0, 90.0),
+        vertical_fov_deg=(-10.0, 10.0),
+    )
+    starts, dirs = pattern.generate("cpu")
+    assert pattern.num_rays() == 12
+    assert dirs.shape == (12, 3)
+    assert torch.allclose(dirs.norm(dim=-1), torch.ones(12), atol=1e-6)
+    # Vertical varies slowest (outer index): first 4 rays share the same elevation.
+    assert torch.allclose(dirs[0, 2], dirs[3, 2], atol=1e-6)
+    assert not torch.isclose(dirs[0, 2], dirs[4, 2], atol=1e-6)
+
+
+def test_hemisphere_pattern_covers_pole_axis_half_space() -> None:
+    pattern = HemispherePattern(num_rays_target=128, pole_axis=(0.0, 0.0, 1.0), polar_fov_deg=90.0)
+    starts, dirs = pattern.generate("cpu")
+    assert pattern.num_rays() == 128
+    assert dirs.shape == (128, 3)
+    # All directions are unit length.
+    assert torch.allclose(dirs.norm(dim=-1), torch.ones(128), atol=1e-5)
+    # On a hemisphere around +z all rays have dot(d, +z) >= 0.
+    pole = torch.tensor([0.0, 0.0, 1.0])
+    assert (dirs @ pole >= -1e-6).all()
+    # Mean direction tracks the pole (Fibonacci lattice is well-distributed).
+    assert torch.allclose(dirs.mean(dim=0)[2], torch.tensor(0.5), atol=0.1)
+
+
+def test_hemisphere_pattern_rotates_to_arbitrary_pole_axis() -> None:
+    pattern = HemispherePattern(num_rays_target=64, pole_axis=(1.0, 0.0, 0.0), polar_fov_deg=90.0)
+    _, dirs = pattern.generate("cpu")
+    pole = torch.tensor([1.0, 0.0, 0.0])
+    assert (dirs @ pole >= -1e-6).all()
+    # No ray points opposite to the pole.
+    assert (dirs @ pole > -0.01).all()
+
+
+def test_hemisphere_pattern_antipodal_pole_axis_flips_correctly() -> None:
+    pattern = HemispherePattern(num_rays_target=32, pole_axis=(0.0, 0.0, -1.0), polar_fov_deg=90.0)
+    _, dirs = pattern.generate("cpu")
+    # All rays point downward (z <= 0) since the pole is -z.
+    assert (dirs[..., 2] <= 1e-6).all()
+    assert torch.allclose(dirs.norm(dim=-1), torch.ones(32), atol=1e-5)
+
+
+def test_raycast_sensor_accepts_ring_pattern_against_flat_plane() -> None:
+    # Sensor at z=1.0 above the flat plane, all rays tilted 30° below horizon.
+    link_pos = torch.tensor([[[0.0, 0.0, 1.0]]])
+    env = _FakeTerrainEnv(1, ("torso",), link_pos)
+    sensor = RayCastSensorCfg(
+        name="lidar",
+        link_name="torso",
+        pattern=RingPattern(
+            num_horizontal=4,
+            num_vertical=1,
+            horizontal_fov_deg=(-180.0, 180.0),
+            vertical_fov_deg=(-30.0, -30.0),
+        ),
+        max_distance=10.0,
+    ).build()
+    sensor.bind(env)
+    data = sensor.data
+    assert data.distances.shape == (1, 4)
+    # Distance along a 30°-down ray to hit z=0 from z=1.0 is 1.0 / sin(30°) = 2.0.
+    assert torch.allclose(data.distances, torch.full((1, 4), 2.0), atol=1e-5)
+    # All hit points sit on the plane z=0.
+    assert torch.allclose(data.hit_pos_w[..., 2], torch.zeros(1, 4), atol=1e-5)
+
+
+def test_raycast_sensor_with_upward_hemisphere_clamps_to_max_distance() -> None:
+    # Hemisphere pointing +z: no ray hits the flat plane below.
+    link_pos = torch.tensor([[[0.0, 0.0, 0.5]]])
+    env = _FakeTerrainEnv(1, ("torso",), link_pos)
+    sensor = RayCastSensorCfg(
+        name="dome",
+        link_name="torso",
+        pattern=HemispherePattern(
+            num_rays_target=16, pole_axis=(0.0, 0.0, 1.0), polar_fov_deg=80.0
+        ),
+        max_distance=4.0,
+    ).build()
+    sensor.bind(env)
+    data = sensor.data
+    assert data.distances.shape == (1, 16)
+    assert torch.allclose(data.distances, torch.full((1, 16), 4.0))

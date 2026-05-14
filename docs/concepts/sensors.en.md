@@ -90,19 +90,44 @@ the completed durations into `last_air_time` / `last_contact_time` at the contac
 buffers. The matching obs terms — `mdp.foot_air_time`, `mdp.foot_contact`,
 `mdp.foot_contact_forces` — read straight off this dataclass.
 
+### Ray-cast patterns
+
+`RayCastSensorCfg.pattern` accepts any of the three bundled pattern dataclasses. Custom
+patterns satisfy the same informal protocol — `num_rays() -> int` and
+`generate(device) -> (starts, dirs)` with both tensors shaped `(M, 3)` in the sensor's local
+frame — and slot in without changing `RayCastSensor` itself.
+
+`GridPattern` is the default; rays are parallel and arranged on a 2D rectangle. `RingPattern`
+emits `num_horizontal × num_vertical` rays from the origin, evenly spaced in azimuth and
+elevation — the typical multi-line LIDAR layout. `HemispherePattern` distributes
+`num_rays_target` rays on a spherical cap of half-angle `polar_fov_deg` around `pole_axis`
+using a Fibonacci lattice; 90° covers a full hemisphere, 180° a full sphere.
+
+| Pattern | Key fields | Use case |
+|---------|------------|----------|
+| `GridPattern` | `resolution`, `size`, `direction` | Height-scan grids, area sweeps |
+| `RingPattern` | `num_horizontal`, `num_vertical`, `horizontal_fov_deg`, `vertical_fov_deg` | Planar / multi-line LIDAR |
+| `HemispherePattern` | `num_rays_target`, `pole_axis`, `polar_fov_deg` | Proximity dome, downward coverage |
+
+`RingPattern` treats a horizontal span of exactly ±360° as a wrap-around and drops the
+duplicate closing azimuth; any other span (e.g. `(-30, 30)` for a forward-facing scanner) is
+inclusive on both endpoints. `HemispherePattern.num_rays()` returns `num_rays_target`
+exactly — the Fibonacci lattice produces no rounding error.
+
 ### TerrainHeightSensor
 
 2D grid of downward rays anchored to a robot link. Output is per-ray height above the terrain
 (positive = above), useful as a privileged `height_scan` critic observation. The default
-backend intersects every ray against a horizontal plane at `ground_height`; subclassing
-`RayCastSensor` and overriding `_intersect_world_rays` is the extension point for non-flat
-terrain.
+backend intersects every ray against a horizontal plane at `ground_height`; when the scene
+attaches a `TerrainImporter`, the inner `RayCastSensor` bilinearly samples the height-field
+instead. Subclassing `RayCastSensor` and overriding `_intersect_world_rays` is the extension
+point for BVH or other custom backends.
 
 | Field | Type | Meaning |
 |-------|------|---------|
 | `link_name` | `str` | Anchor link for the grid origin. |
-| `pattern` | `GridPattern` | Grid resolution / size / direction. |
-| `attach_yaw_only` | `bool` | Rotate the grid by yaw only so it stays horizon-aligned. |
+| `pattern` | `GridPattern \| RingPattern \| HemispherePattern` | Pattern geometry. |
+| `attach_yaw_only` | `bool` | Rotate the pattern by yaw only so it stays horizon-aligned. |
 | `max_distance` | `float` | Distance clamp for the ray cast. |
 | `ground_height` | `float` | Plane height used by the default flat-plane backend. |
 
