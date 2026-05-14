@@ -8,6 +8,7 @@ without it.
 
 import pytest
 
+from genelab.actuator import ImplicitPDActuatorCfg
 from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.entity import ArticulationCfg, RigidObjectCfg
 from genelab.scene import InteractiveScene
@@ -18,16 +19,21 @@ def test_interactive_scene_two_articulations_and_rigid_object() -> None:
     from genelab_inverted_pendulum.single.robot import get_inverted_pendulum_robot_cfg
 
     ip_path = get_inverted_pendulum_robot_cfg().to_entity_cfg().mjcf_path
+    pendulum_actuators = {
+        "all": ImplicitPDActuatorCfg(
+            target_names_expr=(".*",), stiffness=0.0, damping=0.0, action_scale=0.0
+        ),
+    }
 
     sim_cfg = SimulationCfg(num_envs=1, dt=0.01, substeps=1, vis=False, gpu=False)
     scene_cfg = InteractiveSceneCfg(
         env_spacing=(2.0, 2.0),
         entities={
-            "pendulum_a": ArticulationCfg(mjcf_path=ip_path),
-            "pendulum_b": ArticulationCfg(mjcf_path=ip_path, init_pos=(1.0, 0.0, 0.5)),
-            "obstacle": RigidObjectCfg(
-                morph="box", size=(0.2, 0.2, 0.2), init_pos=(0.5, 0.5, 0.1)
+            "pendulum_a": ArticulationCfg(mjcf_path=ip_path, actuators=pendulum_actuators),
+            "pendulum_b": ArticulationCfg(
+                mjcf_path=ip_path, init_pos=(1.0, 0.0, 0.5), actuators=pendulum_actuators
             ),
+            "obstacle": RigidObjectCfg(morph="box", size=(0.2, 0.2, 0.2), init_pos=(0.5, 0.5, 0.1)),
         },
     )
     scene = InteractiveScene(sim_cfg, scene_cfg, device_hint="cpu")

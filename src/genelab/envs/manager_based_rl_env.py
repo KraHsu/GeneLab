@@ -190,18 +190,6 @@ class ManagerBasedRlEnv:
     def default_joint_pos(self) -> torch.Tensor:
         return self._articulation.default_joint_pos
 
-    @property
-    def joint_kp(self) -> torch.Tensor:
-        return self._articulation.joint_kp
-
-    @property
-    def joint_kv(self) -> torch.Tensor:
-        return self._articulation.joint_kv
-
-    @property
-    def action_scale(self) -> torch.Tensor:
-        return self._articulation.action_scale
-
     # ------------------------------------------------------------------ reference state
 
     def write_joint_state_to_sim(
