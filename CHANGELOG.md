@@ -8,6 +8,14 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `genelab.terrains` namespace with `SubTerrainCfg` (abstract) and three concrete
+  sub-terrains: `FlatPatchCfg`, `PyramidStairsCfg`, `RandomRoughCfg`. `TerrainGeneratorCfg`
+  composes them into a 2D grid (random by proportion or explicit `layout`); `TerrainGenerator`
+  emits Genesis kwargs and per-cell `env_origins`; `TerrainImporter` spawns
+  `gs.morphs.Terrain` and exposes the post-build `heightfield` for sensors (PR2).
+- `InteractiveSceneCfg.terrain` now accepts a `TerrainGeneratorCfg`; `InteractiveScene`
+  routes through `TerrainImporter` when set, falling back to the default flat plane
+  otherwise. `InteractiveScene.terrain` exposes the active importer to consumers.
 - `genelab.actuator` namespace with `ActuatorBase` and three concrete electromechanical
   models: `ImplicitPDActuator` (Genesis-internal PD), `IdealPDActuator` (Python-side PD
   via `control_dofs_force`), `DCMotorActuator` (`IdealPD` plus driving-direction torque

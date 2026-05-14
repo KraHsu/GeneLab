@@ -52,6 +52,15 @@ from genelab.sensor import (
     TerrainHeightSensor,
     TerrainHeightSensorCfg,
 )
+from genelab.terrains import (
+    FlatPatchCfg,
+    PyramidStairsCfg,
+    RandomRoughCfg,
+    SubTerrainCfg,
+    TerrainGenerator,
+    TerrainGeneratorCfg,
+    TerrainImporter,
+)
 
 
 class ManagerBasedEnv(Protocol):
@@ -85,6 +94,7 @@ __all__ = [
     "ContactSensorCfg",
     "DCMotorActuator",
     "DCMotorActuatorCfg",
+    "FlatPatchCfg",
     "GenesisBackendCfg",
     "Gnoise",
     "GridPattern",
@@ -97,6 +107,8 @@ __all__ = [
     "ManagerBasedEnv",
     "ManagerBasedEnvCfg",
     "NoiseCfg",
+    "PyramidStairsCfg",
+    "RandomRoughCfg",
     "RayCastData",
     "RayCastSensor",
     "RayCastSensorCfg",
@@ -108,9 +120,13 @@ __all__ = [
     "Sensor",
     "SensorCfg",
     "SimulationCfg",
+    "SubTerrainCfg",
     "TaskCfg",
+    "TerrainGenerator",
+    "TerrainGeneratorCfg",
     "TerrainHeightSensor",
     "TerrainHeightSensorCfg",
+    "TerrainImporter",
     "Unoise",
     "apply_overrides",
     "load_builtin_registries",
