@@ -97,9 +97,15 @@ def train_task(
     max_iterations: int | None = None,
     seed: int | None = None,
     log_root: Path | None = None,
+    log_dir: Path | None = None,
     resume_from: Path | None = None,
 ) -> Path:
-    """Train ``task_id`` with PPO. Returns the log directory."""
+    """Train ``task_id`` with PPO. Returns the log directory.
+
+    ``log_dir`` (final, pre-resolved) takes precedence over ``log_root`` (parent under
+    which a ``<experiment>/<timestamp>`` directory is created). The torchrun relaunch
+    path pre-resolves the log dir so every rank lands in the same folder.
+    """
     ensure_project_cache()
     env_cfg = _resolve_env_cfg(task_id, play=False)
     if num_envs is not None:
@@ -115,8 +121,9 @@ def train_task(
 
     from rsl_rl.runners import OnPolicyRunner
 
-    log_root = log_root or Path("logs") / "rsl_rl"
-    log_dir = resolve_log_dir(log_root, agent_cfg.experiment_name, agent_cfg.run_name)
+    if log_dir is None:
+        log_root = log_root or Path("logs") / "rsl_rl"
+        log_dir = resolve_log_dir(log_root, agent_cfg.experiment_name, agent_cfg.run_name)
     if is_main_process():
         _save_run_params(log_dir, env_cfg, agent_cfg)
 
