@@ -87,18 +87,40 @@ velocimeter 计算公式为 `v_site = v_link + ω × (R_link · offset)`，再�
 配套的观测 term —— `mdp.foot_air_time`、`mdp.foot_contact`、`mdp.foot_contact_forces` ——
 直接读取这个数据类。
 
+### Ray-cast patterns
+
+`RayCastSensorCfg.pattern` 接受三种内置 pattern 数据类。自定义 pattern 满足同一非正式协议
+即可接入 —— `num_rays() -> int` 和 `generate(device) -> (starts, dirs)`，两个张量都为
+`(M, 3)`，定义在传感器局部系下 —— 无须改动 `RayCastSensor` 本身。
+
+`GridPattern` 是默认：所有光线平行，原点排在 2D 矩形上。`RingPattern` 从原点发出
+`num_horizontal × num_vertical` 条光线，方位角和俯仰角各自均匀分布 —— 典型的多线 LIDAR
+布局。`HemispherePattern` 用 Fibonacci 格点把 `num_rays_target` 条光线均匀分布到以
+`pole_axis` 为极轴、半角为 `polar_fov_deg` 的球冠上；90° 覆盖整个半球，180° 即整个球面。
+
+| Pattern | 关键字段 | 典型用途 |
+|---------|----------|----------|
+| `GridPattern` | `resolution`、`size`、`direction` | 高度场网格、面扫 |
+| `RingPattern` | `num_horizontal`、`num_vertical`、`horizontal_fov_deg`、`vertical_fov_deg` | 平面 / 多线 LIDAR |
+| `HemispherePattern` | `num_rays_target`、`pole_axis`、`polar_fov_deg` | 接近告警球罩、向下覆盖 |
+
+`RingPattern` 将水平角恰好 ±360° 视为环绕扫描，自动丢弃首末重复方位；任意其它跨度（例如
+`(-30, 30)` 的前向扫描器）则把两端点都包含进去。`HemispherePattern.num_rays()` 严格返回
+`num_rays_target`——Fibonacci 格点不会产生取整误差。
+
 ### TerrainHeightSensor
 
 锚定在某个 link 上的 2D 下射光线网格，输出每条光线相对地形的高度（正值表示在地形上方），
 适合作为 critic 的 privileged `height_scan` 观测。默认 backend 把每条光线打到位于
-`ground_height` 的水平面上；非平地场景的扩展点是继承 `RayCastSensor` 并重载
-`_intersect_world_rays`。
+`ground_height` 的水平面上；当场景挂上 `TerrainImporter` 时，内部 `RayCastSensor` 会
+对 height-field 做双线性采样。非平地场景的扩展点是继承 `RayCastSensor` 并重载
+`_intersect_world_rays`，可换成 BVH 或其他自定义 backend。
 
 | 字段 | 类型 | 含义 |
 |------|------|------|
 | `link_name` | `str` | 网格原点锚定的 link。 |
-| `pattern` | `GridPattern` | 网格分辨率 / 尺寸 / 方向。 |
-| `attach_yaw_only` | `bool` | 仅按 yaw 旋转网格，使其保持水平。 |
+| `pattern` | `GridPattern \| RingPattern \| HemispherePattern` | Pattern 几何。 |
+| `attach_yaw_only` | `bool` | 仅按 yaw 旋转 pattern，使其保持水平。 |
 | `max_distance` | `float` | 光线距离上限。 |
 | `ground_height` | `float` | 默认平面 backend 使用的地面高度。 |
 
