@@ -278,6 +278,14 @@ class ManagerBasedRlEnv:
             quat=tuple(robot_cfg.init_quat),
         )
         self._robot: Any = self._scene.add_entity(morph)
+        if self.cfg.scene.vis and self.cfg.scene.mouse_interaction:
+            from genelab.sim.mouse_interaction import GeneLabMouseInteractionPlugin
+
+            # MouseInteractionPlugin must be attached BEFORE ``scene.build()`` — pre-build registration
+            # routes through ``viewer.build`` so the plugin's raycaster sees the fully constructed
+            # rigid solver. Post-build registration deadlocks the sim/viewer loop in some Genesis builds.
+            # ``GeneLabMouseInteractionPlugin`` patches the upstream plugin for batched link APIs.
+            self._scene.viewer.add_plugin(GeneLabMouseInteractionPlugin(use_force=True))
         self._scene.build(
             n_envs=self._num_envs,
             env_spacing=tuple(self.cfg.scene.env_spacing),
