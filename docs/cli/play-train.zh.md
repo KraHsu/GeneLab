@@ -11,15 +11,15 @@ uv run genelab play <task-id> [短标志] [-- 覆盖项]
 
 短标志可放在 `<task-id>` 前或后；CLI 内部会自动整理顺序。
 
-### 场景短标志
+### 仿真短标志
 
-下列短标志会被改写为对应的 `env.scene.*` override：
+下列短标志会被改写为对应的 `env.simulation.*` override：
 
 | 标志 | 等价 override | 作用 |
 |------|--------------|------|
-| `--vis` | `env.scene.vis=true` | 开启 Genesis 可视化。 |
-| `--gpu N` | `env.scene.gpu=N` | 把 rollout 锁定到指定 GPU。 |
-| `--steps N` | `env.scene.steps=N` | 限制 episode 步数。 |
+| `--vis` | `env.simulation.vis=true` | 开启 Genesis 可视化。 |
+| `--gpu N` | `env.simulation.gpu=N` | 把 rollout 锁定到指定 GPU。 |
+| `--steps N` | `env.simulation.steps=N` | 限制 episode 步数。 |
 
 ### 运行时标志
 
@@ -37,7 +37,7 @@ uv run genelab play <task-id> [短标志] [-- 覆盖项]
 
 ```bash
 uv run genelab play <task-id> \
-  --env.scene.dt 0.005 \
+  --env.simulation.dt 0.005 \
   --env.actions.scale 0.5 \
   --env.observations.include_velocity true
 ```

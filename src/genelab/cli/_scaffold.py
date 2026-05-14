@@ -143,7 +143,7 @@ def _template_config() -> str:
 
         from dataclasses import dataclass, field
 
-        from genelab.configs import ManagerBasedEnvCfg, SceneCfg
+        from genelab.configs import ManagerBasedEnvCfg, SimulationCfg
 
 
         @dataclass
@@ -153,7 +153,7 @@ def _template_config() -> str:
 
         @dataclass
         class EnvCfg(ManagerBasedEnvCfg):
-            scene: SceneCfg = field(default_factory=lambda: SceneCfg(steps=128))
+            simulation: SimulationCfg = field(default_factory=lambda: SimulationCfg(steps=128))
             robot: RobotCfg = field(default_factory=RobotCfg)
         """
     )
@@ -193,7 +193,7 @@ def _template_envs(package_name: str) -> str:
                 self.cfg = cfg or EnvCfg()
 
             def play(self) -> None:
-                print(f"Run {{type(self).__name__}} for {{self.cfg.scene.steps}} steps")
+                print(f"Run {{type(self).__name__}} for {{self.cfg.simulation.steps}} steps")
         """
     )
 

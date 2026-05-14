@@ -10,7 +10,7 @@ GeneLab's slim manager system. The motion file path must be supplied at runtime,
 import math
 
 from genelab import mdp
-from genelab.configs import SceneCfg
+from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
 from genelab.managers import (
     EventTermCfg,
@@ -118,12 +118,14 @@ def unitree_g1_tracking_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     robot_entity_cfg = get_g1_robot_cfg().to_entity_cfg()
 
     cfg = ManagerBasedRlEnvCfg(
-        scene=SceneCfg(
+        simulation=SimulationCfg(
             num_envs=4096 if not play else 1,
             dt=0.002,
             substeps=1,
-            env_spacing=(2.5, 2.5),
             vis=play,
+        ),
+        scene=InteractiveSceneCfg(
+            env_spacing=(2.5, 2.5),
         ),
         decimation=10,
         episode_length_s=10.0 if not play else 1e9,
