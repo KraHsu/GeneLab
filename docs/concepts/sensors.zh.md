@@ -70,6 +70,26 @@ scene = InteractiveSceneCfg(
 velocimeter 计算公式为 `v_site = v_link + ω × (R_link · offset)`，再旋转到 body frame ——
 与 MuJoCo 的杠杆臂约定一致，使得 GeneLab 训出的策略读到的信号与 mjlab 参考实现完全相同。
 
+### IMUSensor
+
+刚性附着在某个 link 上的惯性测量单元，输出姿态（`link_quat_w`）、body frame 投影单位
+重力、以及 body frame 下的线 / 角加速度。加速度通过对世界系速度做有限差分得到；每次
+`reset` 之后的第一个控制步加速度恒为零，避免使用上一阶段残留的 `prev` 缓冲产生
+伪冲击 —— 接近 reset 边界的 reward / observation term 在消费 `lin_acc_b` 或
+`ang_acc_b` 时需要意识到这点。
+
+| 字段 | 类型 | 含义 |
+|------|------|------|
+| `link_name` | `str` | IMU 刚性附着的 link。 |
+| `offset` | `tuple[float, float, float]` | site 在 link 局部系下的位置；线加速度计算中携带杠杆臂项。 |
+| `gravity_bias` | `bool` | 为 `True` 时输出比力 `R^T (a_w - g_w)`，与真实加速度计一致 —— 静止时读到 `+g` 沿向上轴。 |
+| `bias_range_lin_acc` | `tuple[float, float] \| None` | 加速度计每 env 常数偏置，`reset` 时重采样。 |
+| `bias_range_ang_acc` | `tuple[float, float] \| None` | 陀螺导出量每 env 常数偏置，`reset` 时重采样。 |
+
+`IMUSensor` 不输出线速度或角速度 —— 这是 `BodyVelocitySensor` 的职责，二者在同一 link
+上可以并存。控制步频率下的有限差分内部不做滤波；如需平滑，可在 `ObservationTermCfg`
+上叠加 `noise` + `scale`，或者在观测 term 里自行做 EMA。
+
 ### ContactSensor
 
 按 link 名汇总 `robot.get_links_net_contact_force()` 输出。开启 `track_air_time=True` 时，
