@@ -1,3 +1,4 @@
+import re
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -34,6 +35,12 @@ from genelab_examples.rubiks.sim import (
 from genelab_examples.wuji_hand.sim import build_joint_mapping, trajectory_target
 
 type FloatArray = NDArray[np.floating]
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_RE.sub("", text)
 
 
 class _FakeLink:
@@ -173,6 +180,96 @@ def test_cli_outputs_registered_hint(capsys: pytest.CaptureFixture[str]) -> None
     main([])
 
     assert "genelab list tasks" in capsys.readouterr().out
+
+
+def test_bare_invocation_prints_landing_page(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["--no-entry-points"])
+
+    out = capsys.readouterr().out
+    assert "GeneLab" in out
+    assert "Quickstart" in out
+    assert "Commands" in out
+    assert "Registered:" in out
+    assert "genelab list tasks" in out
+    assert "genelab info NAME" in out
+
+
+def test_play_help_documents_runner_keys(capsys: pytest.CaptureFixture[str]) -> None:
+    from genelab.cli import RUNNER_KEYS
+
+    main(["play", "--help"])
+
+    out = _strip_ansi(capsys.readouterr().out)
+    for key in RUNNER_KEYS:
+        assert key in out, f"runner key {key!r} missing from `play --help`"
+
+
+def test_play_help_documents_short_flag_grammar(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["play", "--help"])
+
+    out = _strip_ansi(capsys.readouterr().out)
+    assert "--vis" in out
+    assert "--gpu" in out
+    assert "--steps" in out
+    assert "env.scene" in out
+
+
+def test_register_task_accepts_examples_kwarg() -> None:
+    from genelab.registry import Registry
+
+    isolated: Registry[object] = Registry("test-task")
+    entry = isolated.register(
+        "Examples-Roundtrip-v0",
+        lambda: None,
+        description="Examples round-trip test entry.",
+        examples=["genelab play Examples-Roundtrip-v0"],
+    )
+
+    assert entry.examples == ("genelab play Examples-Roundtrip-v0",)
+
+
+def test_register_task_examples_default_to_empty_tuple() -> None:
+    from genelab.registry import Registry
+
+    isolated: Registry[object] = Registry("test-task")
+    entry = isolated.register(
+        "Defaults-v0",
+        lambda: None,
+        description="Default examples test entry.",
+    )
+
+    assert entry.examples == ()
+
+
+def test_info_renders_examples_and_overrides(capsys: pytest.CaptureFixture[str]) -> None:
+    main(
+        [
+            "--no-entry-points",
+            "--import",
+            "tests.fake_extension",
+            "info",
+            "External-Fake-Task-v0",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert "External-Fake-Task-v0" in out
+    assert "Task from a fake external package." in out
+    assert "genelab play External-Fake-Task-v0" in out
+    assert "--steps 7" in out
+    # cfg introspection surfaces the scene fields that overrides walk through.
+    assert "env.scene.steps" in out
+
+
+def test_info_unknown_name_errors(capsys: pytest.CaptureFixture[str]) -> None:
+    try:
+        main(["--no-entry-points", "info", "definitely-not-a-registered-name"])
+    except SystemExit as exc:
+        assert "definitely-not-a-registered-name" in str(exc)
+        assert "available" in str(exc)
+    else:
+        raise AssertionError("expected info to exit on unknown name")
+    capsys.readouterr()  # drain any output
 
 
 def test_core_does_not_register_example_tasks_by_default(
