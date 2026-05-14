@@ -116,12 +116,6 @@ def push_cart_by_setting_joint_velocity(
     sample = torch.empty(n, device=env.device).uniform_(lo, hi)
     current = env.robot_state.joint_vel.clone()
     current[env_ids, idx] = sample
-    set_vel = getattr(env.robot, "set_dofs_velocity", None)
-    if set_vel is None:
-        return
-    actuated_idx = getattr(env, "_actuated_dof_idx", None)
-    target = current[env_ids]
-    try:
-        set_vel(target, actuated_idx, envs_idx=env_ids)
-    except TypeError:
-        set_vel(target, actuated_idx)
+    target_vel = current[env_ids]
+    target_pos = env.robot_state.joint_pos[env_ids]
+    env.articulation.write_joint_state(target_pos, target_vel, env_ids)

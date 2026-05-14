@@ -21,7 +21,6 @@ from genelab.managers import (
 )
 from genelab.mdp.actions.joint_position import JointPositionActionCfg
 from genelab.mdp.commands.motion_command import MotionCommandCfg
-from genelab_unitree.g1.constants import G1_ACTION_SCALE
 from genelab_unitree.g1.robot import get_g1_robot_cfg
 
 
@@ -135,7 +134,6 @@ def unitree_g1_tracking_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             "joint_pos": JointPositionActionCfg(
                 asset_name="robot",
                 joint_names=(".*",),
-                scale=dict(G1_ACTION_SCALE),
                 use_default_offset=True,
             )
         },

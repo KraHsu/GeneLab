@@ -16,7 +16,6 @@ from genelab.sensor import BodyVelocitySensorCfg
 
 from genelab_inverted_pendulum import mdp as ip_mdp
 from genelab_inverted_pendulum.single.constants import (
-    CART_ACTION_SCALE,
     CART_JOINT,
     CART_POSITION_LIMIT,
     POLE_ANGLE_LIMIT,
@@ -77,7 +76,6 @@ def inverted_pendulum_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             "cart": JointPositionActionCfg(
                 asset_name="robot",
                 joint_names=(CART_JOINT,),
-                scale=dict(CART_ACTION_SCALE),
                 use_default_offset=True,
             ),
         },
