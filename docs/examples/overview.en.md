@@ -3,6 +3,16 @@
 The repository ships several reference extensions under `examples/`. They double as integration
 tests for the CLI and registry.
 
+## inverted_pendulum
+
+Two PPO cart-pole tasks built on the same `ManagerBasedRlEnv` + rsl_rl stack as the Unitree
+example, sized to fit in a laptop training budget:
+
+- **`GeneLab-Inverted-Pendulum-v0`** — single inverted pole on a cart.
+- **`GeneLab-Double-Inverted-Pendulum-v0`** — two stacked inverted poles on a cart.
+
+Source at `examples/inverted_pendulum/`; walkthrough at [Inverted Pendulum](inverted-pendulum.md).
+
 ## genelab_examples
 
 The canonical in-tree extension, wiring two tasks:
