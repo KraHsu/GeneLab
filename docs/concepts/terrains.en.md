@@ -14,19 +14,24 @@ gives every sub-terrain a typed Python class with explicit fields, and tracks pe
 spawn / level state so curriculum terms can promote and demote without touching the
 Genesis handle directly.
 
-## Three shipped sub-terrains
+## Five shipped sub-terrains
 
 | Class | Genesis type | Parameters |
 |---|---|---|
 | `FlatPatchCfg` | `flat_terrain` | none |
 | `PyramidStairsCfg` | `pyramid_stairs_terrain` | `step_width`, `step_height` |
 | `RandomRoughCfg` | `random_uniform_terrain` | `min_height`, `max_height`, `step`, `downsampled_scale` |
+| `SlopeCfg` | `sloped_terrain` | `slope` |
+| `WaveCfg` | `wave_terrain` | `num_waves`, `amplitude` |
 
 `PyramidStairsCfg(step_height=-0.1)` builds concentric descending steps; positive
 `step_height` would invert the pyramid. `RandomRoughCfg` samples bumps at
 `downsampled_scale` then upsamples, so the apparent feature size is independent of
-`horizontal_scale`. Three more Genesis types (`sloped`, `wave`, `stepping_stones`) are
-not wrapped yet — extending `SubTerrainCfg` to expose them is a 20-line task.
+`horizontal_scale`. `SlopeCfg(slope=-0.5)` tilts the patch uniformly (negative follows
+Genesis's default downhill direction); `WaveCfg` lays sinusoidal undulations across
+the patch — a useful intermediate difficulty between flat and pyramid-stairs. Four
+more Genesis types (`pyramid_sloped`, `discrete_obstacles`, `stairs`, `stepping_stones`)
+are not wrapped yet — extending `SubTerrainCfg` to expose them is a 20-line task.
 
 ## Composing a terrain grid
 

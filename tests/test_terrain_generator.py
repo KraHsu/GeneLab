@@ -16,9 +16,11 @@ from genelab.terrains import (
     FlatPatchCfg,
     PyramidStairsCfg,
     RandomRoughCfg,
+    SlopeCfg,
     TerrainGenerator,
     TerrainGeneratorCfg,
     TerrainImporter,
+    WaveCfg,
 )
 
 
@@ -26,6 +28,8 @@ def test_sub_terrain_cfgs_emit_genesis_strings() -> None:
     assert FlatPatchCfg().genesis_type() == "flat_terrain"
     assert PyramidStairsCfg().genesis_type() == "pyramid_stairs_terrain"
     assert RandomRoughCfg().genesis_type() == "random_uniform_terrain"
+    assert SlopeCfg().genesis_type() == "sloped_terrain"
+    assert WaveCfg().genesis_type() == "wave_terrain"
 
 
 def test_sub_terrain_params_round_trip() -> None:
@@ -38,6 +42,10 @@ def test_sub_terrain_params_round_trip() -> None:
         "step": 0.05,
         "downsampled_scale": 0.25,
     }
+    s = SlopeCfg(slope=-0.3)
+    assert s.to_genesis_params() == {"slope": -0.3}
+    w = WaveCfg(num_waves=3.0, amplitude=0.2)
+    assert w.to_genesis_params() == {"num_waves": 3.0, "amplitude": 0.2}
 
 
 def test_generator_rejects_empty_sub_terrains() -> None:
