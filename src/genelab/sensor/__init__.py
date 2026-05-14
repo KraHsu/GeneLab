@@ -2,6 +2,12 @@
 
 from genelab.sensor.body_velocity import BodyVelocitySensor, BodyVelocitySensorCfg
 from genelab.sensor.contact import ContactData, ContactSensor, ContactSensorCfg
+from genelab.sensor.frame_transformer import (
+    FrameTransformerData,
+    FrameTransformerSensor,
+    FrameTransformerSensorCfg,
+    TargetFrameCfg,
+)
 from genelab.sensor.imu import IMUData, IMUSensor, IMUSensorCfg
 from genelab.sensor.ray_cast import (
     GridPattern,
@@ -20,6 +26,9 @@ __all__ = [
     "ContactData",
     "ContactSensor",
     "ContactSensorCfg",
+    "FrameTransformerData",
+    "FrameTransformerSensor",
+    "FrameTransformerSensorCfg",
     "GridPattern",
     "HemispherePattern",
     "IMUData",
@@ -31,6 +40,7 @@ __all__ = [
     "RingPattern",
     "Sensor",
     "SensorCfg",
+    "TargetFrameCfg",
     "TerrainHeightSensor",
     "TerrainHeightSensorCfg",
 ]

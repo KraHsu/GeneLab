@@ -15,6 +15,7 @@ from genelab.mdp.noise import Gnoise, Unoise
 from genelab.sensor import (
     BodyVelocitySensorCfg,
     ContactSensorCfg,
+    FrameTransformerSensorCfg,
     GridPattern,
     HemispherePattern,
     IMUSensorCfg,
@@ -22,6 +23,7 @@ from genelab.sensor import (
     RingPattern,
     Sensor,
     SensorCfg,
+    TargetFrameCfg,
     TerrainHeightSensorCfg,
 )
 
@@ -712,3 +714,110 @@ def test_imu_sensor_rejects_unknown_link() -> None:
         assert "nonexistent" in str(exc)
     else:
         raise AssertionError("expected ValueError for unknown link_name")
+
+
+# --------------------------------------------------------------------- FrameTransformerSensor
+
+
+def test_frame_transformer_single_target_zero_offset_matches_world_pose() -> None:
+    link_pos = torch.tensor([[[0.0, 0.0, 0.0], [1.5, -0.3, 0.7]]])
+    env = _FakeTerrainEnv(1, ("base", "ee"), link_pos)
+    sensor = FrameTransformerSensorCfg(
+        name="ee",
+        source_link_name="base",
+        target_frames=(TargetFrameCfg(link_name="ee"),),
+    ).build()
+    sensor.bind(env)
+    data = sensor.data
+    assert data.target_pos_w.shape == (1, 1, 3)
+    assert data.target_quat_w.shape == (1, 1, 4)
+    # Source at world origin with identity quat → target_pos_source equals target_pos_w.
+    assert torch.allclose(data.target_pos_source[0, 0], torch.tensor([1.5, -0.3, 0.7]), atol=1e-6)
+    assert torch.allclose(data.target_quat_source[0, 0], torch.tensor([1.0, 0.0, 0.0, 0.0]))
+
+
+def test_frame_transformer_target_offset_applies_in_link_frame() -> None:
+    link_pos = torch.tensor([[[2.0, 0.0, 0.0]]])
+    env = _FakeTerrainEnv(1, ("wrist",), link_pos)
+    sensor = FrameTransformerSensorCfg(
+        name="grip",
+        source_link_name="wrist",
+        target_frames=(TargetFrameCfg(link_name="wrist", offset_pos=(0.1, 0.0, 0.0)),),
+    ).build()
+    sensor.bind(env)
+    data = sensor.data
+    # Target = same link + 0.1 along +x in link frame → world (2.1, 0, 0); relative to
+    # source (the same link) → (0.1, 0, 0).
+    assert torch.allclose(data.target_pos_w[0, 0], torch.tensor([2.1, 0.0, 0.0]), atol=1e-6)
+    assert torch.allclose(data.target_pos_source[0, 0], torch.tensor([0.1, 0.0, 0.0]), atol=1e-6)
+
+
+def test_frame_transformer_source_offset_shifts_relative_pose() -> None:
+    # Source link at world origin, source offset +x; target at world (0.5, 0, 0).
+    # target_pos_source = (target_pos_w - source_pos_w) rotated by inv(identity)
+    #                   = (0.5 - 1.0, 0, 0) = (-0.5, 0, 0).
+    link_pos = torch.tensor([[[0.0, 0.0, 0.0], [0.5, 0.0, 0.0]]])
+    env = _FakeTerrainEnv(1, ("base", "target"), link_pos)
+    sensor = FrameTransformerSensorCfg(
+        name="rel",
+        source_link_name="base",
+        source_offset_pos=(1.0, 0.0, 0.0),
+        target_frames=(TargetFrameCfg(link_name="target"),),
+    ).build()
+    sensor.bind(env)
+    data = sensor.data
+    assert torch.allclose(data.target_pos_source[0, 0], torch.tensor([-0.5, 0.0, 0.0]), atol=1e-6)
+
+
+def test_frame_transformer_preserves_target_order() -> None:
+    # Three targets in cfg order; expected N-axis order matches.
+    link_pos = torch.tensor([[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 3.0]]])
+    env = _FakeTerrainEnv(1, ("base", "a", "b", "c"), link_pos)
+    sensor = FrameTransformerSensorCfg(
+        name="multi",
+        source_link_name="base",
+        target_frames=(
+            TargetFrameCfg(link_name="c", name="z_axis"),
+            TargetFrameCfg(link_name="a", name="x_axis"),
+            TargetFrameCfg(link_name="b", name="y_axis"),
+        ),
+    ).build()
+    sensor.bind(env)
+    data = sensor.data
+    assert sensor.target_names == ("z_axis", "x_axis", "y_axis")
+    assert torch.allclose(data.target_pos_w[0, 0], torch.tensor([0.0, 0.0, 3.0]), atol=1e-6)
+    assert torch.allclose(data.target_pos_w[0, 1], torch.tensor([1.0, 0.0, 0.0]), atol=1e-6)
+    assert torch.allclose(data.target_pos_w[0, 2], torch.tensor([0.0, 2.0, 0.0]), atol=1e-6)
+
+
+def test_frame_transformer_rejects_unknown_link() -> None:
+    link_pos = torch.tensor([[[0.0, 0.0, 0.0]]])
+    env = _FakeTerrainEnv(1, ("base",), link_pos)
+    sensor = FrameTransformerSensorCfg(
+        name="bad",
+        source_link_name="base",
+        target_frames=(
+            TargetFrameCfg(link_name="missing_a"),
+            TargetFrameCfg(link_name="missing_b"),
+        ),
+    ).build()
+    try:
+        sensor.bind(env)
+    except ValueError as exc:
+        msg = str(exc)
+        assert "missing_a" in msg
+        assert "missing_b" in msg
+    else:
+        raise AssertionError("expected ValueError for unknown target link(s)")
+
+
+def test_frame_transformer_rejects_empty_target_frames() -> None:
+    link_pos = torch.tensor([[[0.0, 0.0, 0.0]]])
+    env = _FakeTerrainEnv(1, ("base",), link_pos)
+    sensor = FrameTransformerSensorCfg(name="empty", source_link_name="base").build()
+    try:
+        sensor.bind(env)
+    except ValueError as exc:
+        assert "target" in str(exc).lower()
+    else:
+        raise AssertionError("expected ValueError for empty target_frames")
