@@ -1,0 +1,25 @@
+<mujoco model="genelab_inverted_pendulum">
+  <option timestep="0.005" gravity="0 0 -9.81" integrator="implicitfast"/>
+  <default>
+    <joint armature="0" damping="0"/>
+    <geom contype="0" conaffinity="0"/>
+  </default>
+  <worldbody>
+    <body name="cart" pos="0 0 0.12">
+      <joint name="cart_slide" type="slide" axis="1 0 0" range="-3.0 3.0" damping="0.05"/>
+      <!-- contype/conaffinity bits picked so the geom is present in the rigid solver
+           (visible to the mouse-interaction raycaster) but never participates in a
+           collision pair with the plane or the pole. -->
+      <geom name="cart_box" type="box" size="0.15 0.10 0.05" mass="1.0"
+            rgba="0.10 0.45 0.85 1" contype="2" conaffinity="2"/>
+      <body name="pole" pos="0 0 0.05">
+        <joint name="pole_hinge" type="hinge" axis="0 1 0" range="-1.2 1.2" damping="0.002"/>
+        <geom name="pole_capsule" type="capsule" fromto="0 0 0 0 0 0.80" size="0.025"
+              mass="0.1" rgba="0.95 0.35 0.15 1" contype="4" conaffinity="4"/>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="cart_force" joint="cart_slide" gear="1"/>
+  </actuator>
+</mujoco>
