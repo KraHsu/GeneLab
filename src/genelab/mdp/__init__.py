@@ -46,6 +46,8 @@ from genelab.mdp.rewards import (
     motion_relative_body_position_error_exp,
     track_angular_velocity_z_exp,
     track_linear_velocity_xy_exp,
+    upright_exp,
+    variable_posture,
 )
 from genelab.mdp.terminations import (
     bad_anchor_ori,
@@ -105,4 +107,6 @@ __all__ = [
     "time_out",
     "track_angular_velocity_z_exp",
     "track_linear_velocity_xy_exp",
+    "upright_exp",
+    "variable_posture",
 ]
