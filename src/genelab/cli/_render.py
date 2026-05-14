@@ -37,8 +37,8 @@ _theme = Theme(
     }
 )
 
-console: Console = Console(theme=_theme, highlight=False, soft_wrap=True)
-err_console: Console = Console(stderr=True, theme=_theme, highlight=False, soft_wrap=True)
+console: Console = Console(theme=_theme, highlight=False)
+err_console: Console = Console(stderr=True, theme=_theme, highlight=False)
 
 
 def render_main_help() -> None:
