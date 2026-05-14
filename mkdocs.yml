@@ -100,6 +100,7 @@ plugins:
             Sensors: 传感器
             Extensions: 扩展加载
             Examples: 示例
+            Inverted Pendulum: 倒立摆
             API Reference: API 参考
             Contributing: 贡献指南
   - mkdocstrings:
@@ -163,5 +164,6 @@ nav:
       - Extensions: concepts/extensions.md
   - Examples:
       - Overview: examples/overview.md
+      - Inverted Pendulum: examples/inverted-pendulum.md
   - API Reference: api/reference.md
   - Contributing: contributing.md
