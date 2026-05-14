@@ -7,6 +7,7 @@ from typing import Any, cast, get_args, get_origin, get_type_hints
 
 from genelab.entity import ArticulationCfg, RigidObjectCfg
 from genelab.sensor import SensorCfg
+from genelab.terrains import TerrainGeneratorCfg
 
 type _Annotation = object
 
@@ -31,7 +32,7 @@ class InteractiveSceneCfg:
     sensors: tuple[SensorCfg, ...] = field(default_factory=tuple)
     mouse_interaction: bool = False
     entities: dict[str, ArticulationCfg | RigidObjectCfg] = field(default_factory=dict)
-    terrain: object | None = None  # M3 placeholder; populated by ``TerrainCfg`` later.
+    terrain: TerrainGeneratorCfg | None = None
 
 
 @dataclass
