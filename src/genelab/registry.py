@@ -1,7 +1,7 @@
 """Small registries for robots, environments, tasks, and downstream extensions."""
 
-from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass, field
 import importlib
 from importlib import metadata
 from pathlib import Path
@@ -17,6 +17,7 @@ class RegistryEntry[T]:
     description: str
     factory: Callable[[], T]
     cfg_type: type[object] | None = None
+    examples: tuple[str, ...] = field(default_factory=tuple)
 
 
 class Registry[T]:
@@ -33,11 +34,16 @@ class Registry[T]:
         *,
         description: str,
         cfg_type: type[object] | None = None,
+        examples: Sequence[str] = (),
     ) -> RegistryEntry[T]:
         if name in self._entries:
             raise ValueError(f"{self.kind} already registered: {name}")
         entry = RegistryEntry(
-            name=name, description=description, factory=factory, cfg_type=cfg_type
+            name=name,
+            description=description,
+            factory=factory,
+            cfg_type=cfg_type,
+            examples=tuple(examples),
         )
         self._entries[name] = entry
         return entry
@@ -83,8 +89,15 @@ def register_robot[T](
     *,
     description: str,
     cfg_type: type[object] | None = None,
+    examples: Sequence[str] = (),
 ) -> RegistryEntry[T]:
-    return ROBOTS.register(name, factory, description=description, cfg_type=cfg_type)
+    return ROBOTS.register(
+        name,
+        factory,
+        description=description,
+        cfg_type=cfg_type,
+        examples=examples,
+    )
 
 
 def register_env[T](
@@ -93,8 +106,15 @@ def register_env[T](
     *,
     description: str,
     cfg_type: type[object] | None = None,
+    examples: Sequence[str] = (),
 ) -> RegistryEntry[T]:
-    return ENVS.register(name, factory, description=description, cfg_type=cfg_type)
+    return ENVS.register(
+        name,
+        factory,
+        description=description,
+        cfg_type=cfg_type,
+        examples=examples,
+    )
 
 
 def register_task[T](
@@ -103,8 +123,15 @@ def register_task[T](
     *,
     description: str,
     cfg_type: type[object] | None = None,
+    examples: Sequence[str] = (),
 ) -> RegistryEntry[T]:
-    return TASKS.register(name, factory, description=description, cfg_type=cfg_type)
+    return TASKS.register(
+        name,
+        factory,
+        description=description,
+        cfg_type=cfg_type,
+        examples=examples,
+    )
 
 
 def load_builtin_registries() -> None:

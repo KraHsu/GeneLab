@@ -59,4 +59,8 @@ def register() -> None:
         FakeTask,
         description="Task from a fake external package.",
         cfg_type=TaskCfg,
+        examples=[
+            "genelab play External-Fake-Task-v0",
+            "genelab play External-Fake-Task-v0 --steps 7",
+        ],
     )
