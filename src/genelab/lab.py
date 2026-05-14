@@ -3,6 +3,16 @@
 from dataclasses import dataclass
 from typing import Protocol
 
+from genelab.actuator import (
+    ActuatorBase,
+    ActuatorBaseCfg,
+    DCMotorActuator,
+    DCMotorActuatorCfg,
+    IdealPDActuator,
+    IdealPDActuatorCfg,
+    ImplicitPDActuator,
+    ImplicitPDActuatorCfg,
+)
 from genelab.configs import (
     InteractiveSceneCfg,
     ManagerBasedEnvCfg,
@@ -66,14 +76,22 @@ __all__ = [
     "ENVS",
     "ROBOTS",
     "TASKS",
+    "ActuatorBase",
+    "ActuatorBaseCfg",
     "Articulation",
     "ArticulationCfg",
     "ContactData",
     "ContactSensor",
     "ContactSensorCfg",
+    "DCMotorActuator",
+    "DCMotorActuatorCfg",
     "GenesisBackendCfg",
     "Gnoise",
     "GridPattern",
+    "IdealPDActuator",
+    "IdealPDActuatorCfg",
+    "ImplicitPDActuator",
+    "ImplicitPDActuatorCfg",
     "InteractiveScene",
     "InteractiveSceneCfg",
     "ManagerBasedEnv",

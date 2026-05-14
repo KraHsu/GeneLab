@@ -42,5 +42,14 @@ def test_g1_robot_cfg_resolves_vendored_mjcf() -> None:
     assert Path(entity_cfg.mjcf_path).exists()
     # G1 has 29 actuated joints; the default-pose regex map should fan out > 4 entries.
     assert len(entity_cfg.default_joint_pos) >= 4
-    # Action scales must be positive.
-    assert all(v > 0 for v in entity_cfg.action_scale.values())
+    # 6 DCMotor actuator groups (5020 / 7520_14 / 7520_22 / 4010 / waist / ankle), all
+    # carrying a positive per-group action scale.
+    assert set(entity_cfg.actuators.keys()) == {
+        "5020",
+        "7520_14",
+        "7520_22",
+        "4010",
+        "waist",
+        "ankle",
+    }
+    assert all(cfg.action_scale > 0 for cfg in entity_cfg.actuators.values())

@@ -1,13 +1,13 @@
 """Unitree G1 actuator + posture constants.
 
-Reflected inertia, stiffness, damping, and action scales are derived from the same motor
-specs mjlab uses. Each actuator group maps a tuple of joint name regexes to a stiffness /
-damping / effort triple; the per-joint dictionaries fan those values out by regex so
-GeneLab's manager-based env can index them by joint name.
+Reflected inertia, stiffness, damping, effort and velocity limits are derived from the
+same motor specs mjlab uses. The actuator groups are :class:`DCMotorActuatorCfg`
+instances ready to plug into :class:`ArticulationCfg.actuators`.
 """
 
-from dataclasses import dataclass
 from typing import Final
+
+from genelab.actuator import DCMotorActuatorCfg
 
 
 def _reflected_inertia(
@@ -37,16 +37,20 @@ DAMPING_7520_14 = 2.0 * DAMPING_RATIO * ARMATURE_7520_14 * NATURAL_FREQ
 DAMPING_7520_22 = 2.0 * DAMPING_RATIO * ARMATURE_7520_22 * NATURAL_FREQ
 DAMPING_4010 = 2.0 * DAMPING_RATIO * ARMATURE_4010 * NATURAL_FREQ
 
+# No-load speeds from Unitree G1 motor specs (rad/s at the output shaft, after gearing).
+# These set the linear de-rating breakpoint of the DCMotor torque-speed curve.
+VEL_LIMIT_5020: Final = 32.0
+VEL_LIMIT_7520_14: Final = 25.0
+VEL_LIMIT_7520_22: Final = 14.0
+VEL_LIMIT_4010: Final = 37.0
 
-@dataclass(frozen=True)
-class ActuatorGroup:
-    target_names_expr: tuple[str, ...]
-    stiffness: float
-    damping: float
-    effort_limit: float
+
+def _action_scale(effort_limit: float, stiffness: float) -> float:
+    """Matches mjlab's per-joint action-scale derivation: ``0.25 * effort / stiffness``."""
+    return 0.25 * effort_limit / stiffness
 
 
-G1_ACTUATOR_5020 = ActuatorGroup(
+G1_ACTUATOR_5020 = DCMotorActuatorCfg(
     target_names_expr=(
         ".*_elbow_joint",
         ".*_shoulder_pitch_joint",
@@ -57,64 +61,65 @@ G1_ACTUATOR_5020 = ActuatorGroup(
     stiffness=STIFFNESS_5020,
     damping=DAMPING_5020,
     effort_limit=25.0,
+    velocity_limit=VEL_LIMIT_5020,
+    armature=ARMATURE_5020,
+    action_scale=_action_scale(25.0, STIFFNESS_5020),
 )
-G1_ACTUATOR_7520_14 = ActuatorGroup(
+G1_ACTUATOR_7520_14 = DCMotorActuatorCfg(
     target_names_expr=(".*_hip_pitch_joint", ".*_hip_yaw_joint", "waist_yaw_joint"),
     stiffness=STIFFNESS_7520_14,
     damping=DAMPING_7520_14,
     effort_limit=88.0,
+    velocity_limit=VEL_LIMIT_7520_14,
+    armature=ARMATURE_7520_14,
+    action_scale=_action_scale(88.0, STIFFNESS_7520_14),
 )
-G1_ACTUATOR_7520_22 = ActuatorGroup(
+G1_ACTUATOR_7520_22 = DCMotorActuatorCfg(
     target_names_expr=(".*_hip_roll_joint", ".*_knee_joint"),
     stiffness=STIFFNESS_7520_22,
     damping=DAMPING_7520_22,
     effort_limit=139.0,
+    velocity_limit=VEL_LIMIT_7520_22,
+    armature=ARMATURE_7520_22,
+    action_scale=_action_scale(139.0, STIFFNESS_7520_22),
 )
-G1_ACTUATOR_4010 = ActuatorGroup(
+G1_ACTUATOR_4010 = DCMotorActuatorCfg(
     target_names_expr=(".*_wrist_pitch_joint", ".*_wrist_yaw_joint"),
     stiffness=STIFFNESS_4010,
     damping=DAMPING_4010,
     effort_limit=5.0,
+    velocity_limit=VEL_LIMIT_4010,
+    armature=ARMATURE_4010,
+    action_scale=_action_scale(5.0, STIFFNESS_4010),
 )
 # Waist pitch/roll and ankles use two 5020 actuators in parallel.
-G1_ACTUATOR_WAIST = ActuatorGroup(
+G1_ACTUATOR_WAIST = DCMotorActuatorCfg(
     target_names_expr=("waist_pitch_joint", "waist_roll_joint"),
     stiffness=STIFFNESS_5020 * 2,
     damping=DAMPING_5020 * 2,
     effort_limit=25.0 * 2,
+    velocity_limit=VEL_LIMIT_5020,
+    armature=ARMATURE_5020 * 2,
+    action_scale=_action_scale(50.0, STIFFNESS_5020 * 2),
 )
-G1_ACTUATOR_ANKLE = ActuatorGroup(
+G1_ACTUATOR_ANKLE = DCMotorActuatorCfg(
     target_names_expr=(".*_ankle_pitch_joint", ".*_ankle_roll_joint"),
     stiffness=STIFFNESS_5020 * 2,
     damping=DAMPING_5020 * 2,
     effort_limit=25.0 * 2,
+    velocity_limit=VEL_LIMIT_5020,
+    armature=ARMATURE_5020 * 2,
+    action_scale=_action_scale(50.0, STIFFNESS_5020 * 2),
 )
 
-G1_ACTUATORS: Final = (
-    G1_ACTUATOR_5020,
-    G1_ACTUATOR_7520_14,
-    G1_ACTUATOR_7520_22,
-    G1_ACTUATOR_4010,
-    G1_ACTUATOR_WAIST,
-    G1_ACTUATOR_ANKLE,
-)
-
-
-def _fan_out(value_per_group: dict[ActuatorGroup, float]) -> dict[str, float]:
-    out: dict[str, float] = {}
-    for group, value in value_per_group.items():
-        for pat in group.target_names_expr:
-            out[pat] = value
-    return out
-
-
-G1_JOINT_KP: Final[dict[str, float]] = _fan_out({a: a.stiffness for a in G1_ACTUATORS})
-G1_JOINT_KV: Final[dict[str, float]] = _fan_out({a: a.damping for a in G1_ACTUATORS})
-
-# 0.25 * effort / stiffness — matches mjlab's per-joint action scale derivation.
-G1_ACTION_SCALE: Final[dict[str, float]] = _fan_out(
-    {a: 0.25 * a.effort_limit / a.stiffness for a in G1_ACTUATORS}
-)
+G1_ACTUATORS_CFG: Final = {
+    "5020": G1_ACTUATOR_5020,
+    "7520_14": G1_ACTUATOR_7520_14,
+    "7520_22": G1_ACTUATOR_7520_22,
+    "4010": G1_ACTUATOR_4010,
+    "waist": G1_ACTUATOR_WAIST,
+    "ankle": G1_ACTUATOR_ANKLE,
+}
 
 # Knees-bent home pose (matches mjlab KNEES_BENT_KEYFRAME).
 G1_DEFAULT_JOINT_POS: Final[dict[str, float]] = {
