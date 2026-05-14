@@ -3,8 +3,8 @@
 Two-phase construction mirrors Isaac Lab / MjLab:
 
 * ``spawn(gs_scene)`` attaches an MJCF morph BEFORE ``scene.build()``.
-* ``bind(num_envs, device)`` enumerates joints / links and pushes default PD gains AFTER
-  ``scene.build()``.
+* ``bind(num_envs, device)`` enumerates joints / links, assembles actuators, and pushes the
+  static actuator parameters to Genesis AFTER ``scene.build()``.
 
 The wrapper owns its own cached per-step state (``RobotState``); MDP and sensor code reads
 that state through the env via ``env.robot_state``.
@@ -16,6 +16,7 @@ from typing import Any
 
 import torch
 
+from genelab.actuator import ActuatorBase, ActuatorBaseCfg
 from genelab.entity._torch import quat_rotate_inverse, to_tensor
 
 
@@ -23,18 +24,17 @@ from genelab.entity._torch import quat_rotate_inverse, to_tensor
 class ArticulationCfg:
     """Articulated-robot description.
 
-    ``mjcf_path`` is the absolute path to a MuJoCo XML file. Joint dictionaries are
-    ``name -> value`` where the keys may be regex patterns; multiple keys may match the same
-    joint, in which case the last match wins.
+    ``mjcf_path`` is the absolute path to a MuJoCo XML file. ``default_joint_pos`` keys are
+    regex patterns against the articulated joint names (last-match wins). ``actuators`` is a
+    dict of named actuator-group configs that must collectively cover every actuated joint:
+    unmatched or duplicated joints raise ``ValueError`` at ``bind`` time.
     """
 
     mjcf_path: str = ""
     init_pos: tuple[float, float, float] = (0.0, 0.0, 1.0)
     init_quat: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
     default_joint_pos: dict[str, float] = field(default_factory=dict)
-    joint_kp: dict[str, float] = field(default_factory=dict)
-    joint_kv: dict[str, float] = field(default_factory=dict)
-    action_scale: dict[str, float] | float = 0.5
+    actuators: dict[str, ActuatorBaseCfg] = field(default_factory=dict)
     foot_link_names: tuple[str, ...] = ()
 
 
@@ -86,9 +86,9 @@ class Articulation:
         self._num_links: int = 0
         self._actuated_dof_idx: torch.Tensor = torch.empty(0, dtype=torch.long)
         self._default_joint_pos: torch.Tensor = torch.empty(0)
-        self._joint_kp: torch.Tensor = torch.empty(0)
-        self._joint_kv: torch.Tensor = torch.empty(0)
-        self._action_scale: torch.Tensor = torch.empty(0)
+        self._action_scale_tensor: torch.Tensor = torch.empty(0)
+        self._actuators: dict[str, ActuatorBase] = {}
+        self._joint_pos_target: torch.Tensor = torch.empty(0)
         self._data: RobotState | None = None
 
     # ------------------------------------------------------------------ spawn / bind
@@ -105,15 +105,20 @@ class Articulation:
         self._gs_handle = gs_scene.add_entity(morph)
 
     def bind(self, num_envs: int, device: str) -> None:
-        """Post-build: introspect joints / links, build per-joint tensors, push PD gains."""
+        """Post-build: introspect joints / links, assemble actuators, push static params."""
         if self._gs_handle is None:
             raise RuntimeError(f"Articulation(name={self.name!r}).bind called before spawn")
         self._num_envs = num_envs
         self._device = device
         self._enumerate_joints_and_links()
-        self._build_pose_and_gain_tensors()
+        self._default_joint_pos = self.build_per_joint_tensor(
+            self.cfg.default_joint_pos, default=0.0
+        )
+        self._joint_pos_target = (
+            self._default_joint_pos.unsqueeze(0).expand(num_envs, -1).contiguous()
+        )
         self._data = RobotState(num_envs, self._num_dofs, self._num_links, device)
-        self._apply_default_gains()
+        self._assemble_actuators()
 
     # ------------------------------------------------------------------ internals
 
@@ -151,26 +156,82 @@ class Articulation:
         self._link_names = link_names
         self._num_links = max(len(link_names), 1)
 
-    def _build_pose_and_gain_tensors(self) -> None:
-        cfg = self.cfg
-        self._default_joint_pos = self.build_per_joint_tensor(cfg.default_joint_pos, default=0.0)
-        self._joint_kp = self.build_per_joint_tensor(cfg.joint_kp, default=0.0)
-        self._joint_kv = self.build_per_joint_tensor(cfg.joint_kv, default=0.0)
-        if isinstance(cfg.action_scale, dict):
-            self._action_scale = self.build_per_joint_tensor(cfg.action_scale, default=0.25)
-        else:
-            self._action_scale = torch.full(
-                (self._num_dofs,), float(cfg.action_scale), device=self._device
-            )
+    def _match_joint_ids(self, patterns: tuple[str, ...]) -> torch.Tensor:
+        matched: list[int] = []
+        for pattern in patterns:
+            try:
+                regex = re.compile(pattern)
+            except re.error:
+                regex = re.compile(re.escape(pattern))
+            for i, name in enumerate(self._joint_names):
+                if (regex.fullmatch(name) or regex.search(name)) and i not in matched:
+                    matched.append(i)
+        return torch.tensor(matched, dtype=torch.long, device=self._device)
 
-    def _apply_default_gains(self) -> None:
-        robot = self._gs_handle
-        set_kp = getattr(robot, "set_dofs_kp", None)
-        set_kv = getattr(robot, "set_dofs_kv", None)
-        if set_kp is not None and self._joint_kp.numel() > 0:
-            set_kp(self._joint_kp, self._actuated_dof_idx)
-        if set_kv is not None and self._joint_kv.numel() > 0:
-            set_kv(self._joint_kv, self._actuated_dof_idx)
+    def _assemble_actuators(self) -> None:
+        """Build :class:`ActuatorBase` instances from ``cfg.actuators``.
+
+        Validates that the joint groups partition the articulation's actuated joints exactly:
+        unmatched joints raise ``ValueError`` (forces the user to declare every joint, even
+        passive ones with zero gains), and joints matched by more than one group also raise.
+        """
+        if not self.cfg.actuators:
+            raise ValueError(
+                f"Articulation(name={self.name!r}).cfg.actuators is empty; declare at least "
+                f"one ImplicitPDActuatorCfg covering the actuated joints "
+                f"({self._joint_names!r})"
+            )
+        coverage: dict[int, str] = {}
+        actuators: dict[str, ActuatorBase] = {}
+        action_scale_tensor = torch.full((self._num_dofs,), 1.0, device=self._device)
+        for group_name, actuator_cfg in self.cfg.actuators.items():
+            if actuator_cfg.class_type is None:
+                raise ValueError(
+                    f"Articulation(name={self.name!r}).cfg.actuators[{group_name!r}] has no "
+                    f"class_type (use a concrete ActuatorBaseCfg subclass)"
+                )
+            joint_ids = self._match_joint_ids(actuator_cfg.target_names_expr)
+            if joint_ids.numel() == 0:
+                raise ValueError(
+                    f"Articulation(name={self.name!r}).cfg.actuators[{group_name!r}] "
+                    f"matched zero joints from patterns {actuator_cfg.target_names_expr!r}"
+                )
+            conflicts: list[tuple[str, str]] = []
+            for jid in joint_ids.tolist():
+                if jid in coverage:
+                    conflicts.append((self._joint_names[jid], coverage[jid]))
+            if conflicts:
+                lines = ", ".join(f"{j!r} (already in {g!r})" for j, g in conflicts)
+                raise ValueError(
+                    f"Articulation(name={self.name!r}).cfg.actuators[{group_name!r}] "
+                    f"conflicts on joints: {lines}"
+                )
+            for jid in joint_ids.tolist():
+                coverage[jid] = group_name
+            dof_ids = self._actuated_dof_idx.index_select(0, joint_ids)
+            joint_names = [self._joint_names[i] for i in joint_ids.tolist()]
+            actuator = actuator_cfg.class_type(
+                actuator_cfg,
+                name=group_name,
+                joint_ids=joint_ids,
+                dof_ids=dof_ids,
+                joint_names=joint_names,
+                num_envs=self._num_envs,
+                device=self._device,
+            )
+            actuator.initialize(self._gs_handle)
+            actuators[group_name] = actuator
+            for jid in joint_ids.tolist():
+                action_scale_tensor[jid] = float(actuator_cfg.action_scale)
+        uncovered = [name for i, name in enumerate(self._joint_names) if i not in coverage]
+        if uncovered:
+            raise ValueError(
+                f"Articulation(name={self.name!r}): the following actuated joints are not "
+                f"covered by any actuator group: {uncovered!r}. Declare a zero-gain "
+                f"ImplicitPDActuatorCfg for passive joints if you want to leave them free."
+            )
+        self._actuators = actuators
+        self._action_scale_tensor = action_scale_tensor
 
     # ------------------------------------------------------------------ public methods
 
@@ -281,6 +342,56 @@ class Articulation:
         default = self._default_joint_pos.unsqueeze(0).expand(env_ids.numel(), -1).contiguous()
         zeros_v = torch.zeros_like(default)
         self.write_joint_state(default, zeros_v, env_ids)
+        # Also reset the cached joint target so the next implicit-PD step uses the home pose.
+        # ``index_copy_`` sidesteps Genesis's strict aliasing check on indexed assignment.
+        self._joint_pos_target.index_copy_(0, env_ids.long(), default.clone())
+
+    # ------------------------------------------------------------------ actuator routing
+
+    def write_joint_targets_partial(
+        self, local_joint_ids: torch.Tensor, target: torch.Tensor
+    ) -> None:
+        """Stash a slice of joint position targets, then dispatch each actuator.
+
+        ``local_joint_ids`` indexes into the articulation's actuated joint list (same space
+        as :attr:`joint_names`). ``target`` has shape ``(num_envs, len(local_joint_ids))``.
+        For every actuator group: implicit-PD actuators receive the slice via
+        ``control_dofs_position``; force-channel actuators get their effort from
+        :meth:`ActuatorBase.compute` and the result is pushed via ``control_dofs_force``.
+        """
+        if local_joint_ids.numel() == 0:
+            return
+        self._joint_pos_target.index_copy_(1, local_joint_ids, target)
+        robot = self._gs_handle
+        if self._data is None or robot is None:
+            return
+        for actuator in self._actuators.values():
+            jids = actuator.joint_ids
+            dofs = actuator.dof_ids
+            target_slice = self._joint_pos_target.index_select(1, jids)
+            if actuator.channel == "implicit_pd":
+                ctrl = getattr(robot, "control_dofs_position", None) or getattr(
+                    robot, "set_dofs_position_target", None
+                )
+                if ctrl is None:
+                    continue
+                try:
+                    ctrl(target_slice, dofs)
+                except TypeError:
+                    ctrl(target_slice)
+            else:
+                joint_pos = self._data.joint_pos.index_select(1, jids)
+                joint_vel = self._data.joint_vel.index_select(1, jids)
+                effort = actuator.compute(joint_pos, joint_vel, target_slice)
+                if effort is None:
+                    continue
+                ctrl = getattr(robot, "control_dofs_force", None)
+                if ctrl is None:
+                    continue
+                try:
+                    ctrl(effort, dofs)
+                except TypeError:
+                    ctrl(effort)
 
     # ------------------------------------------------------------------ properties
 
@@ -324,13 +435,10 @@ class Articulation:
         return self._default_joint_pos
 
     @property
-    def joint_kp(self) -> torch.Tensor:
-        return self._joint_kp
+    def actuators(self) -> dict[str, ActuatorBase]:
+        return dict(self._actuators)
 
     @property
-    def joint_kv(self) -> torch.Tensor:
-        return self._joint_kv
-
-    @property
-    def action_scale(self) -> torch.Tensor:
-        return self._action_scale
+    def action_scale_tensor(self) -> torch.Tensor:
+        """Per-joint action scale aggregated across actuator groups (shape ``(num_dofs,)``)."""
+        return self._action_scale_tensor

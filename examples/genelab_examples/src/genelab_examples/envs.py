@@ -72,7 +72,9 @@ class RubiksPlayEnv:
             scene = cast(
                 _SceneLike,
                 gs.Scene(
-                    sim_options=gs.options.SimOptions(dt=cfg.simulation.dt, substeps=cfg.simulation.substeps),
+                    sim_options=gs.options.SimOptions(
+                        dt=cfg.simulation.dt, substeps=cfg.simulation.substeps
+                    ),
                     rigid_options=gs.options.RigidOptions(
                         box_box_detection=True,
                         enable_self_collision=False,
