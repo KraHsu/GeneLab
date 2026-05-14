@@ -19,7 +19,6 @@ from genelab.mdp.actions.joint_position import JointPositionActionCfg
 from genelab.mdp.commands.velocity_command import UniformVelocityCommandCfg
 from genelab.mdp.noise import Unoise
 from genelab.sensor import BodyVelocitySensorCfg, ContactSensorCfg
-from genelab_unitree.g1.constants import G1_ACTION_SCALE
 from genelab_unitree.g1.robot import get_g1_robot_cfg
 
 # IMU site offset from the pelvis link origin; matches g1.xml's <site name="imu_in_pelvis">.
@@ -153,7 +152,6 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             "joint_pos": JointPositionActionCfg(
                 asset_name="robot",
                 joint_names=(".*",),
-                scale=dict(G1_ACTION_SCALE),
                 use_default_offset=True,
             )
         },

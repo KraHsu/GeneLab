@@ -160,6 +160,7 @@ nav:
   - Concepts:
       - Registry: concepts/registry.md
       - Configs: concepts/configs.md
+      - Actuators: concepts/actuators.md
       - Sensors: concepts/sensors.md
       - Extensions: concepts/extensions.md
   - Examples:

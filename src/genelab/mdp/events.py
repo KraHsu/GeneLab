@@ -96,19 +96,7 @@ def reset_joints_to_default(
     vel = torch.zeros_like(pos)
     if vel_jitter > 0:
         vel += torch.empty_like(vel).uniform_(-vel_jitter, vel_jitter)
-    actuated_idx = getattr(env, "_actuated_dof_idx", None)
-    set_pos = getattr(env.robot, "set_dofs_position", None)
-    set_vel = getattr(env.robot, "set_dofs_velocity", None)
-    if set_pos is not None:
-        try:
-            set_pos(pos, actuated_idx, envs_idx=env_ids)
-        except TypeError:
-            set_pos(pos, actuated_idx)
-    if set_vel is not None:
-        try:
-            set_vel(vel, actuated_idx, envs_idx=env_ids)
-        except TypeError:
-            set_vel(vel, actuated_idx)
+    env.articulation.write_joint_state(pos, vel, env_ids)
 
 
 def push_by_setting_velocity(

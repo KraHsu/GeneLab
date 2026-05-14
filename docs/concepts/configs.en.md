@@ -29,7 +29,7 @@ from genelab.configs import apply_overrides
 apply_overrides(cfg, {
     "env.simulation.dt": "0.005",
     "env.simulation.steps": "500",
-    "env.actions.scale": "0.3",
+    "env.robot.actuators.cart.stiffness": "100.0",
     "env.observations.include_velocity": "true",
 })
 ```
@@ -60,5 +60,6 @@ The three simulation shortcuts (`--vis`, `--gpu`, `--steps`) rewrite to
 
 ## See also
 
+- [Actuators](actuators.md)
 - [Play and Train](../cli/play-train.md)
 - [API Reference](../api/reference.md)
