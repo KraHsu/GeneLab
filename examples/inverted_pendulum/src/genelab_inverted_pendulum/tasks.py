@@ -134,6 +134,12 @@ def register() -> None:
             InvertedPendulumTask,
             description="PPO inverted-pendulum balancing (single pole).",
             cfg_type=TaskCfg,
+            examples=[
+                f"genelab play {INVERTED_PENDULUM_TASK_ID} --vis",
+                f"genelab play {INVERTED_PENDULUM_TASK_ID} --agent trained "
+                "--checkpoint PATH/model.pt",
+                f"genelab train {INVERTED_PENDULUM_TASK_ID} --num_envs 4096 --max_iterations 100",
+            ],
         )
     if DOUBLE_PENDULUM_TASK_ID not in TASKS:
         register_task(
@@ -141,4 +147,10 @@ def register() -> None:
             DoubleInvertedPendulumTask,
             description="PPO double-inverted-pendulum balancing (two stacked poles).",
             cfg_type=TaskCfg,
+            examples=[
+                f"genelab play {DOUBLE_PENDULUM_TASK_ID} --vis",
+                f"genelab play {DOUBLE_PENDULUM_TASK_ID} --agent trained "
+                "--checkpoint PATH/model.pt",
+                f"genelab train {DOUBLE_PENDULUM_TASK_ID} --num_envs 4096 --max_iterations 200",
+            ],
         )
