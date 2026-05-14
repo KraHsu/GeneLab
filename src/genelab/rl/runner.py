@@ -166,6 +166,7 @@ def play_task(
     env = _build_env(env_cfg)
     wrapped = RslRlVecEnvWrapper(env, clip_actions=None)
 
+    import genesis as gs  # type: ignore[import-not-found]
     import torch
 
     action_shape = (env.num_envs, wrapped.num_actions)
@@ -213,7 +214,12 @@ def play_task(
         while True:
             with torch.inference_mode():
                 actions = policy(obs)
-            obs, _, _, _ = wrapped.step(actions)
+            try:
+                obs, _, _, _ = wrapped.step(actions)
+            except gs.GenesisException as exc:
+                if str(exc) != "Viewer closed.":
+                    raise
+                break
             step += 1
             if max_steps is not None and step >= max_steps:
                 break
