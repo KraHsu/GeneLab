@@ -23,6 +23,20 @@ GeneLab targets Python `>=3.12`. Write modern code only; do not add compatibilit
 - **`collections.abc` over `typing`** for `Callable`, `Iterable`, `Iterator`, `Sequence`, `Mapping`, etc.
 - **Whitelisted `typing` imports.** Only `Any`, `cast`, `Protocol`, `Literal`, `Final`, `Annotated`, `TYPE_CHECKING`, `runtime_checkable`, `get_args`, `get_origin`, `get_type_hints` are expected to appear. Anything else is suspect.
 
+## Documentation conventions
+
+Docs live under `docs/` and are built by MkDocs Material with the `mkdocs-static-i18n` plugin. Every content page exists in two languages with the `.en.md` / `.zh.md` suffix; the rendered site serves English at `/` and 中文 at `/zh/`. The following rules apply to both languages.
+
+- **Bilingual parity is mandatory.** When a `.en.md` page changes, its `.zh.md` counterpart must change in the same commit. The two files must agree on heading count and order, code blocks (variable placeholders aside), table shape, admonitions, and `See also` entries.
+- **Section headings are noun or gerund phrases**, never imperative directives. Use `Scaffold output` / `生成的目录结构`, `Running a task` / `运行任务` — not `Play a task` / `运行一个任务`. Same rule for `## See also` (not `## Next steps`).
+- **No chatty openers.** Avoid first-paragraph meta-narration about what the page is about (`This walks through…`, `本节走通…`, `In this guide we'll…`). Open with the substantive statement.
+- **Avoid second-person.** Drop `you` / `你` / `您`. Prefer no subject (imperative steps for operational commands) or noun-based phrasing (`The CLI exposes…` / `CLI 暴露…`).
+- **No mid-paragraph cross-page jumps.** Do not insert `see [Foo](...)` / `详见 [Foo](...)` inside body text. Collect related-page pointers in a single `## See also` block at the end of the page, capped at **≤ 3 entries** indexing genuinely supplementary reading (not the next required step — that is the left-hand nav's job).
+- **Admonitions over blockquotes.** Use `!!! warning "Title"` / `!!! tip "Title"` / `!!! note "Title"` for callouts; reserve `>` blockquotes for actual quotations.
+- **Stable explicit anchors** for headings that contain non-ASCII characters, numbered prefixes, or wording likely to change. Append `{ #stable-id }` to the heading, e.g. `## 5. Advanced: end-to-end RL on Unitree G1 { #unitree-g1 }`. Cross-link to the slug, not the auto-generated one.
+- **CJK + ASCII spacing in `.zh.md`.** Leave one space between Chinese characters and adjacent ASCII words, numbers, or inline code (`运行 \`uv sync\``, not `运行\`uv sync\``).
+- **`mkdocs build --strict` must pass.** Install the docs extra with `uv sync --extra docs` and run `uv run mkdocs build --strict` before opening a doc-touching PR. The flag fails the build on any unresolved relative link or anchor.
+
 ## Checks before opening a PR
 
 ```bash

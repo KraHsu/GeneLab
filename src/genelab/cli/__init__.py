@@ -20,7 +20,8 @@ from genelab.cli._argv import (
 from genelab.cli._interactive import pick_task_interactively
 from genelab.cli._render import (
     render_cache,
-    render_hint,
+    render_entry_info,
+    render_main_help,
     render_registry,
 )
 from genelab.cli._scaffold import create_project_skeleton
@@ -67,23 +68,56 @@ _PLAY_RETARGETED_KEYS: Final[tuple[str, ...]] = (
 )
 
 
+_RUN_FLAGS_HELP: Final[str] = """\
+Shorthand flags rewritten into env overrides:
+
+\b
+  -v, --vis        Enable the Genesis viewer (env.scene.vis=true).
+  --gpu            Use the GPU backend (env.scene.gpu=true).
+  --steps N        Run for N steps (env.scene.steps=N).
+  --dt SECONDS     Override the sim timestep (env.scene.dt=SECONDS).
+  --a.b.c VALUE    Set any dotted cfg path.
+
+Runner flags (used when an RL runner is engaged):
+
+\b
+  --num_envs N         Parallel environments.
+  --agent KIND         one of: zero, random, trained (play only).
+  --checkpoint PATH    Resume from a checkpoint.
+  --seed N             RNG seed.
+  --log_dir PATH       Override the log directory.
+  --max_iterations N   Cap training iterations (train only).
+  --gpus N             Distributed training across N GPUs (train only).
+
+Use `genelab info TASK` to see the full overridable path list for a task.
+"""
+
+
+_PLAY_HELP: Final[str] = "Run a registered task.\n\n" + _RUN_FLAGS_HELP
+_TRAIN_HELP: Final[str] = "Train a registered task when a runner exists.\n\n" + _RUN_FLAGS_HELP
+
+
 app = typer.Typer(
     name="genelab",
-    help="Run registered GeneLab tasks.",
+    help=(
+        "GeneLab — Genesis robot lab CLI.\n\n"
+        "Run `genelab` with no arguments for a landing page with quickstart commands "
+        "and a count of registered robots, envs, and tasks."
+    ),
     no_args_is_help=False,
     add_completion=False,
     pretty_exceptions_enable=False,
-    rich_markup_mode=None,
+    rich_markup_mode="rich",
 )
 
 project_app = typer.Typer(
     name="project",
-    help="Create and manage GeneLab projects.",
+    help="Create and manage GeneLab extension projects.",
     no_args_is_help=True,
     pretty_exceptions_enable=False,
-    rich_markup_mode=None,
+    rich_markup_mode="rich",
 )
-app.add_typer(project_app, name="project")
+app.add_typer(project_app, name="project", rich_help_panel="Project")
 
 
 def _version_callback(value: bool) -> None:
@@ -109,33 +143,43 @@ def root_callback(
         typer.Option(
             "--import",
             metavar="MODULE",
-            help="Import a downstream extension module before dispatch (can be repeated).",
+            help="Import an extension module before dispatch (repeatable).",
         ),
     ] = None,
     no_entry_points: Annotated[
         bool,
         typer.Option(
             "--no-entry-points",
-            help="Skip installed extensions from the genelab.extensions entry point group.",
+            help="Skip installed entry points from the genelab.extensions group.",
         ),
     ] = False,
 ) -> None:
     _ = version  # consumed by the eager callback
-    ctx.obj = _RootState(
+    state = _RootState(
         extension_modules=list(extension_modules or []),
         no_entry_points=no_entry_points,
     )
+    ctx.obj = state
     if ctx.invoked_subcommand is None:
-        render_hint()
+        _load_extensions(state)
+        render_main_help()
 
 
-@app.command("cache", help="Create project-local simulation cache directories.")
+@app.command(
+    "cache",
+    help="Create project-local simulation cache directories.",
+    rich_help_panel="Utilities",
+)
 def cache_cmd() -> None:
     ensure_project_cache()
     render_cache(CACHE_DIR)
 
 
-@app.command("list", help="List registered robots, environments, or tasks.")
+@app.command(
+    "list",
+    help="List registered robots, envs, or tasks.",
+    rich_help_panel="Registry",
+)
 def list_cmd(
     ctx: typer.Context,
     kind: Annotated[
@@ -148,8 +192,28 @@ def list_cmd(
 
 
 @app.command(
+    "info",
+    help="Show detail for one registered task, env, or robot.",
+    rich_help_panel="Registry",
+)
+def info_cmd(
+    ctx: typer.Context,
+    name: Annotated[
+        str,
+        typer.Argument(
+            metavar="NAME",
+            help="Registered task, env, or robot name.",
+        ),
+    ],
+) -> None:
+    _load_extensions(_state(ctx))
+    render_entry_info(name)
+
+
+@app.command(
     "play",
-    help="Run a registered task.",
+    help=_PLAY_HELP,
+    rich_help_panel="Runtime",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
 def play_cmd(ctx: typer.Context) -> None:
@@ -163,7 +227,8 @@ def play_cmd(ctx: typer.Context) -> None:
 
 @app.command(
     "train",
-    help="Train a registered task when a runner exists.",
+    help=_TRAIN_HELP,
+    rich_help_panel="Runtime",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
 def train_cmd(ctx: typer.Context) -> None:
@@ -185,7 +250,7 @@ def project_new_cmd(
         typer.Option(
             "--path",
             "-p",
-            help="Parent directory where the project directory is created.",
+            help="Parent directory under which the project directory is created.",
         ),
     ] = Path("."),
     package: Annotated[

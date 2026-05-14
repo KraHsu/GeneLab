@@ -97,8 +97,10 @@ plugins:
             Concepts: 核心概念
             Registry: 注册表
             Configs: 配置系统
+            Sensors: 传感器
             Extensions: 扩展加载
             Examples: 示例
+            Inverted Pendulum: 倒立摆
             API Reference: API 参考
             Contributing: 贡献指南
   - mkdocstrings:
@@ -158,8 +160,10 @@ nav:
   - Concepts:
       - Registry: concepts/registry.md
       - Configs: concepts/configs.md
+      - Sensors: concepts/sensors.md
       - Extensions: concepts/extensions.md
   - Examples:
       - Overview: examples/overview.md
+      - Inverted Pendulum: examples/inverted-pendulum.md
   - API Reference: api/reference.md
   - Contributing: contributing.md

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from genelab.configs import ManagerBasedEnvCfg, TaskCfg, apply_overrides
+from genelab.mdp.noise import Gnoise, NoiseCfg, Unoise
 from genelab.registry import (
     ENVS,
     ROBOTS,
@@ -13,6 +14,19 @@ from genelab.registry import (
     load_builtin_registries,
     load_entrypoint_extensions,
     load_extension_module,
+)
+from genelab.sensor import (
+    ContactData,
+    ContactSensor,
+    ContactSensorCfg,
+    GridPattern,
+    RayCastData,
+    RayCastSensor,
+    RayCastSensorCfg,
+    Sensor,
+    SensorCfg,
+    TerrainHeightSensor,
+    TerrainHeightSensorCfg,
 )
 
 
@@ -38,12 +52,26 @@ __all__ = [
     "ENVS",
     "ROBOTS",
     "TASKS",
+    "ContactData",
+    "ContactSensor",
+    "ContactSensorCfg",
     "GenesisBackendCfg",
+    "Gnoise",
+    "GridPattern",
     "ManagerBasedEnv",
     "ManagerBasedEnvCfg",
+    "NoiseCfg",
+    "RayCastData",
+    "RayCastSensor",
+    "RayCastSensorCfg",
     "Registry",
     "RegistryEntry",
+    "Sensor",
+    "SensorCfg",
     "TaskCfg",
+    "TerrainHeightSensor",
+    "TerrainHeightSensorCfg",
+    "Unoise",
     "apply_overrides",
     "load_builtin_registries",
     "load_entrypoint_extensions",
