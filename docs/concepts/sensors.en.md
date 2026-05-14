@@ -112,6 +112,27 @@ the completed durations into `last_air_time` / `last_contact_time` at the contac
 buffers. The matching obs terms — `mdp.foot_air_time`, `mdp.foot_contact`,
 `mdp.foot_contact_forces` — read straight off this dataclass.
 
+### FrameTransformerSensor
+
+Stateless forward-kinematics probe: outputs the pose of one or more target frames relative
+to a single source frame, with rigid offsets in each link's local frame. Both the world-frame
+pose and the source-frame pose are exposed in the data class so reward / observation terms
+can pick either basis without re-running the math themselves. Typical uses include reading
+an end-effector's pose in the base link's frame, comparing two foot-tip frames during gait
+shaping, or expressing a payload's pose relative to a grasp site.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `source_link_name` | `str` | Reference frame the targets are expressed in. |
+| `source_offset_pos` | `tuple[float, float, float]` | Source-side offset in the link's local frame. |
+| `source_offset_quat` | `tuple[float, float, float, float]` | Source-side rotation offset (wxyz). |
+| `target_frames` | `tuple[TargetFrameCfg, ...]` | Order-preserving target list — the output's `N` axis follows cfg order. |
+
+Each `TargetFrameCfg` carries `link_name`, optional `name` (defaults to `link_name`),
+`offset_pos`, and `offset_quat`. Sensor attribute `target_names: tuple[str, ...]` is exposed
+so consumers can resolve a column by name. `bind` rejects unknown link names and empty
+`target_frames`.
+
 ### Ray-cast patterns
 
 `RayCastSensorCfg.pattern` accepts any of the three bundled pattern dataclasses. Custom
