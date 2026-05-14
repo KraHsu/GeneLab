@@ -6,7 +6,7 @@ gates the test on Genesis availability so the rest of the suite still passes on 
 without it.
 """
 
-import pytest
+from typing import Any
 
 from genelab.actuator import ImplicitPDActuatorCfg
 from genelab.configs import InteractiveSceneCfg, SimulationCfg
@@ -14,8 +14,8 @@ from genelab.entity import ArticulationCfg, RigidObjectCfg
 from genelab.scene import InteractiveScene
 
 
-def test_interactive_scene_two_articulations_and_rigid_object() -> None:
-    pytest.importorskip("genesis")
+def test_interactive_scene_two_articulations_and_rigid_object(genesis_runtime: Any) -> None:
+    del genesis_runtime  # fixture guards EGL/runtime availability; module obj unused
     from genelab_inverted_pendulum.single.robot import get_inverted_pendulum_robot_cfg
 
     ip_path = get_inverted_pendulum_robot_cfg().to_entity_cfg().mjcf_path
