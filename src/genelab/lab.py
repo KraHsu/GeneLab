@@ -3,8 +3,22 @@
 from dataclasses import dataclass
 from typing import Protocol
 
-from genelab.configs import ManagerBasedEnvCfg, TaskCfg, apply_overrides
+from genelab.configs import (
+    InteractiveSceneCfg,
+    ManagerBasedEnvCfg,
+    SimulationCfg,
+    TaskCfg,
+    apply_overrides,
+)
+from genelab.entity import (
+    Articulation,
+    ArticulationCfg,
+    RigidObject,
+    RigidObjectCfg,
+    RobotState,
+)
 from genelab.mdp.noise import Gnoise, NoiseCfg, Unoise
+from genelab.scene import InteractiveScene
 from genelab.registry import (
     ENVS,
     ROBOTS,
@@ -52,12 +66,16 @@ __all__ = [
     "ENVS",
     "ROBOTS",
     "TASKS",
+    "Articulation",
+    "ArticulationCfg",
     "ContactData",
     "ContactSensor",
     "ContactSensorCfg",
     "GenesisBackendCfg",
     "Gnoise",
     "GridPattern",
+    "InteractiveScene",
+    "InteractiveSceneCfg",
     "ManagerBasedEnv",
     "ManagerBasedEnvCfg",
     "NoiseCfg",
@@ -66,8 +84,12 @@ __all__ = [
     "RayCastSensorCfg",
     "Registry",
     "RegistryEntry",
+    "RigidObject",
+    "RigidObjectCfg",
+    "RobotState",
     "Sensor",
     "SensorCfg",
+    "SimulationCfg",
     "TaskCfg",
     "TerrainHeightSensor",
     "TerrainHeightSensorCfg",

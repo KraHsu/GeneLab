@@ -5,14 +5,15 @@ from pathlib import Path
 from types import UnionType
 from typing import Any, cast, get_args, get_origin, get_type_hints
 
+from genelab.entity import ArticulationCfg, RigidObjectCfg
 from genelab.sensor import SensorCfg
 
 type _Annotation = object
 
 
 @dataclass
-class SceneCfg:
-    """Common Genesis runtime settings."""
+class SimulationCfg:
+    """Genesis runtime / sim-loop settings (decoupled from scene composition)."""
 
     vis: bool = False
     gpu: bool = False
@@ -20,9 +21,17 @@ class SceneCfg:
     dt: float = 0.01
     substeps: int = 4
     num_envs: int = 1
+
+
+@dataclass
+class InteractiveSceneCfg:
+    """Composition of an interactive scene: entities + terrain + sensors + viewer plugins."""
+
     env_spacing: tuple[float, float] = (2.0, 2.0)
     sensors: tuple[SensorCfg, ...] = field(default_factory=tuple)
     mouse_interaction: bool = False
+    entities: dict[str, ArticulationCfg | RigidObjectCfg] = field(default_factory=dict)
+    terrain: object | None = None  # M3 placeholder; populated by ``TerrainCfg`` later.
 
 
 @dataclass
@@ -54,7 +63,8 @@ class EventManagerCfg:
 class ManagerBasedEnvCfg:
     """Base shape for Isaac Lab-style manager-based environments."""
 
-    scene: SceneCfg = field(default_factory=SceneCfg)
+    simulation: SimulationCfg = field(default_factory=SimulationCfg)
+    scene: InteractiveSceneCfg = field(default_factory=InteractiveSceneCfg)
     actions: ActionManagerCfg = field(default_factory=ActionManagerCfg)
     observations: ObservationManagerCfg = field(default_factory=ObservationManagerCfg)
     rewards: RewardManagerCfg = field(default_factory=RewardManagerCfg)
@@ -82,10 +92,10 @@ class TaskCfg:
 
 
 _PATH_ALIASES = {
-    "vis": "env.scene.vis",
-    "gpu": "env.scene.gpu",
-    "steps": "env.scene.steps",
-    "dt": "env.scene.dt",
+    "vis": "env.simulation.vis",
+    "gpu": "env.simulation.gpu",
+    "steps": "env.simulation.steps",
+    "dt": "env.simulation.dt",
 }
 
 
