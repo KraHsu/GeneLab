@@ -6,6 +6,7 @@ GeneLab 的配置体系是 `genelab.configs` 下的一个小型 dataclass 层级
 TaskCfg
 └── env: object   # 下游扩展把自己的 env dataclass 接入这里
     ManagerBasedEnvCfg
+    ├── simulation
     ├── scene
     ├── actions
     ├── observations
@@ -25,8 +26,8 @@ TaskCfg
 from genelab.configs import apply_overrides
 
 apply_overrides(cfg, {
-    "env.scene.dt": "0.005",
-    "env.scene.steps": "500",
+    "env.simulation.dt": "0.005",
+    "env.simulation.steps": "500",
     "env.actions.scale": "0.3",
     "env.observations.include_velocity": "true",
 })
@@ -51,8 +52,8 @@ apply_overrides(cfg, {
 
 ### CLI 转发路径
 
-`play` / `train` 把每个 `--<a.b.c> VALUE` 标志转发给 `apply_overrides`。三个场景短标志
-（`--vis`、`--gpu`、`--steps`）在转发前被改写为 `env.scene.{vis,gpu,steps}`。
+`play` / `train` 把每个 `--<a.b.c> VALUE` 标志转发给 `apply_overrides`。三个仿真短标志
+（`--vis`、`--gpu`、`--steps`）在转发前被改写为 `env.simulation.{vis,gpu,steps}`。
 
 ## See also
 

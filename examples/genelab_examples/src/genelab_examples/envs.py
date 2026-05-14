@@ -60,19 +60,19 @@ class RubiksPlayEnv:
         gs = _genesis()
 
         cfg = self.cfg
-        if cfg.interaction.interactive_force and not cfg.scene.vis:
+        if cfg.interaction.interactive_force and not cfg.simulation.vis:
             raise SystemExit("--env.interaction.interactive_force requires --vis")
 
         robot = create_rubiks_robot(cfg.robot)
         spec = cfg.robot.spec()
         asset_path = robot.write_asset()
 
-        gs.init(backend=gs.gpu if cfg.scene.gpu else gs.cpu, precision="32")
+        gs.init(backend=gs.gpu if cfg.simulation.gpu else gs.cpu, precision="32")
         try:
             scene = cast(
                 _SceneLike,
                 gs.Scene(
-                    sim_options=gs.options.SimOptions(dt=cfg.scene.dt, substeps=cfg.scene.substeps),
+                    sim_options=gs.options.SimOptions(dt=cfg.simulation.dt, substeps=cfg.simulation.substeps),
                     rigid_options=gs.options.RigidOptions(
                         box_box_detection=True,
                         enable_self_collision=False,
@@ -90,7 +90,7 @@ class RubiksPlayEnv:
                         camera_fov=35,
                         max_FPS=60,
                     ),
-                    show_viewer=cfg.scene.vis,
+                    show_viewer=cfg.simulation.vis,
                 ),
             )
             scene.add_entity(gs.morphs.Plane(), material=gs.materials.Rigid(friction=1.0))
@@ -126,7 +126,7 @@ class RubiksPlayEnv:
                     f"max-torque={cfg.interaction.mouse_max_torque:g})."
                 )
 
-            for _ in range(max(0, cfg.scene.steps)):
+            for _ in range(max(0, cfg.simulation.steps)):
                 if controller is not None:
                     controller.step()
                 scene.step()
@@ -158,7 +158,7 @@ class RubiksPlayEnv:
             )
             return None
         force_cfg = replace(
-            cfg.force_controller, verbose=cfg.force_controller.verbose or cfg.scene.vis
+            cfg.force_controller, verbose=cfg.force_controller.verbose or cfg.simulation.vis
         )
         return ForceDrivenCubeController(cube, scene=scene, spec=spec, config=force_cfg)
 
@@ -180,10 +180,10 @@ class WujiHandPlaybackEnv:
                 side=cfg.robot.side,
                 desc_dir=cfg.robot.desc_dir,
                 trajectory=cfg.robot.trajectory,
-                vis=cfg.scene.vis,
-                gpu=cfg.scene.gpu,
-                steps=cfg.scene.steps,
-                dt=cfg.scene.dt,
+                vis=cfg.simulation.vis,
+                gpu=cfg.simulation.gpu,
+                steps=cfg.simulation.steps,
+                dt=cfg.simulation.dt,
                 reset_interval=cfg.reset_interval,
             )
         )

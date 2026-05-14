@@ -40,7 +40,7 @@ uv run genelab play <task-id> --gpu 1         # 锁定到单张 GPU
 
 ```bash
 uv run genelab play <task-id> \
-  --env.scene.dt 0.005 \
+  --env.simulation.dt 0.005 \
   --env.actions.scale 0.5
 ```
 

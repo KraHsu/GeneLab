@@ -6,7 +6,7 @@ Mirrors ``mjlab.tasks.velocity.config.g1`` adapted to GeneLab's slim manager sys
 import math
 
 from genelab import mdp
-from genelab.configs import SceneCfg
+from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
 from genelab.managers import (
     EventTermCfg,
@@ -117,12 +117,14 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     robot_entity_cfg = get_g1_robot_cfg().to_entity_cfg()
 
     cfg = ManagerBasedRlEnvCfg(
-        scene=SceneCfg(
+        simulation=SimulationCfg(
             num_envs=4096 if not play else 50,
             dt=0.002,
             substeps=1,
-            env_spacing=(2.5, 2.5),
             vis=play,
+        ),
+        scene=InteractiveSceneCfg(
+            env_spacing=(2.5, 2.5),
             sensors=(
                 BodyVelocitySensorCfg(
                     name="imu_lin_vel",
