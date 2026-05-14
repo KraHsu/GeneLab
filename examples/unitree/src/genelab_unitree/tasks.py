@@ -125,11 +125,28 @@ def register() -> None:
             G1VelocityTask,
             description="PPO velocity tracking for Unitree G1 (flat).",
             cfg_type=TaskCfg,
+            examples=[
+                f"genelab play {VELOCITY_TASK_ID}",
+                f"genelab play {VELOCITY_TASK_ID} --agent random",
+                f"genelab play {VELOCITY_TASK_ID} --agent trained --checkpoint PATH/model.pt",
+                f"genelab train {VELOCITY_TASK_ID} --num_envs 4096",
+                f"genelab train {VELOCITY_TASK_ID} --num_envs 4096 --gpus 2",
+            ],
         )
     if TRACKING_TASK_ID not in TASKS:
         register_task(
             TRACKING_TASK_ID,
             G1TrackingTask,
-            description="PPO motion imitation for Unitree G1 (flat); requires --env.commands.motion.motion_file.",
+            description=(
+                "PPO motion imitation for Unitree G1 on flat ground. "
+                "Requires a motion clip; see examples."
+            ),
             cfg_type=TaskCfg,
+            examples=[
+                f"genelab play {TRACKING_TASK_ID} --env.commands.motion.motion_file PATH/clip.npy",
+                f"genelab train {TRACKING_TASK_ID} "
+                "--env.commands.motion.motion_file PATH/clip.npy --num_envs 4096",
+                f"genelab train {TRACKING_TASK_ID} "
+                "--env.commands.motion.motion_file PATH/clip.npy --num_envs 4096 --gpus 2",
+            ],
         )

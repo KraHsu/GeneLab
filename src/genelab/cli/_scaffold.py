@@ -262,6 +262,10 @@ def _template_tasks(
                     ExampleTask,
                     description="Task provided by this GeneLab extension project.",
                     cfg_type=TaskCfg,
+                    examples=[
+                        f"genelab play {{TASK_ID}}",
+                        f"genelab play {{TASK_ID}} --vis --steps 200",
+                    ],
                 )
         """
     )
