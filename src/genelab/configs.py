@@ -22,6 +22,7 @@ class SceneCfg:
     num_envs: int = 1
     env_spacing: tuple[float, float] = (2.0, 2.0)
     sensors: tuple[SensorCfg, ...] = field(default_factory=tuple)
+    mouse_interaction: bool = False
 
 
 @dataclass
