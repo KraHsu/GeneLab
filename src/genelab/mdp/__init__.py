@@ -8,6 +8,7 @@ from genelab.mdp.commands import (
     UniformVelocityCommand,
     UniformVelocityCommandCfg,
 )
+from genelab.mdp.curriculums import terrain_levels_vel
 from genelab.mdp.events import (
     push_by_setting_velocity,
     reset_joints_to_default,
@@ -104,6 +105,7 @@ __all__ = [
     "robot_body_pos_b",
     "root_height_below",
     "sensor_data",
+    "terrain_levels_vel",
     "time_out",
     "track_angular_velocity_z_exp",
     "track_linear_velocity_xy_exp",
