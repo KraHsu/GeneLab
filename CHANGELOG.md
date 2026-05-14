@@ -12,10 +12,17 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
   sub-terrains: `FlatPatchCfg`, `PyramidStairsCfg`, `RandomRoughCfg`. `TerrainGeneratorCfg`
   composes them into a 2D grid (random by proportion or explicit `layout`); `TerrainGenerator`
   emits Genesis kwargs and per-cell `env_origins`; `TerrainImporter` spawns
-  `gs.morphs.Terrain` and exposes the post-build `heightfield` for sensors (PR2).
+  `gs.morphs.Terrain` and exposes the post-build `heightfield` for sensors.
 - `InteractiveSceneCfg.terrain` now accepts a `TerrainGeneratorCfg`; `InteractiveScene`
   routes through `TerrainImporter` when set, falling back to the default flat plane
   otherwise. `InteractiveScene.terrain` exposes the active importer to consumers.
+- `RayCastSensor` now samples `scene.terrain.heightfield_tensor` bilinearly when a
+  terrain is attached; flat-plane behaviour is preserved when `scene.terrain is None`
+  or when the sensor runs against a fake env without a `scene` attribute (unit-test
+  surface). `TerrainHeightSensor` inherits the new path through its inner ray-cast.
+- `TerrainImporter` gains `heightfield_tensor(device, dtype)` (device-keyed cache),
+  `horizontal_scale`, `vertical_scale`, and `terrain_origin` accessors used by the
+  ray-cast sampler.
 - `genelab.actuator` namespace with `ActuatorBase` and three concrete electromechanical
   models: `ImplicitPDActuator` (Genesis-internal PD), `IdealPDActuator` (Python-side PD
   via `control_dofs_force`), `DCMotorActuator` (`IdealPD` plus driving-direction torque

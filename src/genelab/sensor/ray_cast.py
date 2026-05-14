@@ -1,8 +1,14 @@
 """Ray-cast sensor with a configurable grid pattern, attached to a robot link.
 
-The flat-plane backend assumes the ground is a horizontal infinite plane at ``ground_height`` —
-matches GeneLab's current ``gs.morphs.Plane()`` setup. Subclasses override
-``_intersect_world_rays`` to plug in terrain queries, BVH raycasting, or sloped grounds.
+Two intersection backends:
+
+* **Flat plane** (default when ``scene.terrain is None``): every ray hits the horizontal
+  plane at ``ground_height``. Closed-form intersection.
+* **Height field** (when ``scene.terrain`` is a :class:`TerrainImporter`): bilinearly
+  samples ``terrain.heightfield_tensor`` at each ray's ``(x, y)`` origin and uses the
+  sampled elevation as the hit plane height. Accurate for vertical / near-vertical rays
+  (the dominant case for height-scan grids); subclasses can override
+  ``_intersect_world_rays`` for non-trivial BVH ray-tracing.
 
 Pattern shape mirrors mjlab's ``GridPatternCfg``; for now only a 2D grid is provided.
 """
@@ -17,6 +23,7 @@ from genelab.utils.math import quat_apply, yaw_quat
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.terrains import TerrainImporter
 
 
 @dataclass
@@ -133,13 +140,30 @@ class RayCastSensor(Sensor[RayCastData]):
     def _intersect_world_rays(
         self, starts_w: torch.Tensor, dirs_w: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Default backend: intersect every ray with the horizontal plane ``z = ground_height``.
+        """Intersect rays against the scene terrain or a horizontal default plane.
 
-        Subclasses may override to query terrain height fields or call into a Genesis raycaster.
+        Subclasses may override to plug in BVH or other custom backends.
         Returns ``(distances, hit_pos_w, normals_w)`` each shaped ``(B, M, ...)``.
         """
         assert self._env is not None
-        ground_z = self._cfg_typed.ground_height
+        terrain = self._scene_terrain()
+        if terrain is None:
+            ground_z = torch.full_like(starts_w[..., 2], self._cfg_typed.ground_height)
+        else:
+            ground_z = self._sample_heightfield(starts_w[..., :2], terrain)
+        return self._ray_plane_hit(starts_w, dirs_w, ground_z)
+
+    def _ray_plane_hit(
+        self,
+        starts_w: torch.Tensor,
+        dirs_w: torch.Tensor,
+        ground_z: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Closed-form intersection between rays and the (possibly per-ray) plane ``z = ground_z``.
+
+        ``ground_z`` must broadcast against ``starts_w[..., 2]`` (so a scalar, a ``(B,)``
+        per-env tensor, or a ``(B, M)`` per-ray tensor all work).
+        """
         max_dist = self._cfg_typed.max_distance
         dir_z = dirs_w[..., 2]
         # Avoid division-by-zero / wrong-side hits (ray going up or parallel) by masking them
@@ -156,3 +180,55 @@ class RayCastSensor(Sensor[RayCastData]):
         normals_w = torch.zeros_like(hit_pos_w)
         normals_w[..., 2] = 1.0
         return t, hit_pos_w, normals_w
+
+    def _scene_terrain(self) -> "TerrainImporter | None":
+        """Return the active :class:`TerrainImporter`, or ``None`` if the env runs on flat ground.
+
+        Fake / minimal envs (the unit-test suite) may not expose ``.scene``; treat that
+        as "flat plane" rather than failing.
+        """
+        if self._env is None:
+            return None
+        scene = getattr(self._env, "scene", None)
+        if scene is None:
+            return None
+        return getattr(scene, "terrain", None)
+
+    def _sample_heightfield(
+        self,
+        xy_world: torch.Tensor,
+        terrain: "TerrainImporter",
+    ) -> torch.Tensor:
+        """Bilinearly sample terrain elevation at world ``(x, y)`` coordinates.
+
+        ``xy_world`` is shape ``(..., 2)``; returns shape ``(...,)`` of world-frame z.
+        Out-of-bounds samples are clamped to the height-field border.
+        """
+        device = str(xy_world.device)
+        hf = terrain.heightfield_tensor(device, xy_world.dtype)  # (H, W) integer steps
+        h_scale = terrain.horizontal_scale
+        v_scale = terrain.vertical_scale
+        pos_x, pos_y, pos_z = terrain.terrain_origin
+
+        # World -> heightfield grid coords.
+        gx = (xy_world[..., 0] - pos_x) / h_scale
+        gy = (xy_world[..., 1] - pos_y) / h_scale
+        n_rows, n_cols = hf.shape
+        gx = gx.clamp(0.0, float(n_rows - 1))
+        gy = gy.clamp(0.0, float(n_cols - 1))
+
+        gx0 = gx.floor().long()
+        gy0 = gy.floor().long()
+        gx1 = (gx0 + 1).clamp(max=n_rows - 1)
+        gy1 = (gy0 + 1).clamp(max=n_cols - 1)
+        fx = gx - gx0.to(gx.dtype)
+        fy = gy - gy0.to(gy.dtype)
+
+        v00 = hf[gx0, gy0]
+        v10 = hf[gx1, gy0]
+        v01 = hf[gx0, gy1]
+        v11 = hf[gx1, gy1]
+        v_x0 = v00 * (1.0 - fx) + v10 * fx
+        v_x1 = v01 * (1.0 - fx) + v11 * fx
+        v_xy = v_x0 * (1.0 - fy) + v_x1 * fy
+        return v_xy * v_scale + pos_z
