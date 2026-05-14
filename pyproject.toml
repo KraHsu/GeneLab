@@ -115,5 +115,5 @@ src = ["src"]
 
 [tool.pytest.ini_options]
 addopts = ["-ra"]
-pythonpath = ["examples/genelab_examples/src", "examples/unitree/src"]
+pythonpath = ["examples/genelab_examples/src", "examples/unitree/src", "examples/inverted_pendulum/src"]
 testpaths = ["tests"]
