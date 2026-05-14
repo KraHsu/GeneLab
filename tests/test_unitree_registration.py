@@ -30,7 +30,7 @@ def test_g1_velocity_task_cfg_is_trainable_with_ppo_agent() -> None:
     # Play mode should drop the push event and shrink num_envs.
     assert "push_robot" not in task.cfg.play_env.events_cfg
     assert "push_robot" in task.cfg.env.events_cfg
-    assert task.cfg.play_env.scene.num_envs <= task.cfg.env.scene.num_envs
+    assert task.cfg.play_env.simulation.num_envs <= task.cfg.env.simulation.num_envs
 
 
 def test_g1_robot_cfg_resolves_vendored_mjcf() -> None:

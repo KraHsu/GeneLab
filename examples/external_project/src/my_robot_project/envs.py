@@ -8,4 +8,4 @@ class MyPickPlaceEnv:
         self.cfg = cfg or MyEnvCfg()
 
     def play(self) -> None:
-        print(f"Run MyPickPlaceEnv with Genesis for {self.cfg.scene.steps} steps")
+        print(f"Run MyPickPlaceEnv with Genesis for {self.cfg.simulation.steps} steps")

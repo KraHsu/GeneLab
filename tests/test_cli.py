@@ -211,7 +211,7 @@ def test_play_help_documents_short_flag_grammar(capsys: pytest.CaptureFixture[st
     assert "--vis" in out
     assert "--gpu" in out
     assert "--steps" in out
-    assert "env.scene" in out
+    assert "env.simulation" in out
 
 
 def test_register_task_accepts_examples_kwarg() -> None:
@@ -257,8 +257,8 @@ def test_info_renders_examples_and_overrides(capsys: pytest.CaptureFixture[str])
     assert "Task from a fake external package." in out
     assert "genelab play External-Fake-Task-v0" in out
     assert "--steps 7" in out
-    # cfg introspection surfaces the scene fields that overrides walk through.
-    assert "env.scene.steps" in out
+    # cfg introspection surfaces the simulation fields that overrides walk through.
+    assert "env.simulation.steps" in out
 
 
 def test_info_unknown_name_errors(capsys: pytest.CaptureFixture[str]) -> None:
@@ -346,11 +346,12 @@ def test_config_overrides_update_nested_task_config() -> None:
     task = TASKS.get("GeneLab-Wuji-Hand-Playback-v0")
 
     apply_overrides(
-        task.cfg, {"env.robot.side": "left", "env.scene.steps": "3", "env.reset_interval": "0"}
+        task.cfg,
+        {"env.robot.side": "left", "env.simulation.steps": "3", "env.reset_interval": "0"},
     )
 
     assert task.cfg.env.robot.side == "left"
-    assert task.cfg.env.scene.steps == 3
+    assert task.cfg.env.simulation.steps == 3
     assert task.cfg.env.reset_interval == 0
 
 
@@ -365,8 +366,8 @@ def test_cli_run_args_accept_flags_after_task() -> None:
 
     assert task_id == "GeneLab-Rubiks-Play-v0"
     assert overrides == {
-        "env.scene.steps": "5",
-        "env.scene.vis": "true",
+        "env.simulation.steps": "5",
+        "env.simulation.vis": "true",
         "env.robot.gap": "0.002",
     }
 

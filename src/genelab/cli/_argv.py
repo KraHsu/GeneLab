@@ -47,7 +47,7 @@ def parse_run_args(tokens: list[str]) -> tuple[str, dict[str, str]]:
     """Split a ``play``/``train`` token slice into ``(task_id, overrides)``.
 
     Shortcut flags ``-v``/``--vis``/``--gpu``/``--steps`` are rewritten into the
-    canonical ``env.scene.*`` override paths. Other ``--a.b.c VALUE`` flags are
+    canonical ``env.simulation.*`` override paths. Other ``--a.b.c VALUE`` flags are
     forwarded as-is (with ``-`` replaced by ``_`` in the key).
     """
 
@@ -57,15 +57,15 @@ def parse_run_args(tokens: list[str]) -> tuple[str, dict[str, str]]:
     while index < len(tokens):
         token = tokens[index]
         if token in {"-v", "--vis"}:
-            overrides["env.scene.vis"] = "true"
+            overrides["env.simulation.vis"] = "true"
             index += 1
             continue
         if token == "--gpu":
-            overrides["env.scene.gpu"] = "true"
+            overrides["env.simulation.gpu"] = "true"
             index += 1
             continue
         if token == "--steps":
-            overrides["env.scene.steps"] = _require_value(tokens, index)
+            overrides["env.simulation.steps"] = _require_value(tokens, index)
             index += 2
             continue
         if token.startswith("--"):

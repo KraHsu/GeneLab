@@ -41,7 +41,7 @@ declared on the target dataclass field:
 
 ```bash
 uv run genelab play <task-id> \
-  --env.scene.dt 0.005 \
+  --env.simulation.dt 0.005 \
   --env.actions.scale 0.5
 ```
 
