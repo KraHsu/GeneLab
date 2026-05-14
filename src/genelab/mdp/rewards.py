@@ -87,7 +87,7 @@ class variable_posture:
         self._std_running = self._build_std(std_running, default)
 
     def _build_std(self, mapping: dict[str, float], default: float) -> torch.Tensor:
-        out = torch.full((self._env._num_dofs,), default, device=self._env.device)
+        out = torch.full((len(self._env.joint_names),), default, device=self._env.device)
         for pattern, value in mapping.items():
             try:
                 regex = re.compile(pattern)
@@ -118,8 +118,10 @@ class variable_posture:
 
         standing_mask = (total_speed < walking_threshold).float().unsqueeze(-1)
         walking_mask = (
-            (total_speed >= walking_threshold) & (total_speed < running_threshold)
-        ).float().unsqueeze(-1)
+            ((total_speed >= walking_threshold) & (total_speed < running_threshold))
+            .float()
+            .unsqueeze(-1)
+        )
         running_mask = (total_speed >= running_threshold).float().unsqueeze(-1)
 
         std = (
