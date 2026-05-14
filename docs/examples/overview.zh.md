@@ -2,6 +2,16 @@
 
 仓库在 `examples/` 下提供数个参考扩展，同时也是 CLI 与注册表的集成测试。
 
+## inverted_pendulum
+
+两个 PPO cart-pole 任务，训练栈与 Unitree 示例相同（`ManagerBasedRlEnv` + rsl_rl），训练预算
+控制在单机能跑完的量级：
+
+- **`GeneLab-Inverted-Pendulum-v0`** —— 小车 + 单杆倒立摆。
+- **`GeneLab-Double-Inverted-Pendulum-v0`** —— 小车 + 串联双杆倒立摆。
+
+源码位于 `examples/inverted_pendulum/`；完整流程见 [倒立摆](inverted-pendulum.md)。
+
 ## genelab_examples
 
 仓库内的标准扩展，接通两个任务：
