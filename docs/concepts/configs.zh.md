@@ -28,7 +28,7 @@ from genelab.configs import apply_overrides
 apply_overrides(cfg, {
     "env.simulation.dt": "0.005",
     "env.simulation.steps": "500",
-    "env.actions.scale": "0.3",
+    "env.robot.actuators.cart.stiffness": "100.0",
     "env.observations.include_velocity": "true",
 })
 ```
@@ -57,5 +57,6 @@ apply_overrides(cfg, {
 
 ## See also
 
+- [执行器](actuators.md)
 - [play 与 train](../cli/play-train.md)
 - [API 参考](../api/reference.md)
