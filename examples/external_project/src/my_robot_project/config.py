@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from genelab.configs import ManagerBasedEnvCfg, SceneCfg
+from genelab.configs import ManagerBasedEnvCfg, SimulationCfg
 
 
 @dataclass
@@ -12,5 +12,5 @@ class MyRobotCfg:
 
 @dataclass
 class MyEnvCfg(ManagerBasedEnvCfg):
-    scene: SceneCfg = field(default_factory=lambda: SceneCfg(steps=128))
+    simulation: SimulationCfg = field(default_factory=lambda: SimulationCfg(steps=128))
     robot: MyRobotCfg = field(default_factory=MyRobotCfg)

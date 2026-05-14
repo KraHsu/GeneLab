@@ -1,7 +1,7 @@
 """Flat-ground double inverted-pendulum env config (manager-based + Genesis)."""
 
 from genelab import mdp
-from genelab.configs import SceneCfg
+from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
 from genelab.managers import (
     EventTermCfg,
@@ -55,12 +55,14 @@ def double_inverted_pendulum_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg
     robot_entity_cfg = get_double_inverted_pendulum_robot_cfg().to_entity_cfg()
 
     cfg = ManagerBasedRlEnvCfg(
-        scene=SceneCfg(
+        simulation=SimulationCfg(
             num_envs=4096 if not play else 1,
             dt=0.005,
             substeps=1,
-            env_spacing=(3.0, 3.0),
             vis=play,
+        ),
+        scene=InteractiveSceneCfg(
+            env_spacing=(3.0, 3.0),
             mouse_interaction=play,
             sensors=(
                 BodyVelocitySensorCfg(

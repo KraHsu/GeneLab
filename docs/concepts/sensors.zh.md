@@ -21,20 +21,22 @@ class Sensor[T](ABC):
     def _compute_data(self) -> T: ...
 ```
 
-env 自动接好生命周期：`SceneCfg.sensors` 里构造出的传感器，`update` 在 `_refresh_robot_state`
-之后被调用，`reset` 在 `_reset_idx` 内部被调用 —— 奖励和观测 term 总能读到当前步的数据。
+env 自动接好生命周期：`InteractiveSceneCfg.sensors` 里构造出的传感器，`update` 在每次
+articulation 刷新之后被调用，`reset` 在 `_reset_idx` 内部被调用 —— 奖励和观测 term 总能读
+到当前步的数据。
 
 ## 注册到 scene
 
-`SceneCfg.sensors` 是一个 `SensorCfg` 元组。`ManagerBasedRlEnv.__init__` 对每个 cfg 调用
-`build()` 并把生成的传感器绑定到 env。运行时通过 `env.sensors[name].data` 访问。
+`InteractiveSceneCfg.sensors` 是一个 `SensorCfg` 元组。`ManagerBasedRlEnv.__init__` 对每
+个 cfg 调用 `build()` 并把生成的传感器绑定到 env。运行时通过 `env.sensors[name].data` 访
+问。
 
 ```python
-from genelab.configs import SceneCfg
+from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.sensor import BodyVelocitySensorCfg, ContactSensorCfg
 
-scene = SceneCfg(
-    num_envs=4096,
+simulation = SimulationCfg(num_envs=4096)
+scene = InteractiveSceneCfg(
     sensors=(
         BodyVelocitySensorCfg(
             name="imu_lin_vel",
@@ -169,7 +171,7 @@ class JointTorqueSensor(Sensor[torch.Tensor]):
         return self._env.joint_kp * (rs.joint_pos - self._env.default_joint_pos)
 ```
 
-把 cfg 加入 `SceneCfg.sensors` 后，传感器即可通过 `env.sensors[name].data` 访问。
+把 cfg 加入 `InteractiveSceneCfg.sensors` 后，传感器即可通过 `env.sensors[name].data` 访问。
 
 ## See also
 
