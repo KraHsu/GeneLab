@@ -28,6 +28,7 @@ from genelab.managers import (
     TerminationManager,
     TerminationTermCfg,
 )
+from genelab.sensor import Sensor
 
 if TYPE_CHECKING:
     pass
@@ -140,6 +141,14 @@ class ManagerBasedRlEnv:
         self.event_manager = EventManager(cfg.events_cfg, self)
         self.curriculum_manager = CurriculumManager(cfg.curriculum_cfg, self)
 
+        # Build sensors after managers (so cfg parsing is settled) but before reset
+        # (so observation_manager.compute can read sensor.data on the first frame).
+        self._sensors: dict[str, Sensor[Any]] = {}
+        for sensor_cfg in cfg.scene.sensors:
+            sensor = sensor_cfg.build()
+            sensor.bind(self)
+            self._sensors[sensor_cfg.name] = sensor
+
         # Apply PD gains, default pose, then run startup events.
         self._apply_default_gains()
         self.event_manager.apply("startup")
@@ -188,6 +197,10 @@ class ManagerBasedRlEnv:
     @property
     def robot_state(self) -> RobotState:
         return self._robot_state
+
+    @property
+    def sensors(self) -> dict[str, Sensor[Any]]:
+        return self._sensors
 
     @property
     def joint_names(self) -> list[str]:
@@ -265,6 +278,14 @@ class ManagerBasedRlEnv:
             quat=tuple(robot_cfg.init_quat),
         )
         self._robot: Any = self._scene.add_entity(morph)
+        if self.cfg.scene.vis and self.cfg.scene.mouse_interaction:
+            from genelab.sim.mouse_interaction import GeneLabMouseInteractionPlugin
+
+            # MouseInteractionPlugin must be attached BEFORE ``scene.build()`` — pre-build registration
+            # routes through ``viewer.build`` so the plugin's raycaster sees the fully constructed
+            # rigid solver. Post-build registration deadlocks the sim/viewer loop in some Genesis builds.
+            # ``GeneLabMouseInteractionPlugin`` patches the upstream plugin for batched link APIs.
+            self._scene.viewer.add_plugin(GeneLabMouseInteractionPlugin(use_force=True))
         self._scene.build(
             n_envs=self._num_envs,
             env_spacing=tuple(self.cfg.scene.env_spacing),
@@ -482,6 +503,8 @@ class ManagerBasedRlEnv:
         self.event_manager.apply("reset", env_ids)
         self.command_manager.reset(env_ids)
         self.action_manager.reset(env_ids)
+        for sensor in self._sensors.values():
+            sensor.reset(env_ids)
         reward_extras = self.reward_manager.reset(env_ids)
         term_extras = self.termination_manager.reset(env_ids)
         curr_extras = self.curriculum_manager.compute(env_ids)
@@ -497,6 +520,8 @@ class ManagerBasedRlEnv:
             self.action_manager.apply_action()
             self._scene.step()
         self._refresh_robot_state()
+        for sensor in self._sensors.values():
+            sensor.update(self._step_dt)
         self._episode_length_buf += 1
         # Resample commands and trigger interval-mode events.
         self.command_manager.compute(self._step_dt)
