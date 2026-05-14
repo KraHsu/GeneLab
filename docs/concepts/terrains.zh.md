@@ -6,15 +6,17 @@
 
 Genesis 自带 height-field 地形原语，但其原生 API 使用按字符串名键控的 pydantic options（`"pyramid_stairs_terrain"`、`"random_uniform_terrain"`）。GeneLab 的 cfg 层把接口保持成 dataclass 形态（与项目其它部分一致），让每种子地形拥有带显式字段的 typed Python 类，并跟踪每个 env 的 spawn / level 状态，让课程项可以提升和降级而不直接接触 Genesis 句柄。
 
-## 自带 3 种子地形
+## 自带 5 种子地形
 
 | 类 | Genesis 类型 | 参数 |
 |---|---|---|
 | `FlatPatchCfg` | `flat_terrain` | 无 |
 | `PyramidStairsCfg` | `pyramid_stairs_terrain` | `step_width`、`step_height` |
 | `RandomRoughCfg` | `random_uniform_terrain` | `min_height`、`max_height`、`step`、`downsampled_scale` |
+| `SlopeCfg` | `sloped_terrain` | `slope` |
+| `WaveCfg` | `wave_terrain` | `num_waves`、`amplitude` |
 
-`PyramidStairsCfg(step_height=-0.1)` 生成一圈圈向下的同心方形台阶；正的 `step_height` 会反转金字塔方向。`RandomRoughCfg` 在 `downsampled_scale` 下采样后再上采样，所以表观特征尺寸与 `horizontal_scale` 无关。Genesis 还有另外 3 种类型（`sloped`、`wave`、`stepping_stones`）尚未包装 —— 扩展 `SubTerrainCfg` 暴露它们是一个 20 行的小活。
+`PyramidStairsCfg(step_height=-0.1)` 生成一圈圈向下的同心方形台阶；正的 `step_height` 会反转金字塔方向。`RandomRoughCfg` 在 `downsampled_scale` 下采样后再上采样，所以表观特征尺寸与 `horizontal_scale` 无关。`SlopeCfg(slope=-0.5)` 把整块斜成一个固定坡（负号沿 Genesis 默认的下坡方向）；`WaveCfg` 在整块上铺正弦起伏 —— 介于平地与金字塔台阶之间的中间难度。Genesis 还有另外 4 种类型（`pyramid_sloped`、`discrete_obstacles`、`stairs`、`stepping_stones`）尚未包装 —— 扩展 `SubTerrainCfg` 暴露它们是一个 20 行的小活。
 
 ## 拼装地形网格
 
