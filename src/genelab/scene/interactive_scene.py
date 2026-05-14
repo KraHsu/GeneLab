@@ -134,6 +134,8 @@ class InteractiveScene:
         for entity in self._entities.values():
             if isinstance(entity, Articulation):
                 entity.bind(self._num_envs, self._device)
+        if self._terrain is not None:
+            self._terrain.init_per_env_state(self._num_envs, self._device)
         self._built = True
 
     def _compute_env_origins(self) -> torch.Tensor:
