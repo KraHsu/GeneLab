@@ -50,12 +50,19 @@ All four must pass — CI enforces the same set as required status checks on eve
 
 ## Branch and PR workflow
 
-`main` is protected: direct pushes are rejected and the required CI checks (`lint`, `typecheck`, `test`) must be green before a PR can merge.
+GeneLab uses a two-layer flow: feature branches integrate into `dev` first, then `dev` is promoted to `main` via PR. `main` is protected — direct pushes are rejected and the required CI checks (`lint`, `typecheck`, `test`) must be green before a PR can merge.
 
-1. Branch off `main` with a descriptive prefix: `fix/...`, `feat/...`, `ci/...`, `chore/...`, `docs/...`.
+```
+feat/* ──┐
+fix/*  ──┼──> dev ──PR──> main
+docs/* ──┘
+```
+
+1. Branch off `dev` with a descriptive prefix: `fix/...`, `feat/...`, `ci/...`, `chore/...`, `docs/...`.
 2. Run the checks above locally.
-3. Push and open a PR — CI runs automatically on every push.
-4. If `main` advances during review, merge it into your branch (or rebase) so the PR stays current.
+3. Push and either open a PR targeting `dev`, or merge into `dev` locally and push `dev` directly — pick whichever fits the size of the change.
+4. To promote `dev` to `main`, open a PR `dev` → `main`. CI runs on every push and must be green before merge.
+5. If `dev` advances during review of a feature branch, merge `dev` into your branch (or rebase) so the PR stays current.
 
 ## Commit messages
 

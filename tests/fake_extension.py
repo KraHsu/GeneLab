@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from genelab.configs import ManagerBasedEnvCfg, SceneCfg, TaskCfg
+from genelab.configs import ManagerBasedEnvCfg, SimulationCfg, TaskCfg
 from genelab.registry import register_env, register_robot, register_task
 
 
@@ -13,7 +13,7 @@ class FakeRobotCfg:
 
 @dataclass
 class FakeEnvCfg(ManagerBasedEnvCfg):
-    scene: SceneCfg = field(default_factory=lambda: SceneCfg(steps=0))
+    simulation: SimulationCfg = field(default_factory=lambda: SimulationCfg(steps=0))
     label: str = "fake-extension"
 
 
@@ -35,7 +35,7 @@ class FakeTask:
     def play(self) -> None:
         if not isinstance(self.cfg.env, FakeEnvCfg):
             raise TypeError("FakeTask requires FakeEnvCfg")
-        print(f"played {self.cfg.name} for {self.cfg.env.scene.steps} steps")
+        print(f"played {self.cfg.name} for {self.cfg.env.simulation.steps} steps")
 
     def train(self) -> None:
         raise NotImplementedError("training is not implemented for fake extension")

@@ -1,12 +1,12 @@
 """Single inverted-pendulum robot, env, and PPO configuration."""
 
 from genelab_inverted_pendulum.single.constants import (
-    CART_ACTION_SCALE,
+    ACTUATORS_CFG,
+    CART_ACTUATOR_CFG,
     CART_JOINT,
     DEFAULT_JOINT_POS,
     INVERTED_PENDULUM_MJCF,
-    JOINT_KP,
-    JOINT_KV,
+    POLE_ACTUATOR_CFG,
     POLE_JOINT,
     POLE_LINK,
 )
@@ -18,13 +18,13 @@ from genelab_inverted_pendulum.single.robot import (
 )
 
 __all__ = [
-    "CART_ACTION_SCALE",
+    "ACTUATORS_CFG",
+    "CART_ACTUATOR_CFG",
     "CART_JOINT",
     "DEFAULT_JOINT_POS",
     "INVERTED_PENDULUM_MJCF",
     "InvertedPendulumRobotCfg",
-    "JOINT_KP",
-    "JOINT_KV",
+    "POLE_ACTUATOR_CFG",
     "POLE_JOINT",
     "POLE_LINK",
     "get_inverted_pendulum_robot_cfg",

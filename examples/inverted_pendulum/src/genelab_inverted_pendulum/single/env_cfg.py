@@ -1,7 +1,7 @@
 """Flat-ground single inverted-pendulum env config (manager-based + Genesis)."""
 
 from genelab import mdp
-from genelab.configs import SceneCfg
+from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
 from genelab.managers import (
     EventTermCfg,
@@ -16,7 +16,6 @@ from genelab.sensor import BodyVelocitySensorCfg
 
 from genelab_inverted_pendulum import mdp as ip_mdp
 from genelab_inverted_pendulum.single.constants import (
-    CART_ACTION_SCALE,
     CART_JOINT,
     CART_POSITION_LIMIT,
     POLE_ANGLE_LIMIT,
@@ -52,12 +51,14 @@ def inverted_pendulum_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     robot_entity_cfg = get_inverted_pendulum_robot_cfg().to_entity_cfg()
 
     cfg = ManagerBasedRlEnvCfg(
-        scene=SceneCfg(
+        simulation=SimulationCfg(
             num_envs=4096 if not play else 1,
             dt=0.005,
             substeps=1,
-            env_spacing=(2.5, 2.5),
             vis=play,
+        ),
+        scene=InteractiveSceneCfg(
+            env_spacing=(2.5, 2.5),
             mouse_interaction=play,
             sensors=(
                 BodyVelocitySensorCfg(
@@ -75,7 +76,6 @@ def inverted_pendulum_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             "cart": JointPositionActionCfg(
                 asset_name="robot",
                 joint_names=(CART_JOINT,),
-                scale=dict(CART_ACTION_SCALE),
                 use_default_offset=True,
             ),
         },

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from genelab.cache import ensure_project_cache
 from genelab.registry import TASKS
+from genelab.rl.profiler import maybe_profile
 from genelab.rl.config import RslRlOnPolicyRunnerCfg
 from genelab.rl.distributed import is_main_process
 from genelab.rl.rsl_rl_wrapper import RslRlVecEnvWrapper
@@ -99,17 +100,28 @@ def train_task(
     log_root: Path | None = None,
     log_dir: Path | None = None,
     resume_from: Path | None = None,
+    prof: bool | None = None,
+    prof_out: Path | None = None,
+    prof_wait: int | None = None,
+    prof_warmup: int | None = None,
+    prof_active: int | None = None,
+    prof_repeat: int | None = None,
+    prof_record_shapes: bool | None = None,
+    prof_with_stack: bool | None = None,
 ) -> Path:
     """Train ``task_id`` with PPO. Returns the log directory.
 
     ``log_dir`` (final, pre-resolved) takes precedence over ``log_root`` (parent under
     which a ``<experiment>/<timestamp>`` directory is created). The torchrun relaunch
     path pre-resolves the log dir so every rank lands in the same folder.
+
+    ``prof*`` keyword arguments override the matching ``GENELAB_PROFILE_*`` env vars; see
+    ``genelab.rl.profiler.maybe_profile`` for the semantics.
     """
     ensure_project_cache()
     env_cfg = _resolve_env_cfg(task_id, play=False)
     if num_envs is not None:
-        env_cfg.scene.num_envs = int(num_envs)
+        env_cfg.simulation.num_envs = int(num_envs)
     if seed is not None:
         env_cfg.seed = int(seed)
         agent_cfg.seed = int(seed)
@@ -135,7 +147,30 @@ def train_task(
     )
     if resume_from is not None:
         runner.load(str(resume_from))
-    runner.learn(num_learning_iterations=agent_cfg.max_iterations)
+    with maybe_profile(
+        enabled=prof,
+        out_dir=prof_out,
+        wait=prof_wait,
+        warmup=prof_warmup,
+        active=prof_active,
+        repeat=prof_repeat,
+        record_shapes=prof_record_shapes,
+        with_stack=prof_with_stack,
+    ) as prof_step:
+        if prof_step is not None:
+            # Advance the profiler schedule once per env step. RSL-RL doesn't expose a
+            # per-iteration hook, so the wrapper's ``step`` is the closest fire-once-per-
+            # rollout-step seam. Multiply WAIT/WARMUP/ACTIVE by ``num_steps_per_env`` if
+            # you want the schedule expressed in PPO iterations.
+            original_step = wrapped.step
+
+            def _step_with_profiler(*args: Any, **kwargs: Any) -> Any:
+                result = original_step(*args, **kwargs)
+                prof_step()
+                return result
+
+            wrapped.step = _step_with_profiler  # type: ignore[method-assign]
+        runner.learn(num_learning_iterations=agent_cfg.max_iterations)
     env.close()
     return log_dir
 
@@ -149,10 +184,21 @@ def play_task(
     agent_cfg: RslRlOnPolicyRunnerCfg | None = None,
     deterministic: bool = True,
     max_steps: int | None = None,
+    prof: bool | None = None,
+    prof_out: Path | None = None,
+    prof_wait: int | None = None,
+    prof_warmup: int | None = None,
+    prof_active: int | None = None,
+    prof_repeat: int | None = None,
+    prof_record_shapes: bool | None = None,
+    prof_with_stack: bool | None = None,
 ) -> None:
     """Replay a policy. ``agent`` selects between ``"zero"``, ``"random"``, and ``"trained"``.
 
     When ``agent`` is ``None``, defaults to ``"trained"`` if ``checkpoint`` is set, else ``"zero"``.
+
+    ``prof*`` keyword arguments override the matching ``GENELAB_PROFILE_*`` env vars; see
+    ``genelab.rl.profiler.maybe_profile`` for the semantics.
     """
     ensure_project_cache()
     kind: AgentKind = (
@@ -162,11 +208,10 @@ def play_task(
         raise SystemExit("agent='trained' requires a --checkpoint path")
     env_cfg = _resolve_env_cfg(task_id, play=True)
     if num_envs is not None:
-        env_cfg.scene.num_envs = int(num_envs)
+        env_cfg.simulation.num_envs = int(num_envs)
     env = _build_env(env_cfg)
     wrapped = RslRlVecEnvWrapper(env, clip_actions=None)
 
-    import genesis as gs  # type: ignore[import-not-found]
     import torch
 
     action_shape = (env.num_envs, wrapped.num_actions)
@@ -211,17 +256,26 @@ def play_task(
     obs, _ = wrapped.reset()
     step = 0
     try:
-        while True:
-            with torch.inference_mode():
-                actions = policy(obs)
-            try:
+        with maybe_profile(
+            enabled=prof,
+            out_dir=prof_out,
+            wait=prof_wait,
+            warmup=prof_warmup,
+            active=prof_active,
+            repeat=prof_repeat,
+            record_shapes=prof_record_shapes,
+            with_stack=prof_with_stack,
+        ) as prof_step:
+            while True:
+                with torch.inference_mode():
+                    actions = policy(obs)
                 obs, _, _, _ = wrapped.step(actions)
-            except gs.GenesisException as exc:
-                if str(exc) != "Viewer closed.":
-                    raise
-                break
-            step += 1
-            if max_steps is not None and step >= max_steps:
-                break
+                if env.viewer_closed:
+                    break
+                if prof_step is not None:
+                    prof_step()
+                step += 1
+                if max_steps is not None and step >= max_steps:
+                    break
     finally:
         env.close()

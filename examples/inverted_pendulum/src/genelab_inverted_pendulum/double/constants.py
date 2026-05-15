@@ -1,7 +1,9 @@
-"""Double inverted-pendulum constants: MJCF path, joint gains, action scale."""
+"""Double inverted-pendulum constants: MJCF path, actuator groups, default pose."""
 
 from pathlib import Path
 from typing import Final
+
+from genelab.actuator import ImplicitPDActuatorCfg
 
 # .../double/constants.py → .../assets/double_inverted_pendulum.xml
 DOUBLE_INVERTED_PENDULUM_MJCF: Final = (
@@ -14,10 +16,19 @@ POLE_2_JOINT: Final = "pole_2_hinge"
 POLE_HINGE_JOINTS: Final = (POLE_1_JOINT, POLE_2_JOINT)
 POLE_2_LINK: Final = "pole_2"
 
-JOINT_KP: Final[dict[str, float]] = {CART_JOINT: 100.0}
-JOINT_KV: Final[dict[str, float]] = {CART_JOINT: 10.0}
-
-CART_ACTION_SCALE: Final[dict[str, float]] = {CART_JOINT: 1.0}
+CART_ACTUATOR_CFG: Final = ImplicitPDActuatorCfg(
+    target_names_expr=(CART_JOINT,),
+    stiffness=100.0,
+    damping=10.0,
+    action_scale=1.0,
+)
+POLE_ACTUATOR_CFG: Final = ImplicitPDActuatorCfg(
+    target_names_expr=(POLE_1_JOINT, POLE_2_JOINT),
+    stiffness=0.0,
+    damping=0.0,
+    action_scale=0.0,
+)
+ACTUATORS_CFG: Final = {"cart": CART_ACTUATOR_CFG, "poles": POLE_ACTUATOR_CFG}
 
 DEFAULT_JOINT_POS: Final[dict[str, float]] = {
     CART_JOINT: 0.0,

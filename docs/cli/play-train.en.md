@@ -12,15 +12,15 @@ uv run genelab play <task-id> [SHORT FLAGS] [-- OVERRIDES]
 
 Short flags may appear before or after `<task-id>`; the CLI normalises the order internally.
 
-### Scene shortcuts
+### Simulation shortcuts
 
-The following short flags rewrite to the corresponding `env.scene.*` overrides:
+The following short flags rewrite to the corresponding `env.simulation.*` overrides:
 
 | Flag | Equivalent override | Effect |
 |------|--------------------|--------|
-| `--vis` | `env.scene.vis=true` | Enable Genesis visualization. |
-| `--gpu N` | `env.scene.gpu=N` | Pin the rollout to a single GPU index. |
-| `--steps N` | `env.scene.steps=N` | Cap episode length to `N` steps. |
+| `--vis` | `env.simulation.vis=true` | Enable Genesis visualization. |
+| `--gpu N` | `env.simulation.gpu=N` | Pin the rollout to a single GPU index. |
+| `--steps N` | `env.simulation.steps=N` | Cap episode length to `N` steps. |
 
 ### Runner flags
 
@@ -38,7 +38,7 @@ After the short flags, any `--<dotted.path> VALUE` argument is parsed as a confi
 
 ```bash
 uv run genelab play <task-id> \
-  --env.scene.dt 0.005 \
+  --env.simulation.dt 0.005 \
   --env.actions.scale 0.5 \
   --env.observations.include_velocity true
 ```

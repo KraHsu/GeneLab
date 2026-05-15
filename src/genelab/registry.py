@@ -135,11 +135,14 @@ def register_task[T](
 
 
 def load_builtin_registries() -> None:
-    """Compatibility no-op.
+    """Import the bundled asset zoo so its robots appear in :data:`ROBOTS`.
 
-    Example tasks live in normal extension packages and are loaded through entry points or
-    ``load_extension_module``.
+    Python's module cache makes the import idempotent: subsequent CLI invocations skip
+    the registration side-effect. Example tasks live in normal extension packages and
+    are loaded separately through entry points or :func:`load_extension_module`.
     """
+
+    importlib.import_module("genelab.asset_zoo")
 
 
 def load_extension_module(module_name: str) -> None:

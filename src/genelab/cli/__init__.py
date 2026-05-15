@@ -12,12 +12,15 @@ import typer
 from genelab import __version__
 from genelab.cache import CACHE_DIR, ensure_project_cache
 from genelab.cli._argv import (
+    PROF_KEYS,
     RUNNER_KEYS,
     normalize_argv,
     parse_run_args,
+    split_prof_keys,
     split_runner_keys,
 )
 from genelab.cli._interactive import pick_task_interactively
+from genelab.cli._prof import prof_app
 from genelab.cli._render import (
     render_cache,
     render_entry_info,
@@ -29,11 +32,13 @@ from genelab.configs import apply_overrides
 from genelab.registry import TASKS, load_entrypoint_extensions, load_extension_module
 
 __all__ = [
+    "PROF_KEYS",
     "RUNNER_KEYS",
     "app",
     "main",
     "normalize_argv",
     "parse_run_args",
+    "split_prof_keys",
     "split_runner_keys",
 ]
 
@@ -61,10 +66,10 @@ class _RegistryKindArg(str, Enum):
 _AGENT_KINDS: Final[frozenset[str]] = frozenset({"zero", "random", "trained"})
 
 _PLAY_RETARGETED_KEYS: Final[tuple[str, ...]] = (
-    "env.scene.vis",
-    "env.scene.gpu",
-    "env.scene.steps",
-    "env.scene.dt",
+    "env.simulation.vis",
+    "env.simulation.gpu",
+    "env.simulation.steps",
+    "env.simulation.dt",
 )
 
 
@@ -72,10 +77,10 @@ _RUN_FLAGS_HELP: Final[str] = """\
 Shorthand flags rewritten into env overrides:
 
 \b
-  -v, --vis        Enable the Genesis viewer (env.scene.vis=true).
-  --gpu            Use the GPU backend (env.scene.gpu=true).
-  --steps N        Run for N steps (env.scene.steps=N).
-  --dt SECONDS     Override the sim timestep (env.scene.dt=SECONDS).
+  -v, --vis        Enable the Genesis viewer (env.simulation.vis=true).
+  --gpu            Use the GPU backend (env.simulation.gpu=true).
+  --steps N        Run for N steps (env.simulation.steps=N).
+  --dt SECONDS     Override the sim timestep (env.simulation.dt=SECONDS).
   --a.b.c VALUE    Set any dotted cfg path.
 
 Runner flags (used when an RL runner is engaged):
@@ -89,7 +94,20 @@ Runner flags (used when an RL runner is engaged):
   --max_iterations N   Cap training iterations (train only).
   --gpus N             Distributed training across N GPUs (train only).
 
+Profiling flags (forwarded to torch.profiler; rank-0 only):
+
+\b
+  --prof                  Enable the profiler (overrides GENELAB_PROFILE).
+  --prof-out PATH         TensorBoard trace directory (GENELAB_PROFILE_OUT).
+  --prof-wait N           Schedule wait steps (GENELAB_PROFILE_WAIT, default 10).
+  --prof-warmup N         Schedule warmup steps (GENELAB_PROFILE_WARMUP, default 5).
+  --prof-active N         Schedule active steps (GENELAB_PROFILE_ACTIVE, default 10).
+  --prof-repeat N         Schedule cycles (GENELAB_PROFILE_REPEAT, default 2).
+  --prof-record-shapes    Record tensor shapes for op input attribution.
+  --prof-with-stack       Capture Python stack traces (high overhead).
+
 Use `genelab info TASK` to see the full overridable path list for a task.
+Use `genelab prof open [DIR]` to launch TensorBoard against a trace directory.
 """
 
 
@@ -118,6 +136,7 @@ project_app = typer.Typer(
     rich_markup_mode="rich",
 )
 app.add_typer(project_app, name="project", rich_help_panel="Project")
+app.add_typer(prof_app, name="prof", rich_help_panel="Utilities")
 
 
 def _version_callback(value: bool) -> None:
@@ -218,9 +237,9 @@ def info_cmd(
 )
 def play_cmd(ctx: typer.Context) -> None:
     _load_extensions(_state(ctx))
-    task, runner_args = _configured_task(list(ctx.args), command="play")
+    task, runner_args, prof_args = _configured_task(list(ctx.args), command="play")
     try:
-        _dispatch_play(task, runner_args)
+        _dispatch_play(task, runner_args, prof_args)
     except NotImplementedError as exc:
         raise SystemExit(str(exc)) from exc
 
@@ -233,9 +252,9 @@ def play_cmd(ctx: typer.Context) -> None:
 )
 def train_cmd(ctx: typer.Context) -> None:
     _load_extensions(_state(ctx))
-    task, runner_args = _configured_task(list(ctx.args), command="train")
+    task, runner_args, prof_args = _configured_task(list(ctx.args), command="train")
     try:
-        _dispatch_train(task, runner_args)
+        _dispatch_train(task, runner_args, prof_args)
     except NotImplementedError as exc:
         raise SystemExit(str(exc)) from exc
 
@@ -298,7 +317,9 @@ def _load_extensions(state: _RootState) -> None:
         load_extension_module(module_name)
 
 
-def _configured_task(tokens: list[str], *, command: str) -> tuple[_RunnableTask, dict[str, str]]:
+def _configured_task(
+    tokens: list[str], *, command: str
+) -> tuple[_RunnableTask, dict[str, str], dict[str, str]]:
     try:
         task_id, overrides = parse_run_args(tokens)
     except SystemExit as exc:
@@ -315,10 +336,11 @@ def _configured_task(tokens: list[str], *, command: str) -> tuple[_RunnableTask,
         raise SystemExit(str(exc)) from exc
 
     runner_args = split_runner_keys(overrides)
+    prof_args = split_prof_keys(overrides)
 
     # In play mode, retarget the short --vis / --gpu / --steps / --dt shortcuts at the
     # task's play_env when one is configured. Keeps `genelab play TASK --vis` working
-    # without forcing users to spell `play_env.scene.vis`.
+    # without forcing users to spell `play_env.simulation.vis`.
     if command == "play" and getattr(task.cfg, "play_env", None) is not None:
         for short_key in _PLAY_RETARGETED_KEYS:
             if short_key in overrides:
@@ -328,10 +350,40 @@ def _configured_task(tokens: list[str], *, command: str) -> tuple[_RunnableTask,
         apply_overrides(task.cfg, overrides)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
-    return task, runner_args
+    return task, runner_args, prof_args
 
 
-def _dispatch_play(task: _RunnableTask, runner_args: dict[str, str]) -> None:
+def _parse_bool(raw: str | None) -> bool | None:
+    if raw is None:
+        return None
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _parse_int(raw: str | None) -> int | None:
+    return int(raw) if raw is not None else None
+
+
+def _parse_path(raw: str | None) -> Path | None:
+    return Path(raw) if raw is not None else None
+
+
+def _coerce_prof_kwargs(prof_args: dict[str, str]) -> dict[str, Any]:
+    """Translate the raw string dict produced by ``split_prof_keys`` into typed kwargs."""
+    return {
+        "prof": _parse_bool(prof_args.get("prof")),
+        "prof_out": _parse_path(prof_args.get("prof_out")),
+        "prof_wait": _parse_int(prof_args.get("prof_wait")),
+        "prof_warmup": _parse_int(prof_args.get("prof_warmup")),
+        "prof_active": _parse_int(prof_args.get("prof_active")),
+        "prof_repeat": _parse_int(prof_args.get("prof_repeat")),
+        "prof_record_shapes": _parse_bool(prof_args.get("prof_record_shapes")),
+        "prof_with_stack": _parse_bool(prof_args.get("prof_with_stack")),
+    }
+
+
+def _dispatch_play(
+    task: _RunnableTask, runner_args: dict[str, str], prof_args: dict[str, str]
+) -> None:
     task_cfg = getattr(task, "cfg", None)
     agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
     checkpoint_raw = runner_args.get("checkpoint")
@@ -339,7 +391,13 @@ def _dispatch_play(task: _RunnableTask, runner_args: dict[str, str]) -> None:
     agent_raw = runner_args.get("agent")
     if agent_raw is not None and agent_raw not in _AGENT_KINDS:
         raise SystemExit(f"--agent must be one of {{zero, random, trained}}; got {agent_raw!r}")
-    if checkpoint_raw is None and num_envs_raw is None and agent_raw is None and agent_cfg is None:
+    if (
+        checkpoint_raw is None
+        and num_envs_raw is None
+        and agent_raw is None
+        and agent_cfg is None
+        and not prof_args
+    ):
         task.play()
         return
     from genelab.rl import AgentKind, play_task
@@ -352,10 +410,13 @@ def _dispatch_play(task: _RunnableTask, runner_args: dict[str, str]) -> None:
         checkpoint=Path(checkpoint_raw) if checkpoint_raw is not None else None,
         num_envs=int(num_envs_raw) if num_envs_raw is not None else None,
         agent=cast("AgentKind | None", agent_raw),
+        **_coerce_prof_kwargs(prof_args),
     )
 
 
-def _dispatch_train(task: _RunnableTask, runner_args: dict[str, str]) -> None:
+def _dispatch_train(
+    task: _RunnableTask, runner_args: dict[str, str], prof_args: dict[str, str]
+) -> None:
     task_cfg = getattr(task, "cfg", None)
     agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
     if agent_cfg is None:
@@ -389,6 +450,7 @@ def _dispatch_train(task: _RunnableTask, runner_args: dict[str, str]) -> None:
         max_iterations=int(max_iter_raw) if max_iter_raw is not None else None,
         seed=int(seed_raw) if seed_raw is not None else None,
         log_dir=Path(log_dir_raw) if log_dir_raw is not None else None,
+        **_coerce_prof_kwargs(prof_args),
     )
 
 
@@ -402,7 +464,7 @@ def _relaunch_under_torchrun(
     The parent precomputes the log directory and forwards it via ``--log-dir`` so all
     ranks land in the same directory (avoiding per-rank timestamp drift). The original
     argv is forwarded verbatim minus the ``--gpus N`` tokens so env overrides such as
-    ``--env.scene.steps 5`` survive the relaunch.
+    ``--env.simulation.steps 5`` survive the relaunch.
     """
     from genelab.rl.runner import resolve_log_dir
 

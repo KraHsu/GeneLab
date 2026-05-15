@@ -6,6 +6,7 @@ from genelab.rl.config import (
     RslRlOnPolicyRunnerCfg,
     RslRlPpoAlgorithmCfg,
 )
+from genelab.rl.profiler import maybe_profile, profiler_enabled
 from genelab.rl.rsl_rl_wrapper import RslRlVecEnvWrapper
 from genelab.rl.runner import AgentKind, play_task, train_task
 from genelab.rl.vecenv import VecEnvBase
@@ -18,6 +19,8 @@ __all__ = [
     "RslRlPpoAlgorithmCfg",
     "RslRlVecEnvWrapper",
     "VecEnvBase",
+    "maybe_profile",
     "play_task",
+    "profiler_enabled",
     "train_task",
 ]

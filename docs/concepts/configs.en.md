@@ -6,6 +6,7 @@ The config system is a small dataclass hierarchy under `genelab.configs`:
 TaskCfg
 └── env: object   # downstream extensions plug in their own env dataclass
     ManagerBasedEnvCfg
+    ├── simulation
     ├── scene
     ├── actions
     ├── observations
@@ -26,9 +27,9 @@ them to the config tree:
 from genelab.configs import apply_overrides
 
 apply_overrides(cfg, {
-    "env.scene.dt": "0.005",
-    "env.scene.steps": "500",
-    "env.actions.scale": "0.3",
+    "env.simulation.dt": "0.005",
+    "env.simulation.steps": "500",
+    "env.robot.actuators.cart.stiffness": "100.0",
     "env.observations.include_velocity": "true",
 })
 ```
@@ -54,10 +55,11 @@ raises a descriptive error at config build time, not at simulation runtime.
 ### Forwarding from the CLI
 
 The `play` / `train` subcommands forward every `--<a.b.c> VALUE` flag into `apply_overrides`.
-The three scene shortcuts (`--vis`, `--gpu`, `--steps`) rewrite to `env.scene.{vis,gpu,steps}`
-overrides before forwarding.
+The three simulation shortcuts (`--vis`, `--gpu`, `--steps`) rewrite to
+`env.simulation.{vis,gpu,steps}` overrides before forwarding.
 
 ## See also
 
+- [Actuators](actuators.md)
 - [Play and Train](../cli/play-train.md)
 - [API Reference](../api/reference.md)

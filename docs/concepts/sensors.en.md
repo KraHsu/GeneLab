@@ -22,22 +22,22 @@ class Sensor[T](ABC):
     def _compute_data(self) -> T: ...
 ```
 
-The env wires the lifecycle automatically: sensors built from `SceneCfg.sensors` get `update`
-called after `_refresh_robot_state` and `reset` called from inside `_reset_idx`, so reward and
-observation terms always see fresh sensor data.
+The env wires the lifecycle automatically: sensors built from `InteractiveSceneCfg.sensors`
+get `update` called after each articulation refresh and `reset` called from inside
+`_reset_idx`, so reward and observation terms always see fresh sensor data.
 
 ## Registering on a scene
 
-`SceneCfg.sensors` is a tuple of `SensorCfg`. `ManagerBasedRlEnv.__init__` calls `build()` on
-each cfg and binds the resulting sensor to the env. Access at runtime is via
+`InteractiveSceneCfg.sensors` is a tuple of `SensorCfg`. `ManagerBasedRlEnv.__init__` calls
+`build()` on each cfg and binds the resulting sensor to the env. Access at runtime is via
 `env.sensors[name].data`.
 
 ```python
-from genelab.configs import SceneCfg
+from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.sensor import BodyVelocitySensorCfg, ContactSensorCfg
 
-scene = SceneCfg(
-    num_envs=4096,
+simulation = SimulationCfg(num_envs=4096)
+scene = InteractiveSceneCfg(
     sensors=(
         BodyVelocitySensorCfg(
             name="imu_lin_vel",
@@ -73,6 +73,58 @@ The velocimeter math is `v_site = v_link + ω × (R_link · offset)` rotated int
 matching MuJoCo's lever-arm convention so a GeneLab-trained policy reads the same signal as the
 mjlab reference.
 
+### IMUSensor
+
+Inertial Measurement Unit at a site rigidly attached to a link. Outputs orientation
+(`link_quat_w`), body-frame projected unit gravity, and body-frame linear / angular
+acceleration. Accelerations are computed by finite difference of the world-frame velocity
+buffers; the first control step after every `reset` returns zero acceleration to avoid a
+spurious spike from a stale `prev` value — document this in any reward / observation term
+that consumes `lin_acc_b` or `ang_acc_b` near reset boundaries.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `link_name` | `str` | Link the IMU is rigidly attached to. |
+| `offset` | `tuple[float, float, float]` | Site position in the link's local frame; contributes the lever-arm term to linear acceleration. |
+| `gravity_bias` | `bool` | When `True`, output is the specific force `R^T (a_w - g_w)` — matches a real accelerometer at rest reading `+g` along its up axis. |
+| `bias_range_lin_acc` | `tuple[float, float] \| None` | Per-env constant accelerometer bias resampled on `reset`. |
+| `bias_range_ang_acc` | `tuple[float, float] \| None` | Per-env constant gyro-derivative bias resampled on `reset`. |
+
+`IMUSensor` does not output linear or angular velocity — that remains the role of
+`BodyVelocitySensor`, which can coexist on the same link when both signals are needed. The
+finite-difference at the control rate is **not** filtered internally; layer
+`ObservationTermCfg.noise` + `scale` on top, or apply a custom EMA in the observation term.
+
+### CameraSensor
+
+Rigid-mount RGB-D camera bolted to a named link via a fixed 4×4 transform.
+`pre_build_genesis()` runs before `gs_scene.build` so the camera is registered in
+time for `BatchRenderer` to snapshot it; it allocates the Genesis camera handle
+through `gs_scene.add_camera`, builds the offset matrix from `offset_pos` /
+`offset_quat`, and calls `cam.attach`. `bind()` then validates the link name
+against `env.link_names`. Each `data` access invokes `cam.move_to_attach()` and
+`cam.render(...)` once per control step; the cached `CameraData` returns `rgb`
+(uint8) and / or `depth` (float meters), shaped `(num_envs, H, W, 3)` /
+`(num_envs, H, W)`.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `link_name` | `str` | Link the camera is bolted to (resolved through `env.link_names`). |
+| `offset_pos` | `tuple[float, float, float]` | Camera origin in the link's local frame. |
+| `offset_quat` | `tuple[float, float, float, float]` | Camera orientation (wxyz) relative to the link; `+x` is forward in Genesis convention. |
+| `width`, `height` | `int` | Pixel resolution; all BatchRender cameras on a scene must share resolution. |
+| `fov` | `float` | Vertical field-of-view in degrees. |
+| `near`, `far` | `float` | Depth clip planes in meters. |
+| `render_rgb`, `render_depth` | `bool` | Independently toggle each channel; the disabled channel is `None` in the output dataclass. |
+
+!!! warning "BatchRenderer is the only parallel-env backend"
+    Multi-env RGB-D requires `gs.init(backend=gs.cuda)` and
+    `InteractiveSceneCfg.batch_render=True` — the scene then passes
+    `gs.renderers.BatchRenderer(use_rasterizer=False)` to `gs.Scene`. Linux x86-64 +
+    CUDA only. The module file can still be imported on macOS / CPU, but
+    `gs_scene.build` will raise once it inspects the camera list against an
+    incompatible renderer.
+
 ### ContactSensor
 
 Per-link aggregate of `robot.get_links_net_contact_force()`. With `track_air_time=True`, an
@@ -90,19 +142,65 @@ the completed durations into `last_air_time` / `last_contact_time` at the contac
 buffers. The matching obs terms — `mdp.foot_air_time`, `mdp.foot_contact`,
 `mdp.foot_contact_forces` — read straight off this dataclass.
 
+### FrameTransformerSensor
+
+Stateless forward-kinematics probe: outputs the pose of one or more target frames relative
+to a single source frame, with rigid offsets in each link's local frame. Both the world-frame
+pose and the source-frame pose are exposed in the data class so reward / observation terms
+can pick either basis without re-running the math themselves. Typical uses include reading
+an end-effector's pose in the base link's frame, comparing two foot-tip frames during gait
+shaping, or expressing a payload's pose relative to a grasp site.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `source_link_name` | `str` | Reference frame the targets are expressed in. |
+| `source_offset_pos` | `tuple[float, float, float]` | Source-side offset in the link's local frame. |
+| `source_offset_quat` | `tuple[float, float, float, float]` | Source-side rotation offset (wxyz). |
+| `target_frames` | `tuple[TargetFrameCfg, ...]` | Order-preserving target list — the output's `N` axis follows cfg order. |
+
+Each `TargetFrameCfg` carries `link_name`, optional `name` (defaults to `link_name`),
+`offset_pos`, and `offset_quat`. Sensor attribute `target_names: tuple[str, ...]` is exposed
+so consumers can resolve a column by name. `bind` rejects unknown link names and empty
+`target_frames`.
+
+### Ray-cast patterns
+
+`RayCastSensorCfg.pattern` accepts any of the three bundled pattern dataclasses. Custom
+patterns satisfy the same informal protocol — `num_rays() -> int` and
+`generate(device) -> (starts, dirs)` with both tensors shaped `(M, 3)` in the sensor's local
+frame — and slot in without changing `RayCastSensor` itself.
+
+`GridPattern` is the default; rays are parallel and arranged on a 2D rectangle. `RingPattern`
+emits `num_horizontal × num_vertical` rays from the origin, evenly spaced in azimuth and
+elevation — the typical multi-line LIDAR layout. `HemispherePattern` distributes
+`num_rays_target` rays on a spherical cap of half-angle `polar_fov_deg` around `pole_axis`
+using a Fibonacci lattice; 90° covers a full hemisphere, 180° a full sphere.
+
+| Pattern | Key fields | Use case |
+|---------|------------|----------|
+| `GridPattern` | `resolution`, `size`, `direction` | Height-scan grids, area sweeps |
+| `RingPattern` | `num_horizontal`, `num_vertical`, `horizontal_fov_deg`, `vertical_fov_deg` | Planar / multi-line LIDAR |
+| `HemispherePattern` | `num_rays_target`, `pole_axis`, `polar_fov_deg` | Proximity dome, downward coverage |
+
+`RingPattern` treats a horizontal span of exactly ±360° as a wrap-around and drops the
+duplicate closing azimuth; any other span (e.g. `(-30, 30)` for a forward-facing scanner) is
+inclusive on both endpoints. `HemispherePattern.num_rays()` returns `num_rays_target`
+exactly — the Fibonacci lattice produces no rounding error.
+
 ### TerrainHeightSensor
 
 2D grid of downward rays anchored to a robot link. Output is per-ray height above the terrain
 (positive = above), useful as a privileged `height_scan` critic observation. The default
-backend intersects every ray against a horizontal plane at `ground_height`; subclassing
-`RayCastSensor` and overriding `_intersect_world_rays` is the extension point for non-flat
-terrain.
+backend intersects every ray against a horizontal plane at `ground_height`; when the scene
+attaches a `TerrainImporter`, the inner `RayCastSensor` bilinearly samples the height-field
+instead. Subclassing `RayCastSensor` and overriding `_intersect_world_rays` is the extension
+point for BVH or other custom backends.
 
 | Field | Type | Meaning |
 |-------|------|---------|
 | `link_name` | `str` | Anchor link for the grid origin. |
-| `pattern` | `GridPattern` | Grid resolution / size / direction. |
-| `attach_yaw_only` | `bool` | Rotate the grid by yaw only so it stays horizon-aligned. |
+| `pattern` | `GridPattern \| RingPattern \| HemispherePattern` | Pattern geometry. |
+| `attach_yaw_only` | `bool` | Rotate the pattern by yaw only so it stays horizon-aligned. |
 | `max_distance` | `float` | Distance clamp for the ray cast. |
 | `ground_height` | `float` | Plane height used by the default flat-plane backend. |
 
@@ -177,7 +275,8 @@ class JointTorqueSensor(Sensor[torch.Tensor]):
         return self._env.joint_kp * (rs.joint_pos - self._env.default_joint_pos)
 ```
 
-Add the cfg to `SceneCfg.sensors` and the sensor is reachable as `env.sensors[name].data`.
+Add the cfg to `InteractiveSceneCfg.sensors` and the sensor is reachable as
+`env.sensors[name].data`.
 
 ## See also
 

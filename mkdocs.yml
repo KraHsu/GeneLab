@@ -92,15 +92,24 @@ plugins:
             Quickstart: 快速开始
             CLI: 命令行
             Overview: 总览
+            'Discovery: list and info': '发现：list 与 info'
             Play and Train: play 与 train
             Project New: 新建项目
             Concepts: 核心概念
             Registry: 注册表
             Configs: 配置系统
+            Managers and MDP terms: Manager 与 MDP term
+            MDP terms reference: MDP term 参考
+            RL runner: RL runner
             Sensors: 传感器
+            Terrains: 地形
+            Asset zoo: 资产库
             Extensions: 扩展加载
+            Scene and entities: 场景与实体
             Examples: 示例
             Inverted Pendulum: 倒立摆
+            Unitree G1: Unitree G1
+            Showcase: 可视化 showcase
             API Reference: API 参考
             Contributing: 贡献指南
   - mkdocstrings:
@@ -155,15 +164,26 @@ nav:
       - Quickstart: getting-started/quickstart.md
   - CLI:
       - Overview: cli/overview.md
+      - 'Discovery: list and info': cli/list-info.md
       - Play and Train: cli/play-train.md
+      - Profiling: cli/profiling.md
       - Project New: cli/project-new.md
   - Concepts:
       - Registry: concepts/registry.md
       - Configs: concepts/configs.md
+      - Managers and MDP terms: concepts/managers.md
+      - MDP terms reference: concepts/mdp.md
+      - RL runner: concepts/rl-runner.md
+      - Scene and entities: concepts/scene.md
+      - Actuators: concepts/actuators.md
       - Sensors: concepts/sensors.md
+      - Terrains: concepts/terrains.md
+      - Asset zoo: concepts/asset_zoo.md
       - Extensions: concepts/extensions.md
   - Examples:
       - Overview: examples/overview.md
       - Inverted Pendulum: examples/inverted-pendulum.md
+      - Unitree G1: examples/unitree-g1.md
+      - Showcase: examples/showcase.md
   - API Reference: api/reference.md
   - Contributing: contributing.md

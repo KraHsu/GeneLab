@@ -30,7 +30,7 @@ def test_g1_velocity_task_cfg_is_trainable_with_ppo_agent() -> None:
     # Play mode should drop the push event and shrink num_envs.
     assert "push_robot" not in task.cfg.play_env.events_cfg
     assert "push_robot" in task.cfg.env.events_cfg
-    assert task.cfg.play_env.scene.num_envs <= task.cfg.env.scene.num_envs
+    assert task.cfg.play_env.simulation.num_envs <= task.cfg.env.simulation.num_envs
 
 
 def test_g1_robot_cfg_resolves_vendored_mjcf() -> None:
@@ -42,5 +42,14 @@ def test_g1_robot_cfg_resolves_vendored_mjcf() -> None:
     assert Path(entity_cfg.mjcf_path).exists()
     # G1 has 29 actuated joints; the default-pose regex map should fan out > 4 entries.
     assert len(entity_cfg.default_joint_pos) >= 4
-    # Action scales must be positive.
-    assert all(v > 0 for v in entity_cfg.action_scale.values())
+    # 6 DCMotor actuator groups (5020 / 7520_14 / 7520_22 / 4010 / waist / ankle), all
+    # carrying a positive per-group action scale.
+    assert set(entity_cfg.actuators.keys()) == {
+        "5020",
+        "7520_14",
+        "7520_22",
+        "4010",
+        "waist",
+        "ankle",
+    }
+    assert all(cfg.action_scale > 0 for cfg in entity_cfg.actuators.values())
