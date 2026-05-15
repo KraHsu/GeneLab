@@ -397,17 +397,25 @@ def test_cli_parses_gpus_flag_into_runner_args() -> None:
     assert overrides == {}
 
 
-def test_strip_gpus_flag_removes_both_forms() -> None:
-    from genelab.cli import _strip_gpus_flag
+def test_strip_distributed_flags_drops_gpus_and_env_counts() -> None:
+    from genelab.cli import _strip_distributed_flags
 
-    assert _strip_gpus_flag(["train", "TASK", "--gpus", "4", "--num-envs", "8"]) == [
+    # --gpus and --num-envs are both stripped (parent re-injects --num-envs-per-gpu).
+    assert _strip_distributed_flags(["train", "TASK", "--gpus", "4", "--num-envs", "8"]) == [
         "train",
         "TASK",
-        "--num-envs",
-        "8",
     ]
-    assert _strip_gpus_flag(["--gpus=2", "--num-envs", "8"]) == ["--num-envs", "8"]
-    assert _strip_gpus_flag(["--num-envs", "8"]) == ["--num-envs", "8"]
+    # = form is also stripped.
+    assert _strip_distributed_flags(["--gpus=2", "--num-envs=8"]) == []
+    # --num-envs-per-gpu also dropped; parent re-injects the authoritative value.
+    assert _strip_distributed_flags(["train", "TASK", "--num-envs-per-gpu", "16"]) == [
+        "train",
+        "TASK",
+    ]
+    # Underscore spellings are recognised too.
+    assert _strip_distributed_flags(["--num_envs", "8", "--num_envs_per_gpu", "4"]) == []
+    # Unrelated flags pass through.
+    assert _strip_distributed_flags(["--vis", "--seed", "42"]) == ["--vis", "--seed", "42"]
 
 
 def test_has_log_dir_flag_recognises_both_spellings() -> None:
@@ -444,7 +452,7 @@ def test_relaunch_under_torchrun_builds_expected_command(
         ["genelab", "train", "TASK_ID", "--gpus", "4", "--num-envs", "8"],
     )
 
-    _relaunch_under_torchrun(4, _FakeAgentCfg(), runner_args={"num_envs": "8"})
+    _relaunch_under_torchrun(4, _FakeAgentCfg(), runner_args={}, num_envs_per_rank=2)
 
     args = captured["args"]
     assert isinstance(args, list)
@@ -457,10 +465,14 @@ def test_relaunch_under_torchrun_builds_expected_command(
         "-m",
         "genelab.cli",
     ]
-    # --gpus and its value were stripped from the forwarded tokens
+    # --gpus and the original --num-envs were stripped from the forwarded tokens.
     assert "--gpus" not in args
-    # The original train TASK_ID --num-envs 8 was forwarded
-    assert "train" in args and "TASK_ID" in args and "--num-envs" in args and "8" in args
+    assert "--num-envs" not in args
+    # The per-rank value (8 total / 4 ranks = 2) was injected as --num-envs-per-gpu.
+    assert "--num-envs-per-gpu" in args
+    per_gpu_index = args.index("--num-envs-per-gpu")
+    assert args[per_gpu_index + 1] == "2"
+    assert "train" in args and "TASK_ID" in args
     # A --log-dir was injected because the original argv had none
     assert "--log-dir" in args
     log_dir_index = args.index("--log-dir")
@@ -490,7 +502,12 @@ def test_relaunch_under_torchrun_preserves_explicit_log_dir(
         ["genelab", "train", "TASK", "--gpus", "2", "--log-dir", "/tmp/keep-this"],
     )
 
-    _relaunch_under_torchrun(2, _FakeAgentCfg(), runner_args={"log_dir": "/tmp/keep-this"})
+    _relaunch_under_torchrun(
+        2,
+        _FakeAgentCfg(),
+        runner_args={"log_dir": "/tmp/keep-this"},
+        num_envs_per_rank=None,
+    )
 
     args = captured["args"]
     assert isinstance(args, list)
@@ -498,6 +515,45 @@ def test_relaunch_under_torchrun_preserves_explicit_log_dir(
     assert args.count("--log-dir") == 1
     log_dir_index = args.index("--log-dir")
     assert args[log_dir_index + 1] == "/tmp/keep-this"
+
+
+def test_resolve_per_rank_num_envs_divides_total_by_gpus() -> None:
+    from genelab.cli import _resolve_per_rank_num_envs
+
+    runner_args: dict[str, str] = {"num_envs": "8"}
+    assert _resolve_per_rank_num_envs(runner_args, gpus=4) == 2
+    assert runner_args == {}  # both keys consumed
+    assert _resolve_per_rank_num_envs({"num_envs": "4096"}, gpus=1) == 4096
+
+
+def test_resolve_per_rank_num_envs_returns_per_gpu_verbatim() -> None:
+    from genelab.cli import _resolve_per_rank_num_envs
+
+    assert _resolve_per_rank_num_envs({"num_envs_per_gpu": "1024"}, gpus=4) == 1024
+    # Per-gpu bypasses divisibility checks — the user took responsibility.
+    assert _resolve_per_rank_num_envs({"num_envs_per_gpu": "37"}, gpus=4) == 37
+
+
+def test_resolve_per_rank_num_envs_errors_on_mutual_exclusion() -> None:
+    from genelab.cli import _resolve_per_rank_num_envs
+
+    with pytest.raises(SystemExit) as excinfo:
+        _resolve_per_rank_num_envs({"num_envs": "8", "num_envs_per_gpu": "2"}, gpus=2)
+    assert "mutually exclusive" in str(excinfo.value)
+
+
+def test_resolve_per_rank_num_envs_errors_on_non_divisible_total() -> None:
+    from genelab.cli import _resolve_per_rank_num_envs
+
+    with pytest.raises(SystemExit) as excinfo:
+        _resolve_per_rank_num_envs({"num_envs": "4097"}, gpus=2)
+    assert "not divisible" in str(excinfo.value)
+
+
+def test_resolve_per_rank_num_envs_returns_none_when_unset() -> None:
+    from genelab.cli import _resolve_per_rank_num_envs
+
+    assert _resolve_per_rank_num_envs({}, gpus=4) is None
 
 
 def test_cli_rejects_invalid_agent_kind(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -18,8 +18,8 @@ from genelab.managers import (
 from genelab.mdp.actions.joint_position import JointPositionActionCfg
 from genelab.mdp.commands.velocity_command import UniformVelocityCommandCfg
 from genelab.mdp.noise import Unoise
+from genelab.asset_zoo.unitree_g1 import UnitreeG1Cfg
 from genelab.sensor import BodyVelocitySensorCfg, ContactSensorCfg
-from genelab_unitree.g1.robot import get_g1_robot_cfg
 
 # IMU site offset from the pelvis link origin; matches g1.xml's <site name="imu_in_pelvis">.
 _IMU_OFFSET = (0.04525, 0.0, -0.08339)
@@ -113,7 +113,7 @@ def _critic_obs_group() -> ObservationGroupCfg:
 
 def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Flat-ground velocity-tracking env config for the Unitree G1."""
-    robot_entity_cfg = get_g1_robot_cfg().to_entity_cfg()
+    robot_entity_cfg = UnitreeG1Cfg()
 
     cfg = ManagerBasedRlEnvCfg(
         simulation=SimulationCfg(
