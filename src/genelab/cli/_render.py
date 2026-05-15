@@ -110,9 +110,12 @@ def render_registry(kind: RegistryKind) -> None:
 def render_entry_info(name: str) -> None:
     """Render a detail panel for a registered task, env, or robot.
 
-    Looks up ``name`` in the task / env / robot registries in that order. Raises
-    ``SystemExit`` with the combined available-name listing when nothing matches.
+    Looks up ``name`` in the task / env / robot registries in that order. On a TTY
+    an unknown ``name`` triggers a ``questionary`` picker; otherwise raises
+    ``SystemExit`` with the combined available-name listing.
     """
+
+    from genelab.cli._interactive import pick_name_interactively
 
     candidates: tuple[tuple[str, Registry[object]], ...] = (
         ("task", TASKS),
@@ -124,6 +127,10 @@ def render_entry_info(name: str) -> None:
             _render_entry_panel(kind, registry.entry(name))
             return
     available = sorted({*TASKS.names(), *ENVS.names(), *ROBOTS.names()})
+    picked = pick_name_interactively(available, f"Unknown name {name!r}. Pick one:")
+    if picked is not None and picked != name:
+        render_entry_info(picked)
+        return
     listing = ", ".join(available) if available else "<none>"
     raise SystemExit(f"unknown name {name!r}; available: {listing}")
 
