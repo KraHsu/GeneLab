@@ -99,6 +99,7 @@ plugins:
             Registry: 注册表
             Configs: 配置系统
             Managers and MDP terms: Manager 与 MDP term
+            MDP terms reference: MDP term 参考
             Sensors: 传感器
             Terrains: 地形
             Asset zoo: 资产库
@@ -170,6 +171,7 @@ nav:
       - Registry: concepts/registry.md
       - Configs: concepts/configs.md
       - Managers and MDP terms: concepts/managers.md
+      - MDP terms reference: concepts/mdp.md
       - Scene and entities: concepts/scene.md
       - Actuators: concepts/actuators.md
       - Sensors: concepts/sensors.md
