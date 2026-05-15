@@ -55,8 +55,8 @@ path。CLI 把每个 `--<a.b.c> VALUE` 旗标转发给
 | `env.simulation.dt` (float, 0.01) | `--dt 0.005`（捷径）或 `--env.simulation.dt 0.005` |
 | `env.rewards_cfg.track_lin_vel.weight` (float, 1.0) | `--env.rewards_cfg.track_lin_vel.weight 2.0` |
 | `env.rewards_cfg.track_lin_vel.params.std` (float, 0.25) | `--env.rewards_cfg.track_lin_vel.params.std 0.5` |
-| `env.scene.terrain_kind` (str, "mixed") | `--env.scene.terrain_kind stairs` |
-| `env.scene.sensors.0.pattern_kind` (str, "grid") | `--env.scene.sensors.0.pattern_kind ring` |
+| `env.scene.env_spacing` (tuple, `(2.0, 2.0)`) | `--env.scene.env_spacing 3.0,3.0` |
+| `env.scene.batch_render` (bool, false) | `--env.scene.batch_render true` |
 
 四个 simulation 捷径（`--vis` / `--gpu` / `--steps` / `--dt`）在转发前会被改写成
 `env.simulation.{vis,gpu,steps,dt}` 形式，因此 profiler trace argv 中显示的形态
@@ -64,18 +64,18 @@ path。CLI 把每个 `--<a.b.c> VALUE` 旗标转发给
 
 ## 示例命令清单
 
-针对 showcase 扩展的发现流程：
+针对 inverted-pendulum 任务的发现流程：
 
 ```bash
 # 确认扩展已安装并挑一个 task id。
-uv run genelab list tasks | grep Showcase
+uv run genelab list tasks | grep Pendulum
 
 # 钻入单 task —— 从 "Overridable cfg paths" 表里复制一个 dotted path。
-uv run genelab info GeneLab-RayCast-Showcase-v0
+uv run genelab info GeneLab-Inverted-Pendulum-v0
 
 # 带 override 跑 task。
-uv run genelab play GeneLab-RayCast-Showcase-v0 --vis --steps 200 \
-    --env.scene.sensors.0.pattern_kind ring
+uv run genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 240 \
+    --env.rewards_cfg.pole_upright.weight 5.0
 ```
 
 同样的流程对 env 与 robot 也成立：`genelab info FrankaPandaCfg`（robot）会列出
