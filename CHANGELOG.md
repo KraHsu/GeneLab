@@ -8,6 +8,14 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `CameraSensor` (with `CameraSensorCfg` and `CameraData`): rigid-mount RGB-D probe
+  wrapping Genesis's `BatchRenderer` camera. Per-env tensors with shape
+  `(num_envs, H, W, 3)` for RGB (uint8) and `(num_envs, H, W)` for depth (float meters);
+  both channels independently toggleable via `render_rgb` / `render_depth`. `bind()`
+  resolves the named link, builds the 4×4 mounting offset from `offset_pos` /
+  `offset_quat`, and calls `cam.attach`; `_compute_data()` runs `cam.move_to_attach()`
+  then `cam.render(...)`. Linux x86-64 + CUDA only — Genesis's `BatchRenderer` is the
+  only parallel-env camera backend.
 - `genelab.asset_zoo` now ships five built-in robots: `CartpoleCfg`, `FrankaPandaCfg`,
   `UnitreeG1Cfg` (29-DoF humanoid, 6 DCMotor groups mirroring
   `examples/unitree/.../g1/constants.py`), `UnitreeGo1Cfg` (12-DoF quadruped, 3

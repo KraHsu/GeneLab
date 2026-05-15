@@ -1,6 +1,7 @@
 """Sensor abstractions for cameras, contacts, tactile data, and future streams."""
 
 from genelab.sensor.body_velocity import BodyVelocitySensor, BodyVelocitySensorCfg
+from genelab.sensor.camera import CameraData, CameraSensor, CameraSensorCfg
 from genelab.sensor.contact import ContactData, ContactSensor, ContactSensorCfg
 from genelab.sensor.frame_transformer import (
     FrameTransformerData,
@@ -23,6 +24,9 @@ from genelab.sensor.terrain_height import TerrainHeightSensor, TerrainHeightSens
 __all__ = [
     "BodyVelocitySensor",
     "BodyVelocitySensorCfg",
+    "CameraData",
+    "CameraSensor",
+    "CameraSensorCfg",
     "ContactData",
     "ContactSensor",
     "ContactSensorCfg",
