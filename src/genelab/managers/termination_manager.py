@@ -66,12 +66,14 @@ class TerminationManager:
     def reset(self, env_ids: torch.Tensor | slice | None = None) -> dict[str, float]:
         if env_ids is None:
             env_ids = slice(None)
-        extras: dict[str, float] = {}
-        for name, term_done in self._term_dones.items():
-            extras[f"Episode_Termination/{name}"] = float(
-                torch.count_nonzero(term_done[env_ids]).item()
-            )
-        return extras
+        names = list(self._term_dones.keys())
+        if not names:
+            return {}
+        # One CUDA sync for all termination terms, instead of one per term.
+        counts = torch.stack(
+            [torch.count_nonzero(self._term_dones[name][env_ids]) for name in names]
+        ).tolist()
+        return {f"Episode_Termination/{name}": float(c) for name, c in zip(names, counts)}
 
     def compute(self) -> torch.Tensor:
         self._truncated_buf.zero_()
