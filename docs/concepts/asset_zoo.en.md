@@ -42,18 +42,20 @@ every subsequent call resolves to the cached path.
 
 Use `genelab info <name>` to print the full override-path tree once registered.
 Cartpole mirrors `examples/inverted_pendulum`'s gains; G1 mirrors
-`examples/unitree/.../g1/constants.py`; Go1 and Anymal C follow Isaac Lab's published
-defaults so cross-stack experiments stay comparable.
+`examples/unitree/.../g1/constants.py`; Franka, Go1, and Anymal C follow Isaac Lab's
+published defaults so cross-stack experiments stay comparable. The four Menagerie-sourced
+entries (`franka`, `g1`, `go1`, `anymal-c`) ship as `.tar.gz` archives so meshes and
+textures travel with the MJCF.
 
 ## Cache layout and md5 verification
 
-Single-file mode (cartpole, franka):
+Single-file mode (cartpole):
 
 ```
 .cache/assets/<name>/<md5>/<filename>
 ```
 
-Archive mode (g1, go1, anymal-c):
+Archive mode (franka, g1, go1, anymal-c):
 
 ```
 .cache/assets/<name>/<md5>/extracted/<archive_member>
