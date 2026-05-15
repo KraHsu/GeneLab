@@ -1,5 +1,6 @@
 """Shared utility helpers for GeneLab."""
 
+from genelab.utils.download import AssetDownloadError, AssetSpec, fetch_asset
 from genelab.utils.math import (
     matrix_from_quat,
     normalize,
@@ -16,6 +17,9 @@ from genelab.utils.math import (
 )
 
 __all__ = [
+    "AssetDownloadError",
+    "AssetSpec",
+    "fetch_asset",
     "matrix_from_quat",
     "normalize",
     "quat_apply",
