@@ -9,6 +9,8 @@ separately against a stdlib HTTP server bound to a free localhost port.
 
 import hashlib
 import http.server
+import io
+import tarfile
 import threading
 from collections.abc import Iterator
 from pathlib import Path
@@ -16,7 +18,13 @@ from typing import Any
 
 import pytest
 
-from genelab.asset_zoo import CartpoleCfg, FrankaPandaCfg
+from genelab.asset_zoo import (
+    AnymalCCfg,
+    CartpoleCfg,
+    FrankaPandaCfg,
+    UnitreeG1Cfg,
+    UnitreeGo1Cfg,
+)
 from genelab.entity import ArticulationCfg
 from genelab.registry import ROBOTS, load_builtin_registries
 from genelab.utils.download import AssetDownloadError, AssetSpec, fetch_asset
@@ -66,6 +74,46 @@ def test_registry_examples() -> None:
     assert any("genelab info" in ex for ex in entry.examples)
     franka_entry = ROBOTS.entry("franka")
     assert franka_entry.cfg_type is ArticulationCfg
+
+
+def test_unitree_g1_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_path = FIXTURES_DIR / "cartpole.xml"  # any extant path; cfg only stores str
+    monkeypatch.setattr("genelab.asset_zoo.unitree_g1.fetch_asset", lambda spec: fake_path)
+    cfg = UnitreeG1Cfg()
+    assert isinstance(cfg, ArticulationCfg)
+    assert set(cfg.actuators) == {"5020", "7520_14", "7520_22", "4010", "waist", "ankle"}
+    assert cfg.foot_link_names == ("left_ankle_roll_link", "right_ankle_roll_link")
+    # 7520_22 group (hip roll + knee) carries the highest effort
+    assert cfg.actuators["7520_22"].effort_limit == pytest.approx(139.0)
+    # waist + ankle groups are 5020 motors in parallel — armature should double
+    assert cfg.actuators["waist"].armature == pytest.approx(
+        2 * cfg.actuators["5020"].armature  # type: ignore[operator]
+    )
+
+
+def test_unitree_go1_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_path = FIXTURES_DIR / "cartpole.xml"
+    monkeypatch.setattr("genelab.asset_zoo.unitree_go1.fetch_asset", lambda spec: fake_path)
+    cfg = UnitreeGo1Cfg()
+    assert set(cfg.actuators) == {"hip", "thigh", "calf"}
+    assert cfg.foot_link_names == ("FR_foot", "FL_foot", "RR_foot", "RL_foot")
+    assert cfg.actuators["calf"].effort_limit == pytest.approx(35.55)
+    assert cfg.actuators["hip"].stiffness == 25.0
+
+
+def test_anymal_c_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_path = FIXTURES_DIR / "cartpole.xml"
+    monkeypatch.setattr("genelab.asset_zoo.anymal_c.fetch_asset", lambda spec: fake_path)
+    cfg = AnymalCCfg()
+    assert set(cfg.actuators) == {"legs"}
+    legs = cfg.actuators["legs"]
+    assert legs.stiffness == 80.0
+    assert legs.damping == 2.0
+    assert legs.effort_limit == 80.0
+    assert cfg.foot_link_names == ("LF_FOOT", "RF_FOOT", "LH_FOOT", "RH_FOOT")
+    # Hind legs use mirrored HFE / KFE so the robot spawns in a stable stand pose.
+    assert cfg.default_joint_pos[r"(LH|RH)_HFE"] == -0.4
+    assert cfg.default_joint_pos[r"(LH|RH)_KFE"] == 0.8
 
 
 @pytest.fixture
@@ -134,3 +182,62 @@ def test_fetch_asset_cache_hit(
     assert first == second == asset_root / "cache" / correct_md5 / "cache.bin"
     assert first.read_bytes() == state.payload
     assert state.hit_count == 1
+
+
+def _build_test_tarball(entries: dict[str, bytes]) -> bytes:
+    """Build an in-memory .tar.gz with the given relative path → bytes entries."""
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for name, data in entries.items():
+            info = tarfile.TarInfo(name=name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def test_fetch_asset_archive(asset_root: Path, fake_http_server: tuple[str, _ServerState]) -> None:
+    url, state = fake_http_server
+    tarball = _build_test_tarball(
+        {
+            "dummy/dummy.xml": b"<mujoco model='dummy'><worldbody/></mujoco>",
+            "dummy/meshes/cube.stl": b"binary-stl-stub",
+        }
+    )
+    state.payload = tarball
+    md5 = hashlib.md5(tarball).hexdigest()
+    spec = AssetSpec(
+        name="dummy-archive",
+        url=url,
+        md5=md5,
+        filename="dummy.tar.gz",
+        archive_member="dummy/dummy.xml",
+    )
+    entry = fetch_asset(spec)
+    expected = asset_root / "dummy-archive" / md5 / "extracted" / "dummy" / "dummy.xml"
+    assert entry == expected
+    assert entry.read_bytes() == b"<mujoco model='dummy'><worldbody/></mujoco>"
+    # Mesh dependency travels alongside so MJCF relative references resolve.
+    assert (entry.parent / "meshes" / "cube.stl").read_bytes() == b"binary-stl-stub"
+    # Second call serves from cache (no extra HTTP hit, no re-extraction).
+    again = fetch_asset(spec)
+    assert again == entry
+    assert state.hit_count == 1
+
+
+def test_fetch_asset_archive_md5_mismatch(
+    asset_root: Path, fake_http_server: tuple[str, _ServerState]
+) -> None:
+    url, state = fake_http_server
+    state.payload = _build_test_tarball({"dummy/dummy.xml": b"<mujoco/>"})
+    spec = AssetSpec(
+        name="bad-archive",
+        url=url,
+        md5="0" * 32,
+        filename="dummy.tar.gz",
+        archive_member="dummy/dummy.xml",
+    )
+    with pytest.raises(AssetDownloadError, match="md5 mismatch"):
+        fetch_asset(spec)
+    # No extracted dir should linger after the failed verification.
+    cache_dir = asset_root / "bad-archive" / spec.md5
+    assert not (cache_dir / "extracted").exists()

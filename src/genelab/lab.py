@@ -13,7 +13,13 @@ from genelab.actuator import (
     ImplicitPDActuator,
     ImplicitPDActuatorCfg,
 )
-from genelab.asset_zoo import CartpoleCfg, FrankaPandaCfg
+from genelab.asset_zoo import (
+    AnymalCCfg,
+    CartpoleCfg,
+    FrankaPandaCfg,
+    UnitreeG1Cfg,
+    UnitreeGo1Cfg,
+)
 from genelab.configs import (
     InteractiveSceneCfg,
     ManagerBasedEnvCfg,
@@ -97,6 +103,7 @@ __all__ = [
     "TASKS",
     "ActuatorBase",
     "ActuatorBaseCfg",
+    "AnymalCCfg",
     "Articulation",
     "ArticulationCfg",
     "CartpoleCfg",
@@ -148,6 +155,8 @@ __all__ = [
     "TerrainHeightSensor",
     "TerrainHeightSensorCfg",
     "TerrainImporter",
+    "UnitreeG1Cfg",
+    "UnitreeGo1Cfg",
     "Unoise",
     "apply_overrides",
     "load_builtin_registries",

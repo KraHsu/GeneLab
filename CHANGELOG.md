@@ -8,6 +8,19 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `genelab.asset_zoo` now ships five built-in robots: `CartpoleCfg`, `FrankaPandaCfg`,
+  `UnitreeG1Cfg` (29-DoF humanoid, 6 DCMotor groups mirroring
+  `examples/unitree/.../g1/constants.py`), `UnitreeGo1Cfg` (12-DoF quadruped, 3
+  ImplicitPD groups aligned to Isaac Lab Go1 defaults), and `AnymalCCfg` (12-DoF
+  quadruped, single ImplicitPD group aligned to Isaac Lab Anymal C defaults). The three
+  Menagerie-sourced robots ship as `.tar.gz` bundles in `KraHsu/genelab-assets`,
+  preserving BSD-3-Clause attribution.
+- `AssetSpec.archive_member`: optional field that switches `fetch_asset` from
+  single-file to archive mode. The URL is treated as a `.tar.gz`, the blob's md5 is
+  verified end-to-end, and `tarfile`'s `data` filter extracts the contents into
+  `<md5>/extracted/` (rejects symlinks, absolute paths, and parent-directory escapes).
+  The returned path is `<md5>/extracted/<archive_member>` — Menagerie mesh references
+  resolve automatically because the full folder structure is preserved.
 - `genelab.asset_zoo` namespace with the first two built-in robot configurations,
   `CartpoleCfg` and `FrankaPandaCfg`. Both are registered into `ROBOTS` as an import
   side-effect of `load_builtin_registries()`; factories stay lazy so `genelab list
