@@ -64,13 +64,18 @@ class RewardManager:
     def reset(self, env_ids: torch.Tensor | slice | None = None) -> dict[str, float]:
         if env_ids is None:
             env_ids = slice(None)
-        extras: dict[str, float] = {}
         max_episode_length_s = getattr(self._env, "max_episode_length_s", 1.0) or 1.0
-        for name, episode_sum in self._episode_sums.items():
-            mean = torch.mean(episode_sum[env_ids]).item()
-            extras[f"Episode_Reward/{name}"] = mean / max_episode_length_s
-            episode_sum[env_ids] = 0.0
-        return extras
+        names = list(self._episode_sums.keys())
+        if not names:
+            return {}
+        # Stack per-term means into a single tensor and pull all values to host with one sync.
+        # The per-term ``.item()`` loop was a per-reset CUDA sync per reward term (6+ per step
+        # on busy reset paths in g1-velocity-flat).
+        means = torch.stack([torch.mean(self._episode_sums[name][env_ids]) for name in names])
+        means_list = (means / max_episode_length_s).tolist()
+        for name in names:
+            self._episode_sums[name][env_ids] = 0.0
+        return {f"Episode_Reward/{name}": value for name, value in zip(names, means_list)}
 
     def compute(self, dt: float) -> torch.Tensor:
         self._reward_buf.zero_()

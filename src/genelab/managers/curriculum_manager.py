@@ -39,10 +39,19 @@ class CurriculumManager:
 
     def compute(self, env_ids: torch.Tensor | slice | None = None) -> dict[str, float]:
         extras: dict[str, float] = {}
+        # Collect tensor-valued curriculum terms separately so all their means come back
+        # with a single host sync (one ``.tolist()`` instead of one ``.item()`` per term).
+        tensor_names: list[str] = []
+        tensor_means: list[torch.Tensor] = []
         for name, term_cfg in zip(self._term_names, self._term_cfgs, strict=True):
             value = term_cfg.func(self._env, env_ids, **term_cfg.params)
             if isinstance(value, torch.Tensor):
-                extras[f"Curriculum/{name}"] = float(value.float().mean().item())
+                tensor_names.append(name)
+                tensor_means.append(value.float().mean())
             elif value is not None:
                 extras[f"Curriculum/{name}"] = float(value)
+        if tensor_means:
+            means_list = torch.stack(tensor_means).tolist()
+            for name, mean in zip(tensor_names, means_list):
+                extras[f"Curriculum/{name}"] = float(mean)
         return extras
