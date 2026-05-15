@@ -33,6 +33,10 @@ class InteractiveSceneCfg:
     mouse_interaction: bool = False
     entities: dict[str, ArticulationCfg | RigidObjectCfg] = field(default_factory=dict)
     terrain: TerrainGeneratorCfg | None = None
+    # When True, ``InteractiveScene._build`` passes
+    # ``gs.renderers.BatchRenderer(use_rasterizer=False)`` to ``gs.Scene``. Required for
+    # ``CameraSensor`` to produce per-env RGB-D tensors. Linux x86-64 + CUDA only.
+    batch_render: bool = False
 
 
 @dataclass
