@@ -8,6 +8,35 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `examples/genelab_showcase/`: six play-only TaskCfgs that exercise every M1–M4
+  building block (sensors / ray-cast patterns / contact + air-time / 5 sub-terrains /
+  `terrain_levels_vel` curriculum / `IdealPDActuator` arm). Each task dumps
+  per-feature evidence (PNG frames, distance histograms, tracking error, terrain
+  level histograms) into `logs/showcase/<slug>/` so the visual + numerical behaviour
+  of every building block can be eyeballed without launching an RL training run.
+- `InteractiveScene.viewer_closed` / `ManagerBasedRlEnv.viewer_closed`: viewer-closed
+  handling moved into the kernel. `InteractiveScene.step` catches Genesis's
+  `GenesisException("Viewer closed.")`, flips the flag, and becomes a no-op on
+  subsequent calls. Consumers (RL runner, showcase runner, custom rollouts) only
+  need to poll `env.viewer_closed` and break; the previous per-consumer
+  `try/except gs.GenesisException` boilerplate is no longer required.
+- `InteractiveSceneCfg.batch_render: bool`: when set, `InteractiveScene._build`
+  passes `gs.renderers.BatchRenderer(use_rasterizer=False)` to `gs.Scene`. Required
+  for `CameraSensor` to produce per-env RGB-D tensors. Defaults to `False` for
+  backwards compatibility.
+- `Sensor.pre_build_genesis(gs_scene, entities)`: new no-op hook on the sensor base
+  class. `InteractiveScene._build` calls it on every sensor cfg right after entity
+  spawn and before `gs_scene.build`, giving sensors a chance to register Genesis
+  resources that the renderer snapshots at build time. `CameraSensor` overrides it
+  to allocate its camera early — required for BatchRender to register the camera in
+  its build-time snapshot. `InteractiveScene.sensors` now exposes the resulting
+  instances, and `ManagerBasedRlEnv` binds those instances instead of re-building.
+- `docs/concepts/scene.{en,zh}.md`: bilingual concept page covering the M1 stack —
+  `InteractiveScene` lifecycle, `SimulationCfg`, `InteractiveSceneCfg`, `Articulation`,
+  `RigidObject`, and the four documented failure modes.
+- `docs/examples/showcase.{en,zh}.md`, `docs/examples/unitree-g1.{en,zh}.md`:
+  bilingual examples pages — the showcase index plus a distilled Unitree G1
+  walk-through (velocity tracking, motion imitation, long-run profiling).
 - `CameraSensor` (with `CameraSensorCfg` and `CameraData`): rigid-mount RGB-D probe
   wrapping Genesis's `BatchRenderer` camera. Per-env tensors with shape
   `(num_envs, H, W, 3)` for RGB (uint8) and `(num_envs, H, W)` for depth (float meters);
