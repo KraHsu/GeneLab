@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from genelab.configs import ManagerBasedEnvCfg, SceneCfg
+from genelab.configs import ManagerBasedEnvCfg
 
 from genelab_examples.rubiks.assets import RubiksCubeSpec
 from genelab_examples.rubiks.sim import ForceDrivenCubeConfig
@@ -43,7 +43,6 @@ class LegacyLayerTurnCfg:
 
 @dataclass
 class RubiksEnvCfg(ManagerBasedEnvCfg):
-    scene: SceneCfg = field(default_factory=SceneCfg)
     robot: RubiksRobotCfg = field(default_factory=RubiksRobotCfg)
     interaction: RubiksInteractionCfg = field(default_factory=RubiksInteractionCfg)
     legacy_turn: LegacyLayerTurnCfg = field(default_factory=LegacyLayerTurnCfg)

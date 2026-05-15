@@ -82,6 +82,24 @@ uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
 `--agent` accepts `zero`, `random`, or `trained`. Without `--agent`, play defaults to
 `trained` when `--checkpoint` is set, else `zero`.
 
+## Long training runs
+
+For multi-hour runs (the G1 tasks default to `max_iterations=30_000` ≈ several wall-clock
+hours on 8×H200), set PyTorch's allocator to use growable segments **before** launching
+training. This dramatically reduces fragmentation-driven slowdown over time:
+
+```bash
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+```
+
+If training time drifts upward across iterations anyway, capture a profiler trace by
+re-running with `GENELAB_PROFILE=1` set. The trace lands under `logs/torch_profile/` and
+can be loaded by `tensorboard --logdir logs/torch_profile`. Take one trace at the start
+and one a few hours in to compare cumulative time per section. Optional env vars:
+`GENELAB_PROFILE_OUT`, `GENELAB_PROFILE_WAIT`, `GENELAB_PROFILE_WARMUP`,
+`GENELAB_PROFILE_ACTIVE`, `GENELAB_PROFILE_REPEAT` (see
+`src/genelab/rl/_profiler.py`). Only rank 0 emits a trace under distributed launches.
+
 ## Notes
 
 - The G1 MJCF and STL meshes are vendored under `assets/g1/`. They originate from Unitree's

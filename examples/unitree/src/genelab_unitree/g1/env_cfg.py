@@ -6,7 +6,7 @@ Mirrors ``mjlab.tasks.velocity.config.g1`` adapted to GeneLab's slim manager sys
 import math
 
 from genelab import mdp
-from genelab.configs import SceneCfg
+from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
 from genelab.managers import (
     EventTermCfg,
@@ -19,7 +19,6 @@ from genelab.mdp.actions.joint_position import JointPositionActionCfg
 from genelab.mdp.commands.velocity_command import UniformVelocityCommandCfg
 from genelab.mdp.noise import Unoise
 from genelab.sensor import BodyVelocitySensorCfg, ContactSensorCfg
-from genelab_unitree.g1.constants import G1_ACTION_SCALE
 from genelab_unitree.g1.robot import get_g1_robot_cfg
 
 # IMU site offset from the pelvis link origin; matches g1.xml's <site name="imu_in_pelvis">.
@@ -117,12 +116,14 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     robot_entity_cfg = get_g1_robot_cfg().to_entity_cfg()
 
     cfg = ManagerBasedRlEnvCfg(
-        scene=SceneCfg(
+        simulation=SimulationCfg(
             num_envs=4096 if not play else 50,
             dt=0.002,
             substeps=1,
-            env_spacing=(2.5, 2.5),
             vis=play,
+        ),
+        scene=InteractiveSceneCfg(
+            env_spacing=(2.5, 2.5),
             sensors=(
                 BodyVelocitySensorCfg(
                     name="imu_lin_vel",
@@ -151,7 +152,6 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             "joint_pos": JointPositionActionCfg(
                 asset_name="robot",
                 joint_names=(".*",),
-                scale=dict(G1_ACTION_SCALE),
                 use_default_offset=True,
             )
         },

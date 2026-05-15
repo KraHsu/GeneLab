@@ -1,4 +1,10 @@
-"""Joint-position action term: ``target = default + scale * raw_action`` (PD-controlled)."""
+"""Joint-position action term: ``target = default + scale * raw_action`` (PD-controlled).
+
+Targets are routed through :meth:`Articulation.write_joint_targets_partial`, which
+dispatches each actuator group via its declared channel (``control_dofs_position`` for
+implicit PD, ``control_dofs_force`` for force-channel actuators like
+:class:`IdealPDActuator` / :class:`DCMotorActuator`).
+"""
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -13,14 +19,19 @@ if TYPE_CHECKING:
 
 @dataclass
 class JointPositionActionCfg(ActionTermCfg):
-    """Action term that pushes joint position targets through Genesis PD control.
+    """Action term that pushes joint position targets through the articulation's actuators.
 
     The configured ``joint_names`` are regex patterns matched against the env's joint names.
-    Per-joint ``scale`` may be a single float or a dict (regex -> scale).
+    ``scale`` may be:
+
+    * ``None`` — inherit per-joint scale from :attr:`Articulation.action_scale_tensor`
+      (this is the recommended default — actuator groups own their action scale).
+    * ``float`` — single multiplier applied to every matched joint, overriding the actuator.
+    * ``dict[str, float]`` — per-regex override against joint names.
     """
 
     joint_names: tuple[str, ...] = (".*",)
-    scale: float | dict[str, float] = 1.0
+    scale: float | dict[str, float] | None = None
     use_default_offset: bool = True
     class_type: type[ActionTerm] | None = None  # filled by __post_init__
 
@@ -53,8 +64,10 @@ class JointPositionAction(ActionTerm):
             )
         self._joint_indices = torch.tensor(matched, dtype=torch.long, device=self.device)
 
-        if isinstance(cfg.scale, dict):
-            scale = env._build_per_joint_tensor(cfg.scale, default=1.0)  # type: ignore[attr-defined]
+        if cfg.scale is None:
+            self._scale = env.articulation.action_scale_tensor.index_select(0, self._joint_indices)
+        elif isinstance(cfg.scale, dict):
+            scale = env.articulation.build_per_joint_tensor(cfg.scale, default=1.0)
             self._scale = scale[self._joint_indices]
         else:
             self._scale = torch.full((len(matched),), float(cfg.scale), device=self.device)
@@ -79,18 +92,4 @@ class JointPositionAction(ActionTerm):
         self._target = self._default.unsqueeze(0) + self._scale.unsqueeze(0) * actions
 
     def apply_actions(self) -> None:
-        control = getattr(self._env.robot, "control_dofs_position", None)
-        if control is None:
-            control = getattr(self._env.robot, "set_dofs_position_target", None)
-        if control is None:
-            return
-        # Use the env-resolved actuated DoF indices (global), filtered by joint mask.
-        actuated_idx = getattr(self._env, "_actuated_dof_idx", None)
-        if actuated_idx is not None:
-            dof_indices = actuated_idx.index_select(0, self._joint_indices)
-        else:
-            dof_indices = self._joint_indices
-        try:
-            control(self._target, dof_indices)
-        except TypeError:
-            control(self._target)
+        self._env.articulation.write_joint_targets_partial(self._joint_indices, self._target)

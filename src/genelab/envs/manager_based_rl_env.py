@@ -1,17 +1,18 @@
 """Genesis-backed manager-based RL environment.
 
 This is a slim port of ``mjlab.envs.manager_based_rl_env`` adapted to Genesis. The env owns
-a single articulated robot, a ground plane, and the seven manager-style MDP hooks.
+the seven manager-style MDP hooks and orchestrates an :class:`~genelab.scene.InteractiveScene`
+that in turn owns the Genesis ``gs.Scene``, an articulated robot, and any extra rigid bodies.
 """
 
 import math
-import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import torch
 
 from genelab.configs import ManagerBasedEnvCfg
+from genelab.entity import Articulation, ArticulationCfg, RobotState
 from genelab.managers import (
     ActionManager,
     ActionTermCfg,
@@ -28,29 +29,13 @@ from genelab.managers import (
     TerminationManager,
     TerminationTermCfg,
 )
+from genelab.scene import InteractiveScene
 from genelab.sensor import Sensor
 
-if TYPE_CHECKING:
-    pass
-
-
-@dataclass
-class RobotEntityCfg:
-    """Robot description consumed by ``ManagerBasedRlEnv``.
-
-    ``mjcf_path`` is the absolute path to a MuJoCo XML file. Joint dictionaries are name -> value
-    where the keys may be regex patterns; multiple keys may match the same joint, in which case
-    the last match wins.
-    """
-
-    mjcf_path: str = ""
-    init_pos: tuple[float, float, float] = (0.0, 0.0, 1.0)
-    init_quat: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
-    default_joint_pos: dict[str, float] = field(default_factory=dict)
-    joint_kp: dict[str, float] = field(default_factory=dict)
-    joint_kv: dict[str, float] = field(default_factory=dict)
-    action_scale: dict[str, float] | float = 0.5
-    foot_link_names: tuple[str, ...] = ()
+# Back-compat alias: existing extension packages import ``RobotEntityCfg`` from this module.
+# The new canonical name is :class:`genelab.entity.ArticulationCfg`. Plain class alias so the
+# name remains callable as a constructor (PEP 695 ``type`` aliases are not callable).
+RobotEntityCfg = ArticulationCfg
 
 
 @dataclass
@@ -67,7 +52,7 @@ class ManagerBasedRlEnvCfg(ManagerBasedEnvCfg):
     seed: int | None = None
     scale_rewards_by_dt: bool = True
 
-    robot: RobotEntityCfg = field(default_factory=RobotEntityCfg)
+    robot: ArticulationCfg = field(default_factory=ArticulationCfg)
 
     actions_cfg: dict[str, ActionTermCfg] = field(default_factory=dict)
     observations_cfg: dict[str, ObservationGroupCfg] = field(default_factory=dict)
@@ -78,53 +63,25 @@ class ManagerBasedRlEnvCfg(ManagerBasedEnvCfg):
     curriculum_cfg: dict[str, CurriculumTermCfg] = field(default_factory=dict)
 
 
-class RobotState:
-    """Cached per-step robot state. Refreshed by ``ManagerBasedRlEnv._refresh_robot_state``."""
-
-    def __init__(
-        self,
-        num_envs: int,
-        num_dofs: int,
-        num_links: int,
-        device: str,
-    ) -> None:
-        def z(*shape: int) -> torch.Tensor:
-            return torch.zeros(*shape, device=device)
-
-        self.root_pos = z(num_envs, 3)
-        self.root_quat = z(num_envs, 4)
-        self.root_quat[:, 0] = 1.0
-        self.root_lin_vel_w = z(num_envs, 3)
-        self.root_ang_vel_w = z(num_envs, 3)
-        self.root_lin_vel_b = z(num_envs, 3)
-        self.root_ang_vel_b = z(num_envs, 3)
-        self.projected_gravity_b = z(num_envs, 3)
-        self.projected_gravity_b[:, 2] = -1.0
-        self.joint_pos = z(num_envs, num_dofs)
-        self.joint_vel = z(num_envs, num_dofs)
-        self.link_pos = z(num_envs, num_links, 3)
-        self.link_quat_w = z(num_envs, num_links, 4)
-        self.link_quat_w[..., 0] = 1.0
-        self.link_lin_vel_w = z(num_envs, num_links, 3)
-        self.link_ang_vel_w = z(num_envs, num_links, 3)
-
-
 class ManagerBasedRlEnv:
     """Genesis-backed manager-based RL environment."""
 
     def __init__(self, cfg: ManagerBasedRlEnvCfg) -> None:
         self.cfg = cfg
         self._device = cfg.device
-        self._num_envs = max(1, int(cfg.scene.num_envs))
-        self._dt_sim = float(cfg.scene.dt)
+        self._num_envs = max(1, int(cfg.simulation.num_envs))
+        self._dt_sim = float(cfg.simulation.dt)
         self._decimation = int(cfg.decimation)
         self._step_dt = self._dt_sim * self._decimation
         self._max_episode_length = max(1, int(math.ceil(cfg.episode_length_s / self._step_dt)))
-        self._build_scene()
-        self._build_robot_introspection()
-        self._robot_state = RobotState(
-            self._num_envs, self._num_dofs, self._num_links, self._device
-        )
+
+        self._scene = InteractiveScene(cfg.simulation, cfg.scene, device_hint=cfg.device)
+        self._scene.add_entity("robot", cfg.robot)
+        self._scene.build()
+        # Genesis may have refined the device string (e.g. ``cuda:0``); pick it up.
+        self._device = self._scene.device
+        self._articulation: Articulation = self._scene.articulations["robot"]
+
         self._episode_length_buf = torch.zeros(
             self._num_envs, dtype=torch.long, device=self._device
         )
@@ -141,18 +98,17 @@ class ManagerBasedRlEnv:
         self.event_manager = EventManager(cfg.events_cfg, self)
         self.curriculum_manager = CurriculumManager(cfg.curriculum_cfg, self)
 
-        # Build sensors after managers (so cfg parsing is settled) but before reset
-        # (so observation_manager.compute can read sensor.data on the first frame).
-        self._sensors: dict[str, Sensor[Any]] = {}
-        for sensor_cfg in cfg.scene.sensors:
-            sensor = sensor_cfg.build()
+        # Sensors are pre-built by ``InteractiveScene.build`` so any Genesis resources
+        # snapshotted at scene-build time (e.g. BatchRenderer cameras) are already
+        # registered. Bind every pre-built sensor against the env after managers are
+        # constructed but before the initial reset — observation_manager.compute can
+        # then read sensor.data on the first frame.
+        self._sensors: dict[str, Sensor[Any]] = dict(self._scene.sensors)
+        for sensor in self._sensors.values():
             sensor.bind(self)
-            self._sensors[sensor_cfg.name] = sensor
 
-        # Apply PD gains, default pose, then run startup events.
-        self._apply_default_gains()
         self.event_manager.apply("startup")
-        self._refresh_robot_state()
+        self._articulation.refresh()
         # Initial reset of all envs so the policy sees a well-defined obs.
         self.reset()
 
@@ -191,12 +147,34 @@ class ManagerBasedRlEnv:
         return int(self.action_manager.total_action_dim)
 
     @property
+    def scene(self) -> InteractiveScene:
+        """The live :class:`InteractiveScene`. Distinct from ``env.cfg.scene`` (cfg dataclass)."""
+        return self._scene
+
+    @property
+    def viewer_closed(self) -> bool:
+        """``True`` once the user closes the Genesis viewer mid-rollout.
+
+        The kernel catches Genesis's ``GenesisException("Viewer closed.")`` inside
+        :py:meth:`InteractiveScene.step` and flips this flag; loop drivers (RL
+        runners, showcase scripts, custom rollouts) should poll it and break
+        instead of writing their own try / except.
+        """
+        return self._scene.viewer_closed
+
+    @property
+    def articulation(self) -> Articulation:
+        """Wrapper around the Genesis robot entity (Isaac-Lab-style accessors)."""
+        return self._articulation
+
+    @property
     def robot(self) -> Any:
-        return self._robot
+        """Raw Genesis robot handle. MDP code calls ``env.robot.set_pos(...)`` etc."""
+        return self._articulation.gs_handle
 
     @property
     def robot_state(self) -> RobotState:
-        return self._robot_state
+        return self._articulation.data
 
     @property
     def sensors(self) -> dict[str, Sensor[Any]]:
@@ -204,220 +182,25 @@ class ManagerBasedRlEnv:
 
     @property
     def joint_names(self) -> list[str]:
-        return list(self._joint_names)
+        return self._articulation.joint_names
 
     @property
     def link_names(self) -> list[str]:
-        return list(self._link_names)
+        return self._articulation.link_names
 
     @property
     def body_names(self) -> list[str]:
         """Alias for ``link_names`` to match mjlab's terminology."""
-        return list(self._link_names)
+        return self._articulation.body_names
 
     @property
     def env_origins(self) -> torch.Tensor:
         """Per-env world-frame offset ``[num_envs, 3]``; zeros when Genesis uses local frames."""
-        return self._env_origins
+        return self._scene.env_origins
 
     @property
     def default_joint_pos(self) -> torch.Tensor:
-        return self._default_joint_pos
-
-    @property
-    def joint_kp(self) -> torch.Tensor:
-        return self._joint_kp
-
-    @property
-    def joint_kv(self) -> torch.Tensor:
-        return self._joint_kv
-
-    @property
-    def action_scale(self) -> torch.Tensor:
-        return self._action_scale
-
-    # ------------------------------------------------------------------ scene
-
-    def _build_scene(self) -> None:
-        """Initialize Genesis and build the parallel scene."""
-        from genelab.rl.distributed import pin_cuda_device
-
-        pinned = pin_cuda_device()
-        if pinned is not None:
-            # Distributed: force GPU backend and align self._device with rsl_rl's
-            # expected cuda:{LOCAL_RANK} string. The CLI bootstrap has already set
-            # CUDA_VISIBLE_DEVICES per rank and rewritten LOCAL_RANK to 0, so this
-            # ends up as "cuda:0" — the rank's only visible device. That single
-            # visible-device setup is what makes Quadrants (Genesis's compute
-            # backend) allocate its tensors on the right physical GPU.
-            self.cfg.scene.gpu = True
-            self._device = pinned
-
-        import genesis as gs  # type: ignore[import-not-found]
-
-        gs_init = getattr(gs, "init", None)
-        if gs_init is not None and not getattr(gs, "_initialized", False):
-            backend = gs.gpu if self.cfg.scene.gpu else gs.cpu  # type: ignore[attr-defined]
-            gs.init(backend=backend, logging_level="warning")
-
-        sim_options = gs.options.SimOptions(
-            dt=self._dt_sim,
-            substeps=int(self.cfg.scene.substeps),
-        )
-        self._scene: Any = gs.Scene(
-            sim_options=sim_options,
-            show_viewer=self.cfg.scene.vis,
-        )
-        self._scene.add_entity(gs.morphs.Plane())
-        robot_cfg = self.cfg.robot
-        if not robot_cfg.mjcf_path:
-            raise ValueError("ManagerBasedRlEnvCfg.robot.mjcf_path must be set")
-        morph = gs.morphs.MJCF(
-            file=str(robot_cfg.mjcf_path),
-            pos=tuple(robot_cfg.init_pos),
-            quat=tuple(robot_cfg.init_quat),
-        )
-        self._robot: Any = self._scene.add_entity(morph)
-        if self.cfg.scene.vis and self.cfg.scene.mouse_interaction:
-            from genelab.sim.mouse_interaction import GeneLabMouseInteractionPlugin
-
-            # MouseInteractionPlugin must be attached BEFORE ``scene.build()`` — pre-build registration
-            # routes through ``viewer.build`` so the plugin's raycaster sees the fully constructed
-            # rigid solver. Post-build registration deadlocks the sim/viewer loop in some Genesis builds.
-            # ``GeneLabMouseInteractionPlugin`` patches the upstream plugin for batched link APIs.
-            self._scene.viewer.add_plugin(GeneLabMouseInteractionPlugin(use_force=True))
-        self._scene.build(
-            n_envs=self._num_envs,
-            env_spacing=tuple(self.cfg.scene.env_spacing),
-        )
-        # Derive device from Genesis if available.
-        gs_device = getattr(gs, "device", None)
-        if gs_device is not None:
-            try:
-                self._device = str(gs_device())  # type: ignore[misc]
-            except TypeError:
-                self._device = str(gs_device)
-        self._env_origins = self._compute_env_origins()
-
-    def _compute_env_origins(self) -> torch.Tensor:
-        """Per-env world-frame offset. Defaults to zeros; Genesis runs each env in its own frame."""
-        scene_origins = getattr(self._scene, "envs_offset", None)
-        if scene_origins is None:
-            scene_origins = getattr(self._scene, "env_origins", None)
-        if scene_origins is not None:
-            return _to_tensor(scene_origins, self._device).reshape(self._num_envs, 3)
-        return torch.zeros(self._num_envs, 3, device=self._device)
-
-    def _build_robot_introspection(self) -> None:
-        """Resolve joint / link names and default pose / gain tensors.
-
-        Genesis exposes every DoF — including the 6 from the floating base — so we record both
-        the per-joint actuated index list and the global DoF count to keep tensors aligned.
-        """
-        joints = getattr(self._robot, "joints", None) or []
-        joint_names: list[str] = []
-        actuated_dof_indices: list[int] = []
-        for j in joints:
-            name = getattr(j, "name", None) or str(j)
-            n_dofs = int(getattr(j, "n_dofs", 1))
-            # Skip the floating base joint (typically 6 DoFs, first in the chain).
-            if n_dofs >= 6 and not joint_names:
-                continue
-            joint_names.append(name)
-            dof_idx_local = getattr(j, "dofs_idx_local", None)
-            if dof_idx_local is None:
-                dof_start = int(getattr(j, "dof_start", len(actuated_dof_indices)))
-                actuated_dof_indices.extend(range(dof_start, dof_start + n_dofs))
-            else:
-                actuated_dof_indices.extend(int(i) for i in dof_idx_local)
-        if not joint_names:
-            num = int(getattr(self._robot, "n_dofs", 0)) - 6
-            joint_names = [f"joint_{i}" for i in range(max(num, 0))]
-            actuated_dof_indices = list(range(6, 6 + len(joint_names)))
-        self._joint_names = joint_names
-        self._num_dofs = len(joint_names)
-        self._actuated_dof_idx = torch.tensor(
-            actuated_dof_indices, dtype=torch.long, device=self._device
-        )
-        total_dofs = int(getattr(self._robot, "n_dofs", self._num_dofs))
-        self._total_dofs = total_dofs
-
-        links = getattr(self._robot, "links", []) or []
-        link_names = [getattr(link, "name", f"link_{i}") for i, link in enumerate(links)]
-        self._link_names = link_names
-        self._num_links = max(len(link_names), 1)
-
-        cfg = self.cfg.robot
-        self._default_joint_pos = self._build_per_joint_tensor(cfg.default_joint_pos, default=0.0)
-        self._joint_kp = self._build_per_joint_tensor(cfg.joint_kp, default=0.0)
-        self._joint_kv = self._build_per_joint_tensor(cfg.joint_kv, default=0.0)
-        if isinstance(cfg.action_scale, dict):
-            self._action_scale = self._build_per_joint_tensor(cfg.action_scale, default=0.25)
-        else:
-            self._action_scale = torch.full(
-                (self._num_dofs,), float(cfg.action_scale), device=self._device
-            )
-
-    def _build_per_joint_tensor(self, mapping: dict[str, float], *, default: float) -> torch.Tensor:
-        out = torch.full((self._num_dofs,), default, device=self._device)
-        for pattern, value in mapping.items():
-            try:
-                regex = re.compile(pattern)
-            except re.error:
-                regex = re.compile(re.escape(pattern))
-            for i, name in enumerate(self._joint_names):
-                if regex.fullmatch(name) or regex.search(name):
-                    out[i] = float(value)
-        return out
-
-    def _apply_default_gains(self) -> None:
-        set_kp = getattr(self._robot, "set_dofs_kp", None)
-        set_kv = getattr(self._robot, "set_dofs_kv", None)
-        if set_kp is not None and self._joint_kp.numel() > 0:
-            set_kp(self._joint_kp, self._actuated_dof_idx)
-        if set_kv is not None and self._joint_kv.numel() > 0:
-            set_kv(self._joint_kv, self._actuated_dof_idx)
-
-    # ------------------------------------------------------------------ state
-
-    def _refresh_robot_state(self) -> None:
-        rs = self._robot_state
-        robot = self._robot
-        try:
-            rs.root_pos = _to_tensor(robot.get_pos(), self._device)
-            rs.root_quat = _to_tensor(robot.get_quat(), self._device)
-            rs.root_lin_vel_w = _to_tensor(robot.get_vel(), self._device)
-            rs.root_ang_vel_w = _to_tensor(robot.get_ang(), self._device)
-            joint_pos_full = _to_tensor(robot.get_dofs_position(), self._device)
-            joint_vel_full = _to_tensor(robot.get_dofs_velocity(), self._device)
-            # Slice to actuated DoFs only.
-            rs.joint_pos = joint_pos_full.index_select(-1, self._actuated_dof_idx)
-            rs.joint_vel = joint_vel_full.index_select(-1, self._actuated_dof_idx)
-        except AttributeError:
-            pass
-        # Per-link state — populated lazily, only when the Genesis getter is available.
-        for attr, target in (
-            ("get_links_pos", "link_pos"),
-            ("get_links_quat", "link_quat_w"),
-            ("get_links_vel", "link_lin_vel_w"),
-            ("get_links_ang", "link_ang_vel_w"),
-        ):
-            getter = getattr(robot, attr, None)
-            if getter is None:
-                continue
-            try:
-                value = getter()
-            except Exception:
-                continue
-            tensor = _to_tensor(value, self._device)
-            if tensor.dim() == 2:
-                tensor = tensor.unsqueeze(0).expand(self._num_envs, -1, -1)
-            setattr(rs, target, tensor)
-        # Convert root-frame quantities to body frame for the policy.
-        rs.root_lin_vel_b = _quat_rotate_inverse(rs.root_quat, rs.root_lin_vel_w)
-        rs.root_ang_vel_b = _quat_rotate_inverse(rs.root_quat, rs.root_ang_vel_w)
-        gravity_w = torch.tensor([0.0, 0.0, -1.0], device=self._device).expand_as(rs.root_lin_vel_w)
-        rs.projected_gravity_b = _quat_rotate_inverse(rs.root_quat, gravity_w)
+        return self._articulation.default_joint_pos
 
     # ------------------------------------------------------------------ reference state
 
@@ -428,20 +211,7 @@ class ManagerBasedRlEnv:
         env_ids: torch.Tensor,
     ) -> None:
         """Write actuated-joint positions / velocities for ``env_ids`` (size ``[N, num_dofs]``)."""
-        if env_ids.numel() == 0:
-            return
-        set_pos = getattr(self._robot, "set_dofs_position", None)
-        set_vel = getattr(self._robot, "set_dofs_velocity", None)
-        if set_pos is not None:
-            try:
-                set_pos(joint_pos, self._actuated_dof_idx, envs_idx=env_ids)
-            except TypeError:
-                set_pos(joint_pos, self._actuated_dof_idx)
-        if set_vel is not None:
-            try:
-                set_vel(joint_vel, self._actuated_dof_idx, envs_idx=env_ids)
-            except TypeError:
-                set_vel(joint_vel, self._actuated_dof_idx)
+        self._articulation.write_joint_state(joint_pos, joint_vel, env_ids)
 
     def write_root_state_to_sim(
         self,
@@ -452,22 +222,9 @@ class ManagerBasedRlEnv:
         env_ids: torch.Tensor,
     ) -> None:
         """Write floating-base pose + velocity for ``env_ids`` (each size ``[N, 3 or 4]``)."""
-        if env_ids.numel() == 0:
-            return
-        robot = self._robot
-        for fn_name, value in (
-            ("set_pos", root_pos),
-            ("set_quat", root_quat),
-            ("set_vel", root_lin_vel_w),
-            ("set_ang", root_ang_vel_w),
-        ):
-            fn = getattr(robot, fn_name, None)
-            if fn is None:
-                continue
-            try:
-                fn(value, envs_idx=env_ids)
-            except TypeError:
-                fn(value)
+        self._articulation.write_root_state(
+            root_pos, root_quat, root_lin_vel_w, root_ang_vel_w, env_ids
+        )
 
     # ------------------------------------------------------------------ rollout
 
@@ -477,7 +234,7 @@ class ManagerBasedRlEnv:
         if env_ids is None:
             env_ids = torch.arange(self._num_envs, device=self._device)
         self._reset_idx(env_ids)
-        self._refresh_robot_state()
+        self._articulation.refresh()
         obs = self.observation_manager.compute()
         return obs, dict(self._extras)
 
@@ -485,21 +242,7 @@ class ManagerBasedRlEnv:
         if env_ids.numel() == 0:
             return
         # Reset joint state to default before events run, so events can layer randomisation.
-        default = self._default_joint_pos.unsqueeze(0).expand(env_ids.numel(), -1).contiguous()
-        zeros_v = torch.zeros_like(default)
-        set_dofs_pos = getattr(self._robot, "set_dofs_position", None)
-        set_dofs_vel = getattr(self._robot, "set_dofs_velocity", None)
-        if set_dofs_pos is not None:
-            try:
-                set_dofs_pos(default, self._actuated_dof_idx, envs_idx=env_ids)
-            except TypeError:
-                set_dofs_pos(default, self._actuated_dof_idx)
-        if set_dofs_vel is not None:
-            try:
-                set_dofs_vel(zeros_v, self._actuated_dof_idx, envs_idx=env_ids)
-            except TypeError:
-                set_dofs_vel(zeros_v, self._actuated_dof_idx)
-        # Run reset-mode events (root state randomisation, pushes, etc.).
+        self._articulation.reset(env_ids)
         self.event_manager.apply("reset", env_ids)
         self.command_manager.reset(env_ids)
         self.action_manager.reset(env_ids)
@@ -514,12 +257,15 @@ class ManagerBasedRlEnv:
     def step(
         self, action: torch.Tensor
     ) -> tuple[dict[str, torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor, dict[str, Any]]:
-        action = action.to(self._device).clone()
+        # ``action_manager.process_action`` copies into a pre-allocated buffer, so we don't
+        # need ``.clone()`` here; the ``.to`` call is a no-op when the action is already on
+        # the right device.
+        action = action.to(self._device, non_blocking=True)
         self.action_manager.process_action(action)
         for _ in range(self._decimation):
             self.action_manager.apply_action()
             self._scene.step()
-        self._refresh_robot_state()
+        self._articulation.refresh()
         for sensor in self._sensors.values():
             sensor.update(self._step_dt)
         self._episode_length_buf += 1
@@ -536,33 +282,11 @@ class ManagerBasedRlEnv:
         reset_ids = dones.nonzero(as_tuple=False).flatten()
         if reset_ids.numel() > 0:
             self._reset_idx(reset_ids)
-            self._refresh_robot_state()
+            self._articulation.refresh()
         obs = self.observation_manager.compute()
-        return obs, reward, terminated, time_outs, dict(self._extras)
+        # The RSL-RL wrapper shallow-copies ``extras`` itself before mutating, so we hand back
+        # the live dict to skip an unnecessary per-step copy.
+        return obs, reward, terminated, time_outs, self._extras
 
     def close(self) -> None:
-        scene = getattr(self, "_scene", None)
-        if scene is None:
-            return
-        for attr in ("close", "stop", "destroy"):
-            fn = getattr(scene, attr, None)
-            if callable(fn):
-                try:
-                    fn()
-                except Exception:
-                    pass
-                return
-
-
-def _to_tensor(value: Any, device: str) -> torch.Tensor:
-    if isinstance(value, torch.Tensor):
-        return value.to(device)
-    return torch.as_tensor(value, device=device, dtype=torch.float)
-
-
-def _quat_rotate_inverse(quat: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
-    """Rotate ``vec`` (world frame) into the body frame defined by ``quat`` (wxyz)."""
-    w = quat[..., 0:1]
-    xyz = quat[..., 1:4]
-    t = 2.0 * torch.cross(xyz, vec, dim=-1)
-    return vec - w * t + torch.cross(xyz, t, dim=-1)
+        self._scene.close()
