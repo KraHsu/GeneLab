@@ -27,7 +27,12 @@ from genelab.asset_zoo import (
 )
 from genelab.entity import ArticulationCfg
 from genelab.registry import ROBOTS, load_builtin_registries
-from genelab.utils.download import AssetDownloadError, AssetSpec, fetch_asset
+from genelab.utils.download import (
+    PROGRESS_CALLBACK,
+    AssetDownloadError,
+    AssetSpec,
+    fetch_asset,
+)
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
@@ -226,6 +231,86 @@ def test_fetch_asset_archive(asset_root: Path, fake_http_server: tuple[str, _Ser
     again = fetch_asset(spec)
     assert again == entry
     assert state.hit_count == 1
+
+
+def test_fetch_asset_progress_callback_via_argument(
+    asset_root: Path, fake_http_server: tuple[str, _ServerState]
+) -> None:
+    url, state = fake_http_server
+    state.payload = b"x" * (3 * (1 << 16) + 137)  # span >3 chunks so we see >1 callback
+    md5 = hashlib.md5(state.payload).hexdigest()
+    spec = AssetSpec(name="progress", url=url, md5=md5, filename="progress.bin")
+
+    events: list[tuple[int, int | None, str]] = []
+
+    def _cb(done: int, total: int | None, *, name: str) -> None:
+        events.append((done, total, name))
+
+    fetch_asset(spec, progress=_cb)
+
+    assert events, "expected at least one progress callback"
+    # First call carries done=0 so a UI can initialise its bar.
+    assert events[0][0] == 0
+    # Final cumulative count equals the payload size.
+    assert events[-1][0] == len(state.payload)
+    # Content-Length is propagated as ``total``.
+    assert all(total == len(state.payload) for _, total, _ in events)
+    # ``name`` is the spec's name verbatim — keeps multi-asset routing trivial.
+    assert {ev[2] for ev in events} == {"progress"}
+
+
+def test_fetch_asset_progress_callback_via_contextvar(
+    asset_root: Path, fake_http_server: tuple[str, _ServerState]
+) -> None:
+    url, state = fake_http_server
+    state.payload = b"y" * 4096
+    md5 = hashlib.md5(state.payload).hexdigest()
+    spec = AssetSpec(name="ctxvar", url=url, md5=md5, filename="ctxvar.bin")
+
+    events: list[tuple[int, int | None]] = []
+
+    def _cb(done: int, total: int | None, *, name: str) -> None:
+        del name
+        events.append((done, total))
+
+    token = PROGRESS_CALLBACK.set(_cb)
+    try:
+        fetch_asset(spec)
+    finally:
+        PROGRESS_CALLBACK.reset(token)
+
+    assert events
+    assert events[-1] == (len(state.payload), len(state.payload))
+
+
+def test_fetch_asset_explicit_progress_overrides_contextvar(
+    asset_root: Path, fake_http_server: tuple[str, _ServerState]
+) -> None:
+    url, state = fake_http_server
+    state.payload = b"z" * 2048
+    md5 = hashlib.md5(state.payload).hexdigest()
+    spec = AssetSpec(name="prio", url=url, md5=md5, filename="prio.bin")
+
+    via_arg: list[int] = []
+    via_ctx: list[int] = []
+
+    def _arg_cb(done: int, total: int | None, *, name: str) -> None:
+        del total, name
+        via_arg.append(done)
+
+    def _ctx_cb(done: int, total: int | None, *, name: str) -> None:
+        del total, name
+        via_ctx.append(done)
+
+    token = PROGRESS_CALLBACK.set(_ctx_cb)
+    try:
+        fetch_asset(spec, progress=_arg_cb)
+    finally:
+        PROGRESS_CALLBACK.reset(token)
+
+    # Explicit kwarg wins; ContextVar callback should not have been invoked.
+    assert via_arg and via_arg[-1] == len(state.payload)
+    assert via_ctx == []
 
 
 def test_fetch_asset_archive_md5_mismatch(

@@ -21,6 +21,7 @@ from genelab.cli._argv import (
 )
 from genelab.cli._interactive import pick_task_interactively
 from genelab.cli._prof import prof_app
+from genelab.cli._progress import fetch_progress
 from genelab.cli._render import (
     render_cache,
     render_entry_info,
@@ -86,13 +87,16 @@ Shorthand flags rewritten into env overrides:
 Runner flags (used when an RL runner is engaged):
 
 \b
-  --num_envs N         Parallel environments.
-  --agent KIND         one of: zero, random, trained (play only).
-  --checkpoint PATH    Resume from a checkpoint.
-  --seed N             RNG seed.
-  --log_dir PATH       Override the log directory.
-  --max_iterations N   Cap training iterations (train only).
-  --gpus N             Distributed training across N GPUs (train only).
+  --num_envs N          Total parallel environments across all ranks.
+                        Must divide evenly by --gpus when both are set.
+  --num_envs_per_gpu N  Per-rank parallel environments. Mutually exclusive
+                        with --num_envs.
+  --agent KIND          one of: zero, random, trained (play only).
+  --checkpoint PATH     Resume from a checkpoint.
+  --seed N              RNG seed.
+  --log_dir PATH        Override the log directory.
+  --max_iterations N    Cap training iterations (train only).
+  --gpus N              Distributed training across N GPUs (train only).
 
 Profiling flags (forwarded to torch.profiler; rank-0 only):
 
@@ -226,7 +230,8 @@ def info_cmd(
     ],
 ) -> None:
     _load_extensions(_state(ctx))
-    render_entry_info(name)
+    with fetch_progress():
+        render_entry_info(name)
 
 
 @app.command(
@@ -331,7 +336,8 @@ def _configured_task(
         task_id, overrides = parse_run_args([*tokens, picked])
 
     try:
-        task = cast(_RunnableTask, TASKS.get(task_id))
+        with fetch_progress():
+            task = cast(_RunnableTask, TASKS.get(task_id))
     except KeyError as exc:
         raise SystemExit(str(exc)) from exc
 
@@ -387,13 +393,15 @@ def _dispatch_play(
     task_cfg = getattr(task, "cfg", None)
     agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
     checkpoint_raw = runner_args.get("checkpoint")
-    num_envs_raw = runner_args.get("num_envs")
     agent_raw = runner_args.get("agent")
     if agent_raw is not None and agent_raw not in _AGENT_KINDS:
         raise SystemExit(f"--agent must be one of {{zero, random, trained}}; got {agent_raw!r}")
+    # play is always single-process; either flag is accepted but mapped through the same
+    # resolver so the mutual-exclusion guard fires on misuse.
+    num_envs_per_rank = _resolve_per_rank_num_envs(runner_args, gpus=1)
     if (
         checkpoint_raw is None
-        and num_envs_raw is None
+        and num_envs_per_rank is None
         and agent_raw is None
         and agent_cfg is None
         and not prof_args
@@ -408,7 +416,7 @@ def _dispatch_play(
     play_task(
         task_id,
         checkpoint=Path(checkpoint_raw) if checkpoint_raw is not None else None,
-        num_envs=int(num_envs_raw) if num_envs_raw is not None else None,
+        num_envs=num_envs_per_rank,
         agent=cast("AgentKind | None", agent_raw),
         **_coerce_prof_kwargs(prof_args),
     )
@@ -435,18 +443,18 @@ def _dispatch_train(
 
     gpus_raw = runner_args.pop("gpus", None)
     gpus = int(gpus_raw) if gpus_raw is not None else 1
+    num_envs_per_rank = _resolve_per_rank_num_envs(runner_args, gpus=gpus)
     if gpus > 1 and "TORCHELASTIC_RUN_ID" not in os.environ:
-        _relaunch_under_torchrun(gpus, agent_cfg, runner_args)
+        _relaunch_under_torchrun(gpus, agent_cfg, runner_args, num_envs_per_rank)
         return
 
-    num_envs_raw = runner_args.get("num_envs")
     max_iter_raw = runner_args.get("max_iterations")
     seed_raw = runner_args.get("seed")
     log_dir_raw = runner_args.get("log_dir")
     train_task(
         task_id,
         agent_cfg,
-        num_envs=int(num_envs_raw) if num_envs_raw is not None else None,
+        num_envs=num_envs_per_rank,
         max_iterations=int(max_iter_raw) if max_iter_raw is not None else None,
         seed=int(seed_raw) if seed_raw is not None else None,
         log_dir=Path(log_dir_raw) if log_dir_raw is not None else None,
@@ -454,17 +462,50 @@ def _dispatch_train(
     )
 
 
+def _resolve_per_rank_num_envs(runner_args: dict[str, str], *, gpus: int) -> int | None:
+    """Pop ``num_envs`` / ``num_envs_per_gpu`` from ``runner_args`` and return per-rank N.
+
+    ``--num-envs N`` is interpreted as the **total** across all ranks: ``N // gpus``
+    becomes the per-rank count and ``N`` must be divisible by ``gpus``.
+    ``--num-envs-per-gpu M`` is verbatim per-rank. Passing both is a hard error so users
+    don't quietly get one or the other's semantics. Returns ``None`` when neither flag
+    was set so callers can defer to the cfg default.
+    """
+    total_raw = runner_args.pop("num_envs", None)
+    per_gpu_raw = runner_args.pop("num_envs_per_gpu", None)
+    if total_raw is not None and per_gpu_raw is not None:
+        raise SystemExit(
+            "--num-envs and --num-envs-per-gpu are mutually exclusive; pass exactly "
+            "one (or neither, to use the task's cfg default)."
+        )
+    if per_gpu_raw is not None:
+        return int(per_gpu_raw)
+    if total_raw is None:
+        return None
+    total = int(total_raw)
+    if gpus <= 0:
+        raise SystemExit(f"--gpus must be a positive integer (got {gpus})")
+    if total % gpus != 0:
+        raise SystemExit(
+            f"--num-envs {total} is not divisible by --gpus {gpus}; pick a multiple "
+            f"of {gpus} or use --num-envs-per-gpu instead."
+        )
+    return total // gpus
+
+
 def _relaunch_under_torchrun(
     gpus: int,
     agent_cfg: Any,
     runner_args: dict[str, str],
+    num_envs_per_rank: int | None,
 ) -> None:
     """Re-exec the current ``train`` invocation under torchrun.
 
     The parent precomputes the log directory and forwards it via ``--log-dir`` so all
     ranks land in the same directory (avoiding per-rank timestamp drift). The original
-    argv is forwarded verbatim minus the ``--gpus N`` tokens so env overrides such as
-    ``--env.simulation.steps 5`` survive the relaunch.
+    argv is forwarded verbatim minus the ``--gpus`` / ``--num-envs`` / ``--num-envs-per-gpu``
+    tokens; if either env-count flag was set, an authoritative ``--num-envs-per-gpu N``
+    is injected so each worker sees the parent-resolved per-rank value.
     """
     from genelab.rl.runner import resolve_log_dir
 
@@ -472,7 +513,9 @@ def _relaunch_under_torchrun(
     log_root = Path(log_root_raw) if log_root_raw else Path("logs") / "rsl_rl"
     log_dir = resolve_log_dir(log_root, agent_cfg.experiment_name, agent_cfg.run_name)
 
-    inner = _strip_gpus_flag(sys.argv[1:])
+    inner = _strip_distributed_flags(sys.argv[1:])
+    if num_envs_per_rank is not None:
+        inner += ["--num-envs-per-gpu", str(num_envs_per_rank)]
     if not _has_log_dir_flag(inner):
         inner += ["--log-dir", str(log_dir)]
 
@@ -489,18 +532,24 @@ def _relaunch_under_torchrun(
     os.execvp(cmd[0], cmd)
 
 
-def _strip_gpus_flag(tokens: list[str]) -> list[str]:
-    """Drop ``--gpus N`` (two-token form) and ``--gpus=N`` (single-token) from tokens."""
+_STRIPPABLE_DISTRIBUTED_FLAGS: Final[frozenset[str]] = frozenset(
+    {"--gpus", "--num-envs", "--num_envs", "--num-envs-per-gpu", "--num_envs_per_gpu"}
+)
+
+
+def _strip_distributed_flags(tokens: list[str]) -> list[str]:
+    """Drop ``--gpus`` / ``--num-envs`` / ``--num-envs-per-gpu`` (and the ``_``-spelt forms),
+    in both ``--flag value`` and ``--flag=value`` shapes, from a forwarded argv slice."""
     out: list[str] = []
     skip_next = False
     for tok in tokens:
         if skip_next:
             skip_next = False
             continue
-        if tok == "--gpus":
+        if tok in _STRIPPABLE_DISTRIBUTED_FLAGS:
             skip_next = True
             continue
-        if tok.startswith("--gpus="):
+        if any(tok.startswith(f"{flag}=") for flag in _STRIPPABLE_DISTRIBUTED_FLAGS):
             continue
         out.append(tok)
     return out
