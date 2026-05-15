@@ -881,3 +881,103 @@ def test_wuji_trajectory_target_clips_to_dof_limits() -> None:
     )
 
     np.testing.assert_allclose(target, [-0.2, 1.1])
+
+
+def test_parse_run_args_prof_toggle() -> None:
+    from genelab.cli import parse_run_args
+
+    task_id, overrides = parse_run_args(["External-Fake-Task-v0", "--prof"])
+
+    assert task_id == "External-Fake-Task-v0"
+    assert overrides == {"prof": "true"}
+
+
+def test_parse_run_args_prof_value_flags() -> None:
+    from genelab.cli import parse_run_args
+
+    task_id, overrides = parse_run_args(
+        [
+            "External-Fake-Task-v0",
+            "--prof-out",
+            "/tmp/profx",
+            "--prof-wait",
+            "20",
+            "--prof-warmup",
+            "3",
+            "--prof-active",
+            "7",
+            "--prof-repeat",
+            "1",
+        ]
+    )
+
+    assert task_id == "External-Fake-Task-v0"
+    assert overrides == {
+        "prof_out": "/tmp/profx",
+        "prof_wait": "20",
+        "prof_warmup": "3",
+        "prof_active": "7",
+        "prof_repeat": "1",
+    }
+
+
+def test_parse_run_args_prof_record_shapes_and_with_stack_are_bool_flags() -> None:
+    from genelab.cli import parse_run_args
+
+    task_id, overrides = parse_run_args(
+        ["External-Fake-Task-v0", "--prof-record-shapes", "--prof-with-stack"]
+    )
+
+    assert task_id == "External-Fake-Task-v0"
+    assert overrides == {"prof_record_shapes": "true", "prof_with_stack": "true"}
+
+
+def test_split_prof_keys_extracts_only_prof_entries() -> None:
+    from genelab.cli import PROF_KEYS, split_prof_keys
+
+    assert "prof" in PROF_KEYS
+    overrides = {
+        "prof": "true",
+        "prof_out": "/tmp/x",
+        "env.simulation.vis": "true",
+        "num_envs": "8",
+    }
+    prof_args = split_prof_keys(overrides)
+
+    assert prof_args == {"prof": "true", "prof_out": "/tmp/x"}
+    assert overrides == {"env.simulation.vis": "true", "num_envs": "8"}
+
+
+def test_normalize_argv_with_prof_keeps_task_after_command() -> None:
+    from genelab.cli import normalize_argv
+
+    argv = normalize_argv(["play", "--prof", "GeneLab-Rubiks-Play-v0", "--vis"])
+
+    assert argv == ["play", "GeneLab-Rubiks-Play-v0", "--prof", "--vis"]
+
+
+def test_maybe_profile_disabled_yields_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    from genelab.rl.profiler import maybe_profile
+
+    monkeypatch.delenv("GENELAB_PROFILE", raising=False)
+    with maybe_profile() as step:
+        assert step is None
+
+
+def test_maybe_profile_kwarg_overrides_env_disable(monkeypatch: pytest.MonkeyPatch) -> None:
+    from genelab.rl import profiler as profiler_mod
+    from genelab.rl.profiler import maybe_profile
+
+    monkeypatch.setenv("GENELAB_PROFILE", "1")
+    monkeypatch.setattr(profiler_mod, "is_main_process", lambda: True)
+    with maybe_profile(enabled=False) as step:
+        assert step is None
+
+
+def test_prof_open_missing_dir_exits(tmp_path: Path) -> None:
+    from genelab.cli import main
+
+    missing = tmp_path / "does-not-exist"
+    with pytest.raises(SystemExit) as excinfo:
+        main(["prof", "open", str(missing)])
+    assert "not found" in str(excinfo.value)
