@@ -107,6 +107,13 @@ class ManagerBasedRlEnv:
         for sensor in self._sensors.values():
             sensor.bind(self)
 
+        # Recorder bridge (when the scene declared ``recordings``): now that sensors
+        # are bound and the env is fully constructed, patch per-recorder sample rates
+        # for sensor-name sources to the control-step decimation.
+        bridge = self._scene.recorder_bridge
+        if bridge is not None:
+            bridge.bind_env(self)
+
         self.event_manager.apply("startup")
         self._articulation.refresh()
         # Initial reset of all envs so the policy sees a well-defined obs.
@@ -248,6 +255,9 @@ class ManagerBasedRlEnv:
         self.action_manager.reset(env_ids)
         for sensor in self._sensors.values():
             sensor.reset(env_ids)
+        bridge = self._scene.recorder_bridge
+        if bridge is not None:
+            bridge.on_reset(env_ids)
         reward_extras = self.reward_manager.reset(env_ids)
         term_extras = self.termination_manager.reset(env_ids)
         curr_extras = self.curriculum_manager.compute(env_ids)
