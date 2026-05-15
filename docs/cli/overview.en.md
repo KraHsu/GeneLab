@@ -17,6 +17,7 @@ uv run genelab [GLOBAL OPTIONS] <subcommand> [ARGS]
 | `list tasks` | List registered tasks from the `TASKS` registry. |
 | `play` | Run a registered task in the configured Genesis backend; supports config overrides. |
 | `train` | Train a registered task when an RL runner exists; supports multi-GPU via `torchrun`. |
+| `prof open` | Launch TensorBoard against a `torch.profiler` trace directory. |
 | `project new` | Scaffold a new external extension package with all three registries wired up. |
 
 ## Global options
