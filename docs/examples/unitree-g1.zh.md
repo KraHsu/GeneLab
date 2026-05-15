@@ -90,8 +90,9 @@ trace 落在 `logs/torch_profile/`，可用 `tensorboard --logdir logs/torch_pro
 
 ## 备注
 
-- G1 的 MJCF 与 STL mesh 在 `examples/unitree/assets/g1/` 下随仓库分发。源自 Unitree 的
-  `mujoco_menagerie` release，license 详见上游仓库。
+- G1 的 MJCF 与 STL mesh 在首次使用时由 `genelab.asset_zoo.unitree_g1.UnitreeG1Cfg`
+  从 `genelab-assets` 仓库拉取并缓存到 `.cache/`。源自 Unitree 的 `mujoco_menagerie`
+  release，license 详见上游仓库。
 - 动作模仿任务去掉了 mjlab 的 adaptive-bin 失败采样；只接了 `start` 与 `uniform` 两种
   采样模式。自碰惩罚也省略，因为 GeneLab 还没有接触对 sensor 抽象——env 仍然惩罚动作
   变化率与关节越界。

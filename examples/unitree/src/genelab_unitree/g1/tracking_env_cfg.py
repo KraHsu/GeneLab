@@ -19,9 +19,9 @@ from genelab.managers import (
     RewardTermCfg,
     TerminationTermCfg,
 )
+from genelab.asset_zoo.unitree_g1 import UnitreeG1Cfg
 from genelab.mdp.actions.joint_position import JointPositionActionCfg
 from genelab.mdp.commands.motion_command import MotionCommandCfg
-from genelab_unitree.g1.robot import get_g1_robot_cfg
 
 
 _G1_TRACKING_BODIES: tuple[str, ...] = (
@@ -114,7 +114,7 @@ def _critic_obs_group() -> ObservationGroupCfg:
 
 def unitree_g1_tracking_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Flat-ground motion-imitation env config for the Unitree G1."""
-    robot_entity_cfg = get_g1_robot_cfg().to_entity_cfg()
+    robot_entity_cfg = UnitreeG1Cfg()
 
     cfg = ManagerBasedRlEnvCfg(
         simulation=SimulationCfg(
