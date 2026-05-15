@@ -462,9 +462,7 @@ def _dispatch_train(
     )
 
 
-def _resolve_per_rank_num_envs(
-    runner_args: dict[str, str], *, gpus: int
-) -> int | None:
+def _resolve_per_rank_num_envs(runner_args: dict[str, str], *, gpus: int) -> int | None:
     """Pop ``num_envs`` / ``num_envs_per_gpu`` from ``runner_args`` and return per-rank N.
 
     ``--num-envs N`` is interpreted as the **total** across all ranks: ``N // gpus``
@@ -555,8 +553,6 @@ def _strip_distributed_flags(tokens: list[str]) -> list[str]:
             continue
         out.append(tok)
     return out
-
-
 
 
 def _has_log_dir_flag(tokens: list[str]) -> bool:
