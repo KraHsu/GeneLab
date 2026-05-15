@@ -11,7 +11,7 @@ example, sized to fit in a laptop training budget:
 - **`GeneLab-Inverted-Pendulum-v0`** — single inverted pole on a cart.
 - **`GeneLab-Double-Inverted-Pendulum-v0`** — two stacked inverted poles on a cart.
 
-Source at `examples/inverted_pendulum/`; walkthrough at [Inverted Pendulum](inverted-pendulum.md).
+Source at `examples/inverted_pendulum/`.
 
 ## genelab_examples
 
@@ -30,9 +30,6 @@ pytest's `pythonpath`, so tests can import from it without installation. Source 
 Two PPO tasks on the Unitree G1 humanoid — velocity tracking and motion imitation — ported from
 mjlab and adapted to Genesis. Same extension shape as `genelab_examples` (entry point,
 `register()`, per-module registration files). Source at `examples/unitree/`.
-
-A complete hands-on walkthrough (install, train, checkpoint replay, motion imitation) lives in
-[Quickstart §5](../getting-started/quickstart.md#unitree-g1).
 
 ## external_project
 
