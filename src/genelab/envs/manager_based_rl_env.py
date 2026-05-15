@@ -245,7 +245,10 @@ class ManagerBasedRlEnv:
     def step(
         self, action: torch.Tensor
     ) -> tuple[dict[str, torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor, dict[str, Any]]:
-        action = action.to(self._device).clone()
+        # ``action_manager.process_action`` copies into a pre-allocated buffer, so we don't
+        # need ``.clone()`` here; the ``.to`` call is a no-op when the action is already on
+        # the right device.
+        action = action.to(self._device, non_blocking=True)
         self.action_manager.process_action(action)
         for _ in range(self._decimation):
             self.action_manager.apply_action()
@@ -269,7 +272,9 @@ class ManagerBasedRlEnv:
             self._reset_idx(reset_ids)
             self._articulation.refresh()
         obs = self.observation_manager.compute()
-        return obs, reward, terminated, time_outs, dict(self._extras)
+        # The RSL-RL wrapper shallow-copies ``extras`` itself before mutating, so we hand back
+        # the live dict to skip an unnecessary per-step copy.
+        return obs, reward, terminated, time_outs, self._extras
 
     def close(self) -> None:
         self._scene.close()
