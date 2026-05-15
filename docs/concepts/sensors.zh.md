@@ -90,6 +90,30 @@ velocimeter 计算公式为 `v_site = v_link + ω × (R_link · offset)`，再�
 上可以并存。控制步频率下的有限差分内部不做滤波；如需平滑，可在 `ObservationTermCfg`
 上叠加 `noise` + `scale`，或者在观测 term 里自行做 EMA。
 
+### CameraSensor
+
+刚性挂载的 RGB-D 相机，通过 4×4 变换螺接到指定 link 上。`bind()` 解析 link，从
+`scene.gs_scene.add_camera` 拿到一个 Genesis camera 句柄，根据 `offset_pos` /
+`offset_quat` 构造偏置矩阵后调用 `cam.attach`。每次访问 `data` 都会先 `cam.move_to_attach()`
+再 `cam.render(...)`，缓存的 :class:`CameraData` 携带 `rgb`（uint8）与/或 `depth`（米，float），
+形状 `(num_envs, H, W, 3)` / `(num_envs, H, W)`。
+
+| 字段 | 类型 | 含义 |
+|------|------|------|
+| `link_name` | `str` | 相机挂载到的 link（通过 `env.link_names` 解析）。 |
+| `offset_pos` | `tuple[float, float, float]` | 相机原点在 link 局部系下的位置。 |
+| `offset_quat` | `tuple[float, float, float, float]` | 相机相对 link 的姿态（wxyz）；Genesis 约定 `+x` 为前向。 |
+| `width`、`height` | `int` | 像素分辨率；同一 scene 内所有 BatchRender 相机分辨率必须一致。 |
+| `fov` | `float` | 垂直视场角（度）。 |
+| `near`、`far` | `float` | 深度裁剪面（米）。 |
+| `render_rgb`、`render_depth` | `bool` | 两条通道独立开关；关闭的那条在输出数据类里为 `None`。 |
+
+!!! warning "BatchRenderer 是唯一的多 env 后端"
+    多 env RGB-D 必须 `gs.init(backend=gs.cuda)` 配
+    `gs.Scene(renderer=gs.renderers.BatchRenderer(use_rasterizer=False), ...)` ——
+    仅 Linux x86-64 + CUDA 可用。macOS / 纯 CPU 环境下模块本身可正常 import，
+    但 `bind()` 在 Genesis 分配相机句柄时就会抛错。
+
 ### ContactSensor
 
 按 link 名汇总 `robot.get_links_net_contact_force()` 输出。开启 `track_air_time=True` 时，
