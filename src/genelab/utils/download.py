@@ -185,9 +185,7 @@ def _fetch_archive(
     return entry
 
 
-def _download_to(
-    spec: AssetSpec, staging: Path, *, progress: ProgressCallback | None
-) -> None:
+def _download_to(spec: AssetSpec, staging: Path, *, progress: ProgressCallback | None) -> None:
     if staging.exists():
         staging.unlink()
     try:

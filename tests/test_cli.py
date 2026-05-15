@@ -401,15 +401,17 @@ def test_strip_distributed_flags_drops_gpus_and_env_counts() -> None:
     from genelab.cli import _strip_distributed_flags
 
     # --gpus and --num-envs are both stripped (parent re-injects --num-envs-per-gpu).
-    assert _strip_distributed_flags(
-        ["train", "TASK", "--gpus", "4", "--num-envs", "8"]
-    ) == ["train", "TASK"]
+    assert _strip_distributed_flags(["train", "TASK", "--gpus", "4", "--num-envs", "8"]) == [
+        "train",
+        "TASK",
+    ]
     # = form is also stripped.
     assert _strip_distributed_flags(["--gpus=2", "--num-envs=8"]) == []
     # --num-envs-per-gpu also dropped; parent re-injects the authoritative value.
-    assert _strip_distributed_flags(
-        ["train", "TASK", "--num-envs-per-gpu", "16"]
-    ) == ["train", "TASK"]
+    assert _strip_distributed_flags(["train", "TASK", "--num-envs-per-gpu", "16"]) == [
+        "train",
+        "TASK",
+    ]
     # Underscore spellings are recognised too.
     assert _strip_distributed_flags(["--num_envs", "8", "--num_envs_per_gpu", "4"]) == []
     # Unrelated flags pass through.
@@ -450,9 +452,7 @@ def test_relaunch_under_torchrun_builds_expected_command(
         ["genelab", "train", "TASK_ID", "--gpus", "4", "--num-envs", "8"],
     )
 
-    _relaunch_under_torchrun(
-        4, _FakeAgentCfg(), runner_args={}, num_envs_per_rank=2
-    )
+    _relaunch_under_torchrun(4, _FakeAgentCfg(), runner_args={}, num_envs_per_rank=2)
 
     args = captured["args"]
     assert isinstance(args, list)
@@ -538,9 +538,7 @@ def test_resolve_per_rank_num_envs_errors_on_mutual_exclusion() -> None:
     from genelab.cli import _resolve_per_rank_num_envs
 
     with pytest.raises(SystemExit) as excinfo:
-        _resolve_per_rank_num_envs(
-            {"num_envs": "8", "num_envs_per_gpu": "2"}, gpus=2
-        )
+        _resolve_per_rank_num_envs({"num_envs": "8", "num_envs_per_gpu": "2"}, gpus=2)
     assert "mutually exclusive" in str(excinfo.value)
 
 
