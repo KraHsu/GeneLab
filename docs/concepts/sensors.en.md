@@ -97,12 +97,15 @@ finite-difference at the control rate is **not** filtered internally; layer
 
 ### CameraSensor
 
-Rigid-mount RGB-D camera bolted to a named link via a fixed 4×4 transform. `bind()`
-resolves the link, allocates one Genesis camera handle through `scene.gs_scene.add_camera`,
-builds the offset matrix from `offset_pos` / `offset_quat`, and calls `cam.attach`.
-Each `data` access invokes `cam.move_to_attach()` then `cam.render(...)` once per
-control step; the cached :class:`CameraData` returns `rgb` (uint8) and / or `depth`
-(float meters), shaped `(num_envs, H, W, 3)` / `(num_envs, H, W)`.
+Rigid-mount RGB-D camera bolted to a named link via a fixed 4×4 transform.
+`pre_build_genesis()` runs before `gs_scene.build` so the camera is registered in
+time for `BatchRenderer` to snapshot it; it allocates the Genesis camera handle
+through `gs_scene.add_camera`, builds the offset matrix from `offset_pos` /
+`offset_quat`, and calls `cam.attach`. `bind()` then validates the link name
+against `env.link_names`. Each `data` access invokes `cam.move_to_attach()` and
+`cam.render(...)` once per control step; the cached `CameraData` returns `rgb`
+(uint8) and / or `depth` (float meters), shaped `(num_envs, H, W, 3)` /
+`(num_envs, H, W)`.
 
 | Field | Type | Meaning |
 |-------|------|---------|
@@ -115,10 +118,11 @@ control step; the cached :class:`CameraData` returns `rgb` (uint8) and / or `dep
 | `render_rgb`, `render_depth` | `bool` | Independently toggle each channel; the disabled channel is `None` in the output dataclass. |
 
 !!! warning "BatchRenderer is the only parallel-env backend"
-    Multi-env RGB-D requires `gs.init(backend=gs.cuda)` plus
-    `gs.Scene(renderer=gs.renderers.BatchRenderer(use_rasterizer=False), ...)` —
-    Linux x86-64 + CUDA only. The module file can still be imported on macOS / CPU,
-    but `bind()` will raise as soon as Genesis allocates the camera against an
+    Multi-env RGB-D requires `gs.init(backend=gs.cuda)` and
+    `InteractiveSceneCfg.batch_render=True` — the scene then passes
+    `gs.renderers.BatchRenderer(use_rasterizer=False)` to `gs.Scene`. Linux x86-64 +
+    CUDA only. The module file can still be imported on macOS / CPU, but
+    `gs_scene.build` will raise once it inspects the camera list against an
     incompatible renderer.
 
 ### ContactSensor

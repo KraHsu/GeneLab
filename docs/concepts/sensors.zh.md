@@ -92,11 +92,13 @@ velocimeter 计算公式为 `v_site = v_link + ω × (R_link · offset)`，再�
 
 ### CameraSensor
 
-刚性挂载的 RGB-D 相机，通过 4×4 变换螺接到指定 link 上。`bind()` 解析 link，从
-`scene.gs_scene.add_camera` 拿到一个 Genesis camera 句柄，根据 `offset_pos` /
-`offset_quat` 构造偏置矩阵后调用 `cam.attach`。每次访问 `data` 都会先 `cam.move_to_attach()`
-再 `cam.render(...)`，缓存的 :class:`CameraData` 携带 `rgb`（uint8）与/或 `depth`（米，float），
-形状 `(num_envs, H, W, 3)` / `(num_envs, H, W)`。
+刚性挂载的 RGB-D 相机，通过 4×4 变换螺接到指定 link 上。`pre_build_genesis()` 在
+`gs_scene.build` 之前先跑，正好让相机赶在 `BatchRenderer` 快照之前注册——它调
+`gs_scene.add_camera` 拿一个 Genesis camera 句柄，根据 `offset_pos` / `offset_quat`
+构造偏置矩阵后 `cam.attach`。`bind()` 之后再去 `env.link_names` 里做 link 名校验。每次
+访问 `data` 都会先 `cam.move_to_attach()` 再 `cam.render(...)`，缓存的 `CameraData`
+携带 `rgb` (uint8) 与/或 `depth` (米，float)，形状 `(num_envs, H, W, 3)` /
+`(num_envs, H, W)`。
 
 | 字段 | 类型 | 含义 |
 |------|------|------|
@@ -109,10 +111,10 @@ velocimeter 计算公式为 `v_site = v_link + ω × (R_link · offset)`，再�
 | `render_rgb`、`render_depth` | `bool` | 两条通道独立开关；关闭的那条在输出数据类里为 `None`。 |
 
 !!! warning "BatchRenderer 是唯一的多 env 后端"
-    多 env RGB-D 必须 `gs.init(backend=gs.cuda)` 配
-    `gs.Scene(renderer=gs.renderers.BatchRenderer(use_rasterizer=False), ...)` ——
-    仅 Linux x86-64 + CUDA 可用。macOS / 纯 CPU 环境下模块本身可正常 import，
-    但 `bind()` 在 Genesis 分配相机句柄时就会抛错。
+    多 env RGB-D 需要 `gs.init(backend=gs.cuda)` 加 `InteractiveSceneCfg.batch_render=True`
+    —— scene 会把 `gs.renderers.BatchRenderer(use_rasterizer=False)` 传给 `gs.Scene`。
+    仅 Linux x86-64 + CUDA 可用。macOS / 纯 CPU 环境下模块本身可正常 import，但
+    `gs_scene.build` 一开始按相机列表配 renderer 时就会抛错。
 
 ### ContactSensor
 

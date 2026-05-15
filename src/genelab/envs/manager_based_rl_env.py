@@ -98,13 +98,14 @@ class ManagerBasedRlEnv:
         self.event_manager = EventManager(cfg.events_cfg, self)
         self.curriculum_manager = CurriculumManager(cfg.curriculum_cfg, self)
 
-        # Build sensors after managers (so cfg parsing is settled) but before reset
-        # (so observation_manager.compute can read sensor.data on the first frame).
-        self._sensors: dict[str, Sensor[Any]] = {}
-        for sensor_cfg in cfg.scene.sensors:
-            sensor = sensor_cfg.build()
+        # Sensors are pre-built by ``InteractiveScene.build`` so any Genesis resources
+        # snapshotted at scene-build time (e.g. BatchRenderer cameras) are already
+        # registered. Bind every pre-built sensor against the env after managers are
+        # constructed but before the initial reset — observation_manager.compute can
+        # then read sensor.data on the first frame.
+        self._sensors: dict[str, Sensor[Any]] = dict(self._scene.sensors)
+        for sensor in self._sensors.values():
             sensor.bind(self)
-            self._sensors[sensor_cfg.name] = sensor
 
         self.event_manager.apply("startup")
         self._articulation.refresh()
@@ -149,6 +150,17 @@ class ManagerBasedRlEnv:
     def scene(self) -> InteractiveScene:
         """The live :class:`InteractiveScene`. Distinct from ``env.cfg.scene`` (cfg dataclass)."""
         return self._scene
+
+    @property
+    def viewer_closed(self) -> bool:
+        """``True`` once the user closes the Genesis viewer mid-rollout.
+
+        The kernel catches Genesis's ``GenesisException("Viewer closed.")`` inside
+        :py:meth:`InteractiveScene.step` and flips this flag; loop drivers (RL
+        runners, showcase scripts, custom rollouts) should poll it and break
+        instead of writing their own try / except.
+        """
+        return self._scene.viewer_closed
 
     @property
     def articulation(self) -> Articulation:
