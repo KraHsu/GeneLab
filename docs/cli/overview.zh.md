@@ -17,6 +17,7 @@ uv run genelab [全局选项] <子命令> [参数]
 | `list tasks` | 列出 `TASKS` 注册表里已注册的任务。 |
 | `play` | 在 Genesis 后端运行已注册任务，支持配置 override。 |
 | `train` | 任务带 RL runner 时启动训练，通过 `torchrun` 支持多 GPU。 |
+| `prof open` | 针对 `torch.profiler` 跟踪目录启动 TensorBoard。 |
 | `project new` | 生成一个新的下游扩展包骨架，三种注册表全部接通。 |
 
 ## 全局选项
