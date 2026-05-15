@@ -13,6 +13,7 @@ from genelab.actuator import (
     ImplicitPDActuator,
     ImplicitPDActuatorCfg,
 )
+from genelab.asset_zoo import CartpoleCfg, FrankaPandaCfg
 from genelab.configs import (
     InteractiveSceneCfg,
     ManagerBasedEnvCfg,
@@ -98,6 +99,7 @@ __all__ = [
     "ActuatorBaseCfg",
     "Articulation",
     "ArticulationCfg",
+    "CartpoleCfg",
     "ContactData",
     "ContactSensor",
     "ContactSensorCfg",
@@ -107,6 +109,7 @@ __all__ = [
     "FrameTransformerData",
     "FrameTransformerSensor",
     "FrameTransformerSensorCfg",
+    "FrankaPandaCfg",
     "GenesisBackendCfg",
     "Gnoise",
     "GridPattern",

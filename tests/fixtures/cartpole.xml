@@ -1,0 +1,12 @@
+<mujoco model="asset_zoo_cartpole_fixture">
+  <worldbody>
+    <body name="cart">
+      <joint name="cart_slide" type="slide" axis="1 0 0"/>
+      <geom type="box" size="0.1 0.05 0.05"/>
+      <body name="pole" pos="0 0 0.05">
+        <joint name="pole_hinge" type="hinge" axis="0 1 0"/>
+        <geom type="capsule" fromto="0 0 0 0 0 0.5" size="0.01"/>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>
