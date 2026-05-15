@@ -1,8 +1,5 @@
 # Quickstart
 
-This page covers the full path from a synced environment to running a task, scaffolding a new
-downstream project, and reproducing the bundled Unitree G1 PPO example end-to-end.
-
 ## 1. Listing registered content
 
 The core `genelab` package ships empty registries — robots, environments, and tasks are

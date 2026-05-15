@@ -1,10 +1,14 @@
 /* GeneLab docs — soft, flat, modern tweaks on top of Material. */
 
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&display=swap");
+
 :root {
   --md-text-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
     "Microsoft YaHei", sans-serif;
   --md-code-font: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --gl-display-font: "Fraunces", "Source Serif 4", Georgia, "Songti SC",
+    "Noto Serif SC", serif;
 }
 
 [data-md-color-scheme="default"] {
@@ -74,6 +78,46 @@
   background: var(--md-code-bg-color);
 }
 
+/* Material defaults assume the header uses the primary colour and the
+   search input therefore renders in white. We flipped the header to the
+   page background, so the input/placeholder/icons need explicit dark
+   colours. Specificity needs to beat Material's
+   `.md-icon:not(:disabled)` (0,2,0) and `.md-search__input+.md-search__icon`
+   (0,2,0); compound selectors below are 0,2,0 and load later, so they win. */
+.md-header .md-search__input {
+  color: var(--md-default-fg-color);
+}
+
+.md-header .md-search__input::placeholder {
+  color: var(--md-default-fg-color--light);
+  opacity: 1;
+}
+
+.md-search__icon.md-icon,
+.md-search__input ~ .md-search__icon,
+.md-search__input + .md-search__icon {
+  color: var(--md-default-fg-color--light);
+}
+
+.md-search__icon.md-icon:hover,
+.md-search__input ~ .md-search__icon:hover {
+  color: var(--md-primary-fg-color);
+}
+
+[data-md-color-scheme="slate"] .md-header .md-search__input {
+  color: var(--md-default-fg-color);
+}
+
+[data-md-color-scheme="slate"] .md-header .md-search__input::placeholder {
+  color: var(--md-default-fg-color--light);
+}
+
+[data-md-color-scheme="slate"] .md-search__icon.md-icon,
+[data-md-color-scheme="slate"] .md-search__input ~ .md-search__icon,
+[data-md-color-scheme="slate"] .md-search__input + .md-search__icon {
+  color: var(--md-default-fg-color--light);
+}
+
 .md-typeset code {
   border-radius: 6px;
   padding: 0.1em 0.4em;
@@ -84,6 +128,40 @@
   border-radius: 12px;
   padding: 1rem 1.1rem;
   line-height: 1.55;
+}
+
+/* Soften the clipboard-copy button so it doesn't crash into the
+   code block's rounded corner. Material's runtime markup pins the
+   button to `top:0 right:0` via the default stylesheet; `!important`
+   beats those inline-equivalent defaults. */
+.md-typeset .md-clipboard {
+  top: 0.45rem !important;
+  right: 0.45rem !important;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 8px;
+  color: var(--md-default-fg-color--light);
+  opacity: 0;
+  transition: opacity 180ms ease, background 180ms ease, color 180ms ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.md-typeset .md-clipboard::after {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+}
+
+.md-typeset .highlight:hover .md-clipboard,
+.md-typeset .md-clipboard:focus-visible {
+  opacity: 1;
+}
+
+.md-typeset .md-clipboard:hover {
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-primary-fg-color);
 }
 
 .md-typeset .admonition,
@@ -163,4 +241,245 @@
 
 [data-md-color-scheme="slate"] .md-footer {
   border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+/* ============================================================
+   Landing page — scoped to .gl-* classes.
+   Other doc pages are unaffected.
+   ============================================================ */
+
+.gl-hero {
+  padding: 2rem 0 0.5rem;
+  position: relative;
+}
+
+.gl-hero__eyebrow {
+  font-family: var(--md-code-font);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--light);
+  margin: 0 0 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.gl-hero__eyebrow::before {
+  content: "";
+  width: 1.75rem;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.55;
+  flex: 0 0 auto;
+}
+
+.md-typeset .gl-hero h1 {
+  font-family: var(--gl-display-font);
+  font-optical-sizing: auto;
+  font-variation-settings: "opsz" 144;
+  font-weight: 500;
+  font-size: clamp(2.8rem, 6.5vw, 4.6rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin: 0 0 1.3rem;
+  color: var(--md-default-fg-color);
+}
+
+.gl-hero__lead {
+  font-size: 1.08rem;
+  line-height: 1.6;
+  max-width: 38rem;
+  color: var(--md-default-fg-color--light);
+  margin: 0 0 1.6rem;
+}
+
+.gl-hero__lead a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--md-primary-fg-color--light);
+}
+
+.gl-hero__cta {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.md-typeset .gl-hero__cta .md-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Terminal preview */
+.gl-terminal {
+  margin: 2rem 0 3rem;
+  max-width: 50rem;
+  border-radius: 14px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  overflow: hidden;
+  background: var(--md-code-bg-color);
+  box-shadow: 0 24px 60px -38px rgba(15, 23, 42, 0.55);
+}
+
+[data-md-color-scheme="slate"] .gl-terminal {
+  box-shadow: 0 28px 60px -32px rgba(0, 0, 0, 0.6);
+}
+
+.gl-terminal__head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.95rem;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0)
+  );
+}
+
+.gl-terminal__head i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+  background: var(--md-default-fg-color--lightest);
+}
+
+.gl-terminal__head i:nth-child(1) {
+  background: #ff5f57;
+}
+.gl-terminal__head i:nth-child(2) {
+  background: #febc2e;
+}
+.gl-terminal__head i:nth-child(3) {
+  background: #28c840;
+}
+
+.gl-terminal__title {
+  font-family: var(--md-code-font);
+  font-size: 0.7rem;
+  color: var(--md-default-fg-color--light);
+  margin-left: 0.6rem;
+  letter-spacing: 0.02em;
+}
+
+.md-typeset .gl-terminal pre {
+  margin: 0;
+  padding: 1rem 1.15rem 1.1rem;
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.78rem;
+  line-height: 1.75;
+  font-family: var(--md-code-font);
+  color: var(--md-code-fg-color);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.gl-terminal .gl-prompt {
+  color: var(--md-accent-fg-color);
+  user-select: none;
+  font-weight: 600;
+}
+
+.gl-terminal .gl-comment {
+  color: var(--md-default-fg-color--light);
+  opacity: 0.75;
+}
+
+.gl-terminal .gl-key {
+  color: var(--md-primary-fg-color);
+}
+
+/* Numbered cards */
+.md-typeset .gl-cards.grid.cards > ul {
+  gap: 0.9rem;
+}
+
+.md-typeset .gl-cards.grid.cards > ul > li {
+  padding: 1.25rem 1.4rem 1.4rem;
+  position: relative;
+  border-radius: 14px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  transition: border-color 200ms ease, transform 200ms ease,
+    background 200ms ease;
+}
+
+.md-typeset .gl-cards.grid.cards > ul > li:hover {
+  border-color: var(--md-primary-fg-color--light);
+  transform: translateY(-3px);
+}
+
+.gl-card__num {
+  position: absolute;
+  top: 1.05rem;
+  right: 1.4rem;
+  font-family: var(--md-code-font);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  color: var(--md-primary-fg-color);
+  opacity: 0.55;
+  transition: opacity 200ms ease;
+}
+
+.md-typeset .gl-cards.grid.cards > ul > li:hover .gl-card__num {
+  opacity: 1;
+}
+
+.md-typeset .gl-cards.grid.cards > ul > li > p:first-of-type {
+  margin-bottom: 0.4rem;
+}
+
+.md-typeset .gl-cards.grid.cards > ul > li > hr {
+  margin: 0.35rem 0 0.6rem;
+  border-top: 1px dashed var(--md-default-fg-color--lightest);
+}
+
+.md-typeset .gl-cards.grid.cards > ul > li > p:last-of-type {
+  margin-top: 0.6rem;
+  font-family: var(--md-code-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+/* Modules at a glance — 2-column technical layout */
+.gl-modules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0.4rem 1.6rem;
+  margin: 0.5rem 0 2rem;
+  padding: 0;
+  list-style: none;
+}
+
+.gl-modules li {
+  display: grid;
+  grid-template-columns: minmax(8.5rem, max-content) 1fr;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.55rem 0;
+  border-bottom: 1px dashed var(--md-default-fg-color--lightest);
+  font-size: 0.83rem;
+  line-height: 1.55;
+}
+
+.gl-modules li code {
+  font-size: 0.78rem;
+  background: transparent;
+  padding: 0;
+  color: var(--md-primary-fg-color--dark);
+  white-space: nowrap;
+}
+
+[data-md-color-scheme="slate"] .gl-modules li code {
+  color: var(--md-primary-fg-color--light);
+}
+
+.gl-modules li span {
+  color: var(--md-default-fg-color--light);
 }
