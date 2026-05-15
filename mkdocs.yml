@@ -157,6 +157,7 @@ nav:
   - CLI:
       - Overview: cli/overview.md
       - Play and Train: cli/play-train.md
+      - Profiling: cli/profiling.md
       - Project New: cli/project-new.md
   - Concepts:
       - Registry: concepts/registry.md
