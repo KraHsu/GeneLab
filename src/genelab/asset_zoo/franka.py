@@ -50,7 +50,10 @@ def FrankaPandaCfg() -> ArticulationCfg:
         default_joint_pos=dict(_HOME_POSE),
         actuators={
             "panda_arm": ImplicitPDActuatorCfg(
-                target_names_expr=(r"joint[1-7]",),
+                # Anchored regex: bare ``joint[1-7]`` also substring-matches
+                # ``finger_joint1`` / ``finger_joint2`` through ``re.search`` and
+                # collides with ``panda_hand``.
+                target_names_expr=(r"^joint[1-7]$",),
                 stiffness=400.0,
                 damping=80.0,
                 effort_limit=87.0,
