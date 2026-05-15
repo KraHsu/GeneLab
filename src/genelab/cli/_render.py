@@ -71,7 +71,7 @@ def render_main_help() -> None:
     console.print("  [entry.name]Registry[/]    list, info")
     console.print("  [entry.name]Runtime[/]     play, train")
     console.print("  [entry.name]Project[/]     project new")
-    console.print("  [entry.name]Utilities[/]   cache")
+    console.print("  [entry.name]Utilities[/]   cache, prof open")
     console.print()
     console.print(
         f"[entry.detail]Registered:[/] {robot_count} robots, {env_count} envs, {task_count} tasks"
