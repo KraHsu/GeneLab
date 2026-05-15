@@ -89,6 +89,7 @@ class Articulation:
         self._action_scale_tensor: torch.Tensor = torch.empty(0)
         self._actuators: dict[str, ActuatorBase] = {}
         self._joint_pos_target: torch.Tensor = torch.empty(0)
+        self._gravity_w: torch.Tensor = torch.empty(0)
         self._data: RobotState | None = None
 
     # ------------------------------------------------------------------ spawn / bind
@@ -118,6 +119,10 @@ class Articulation:
             self._default_joint_pos.unsqueeze(0).expand(num_envs, -1).contiguous()
         )
         self._data = RobotState(num_envs, self._num_dofs, self._num_links, device)
+        # Cached constant gravity vector, broadcast across envs. Built once at bind to keep
+        # ``refresh`` allocation-free on the hot path (called every step + every reset).
+        self._gravity_w = torch.zeros(num_envs, 3, device=device)
+        self._gravity_w[:, 2] = -1.0
         self._assemble_actuators()
 
     # ------------------------------------------------------------------ internals
@@ -253,14 +258,14 @@ class Articulation:
         rs = self._data
         robot = self._gs_handle
         try:
-            rs.root_pos = to_tensor(robot.get_pos(), self._device)
-            rs.root_quat = to_tensor(robot.get_quat(), self._device)
-            rs.root_lin_vel_w = to_tensor(robot.get_vel(), self._device)
-            rs.root_ang_vel_w = to_tensor(robot.get_ang(), self._device)
+            rs.root_pos.copy_(to_tensor(robot.get_pos(), self._device))
+            rs.root_quat.copy_(to_tensor(robot.get_quat(), self._device))
+            rs.root_lin_vel_w.copy_(to_tensor(robot.get_vel(), self._device))
+            rs.root_ang_vel_w.copy_(to_tensor(robot.get_ang(), self._device))
             joint_pos_full = to_tensor(robot.get_dofs_position(), self._device)
             joint_vel_full = to_tensor(robot.get_dofs_velocity(), self._device)
-            rs.joint_pos = joint_pos_full.index_select(-1, self._actuated_dof_idx)
-            rs.joint_vel = joint_vel_full.index_select(-1, self._actuated_dof_idx)
+            rs.joint_pos.copy_(joint_pos_full.index_select(-1, self._actuated_dof_idx))
+            rs.joint_vel.copy_(joint_vel_full.index_select(-1, self._actuated_dof_idx))
         except AttributeError:
             pass
         for attr, target in (
@@ -277,13 +282,14 @@ class Articulation:
             except Exception:
                 continue
             tensor = to_tensor(value, self._device)
+            # Genesis may return either (num_envs, num_links, ...) or the bare (num_links, ...)
+            # shape on older single-env builds; ``expand`` broadcasts without allocating.
             if tensor.dim() == 2:
                 tensor = tensor.unsqueeze(0).expand(self._num_envs, -1, -1)
-            setattr(rs, target, tensor)
+            getattr(rs, target).copy_(tensor)
         rs.root_lin_vel_b = quat_rotate_inverse(rs.root_quat, rs.root_lin_vel_w)
         rs.root_ang_vel_b = quat_rotate_inverse(rs.root_quat, rs.root_ang_vel_w)
-        gravity_w = torch.tensor([0.0, 0.0, -1.0], device=self._device).expand_as(rs.root_lin_vel_w)
-        rs.projected_gravity_b = quat_rotate_inverse(rs.root_quat, gravity_w)
+        rs.projected_gravity_b = quat_rotate_inverse(rs.root_quat, self._gravity_w)
 
     def write_joint_state(
         self,
