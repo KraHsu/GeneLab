@@ -24,8 +24,10 @@ few scalar cfg fields). Tasks that registered `examples=[...]` strings via
 ## Inspecting a task
 
 `info NAME` resolves a single registered name and prints a detail panel. The
-lookup falls through tasks → envs → robots in that order and exits with the
-combined available-name listing when nothing matches.
+lookup falls through tasks → envs → robots in that order. On a TTY an unknown
+name opens a `questionary` picker over the combined task / env / robot list;
+in non-interactive contexts the command exits with the available-name
+listing.
 
 ```bash
 uv run genelab info GeneLab-Sensors-Showcase-v0

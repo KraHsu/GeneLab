@@ -1,6 +1,7 @@
 """Unified Typer + Rich command-line entry point for registered GeneLab tasks."""
 
 import os
+import re
 import sys
 from dataclasses import dataclass, field
 from enum import Enum
@@ -19,10 +20,17 @@ from genelab.cli._argv import (
     split_prof_keys,
     split_runner_keys,
 )
-from genelab.cli._interactive import pick_task_interactively
+from genelab.cli._completion import complete_any_registry_name, complete_task_names
+from genelab.cli._interactive import (
+    pick_agent_kind,
+    pick_name_interactively,
+    pick_override_path,
+    pick_task_interactively,
+)
 from genelab.cli._prof import prof_app
 from genelab.cli._progress import fetch_progress
 from genelab.cli._render import (
+    iter_overridable_paths,
     render_cache,
     render_entry_info,
     render_main_help,
@@ -127,7 +135,7 @@ app = typer.Typer(
         "and a count of registered robots, envs, and tasks."
     ),
     no_args_is_help=False,
-    add_completion=False,
+    add_completion=True,
     pretty_exceptions_enable=False,
     rich_markup_mode="rich",
 )
@@ -226,6 +234,7 @@ def info_cmd(
         typer.Argument(
             metavar="NAME",
             help="Registered task, env, or robot name.",
+            autocompletion=complete_any_registry_name,
         ),
     ],
 ) -> None:
@@ -234,15 +243,31 @@ def info_cmd(
         render_entry_info(name)
 
 
+_TASK_ARG_HELP: Final[str] = "Registered task id (omit for an interactive picker)."
+
+
 @app.command(
     "play",
     help=_PLAY_HELP,
     rich_help_panel="Runtime",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
-def play_cmd(ctx: typer.Context) -> None:
+def play_cmd(
+    ctx: typer.Context,
+    task_id: Annotated[
+        str | None,
+        typer.Argument(
+            metavar="TASK",
+            help=_TASK_ARG_HELP,
+            autocompletion=complete_task_names,
+        ),
+    ] = None,
+) -> None:
     _load_extensions(_state(ctx))
-    task, runner_args, prof_args = _configured_task(list(ctx.args), command="play")
+    tokens = list(ctx.args)
+    if task_id is not None:
+        tokens = [task_id, *tokens]
+    task, runner_args, prof_args = _configured_task(tokens, command="play")
     try:
         _dispatch_play(task, runner_args, prof_args)
     except NotImplementedError as exc:
@@ -255,9 +280,22 @@ def play_cmd(ctx: typer.Context) -> None:
     rich_help_panel="Runtime",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
-def train_cmd(ctx: typer.Context) -> None:
+def train_cmd(
+    ctx: typer.Context,
+    task_id: Annotated[
+        str | None,
+        typer.Argument(
+            metavar="TASK",
+            help=_TASK_ARG_HELP,
+            autocompletion=complete_task_names,
+        ),
+    ] = None,
+) -> None:
     _load_extensions(_state(ctx))
-    task, runner_args, prof_args = _configured_task(list(ctx.args), command="train")
+    tokens = list(ctx.args)
+    if task_id is not None:
+        tokens = [task_id, *tokens]
+    task, runner_args, prof_args = _configured_task(tokens, command="train")
     try:
         _dispatch_train(task, runner_args, prof_args)
     except NotImplementedError as exc:
@@ -335,11 +373,7 @@ def _configured_task(
             raise
         task_id, overrides = parse_run_args([*tokens, picked])
 
-    try:
-        with fetch_progress():
-            task = cast(_RunnableTask, TASKS.get(task_id))
-    except KeyError as exc:
-        raise SystemExit(str(exc)) from exc
+    task = _resolve_task(task_id)
 
     runner_args = split_runner_keys(overrides)
     prof_args = split_prof_keys(overrides)
@@ -352,11 +386,61 @@ def _configured_task(
             if short_key in overrides:
                 overrides[short_key.replace("env.", "play_env.", 1)] = overrides.pop(short_key)
 
-    try:
-        apply_overrides(task.cfg, overrides)
-    except ValueError as exc:
-        raise SystemExit(str(exc)) from exc
+    _apply_overrides_interactively(task.cfg, overrides)
     return task, runner_args, prof_args
+
+
+def _resolve_task(task_id: str) -> _RunnableTask:
+    try:
+        with fetch_progress():
+            return cast(_RunnableTask, TASKS.get(task_id))
+    except KeyError as exc:
+        picked = pick_name_interactively(TASKS.names(), f"Unknown task {task_id!r}. Pick one:")
+        if picked is None or picked == task_id:
+            raise SystemExit(str(exc)) from exc
+        with fetch_progress():
+            return cast(_RunnableTask, TASKS.get(picked))
+
+
+_UNKNOWN_PATH_RE: Final[re.Pattern[str]] = re.compile(r"unknown override path: '([^']+)'")
+
+
+def _apply_overrides_interactively(cfg: object, overrides: dict[str, str]) -> None:
+    """Apply overrides; on an unknown path, prompt the user for a correction.
+
+    Coercion errors (e.g. ``int('abc')``) still exit immediately — those need a
+    new value, not a new key.
+    """
+    while True:
+        try:
+            apply_overrides(cfg, overrides)
+            return
+        except ValueError as exc:
+            msg = str(exc)
+            match = _UNKNOWN_PATH_RE.search(msg)
+            if match is None:
+                raise SystemExit(msg) from exc
+            bad_path = match.group(1)
+            override_key = _override_key_for(bad_path, overrides)
+            if override_key is None:
+                raise SystemExit(msg) from exc
+            candidates = [path for path, _, _ in iter_overridable_paths(cfg)]
+            picked = pick_override_path(bad_path, candidates)
+            if picked is None or picked == bad_path:
+                raise SystemExit(msg) from exc
+            overrides[picked] = overrides.pop(override_key)
+
+
+def _override_key_for(bad_path: str, overrides: dict[str, str]) -> str | None:
+    """Return the ``overrides`` key whose ``apply_overrides`` target equals ``bad_path``."""
+    from genelab.configs import resolve_override_alias
+
+    if bad_path in overrides:
+        return bad_path
+    for key in overrides:
+        if resolve_override_alias(key) == bad_path:
+            return key
+    return None
 
 
 def _parse_bool(raw: str | None) -> bool | None:
@@ -395,7 +479,11 @@ def _dispatch_play(
     checkpoint_raw = runner_args.get("checkpoint")
     agent_raw = runner_args.get("agent")
     if agent_raw is not None and agent_raw not in _AGENT_KINDS:
-        raise SystemExit(f"--agent must be one of {{zero, random, trained}}; got {agent_raw!r}")
+        picked_agent = pick_agent_kind()
+        if picked_agent is None or picked_agent not in _AGENT_KINDS:
+            raise SystemExit(f"--agent must be one of {{zero, random, trained}}; got {agent_raw!r}")
+        agent_raw = picked_agent
+        runner_args["agent"] = picked_agent
     # play is always single-process; either flag is accepted but mapped through the same
     # resolver so the mutual-exclusion guard fires on misuse.
     num_envs_per_rank = _resolve_per_rank_num_envs(runner_args, gpus=1)
