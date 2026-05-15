@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Literal
 import torch
 
 from genelab.sensor.sensor import Sensor, SensorCfg
-from genelab.utils.math import matrix_from_quat, quat_apply_inverse
+from genelab.utils.math import quat_apply, quat_apply_inverse
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
@@ -83,7 +83,6 @@ class BodyVelocitySensor(Sensor[torch.Tensor]):
         if self._cfg_typed.measure == "ang_vel":
             return quat_apply_inverse(link_quat, link_ang_vel_w) + self._bias
         link_lin_vel_w = rs.link_lin_vel_w[:, self._link_idx]
-        R = matrix_from_quat(link_quat)
-        r_world = torch.matmul(R, self._offset_local)
+        r_world = quat_apply(link_quat, self._offset_local.expand_as(link_lin_vel_w))
         v_site_w = link_lin_vel_w + torch.cross(link_ang_vel_w, r_world, dim=-1)
         return quat_apply_inverse(link_quat, v_site_w) + self._bias

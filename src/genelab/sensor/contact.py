@@ -117,7 +117,7 @@ class ContactSensor(Sensor[ContactData]):
         force = self._read_link_forces()
         in_contact = force.norm(dim=-1) > self._cfg_typed.force_threshold
         state = self._air_state
-        # Detect just-landed / just-lifted-off transitions before mutating the timers.
+        # Capture transitions before mutating the timers (the timer values matter pre-tick).
         first_contact = in_contact & (state.current_air_time > 0)
         first_detached = (~in_contact) & (state.current_contact_time > 0)
         state.last_air_time = torch.where(
@@ -126,16 +126,13 @@ class ContactSensor(Sensor[ContactData]):
         state.last_contact_time = torch.where(
             first_detached, state.current_contact_time + dt, state.last_contact_time
         )
-        state.current_air_time = torch.where(
-            in_contact,
-            torch.zeros_like(state.current_air_time),
-            state.current_air_time + dt,
-        )
-        state.current_contact_time = torch.where(
-            in_contact,
-            state.current_contact_time + dt,
-            torch.zeros_like(state.current_contact_time),
-        )
+        # Tick all timers, then mask-zero whichever phase ended. Original ``torch.where`` with
+        # ``torch.zeros_like`` allocated two (B, N) tensors per step; this in-place form is
+        # zero-allocation and removes the dominant per-step churn from the contact sensor.
+        state.current_air_time += dt
+        state.current_air_time.masked_fill_(in_contact, 0.0)
+        state.current_contact_time += dt
+        state.current_contact_time.masked_fill_(~in_contact, 0.0)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         super().reset(env_ids)
