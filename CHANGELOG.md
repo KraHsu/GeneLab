@@ -8,6 +8,11 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `docs/concepts/managers.{en,zh}.md`, `docs/cli/list-info.{en,zh}.md`: bilingual
+  manager-system concept page (seven managers + `ManagerTermBaseCfg` + term
+  lifecycle + `EventMode` semantics + per-manager wiring examples) and CLI
+  discovery page (`list KIND` enumeration, `info NAME` panel anatomy, override
+  path lookup workflow, simulation flag shortcuts).
 - `examples/genelab_showcase/`: six play-only TaskCfgs that exercise every M1–M4
   building block (sensors / ray-cast patterns / contact + air-time / 5 sub-terrains /
   `terrain_levels_vel` curriculum / `IdealPDActuator` arm). Each task dumps
