@@ -19,7 +19,16 @@ _PROF_BOOL_FLAGS: Final[frozenset[str]] = frozenset(
 _RUN_BOOL_SHORTCUTS: Final[frozenset[str]] = frozenset({"-v", "--vis", "--gpu", *_PROF_BOOL_FLAGS})
 
 RUNNER_KEYS: Final[frozenset[str]] = frozenset(
-    {"num_envs", "checkpoint", "max_iterations", "seed", "log_dir", "agent", "gpus"}
+    {
+        "num_envs",
+        "num_envs_per_gpu",
+        "checkpoint",
+        "max_iterations",
+        "seed",
+        "log_dir",
+        "agent",
+        "gpus",
+    }
 )
 
 PROF_KEYS: Final[frozenset[str]] = frozenset(
