@@ -1,0 +1,5 @@
+<mujoco model="asset_zoo_franka_fixture">
+  <worldbody>
+    <body name="link0"/>
+  </worldbody>
+</mujoco>
