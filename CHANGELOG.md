@@ -8,6 +8,11 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `docs/concepts/rl-runner.{en,zh}.md`: bilingual concept page for `genelab.rl`
+  (`train_task` / `play_task` signatures, `RslRlOnPolicyRunnerCfg` field
+  layout, `AgentKind` Literal, `RslRlVecEnvWrapper` adapter, torchrun-based
+  `--gpus N` distributed-training relaunch, `maybe_profile` flag/env-var
+  matrix, failure modes).
 - `docs/concepts/mdp.{en,zh}.md`: bilingual reference for the reusable MDP term
   library (`genelab.mdp.{actions,commands,observations,rewards,terminations,
   events,curriculums,noise}`). Every re-exported function / class is tabulated
