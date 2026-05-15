@@ -6,16 +6,33 @@ independently of the Typer wiring.
 
 from typing import Final
 
-_COMMANDS: Final[frozenset[str]] = frozenset({"cache", "list", "play", "train", "project"})
+_COMMANDS: Final[frozenset[str]] = frozenset({"cache", "list", "play", "prof", "project", "train"})
 
 _GLOBAL_BOOL_FLAGS: Final[frozenset[str]] = frozenset(
     {"-h", "--help", "--version", "--no-entry-points"}
 )
 
-_RUN_BOOL_SHORTCUTS: Final[frozenset[str]] = frozenset({"-v", "--vis", "--gpu"})
+_PROF_BOOL_FLAGS: Final[frozenset[str]] = frozenset(
+    {"--prof", "--prof-record-shapes", "--prof-with-stack"}
+)
+
+_RUN_BOOL_SHORTCUTS: Final[frozenset[str]] = frozenset({"-v", "--vis", "--gpu", *_PROF_BOOL_FLAGS})
 
 RUNNER_KEYS: Final[frozenset[str]] = frozenset(
     {"num_envs", "checkpoint", "max_iterations", "seed", "log_dir", "agent", "gpus"}
+)
+
+PROF_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "prof",
+        "prof_out",
+        "prof_wait",
+        "prof_warmup",
+        "prof_active",
+        "prof_repeat",
+        "prof_record_shapes",
+        "prof_with_stack",
+    }
 )
 
 
@@ -68,6 +85,10 @@ def parse_run_args(tokens: list[str]) -> tuple[str, dict[str, str]]:
             overrides["env.simulation.steps"] = _require_value(tokens, index)
             index += 2
             continue
+        if token in _PROF_BOOL_FLAGS:
+            overrides[token[2:].replace("-", "_")] = "true"
+            index += 1
+            continue
         if token.startswith("--"):
             overrides[token[2:].replace("-", "_")] = _require_value(tokens, index)
             index += 2
@@ -89,6 +110,16 @@ def split_runner_keys(overrides: dict[str, str]) -> dict[str, str]:
         if key in RUNNER_KEYS:
             runner_args[key] = overrides.pop(key)
     return runner_args
+
+
+def split_prof_keys(overrides: dict[str, str]) -> dict[str, str]:
+    """Move profiler-only keys out of ``overrides`` and return them as a new dict."""
+
+    prof_args: dict[str, str] = {}
+    for key in list(overrides.keys()):
+        if key in PROF_KEYS:
+            prof_args[key] = overrides.pop(key)
+    return prof_args
 
 
 def _find_command_index(argv: list[str]) -> int | None:

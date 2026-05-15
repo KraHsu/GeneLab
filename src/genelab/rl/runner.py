@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from genelab.cache import ensure_project_cache
 from genelab.registry import TASKS
-from genelab.rl._profiler import maybe_profile, profiler_enabled
+from genelab.rl.profiler import maybe_profile
 from genelab.rl.config import RslRlOnPolicyRunnerCfg
 from genelab.rl.distributed import is_main_process
 from genelab.rl.rsl_rl_wrapper import RslRlVecEnvWrapper
@@ -100,12 +100,23 @@ def train_task(
     log_root: Path | None = None,
     log_dir: Path | None = None,
     resume_from: Path | None = None,
+    prof: bool | None = None,
+    prof_out: Path | None = None,
+    prof_wait: int | None = None,
+    prof_warmup: int | None = None,
+    prof_active: int | None = None,
+    prof_repeat: int | None = None,
+    prof_record_shapes: bool | None = None,
+    prof_with_stack: bool | None = None,
 ) -> Path:
     """Train ``task_id`` with PPO. Returns the log directory.
 
     ``log_dir`` (final, pre-resolved) takes precedence over ``log_root`` (parent under
     which a ``<experiment>/<timestamp>`` directory is created). The torchrun relaunch
     path pre-resolves the log dir so every rank lands in the same folder.
+
+    ``prof*`` keyword arguments override the matching ``GENELAB_PROFILE_*`` env vars; see
+    ``genelab.rl.profiler.maybe_profile`` for the semantics.
     """
     ensure_project_cache()
     env_cfg = _resolve_env_cfg(task_id, play=False)
@@ -136,8 +147,17 @@ def train_task(
     )
     if resume_from is not None:
         runner.load(str(resume_from))
-    with maybe_profile() as prof_step:
-        if prof_step is not None and profiler_enabled():
+    with maybe_profile(
+        enabled=prof,
+        out_dir=prof_out,
+        wait=prof_wait,
+        warmup=prof_warmup,
+        active=prof_active,
+        repeat=prof_repeat,
+        record_shapes=prof_record_shapes,
+        with_stack=prof_with_stack,
+    ) as prof_step:
+        if prof_step is not None:
             # Advance the profiler schedule once per env step. RSL-RL doesn't expose a
             # per-iteration hook, so the wrapper's ``step`` is the closest fire-once-per-
             # rollout-step seam. Multiply WAIT/WARMUP/ACTIVE by ``num_steps_per_env`` if
@@ -164,10 +184,21 @@ def play_task(
     agent_cfg: RslRlOnPolicyRunnerCfg | None = None,
     deterministic: bool = True,
     max_steps: int | None = None,
+    prof: bool | None = None,
+    prof_out: Path | None = None,
+    prof_wait: int | None = None,
+    prof_warmup: int | None = None,
+    prof_active: int | None = None,
+    prof_repeat: int | None = None,
+    prof_record_shapes: bool | None = None,
+    prof_with_stack: bool | None = None,
 ) -> None:
     """Replay a policy. ``agent`` selects between ``"zero"``, ``"random"``, and ``"trained"``.
 
     When ``agent`` is ``None``, defaults to ``"trained"`` if ``checkpoint`` is set, else ``"zero"``.
+
+    ``prof*`` keyword arguments override the matching ``GENELAB_PROFILE_*`` env vars; see
+    ``genelab.rl.profiler.maybe_profile`` for the semantics.
     """
     ensure_project_cache()
     kind: AgentKind = (
@@ -226,17 +257,29 @@ def play_task(
     obs, _ = wrapped.reset()
     step = 0
     try:
-        while True:
-            with torch.inference_mode():
-                actions = policy(obs)
-            try:
-                obs, _, _, _ = wrapped.step(actions)
-            except gs.GenesisException as exc:
-                if str(exc) != "Viewer closed.":
-                    raise
-                break
-            step += 1
-            if max_steps is not None and step >= max_steps:
-                break
+        with maybe_profile(
+            enabled=prof,
+            out_dir=prof_out,
+            wait=prof_wait,
+            warmup=prof_warmup,
+            active=prof_active,
+            repeat=prof_repeat,
+            record_shapes=prof_record_shapes,
+            with_stack=prof_with_stack,
+        ) as prof_step:
+            while True:
+                with torch.inference_mode():
+                    actions = policy(obs)
+                try:
+                    obs, _, _, _ = wrapped.step(actions)
+                except gs.GenesisException as exc:
+                    if str(exc) != "Viewer closed.":
+                        raise
+                    break
+                if prof_step is not None:
+                    prof_step()
+                step += 1
+                if max_steps is not None and step >= max_steps:
+                    break
     finally:
         env.close()
