@@ -115,7 +115,12 @@ class TerrainImporter:
         self._terrain_levels = torch.zeros(num_envs, dtype=torch.long, device=device)
         gen = torch.Generator(device="cpu")
         gen.manual_seed(cfg.seed + 1)
-        cols_cpu = torch.randint(0, cfg.num_cols, (num_envs,), generator=gen, dtype=torch.long)
+        # Force ``device="cpu"`` so the result lands on the generator's device — when
+        # Genesis sets a CUDA default torch device the implicit destination would not
+        # match the CPU generator and torch raises ``Expected a 'cuda' device``.
+        cols_cpu = torch.randint(
+            0, cfg.num_cols, (num_envs,), generator=gen, dtype=torch.long, device="cpu"
+        )
         self._terrain_cols = cols_cpu.to(device)
         origins = self.generator.env_origins.to(device)
         self._spawn_pos = origins[self._terrain_levels, self._terrain_cols].clone()

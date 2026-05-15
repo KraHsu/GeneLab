@@ -59,8 +59,10 @@ def test_franka_actuator_groups(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = FrankaPandaCfg()
     arm = cfg.actuators["panda_arm"]
     hand = cfg.actuators["panda_hand"]
-    # Menagerie panda.xml uses unprefixed joint names.
-    assert arm.target_names_expr == (r"joint[1-7]",)
+    # Menagerie panda.xml uses unprefixed joint names. The regex is anchored so it
+    # does not substring-match ``finger_joint{1,2}`` through ``re.search`` and
+    # collide with the ``panda_hand`` group.
+    assert arm.target_names_expr == (r"^joint[1-7]$",)
     assert arm.stiffness == 400.0
     assert arm.damping == 80.0
     assert hand.target_names_expr == (r"finger_joint.*",)
