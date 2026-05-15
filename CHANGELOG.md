@@ -8,6 +8,11 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `docs/concepts/mdp.{en,zh}.md`: bilingual reference for the reusable MDP term
+  library (`genelab.mdp.{actions,commands,observations,rewards,terminations,
+  events,curriculums,noise}`). Every re-exported function / class is tabulated
+  with its required params, output shape, and a minimal wiring example, plus
+  warnings on the `joint_acc_l2` / `feet_air_time` placeholder rewards.
 - `docs/concepts/managers.{en,zh}.md`, `docs/cli/list-info.{en,zh}.md`: bilingual
   manager-system concept page (seven managers + `ManagerTermBaseCfg` + term
   lifecycle + `EventMode` semantics + per-manager wiring examples) and CLI
