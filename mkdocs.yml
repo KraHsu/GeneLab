@@ -100,6 +100,7 @@ plugins:
             Configs: 配置系统
             Managers and MDP terms: Manager 与 MDP term
             MDP terms reference: MDP term 参考
+            RL runner: RL runner
             Sensors: 传感器
             Terrains: 地形
             Asset zoo: 资产库
@@ -172,6 +173,7 @@ nav:
       - Configs: concepts/configs.md
       - Managers and MDP terms: concepts/managers.md
       - MDP terms reference: concepts/mdp.md
+      - RL runner: concepts/rl-runner.md
       - Scene and entities: concepts/scene.md
       - Actuators: concepts/actuators.md
       - Sensors: concepts/sensors.md
