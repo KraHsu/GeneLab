@@ -47,6 +47,23 @@ class Sensor[T](ABC):
     def name(self) -> str:
         return self._cfg.name
 
+    def pre_build_genesis(self, gs_scene: Any, entities: dict[str, Any]) -> None:
+        """Pre-``gs_scene.build`` hook: allocate Genesis-side resources that the renderer
+        snapshots at build time.
+
+        Called by :class:`~genelab.scene.InteractiveScene` after every entity is spawned
+        and before ``gs_scene.build()``. Default: no-op. Sensors whose Genesis resources
+        are camera-like (BatchRenderer-snapshotted at build time, e.g.
+        :class:`~genelab.sensor.CameraSensor`) override this to register the resource
+        early; everything else stays in :meth:`bind` post-build.
+
+        ``entities`` maps entity names to the :class:`~genelab.entity.Articulation` /
+        :class:`~genelab.entity.RigidObject` wrappers spawned on ``gs_scene``. Use
+        ``entities["robot"].gs_handle`` to reach the raw Genesis handle when the sensor
+        needs to attach to a link.
+        """
+        del gs_scene, entities
+
     def bind(self, env: "ManagerBasedRlEnv") -> None:
         """Called once during env construction. Subclasses may cache link indices etc."""
         self._env = env
