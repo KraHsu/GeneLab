@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, cast, get_args, get_origin, get_type_hint
 # NameError that fires when the heavy modules have not been imported yet.
 if TYPE_CHECKING:
     from genelab.entity import ArticulationCfg, RigidObjectCfg
+    from genelab.recording import RecordingCfg
     from genelab.sensor import SensorCfg
     from genelab.terrains import TerrainGeneratorCfg
 
@@ -42,6 +43,10 @@ class InteractiveSceneCfg:
     # ``gs.renderers.BatchRenderer(use_rasterizer=False)`` to ``gs.Scene``. Required for
     # ``CameraSensor`` to produce per-env RGB-D tensors. Linux x86-64 + CUDA only.
     batch_render: bool = False
+    # Recordings are registered as Genesis recorders just before ``gs_scene.build``;
+    # each entry describes a data source and one or more output sinks (live plots, file
+    # writers, video). See :mod:`genelab.recording` for the dataclass surface.
+    recordings: "tuple[RecordingCfg, ...]" = field(default_factory=tuple)
 
 
 @dataclass

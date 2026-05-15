@@ -1,6 +1,6 @@
 # 可视化 showcase
 
-`examples/genelab_showcase/` 提供 6 个 play-only 任务，单条命令就能跑过 M1–M4 全部
+`examples/genelab_showcase/` 提供 7 个 play-only 任务，单条命令就能跑过 M1–M4 全部
 building block。每个任务把真实机器人 (Franka 或 Unitree G1) 投入一个最小的
 `ManagerBasedRlEnv`，跑一段脚本动作循环，把对应特征的证据写进
 `logs/showcase/<slug>/`。目标是人眼 / 数值核对，不做训练。
@@ -15,6 +15,7 @@ building block。每个任务把真实机器人 (Franka 或 Unitree G1) 投入�
 | `GeneLab-Terrain-Showcase-v0` | Unitree G1 | `TerrainGeneratorCfg` 1×5 行覆盖 5 种内置 sub-terrain |
 | `GeneLab-Curriculum-Showcase-v0` | Unitree G1 | 5×5 RandomRough 网格上的 `terrain_levels_vel` 课程 |
 | `GeneLab-Actuator-Showcase-v0` | Franka | `IdealPDActuator` 驱动机械臂 (force 通道)；记录跟踪误差 |
+| `GeneLab-Recording-Showcase-v0` | Franka | `genelab.recording` —— 实时 PyQt + MPL 绘图，外加 NPZ + CSV 数据落盘 |
 
 ## 安装
 
