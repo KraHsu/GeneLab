@@ -1,5 +1,7 @@
 """Verify the unitree extension registers task / robot / env entries correctly."""
 
+from pathlib import Path
+
 import pytest
 
 torch = pytest.importorskip("torch")
@@ -15,7 +17,8 @@ from genelab.rl import RslRlOnPolicyRunnerCfg  # noqa: E402
 
 def test_genelab_unitree_registers_all_entries() -> None:
     load_extension_module("genelab_unitree.tasks")
-    assert "unitree-g1" in ROBOTS.names()
+    # The G1 robot itself is registered by `genelab.asset_zoo.unitree_g1`, not the example.
+    assert "g1" in ROBOTS.names()
     assert "g1-velocity-flat-env" in ENVS.names()
     assert "Genelab-Velocity-Flat-Unitree-G1-v0" in TASKS.names()
 
@@ -33,11 +36,9 @@ def test_g1_velocity_task_cfg_is_trainable_with_ppo_agent() -> None:
     assert task.cfg.play_env.simulation.num_envs <= task.cfg.env.simulation.num_envs
 
 
-def test_g1_robot_cfg_resolves_vendored_mjcf() -> None:
+def test_g1_asset_zoo_cfg_resolves_fetched_mjcf() -> None:
     load_extension_module("genelab_unitree.tasks")
-    robot = ROBOTS.get("unitree-g1")
-    entity_cfg = robot.to_entity_cfg()
-    from pathlib import Path
+    entity_cfg = ROBOTS.get("g1")
 
     assert Path(entity_cfg.mjcf_path).exists()
     # G1 has 29 actuated joints; the default-pose regex map should fan out > 4 entries.
