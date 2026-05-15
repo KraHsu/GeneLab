@@ -35,6 +35,32 @@ uv run genelab [全局选项] <子命令> [参数]
 CLI 启动时按三条路径依次发现扩展：entry-point 自动发现、显式 `--import MODULE`、程序内的
 `genelab.registry.load_extension_module(...)`。
 
+## Tab 补全 { #tab-completion }
+
+`--install-completion` 会把补全脚本写入当前 shell（bash / zsh / fish / PowerShell）的
+rc 文件；`--show-completion` 则把脚本打印到 stdout，便于手动安装。安装完成后，tab 补全
+`genelab info <TAB>` 会列出每一个已注册的 task / env / robot 名；`genelab play <TAB>`
+与 `genelab train <TAB>` 列出已注册 task；`genelab list <TAB>` 列出
+`robots / envs / tasks`。
+
+!!! note "仅覆盖 entry-point 扩展"
+
+    补全回调通过 `genelab.extensions` entry-point 组加载扩展。临时
+    `--import MODULE` 注册的扩展不会出现在补全列表里 —— shell 在调用补全回调时
+    已经把全局 `--import` 标志从 argv 里剥离，回调看不到这部分模块。
+
+## 交互式回退 { #interactive-recovery }
+
+stdin 为 TTY 时，下列四种输入错误会回退到 `questionary` 选择器，而不是直接报错退出：
+
+- `play` / `train` 没传 task id，或 task id 没注册。
+- `info NAME` 名字找不到。
+- `--agent KIND` 不是 `zero` / `random` / `trained`。
+- `--<a.b.c>` override 路径在已解析任务的 cfg 上不存在。
+
+非 TTY 环境（CI、管道、脚本、pytest）下选择器自动 no-op，错误以原始形态抛出，
+非交互调用者观察到的行为与未加回退层时完全一致。
+
 ## See also
 
 - [play 与 train](play-train.md)

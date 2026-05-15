@@ -22,8 +22,9 @@ trainable=...`；env / robot 显示首批几个标量 cfg 字段。通过
 
 ## 查看任务
 
-`info NAME` 解析单个注册名并打印 detail 面板。查找顺序是 task → env → robot，
-找不到时退出并列出可用名的并集。
+`info NAME` 解析单个注册名并打印 detail 面板。查找顺序是 task → env → robot。
+TTY 下名字找不到时会唤起 `questionary` 选择器，从 task / env / robot 名的并集
+中挑一个；非交互环境下沿用原行为，直接退出并列出可用名。
 
 ```bash
 uv run genelab info GeneLab-Sensors-Showcase-v0
