@@ -12,9 +12,9 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
   `UnitreeG1Cfg` (29-DoF humanoid, 6 DCMotor groups mirroring
   `examples/unitree/.../g1/constants.py`), `UnitreeGo1Cfg` (12-DoF quadruped, 3
   ImplicitPD groups aligned to Isaac Lab Go1 defaults), and `AnymalCCfg` (12-DoF
-  quadruped, single ImplicitPD group aligned to Isaac Lab Anymal C defaults). The three
-  Menagerie-sourced robots ship as `.tar.gz` bundles in `KraHsu/genelab-assets`,
-  preserving BSD-3-Clause attribution.
+  quadruped, single ImplicitPD group aligned to Isaac Lab Anymal C defaults). All four
+  Menagerie-sourced robots (Franka, G1, Go1, Anymal C) ship as `.tar.gz` bundles in
+  `KraHsu/genelab-assets`, preserving the upstream LICENSE and README.
 - `AssetSpec.archive_member`: optional field that switches `fetch_asset` from
   single-file to archive mode. The URL is treated as a `.tar.gz`, the blob's md5 is
   verified end-to-end, and `tarfile`'s `data` filter extracts the contents into
@@ -28,6 +28,14 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
   `examples/inverted_pendulum` (`stiffness=80`, passive pole); Franka follows Isaac
   Lab's high-PD configuration (`panda_arm` k=400, `panda_hand` k=1e4) with the
   Menagerie home pose.
+
+### Changed
+
+- **Breaking** (asset zoo only — no released API): `FrankaPandaCfg` now sources the full
+  MuJoCo Menagerie `franka_emika_panda` model (Apache-2.0) instead of the minimal stub
+  shipped during initial M4. Joint regexes drop the `panda_` prefix (`joint[1-7]`,
+  `finger_joint.*`) to match the upstream MJCF, and `default_joint_pos` follows the
+  Menagerie `home` keyframe (`joint4=-1.57079`, `joint6=1.57079`, `joint7=-0.7853`).
 - `genelab.utils.download.fetch_asset` + `AssetSpec` + `AssetDownloadError`: md5-verified
   download helper for asset zoo entries. Files cache under
   `<project_root>/.cache/assets/<name>/<md5>/<filename>` via atomic stage-and-rename;

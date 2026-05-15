@@ -1,9 +1,10 @@
 """Franka Emika Panda asset zoo entry — 7-DoF arm + 2-finger parallel gripper.
 
-Joints split into two actuator groups: a high-PD arm group covering ``panda_joint1..7``
-and a stiffer finger group covering the parallel-jaw fingers. Gain values follow
-Isaac Lab's ``FRANKA_PANDA_HIGH_PD_CFG`` so behaviour transfers when downstream code
-mixes the two stacks. ``default_joint_pos`` matches the MuJoCo Menagerie home keyframe.
+Sourced from MuJoCo Menagerie ``franka_emika_panda`` (Apache-2.0). Joint names follow
+the upstream convention (``joint1..7`` plus ``finger_joint1..2``) and the default pose
+matches the Menagerie ``home`` keyframe. Two actuator groups split arm and hand with
+the Isaac Lab ``FRANKA_PANDA_HIGH_PD_CFG`` gains so cross-stack behaviour stays
+comparable.
 """
 
 from typing import Final
@@ -15,20 +16,22 @@ from genelab.utils.download import AssetSpec, fetch_asset
 
 _MJCF: Final = AssetSpec(
     name="franka",
-    url="https://raw.githubusercontent.com/KraHsu/genelab-assets/main/franka/franka.xml",
-    md5="4c413c93f77e8e7bd5364c23a772c72d",
-    filename="franka.xml",
+    url="https://raw.githubusercontent.com/KraHsu/genelab-assets/main/franka_emika_panda/franka_emika_panda.tar.gz",
+    md5="6890871be5fbb852a13b6be2a766f270",
+    filename="franka_emika_panda.tar.gz",
+    archive_member="franka_emika_panda/panda.xml",
 )
 
+# Menagerie home keyframe: qpos = "0 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04".
 _HOME_POSE: Final[dict[str, float]] = {
-    "panda_joint1": 0.0,
-    "panda_joint2": -0.785,
-    "panda_joint3": 0.0,
-    "panda_joint4": -2.356,
-    "panda_joint5": 0.0,
-    "panda_joint6": 1.571,
-    "panda_joint7": 0.785,
-    "panda_finger_joint.*": 0.04,
+    "joint1": 0.0,
+    "joint2": 0.0,
+    "joint3": 0.0,
+    "joint4": -1.57079,
+    "joint5": 0.0,
+    "joint6": 1.57079,
+    "joint7": -0.7853,
+    "finger_joint.*": 0.04,
 }
 
 
@@ -47,7 +50,7 @@ def FrankaPandaCfg() -> ArticulationCfg:
         default_joint_pos=dict(_HOME_POSE),
         actuators={
             "panda_arm": ImplicitPDActuatorCfg(
-                target_names_expr=(r"panda_joint[1-7]",),
+                target_names_expr=(r"joint[1-7]",),
                 stiffness=400.0,
                 damping=80.0,
                 effort_limit=87.0,
@@ -55,7 +58,7 @@ def FrankaPandaCfg() -> ArticulationCfg:
                 action_scale=0.5,
             ),
             "panda_hand": ImplicitPDActuatorCfg(
-                target_names_expr=(r"panda_finger_joint.*",),
+                target_names_expr=(r"finger_joint.*",),
                 stiffness=1.0e4,
                 damping=200.0,
                 effort_limit=20.0,
@@ -69,7 +72,7 @@ def FrankaPandaCfg() -> ArticulationCfg:
 register_robot(
     "franka",
     FrankaPandaCfg,
-    description="Franka Emika Panda 7-DoF arm with parallel-jaw gripper; high-PD gains.",
+    description="Franka Emika Panda 7-DoF arm + parallel gripper (Menagerie source); high-PD gains.",
     cfg_type=ArticulationCfg,
     examples=[
         "genelab info franka",

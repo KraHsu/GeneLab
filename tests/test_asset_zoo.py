@@ -59,13 +59,15 @@ def test_franka_actuator_groups(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = FrankaPandaCfg()
     arm = cfg.actuators["panda_arm"]
     hand = cfg.actuators["panda_hand"]
-    assert arm.target_names_expr == (r"panda_joint[1-7]",)
+    # Menagerie panda.xml uses unprefixed joint names.
+    assert arm.target_names_expr == (r"joint[1-7]",)
     assert arm.stiffness == 400.0
     assert arm.damping == 80.0
-    assert hand.target_names_expr == (r"panda_finger_joint.*",)
+    assert hand.target_names_expr == (r"finger_joint.*",)
     assert hand.stiffness == 1.0e4
     assert hand.damping == 200.0
-    assert cfg.default_joint_pos["panda_joint4"] == pytest.approx(-2.356)
+    # Home keyframe qpos[3] (joint4) = -1.57079.
+    assert cfg.default_joint_pos["joint4"] == pytest.approx(-1.57079)
 
 
 def test_registry_examples() -> None:
