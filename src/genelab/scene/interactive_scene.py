@@ -22,6 +22,7 @@ import torch
 
 from genelab.entity import Articulation, ArticulationCfg, RigidObject, RigidObjectCfg
 from genelab.entity._torch import to_tensor
+from genelab.sensor import Sensor
 from genelab.terrains import TerrainImporter
 
 
@@ -42,6 +43,13 @@ class InteractiveScene:
         self._gs_scene: Any = None
         self._env_origins: torch.Tensor = torch.zeros(self._num_envs, 3, device=device_hint)
         self._built = False
+        # Set to True the first time ``gs_scene.step`` raises Genesis's
+        # ``GenesisException("Viewer closed.")`` — i.e. the user closed the viewer
+        # mid-rollout. Subsequent ``step`` calls become no-ops; consumers should
+        # poll ``viewer_closed`` (via ``ManagerBasedRlEnv.viewer_closed``) to break
+        # out of their loop cleanly.
+        self._viewer_closed: bool = False
+        self._gs_exception_cls: type[Exception] | None = None
         # Pre-allocate entity wrappers from cfg; ``add_entity`` may add more before ``build``.
         self._entities: dict[str, Articulation | RigidObject] = {}
         for name, entity_cfg in dict(scene_cfg.entities).items():
@@ -51,6 +59,10 @@ class InteractiveScene:
         self._terrain: TerrainImporter | None = (
             TerrainImporter(scene_cfg.terrain) if scene_cfg.terrain is not None else None
         )
+        # Sensors are pre-built before ``gs_scene.build`` so resources that the renderer
+        # snapshots at build time (e.g. cameras for BatchRenderer) are registered in
+        # time. ``ManagerBasedRlEnv`` reuses these instances rather than re-building.
+        self._sensors: dict[str, Sensor[Any]] = {}
 
     def add_entity(self, name: str, cfg: ArticulationCfg | RigidObjectCfg) -> None:
         """Register an additional entity before ``build()``."""
@@ -88,6 +100,10 @@ class InteractiveScene:
 
         import genesis as gs  # type: ignore[import-not-found]
 
+        # Cache the exception class so ``step`` can catch a viewer-closed event
+        # without repeating the lazy import on the hot path.
+        self._gs_exception_cls = gs.GenesisException
+
         gs_init = getattr(gs, "init", None)
         if gs_init is not None and not getattr(gs, "_initialized", False):
             backend = gs.gpu if self._sim_cfg.gpu else gs.cpu  # type: ignore[attr-defined]
@@ -97,8 +113,16 @@ class InteractiveScene:
             dt=float(self._sim_cfg.dt),
             substeps=int(self._sim_cfg.substeps),
         )
+        # ``batch_render=True`` swaps in Genesis's BatchRenderer so attached cameras can
+        # emit per-env RGB-D tensors. Default ``None`` keeps the historic Rasterizer path.
+        renderer = (
+            gs.renderers.BatchRenderer(use_rasterizer=False)
+            if getattr(self._scene_cfg, "batch_render", False)
+            else None
+        )
         self._gs_scene = gs.Scene(
             sim_options=sim_options,
+            renderer=renderer,
             show_viewer=self._sim_cfg.vis,
         )
         if self._terrain is None:
@@ -116,6 +140,15 @@ class InteractiveScene:
             # fully constructed rigid solver. Post-build registration deadlocks the sim/viewer
             # loop in some Genesis builds.
             self._gs_scene.viewer.add_plugin(GeneLabMouseInteractionPlugin(use_force=True))
+
+        # Pre-build sensors: instantiate every sensor and let it register any Genesis
+        # resources (e.g. BatchRenderer cameras) before ``gs_scene.build`` snapshots
+        # the camera list.
+        sensor_cfgs = tuple(getattr(self._scene_cfg, "sensors", ()) or ())
+        for sensor_cfg in sensor_cfgs:
+            sensor = sensor_cfg.build()
+            sensor.pre_build_genesis(self._gs_scene, dict(self._entities))
+            self._sensors[sensor_cfg.name] = sensor
 
         self._gs_scene.build(
             n_envs=self._num_envs,
@@ -168,7 +201,26 @@ class InteractiveScene:
     # ------------------------------------------------------------------ runtime
 
     def step(self) -> None:
-        self._gs_scene.step()
+        """Step the Genesis scene by one physics tick.
+
+        If the user closes the Genesis viewer mid-rollout, Genesis raises
+        ``GenesisException("Viewer closed.")`` out of ``gs_scene.step``. The kernel
+        catches that here, sets :py:attr:`viewer_closed`, and makes subsequent
+        ``step`` calls no-ops — so every consumer (RL runner, showcase runner,
+        bespoke scripts) only needs to poll the flag to exit cleanly instead of
+        writing the same try / except / string-compare boilerplate.
+        """
+
+        if self._viewer_closed:
+            return
+        exc_cls = self._gs_exception_cls
+        try:
+            self._gs_scene.step()
+        except Exception as exc:
+            if exc_cls is not None and isinstance(exc, exc_cls) and str(exc) == "Viewer closed.":
+                self._viewer_closed = True
+                return
+            raise
 
     def refresh_state(self) -> None:
         for art in self.articulations.values():
@@ -213,3 +265,23 @@ class InteractiveScene:
     def terrain(self) -> TerrainImporter | None:
         """The active :class:`TerrainImporter`, or ``None`` for the default flat plane."""
         return self._terrain
+
+    @property
+    def viewer_closed(self) -> bool:
+        """``True`` once the user closes the Genesis viewer mid-rollout.
+
+        After the flag flips, :py:meth:`step` becomes a no-op so consumer loops can
+        poll this property and break instead of catching
+        ``GenesisException("Viewer closed.")`` themselves.
+        """
+        return self._viewer_closed
+
+    @property
+    def sensors(self) -> dict[str, Sensor[Any]]:
+        """Sensors instantiated during ``build`` (keyed by ``SensorCfg.name``).
+
+        Pre-build callers populate Genesis-side resources via
+        :py:meth:`genelab.sensor.Sensor.pre_build_genesis`; ``ManagerBasedRlEnv``
+        calls :py:meth:`bind` on each entry post-build to complete env-side wiring.
+        """
+        return self._sensors
