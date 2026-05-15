@@ -1,33 +1,91 @@
+---
+hide:
+  - toc
+---
+
+<div class="gl-hero" markdown>
+
+<p class="gl-hero__eyebrow">研究框架 · 基于 Genesis</p>
+
 # GeneLab
 
-GeneLab 是一个面向强化学习与机器人研究的 Isaac Lab 风格 API，由
-[Genesis](https://github.com/Genesis-Embodied-AI/Genesis) 提供仿真后端。保留机器人、环境、
-任务注册，manager-based MDP 配置，以及 CLI 调度等组织方式。
+<p class="gl-hero__lead" markdown>
+面向强化学习与机器人研究的 Isaac Lab 风格 API，由
+[Genesis](https://github.com/Genesis-Embodied-AI/Genesis) 提供仿真后端。
+小型注册表、manager-based MDP、显式的 Genesis 后端 —— 为下游机器人项目
+提供稳定的包结构与 CLI。
+</p>
 
-## 目标
+<div class="gl-hero__cta" markdown>
+[开始使用](getting-started/installation.md){ .md-button .md-button--primary }
+[查看 GitHub](https://github.com/KraHsu/GeneLab){ .md-button }
+</div>
 
-- 小型机器人、环境和任务注册表。
-- 核心 API 层与示例资产、演示脚本分离。
-- 用 manager 风格配置钩子组织 actions、observations、rewards、events、terminations。
-- Genesis 后端集成显式且易于扩展。
-- 通过稳定的包结构与 CLI 支持下游机器人研究项目。
+</div>
 
-## 要求
+<div class="gl-terminal" aria-hidden="true">
+  <div class="gl-terminal__head">
+    <i></i><i></i><i></i>
+    <span class="gl-terminal__title">~/genelab</span>
+  </div>
+<pre><span class="gl-prompt">$</span> uv run genelab list tasks
 
-- Python 3.12 或更新版本。
-- 使用 [uv](https://docs.astral.sh/uv/) 管理依赖。
+  Registered tasks <span class="gl-comment">(4 discovered)</span>
+  ──────────────────────────────────────────────────────
+  <span class="gl-key">GeneLab-Inverted-Pendulum-v0</span>          trainable
+  <span class="gl-key">GeneLab-Double-Inverted-Pendulum-v0</span>   trainable
+  <span class="gl-key">Genelab-Velocity-Flat-Unitree-G1-v0</span>   trainable
+  <span class="gl-key">Genelab-Tracking-Flat-Unitree-G1-v0</span>   trainable
+
+<span class="gl-prompt">$</span> uv run genelab play GeneLab-Inverted-Pendulum-v0 --vis
+</pre>
+</div>
+
+## 快速开始
+
+<div class="grid cards gl-cards" markdown>
+
+-   <span class="gl-card__num">01</span> :material-download:{ .lg .middle } **安装**
+
+    ---
+
+    准备 `uv`，挑选一个 `torch-*` extra，并验证 CLI。
+
+    [安装 →](getting-started/installation.md)
+
+-   <span class="gl-card__num">02</span> :material-rocket-launch-outline:{ .lg .middle } **运行**
+
+    ---
+
+    列出已注册任务，并在 Genesis viewer 中 play 一个。
+
+    [快速开始 →](getting-started/quickstart.md)
+
+-   <span class="gl-card__num">03</span> :material-console-line:{ .lg .middle } **CLI**
+
+    ---
+
+    `play`、`train`、`project new`，以及点分路径 override 语法。
+
+    [CLI 总览 →](cli/overview.md)
+
+-   <span class="gl-card__num">04</span> :material-package-variant-closed:{ .lg .middle } **扩展**
+
+    ---
+
+    编写下游扩展包，注册机器人、环境与任务。
+
+    [扩展加载 →](concepts/extensions.md)
+
+</div>
 
 ## 模块速览
 
-- `genelab.registry`：注册表、注册 helper 与扩展加载。
-- `genelab.configs`：可复用的 dataclass 配置，包括 `ManagerBasedEnvCfg` 与 `TaskCfg`。
-- `genelab.lab`：注册表与 manager-based 环境原语的公共 API facade。
-- `genelab.envs` / `genelab.robots` / `genelab.tasks`：核心注册 helper 的命名空间。
-- `genelab.actuator` / `genelab.entity` / `genelab.scene` / `genelab.sensor` /
-  `genelab.terrains` / `genelab.rl`：面向机器人研究代码的扩展命名空间。
-
-## See also
-
-- [安装](getting-started/installation.md)
-- [快速开始](getting-started/quickstart.md)
-- [API 参考](api/reference.md)
+<ul class="gl-modules">
+  <li><code>genelab.registry</code><span>注册表、注册 helper、扩展加载。</span></li>
+  <li><code>genelab.configs</code><span>可复用的 dataclass 配置（<code>ManagerBasedEnvCfg</code>、<code>TaskCfg</code>）。</span></li>
+  <li><code>genelab.lab</code><span>注册表与 manager-based 环境原语的公共 facade。</span></li>
+  <li><code>genelab.cli</code><span>Typer + Rich 调度器；<code>play</code> / <code>train</code> / <code>info</code> / <code>project new</code>。</span></li>
+  <li><code>genelab.envs</code> / <code>robots</code> / <code>tasks</code><span>核心注册 helper 命名空间。</span></li>
+  <li><code>genelab.actuator</code> / <code>scene</code> / <code>sensor</code> / <code>terrains</code><span>面向机器人研究代码的扩展命名空间。</span></li>
+</ul>
