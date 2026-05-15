@@ -60,8 +60,8 @@ the value against the target field's type hint at config build time.
 | `env.simulation.dt` (float, 0.01) | `--dt 0.005` (shortcut) or `--env.simulation.dt 0.005` |
 | `env.rewards_cfg.track_lin_vel.weight` (float, 1.0) | `--env.rewards_cfg.track_lin_vel.weight 2.0` |
 | `env.rewards_cfg.track_lin_vel.params.std` (float, 0.25) | `--env.rewards_cfg.track_lin_vel.params.std 0.5` |
-| `env.scene.terrain_kind` (str, "mixed") | `--env.scene.terrain_kind stairs` |
-| `env.scene.sensors.0.pattern_kind` (str, "grid") | `--env.scene.sensors.0.pattern_kind ring` |
+| `env.scene.env_spacing` (tuple, `(2.0, 2.0)`) | `--env.scene.env_spacing 3.0,3.0` |
+| `env.scene.batch_render` (bool, false) | `--env.scene.batch_render true` |
 
 The four simulation shortcuts (`--vis`, `--gpu`, `--steps`, `--dt`) rewrite to
 the `env.simulation.{vis,gpu,steps,dt}` paths before forwarding, so they show
@@ -69,18 +69,18 @@ up in profiler-trace argv exactly like an explicit override would.
 
 ## Examples
 
-A short discovery loop for the showcase package:
+A short discovery loop for the inverted-pendulum task:
 
 ```bash
 # Confirm the extension is installed and pick a task id.
-uv run genelab list tasks | grep Showcase
+uv run genelab list tasks | grep Pendulum
 
 # Drill into one task — copy a dotted path from the "Overridable cfg paths" table.
-uv run genelab info GeneLab-RayCast-Showcase-v0
+uv run genelab info GeneLab-Inverted-Pendulum-v0
 
-# Run the task with the override applied.
-uv run genelab play GeneLab-RayCast-Showcase-v0 --vis --steps 200 \
-    --env.scene.sensors.0.pattern_kind ring
+# Run the task with overrides applied.
+uv run genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 240 \
+    --env.rewards_cfg.pole_upright.weight 5.0
 ```
 
 The same flow works against envs and robots: `genelab info FrankaPandaCfg` (a
