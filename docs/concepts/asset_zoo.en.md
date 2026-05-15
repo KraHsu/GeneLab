@@ -2,9 +2,10 @@
 
 `genelab.asset_zoo` ships curated robot configurations as part of the core package, so
 `from genelab.lab import CartpoleCfg` works out of the box. Each entry pairs a
-declarative `AssetSpec` (URL + md5 + filename) with a lazy factory that returns a fresh
-`ArticulationCfg`. The factories trigger an md5-verified download only when invoked, so
-read-only commands like `genelab list robots` never touch the network.
+declarative `AssetSpec` (URL + md5 + filename, optionally + `archive_member`) with a
+lazy factory that returns a fresh `ArticulationCfg`. The factories trigger an
+md5-verified download only when invoked, so read-only commands like
+`genelab list robots` never touch the network.
 
 ## Why a curated zoo
 
@@ -29,34 +30,42 @@ every subsequent call resolves to the cached path.
 5. The factory returns a fresh `ArticulationCfg` so downstream callers can mutate
    `init_pos`, `default_joint_pos`, etc. without affecting siblings.
 
-## Two built-in robots
+## Five built-in robots
 
-| Name | Cfg factory | Joints | Actuator groups |
+| Name | Cfg factory | DoF | Actuator groups |
 |---|---|---|---|
-| `cartpole` | `CartpoleCfg()` | `cart_slide`, `pole_hinge` | `cart` (active PD), `pole` (passive zero-gain) |
-| `franka` | `FrankaPandaCfg()` | `panda_joint1..7`, `panda_finger_joint.*` | `panda_arm` (high-PD, k=400), `panda_hand` (stiff grasp, k=1e4) |
+| `cartpole` | `CartpoleCfg()` | 2 | `cart` (active PD), `pole` (passive zero-gain) |
+| `franka` | `FrankaPandaCfg()` | 9 | `panda_arm` (high-PD, k=400), `panda_hand` (stiff grasp, k=1e4) |
+| `g1` | `UnitreeG1Cfg()` | 29 | `5020` / `7520_14` / `7520_22` / `4010` / `waist` / `ankle` — six DCMotor families |
+| `go1` | `UnitreeGo1Cfg()` | 12 | `hip` / `thigh` / `calf` (ImplicitPD, k=25) |
+| `anymal-c` | `AnymalCCfg()` | 12 | `legs` (single ImplicitPD group, k=80) |
 
-Use `genelab info cartpole` (or `franka`) to print the full override-path tree once
-registered. Cartpole mirrors `examples/inverted_pendulum`'s gains so the existing
-training script keeps converging when the asset zoo replaces the local cfg path.
+Use `genelab info <name>` to print the full override-path tree once registered.
+Cartpole mirrors `examples/inverted_pendulum`'s gains; G1 mirrors
+`examples/unitree/.../g1/constants.py`; Go1 and Anymal C follow Isaac Lab's published
+defaults so cross-stack experiments stay comparable.
 
 ## Cache layout and md5 verification
 
+Single-file mode (cartpole, franka):
+
 ```
-.cache/
-└── assets/
-    ├── cartpole/
-    │   └── <md5>/
-    │       └── cartpole.xml
-    └── franka/
-        └── <md5>/
-            └── franka.xml
+.cache/assets/<name>/<md5>/<filename>
+```
+
+Archive mode (g1, go1, anymal-c):
+
+```
+.cache/assets/<name>/<md5>/extracted/<archive_member>
 ```
 
 `fetch_asset` writes the download to a `.<filename>.part` sibling and renames atomically
-once the digest matches. A mismatch raises `AssetDownloadError` carrying both expected
-and actual digests; cached files keyed by a stale md5 are auto-pruned at the next call
-with the corrected hash, since the path itself moves.
+once the digest matches. Archive blobs go through a second atomic step: the tar is
+expanded into a `.extracting/` sibling using `tarfile`'s `data` filter (rejects symlinks
+and parent-directory escapes) and renamed to `extracted/` only on success. A mismatch
+raises `AssetDownloadError` carrying both expected and actual digests; cached files
+keyed by a stale md5 are auto-pruned at the next call with the corrected hash, since
+the path itself moves.
 
 !!! warning "Update the md5 every time the asset moves"
     The cache key is `(name, md5)`; bumping the md5 invalidates old copies cleanly.
@@ -65,22 +74,32 @@ with the corrected hash, since the path itself moves.
 
 ## Adding a new robot config
 
+Single-file MJCF (no external mesh dependencies):
+
 ```python
-# src/genelab/asset_zoo/my_robot.py
-from typing import Final
-
-from genelab.actuator import ImplicitPDActuatorCfg
-from genelab.entity import ArticulationCfg
-from genelab.registry import register_robot
-from genelab.utils.download import AssetSpec, fetch_asset
-
-_MJCF: Final = AssetSpec(
+_MJCF = AssetSpec(
     name="my-robot",
     url="https://raw.githubusercontent.com/KraHsu/genelab-assets/main/my-robot/my-robot.xml",
     md5="<32 hex chars>",
     filename="my-robot.xml",
 )
+```
 
+Menagerie-style folder with meshes / textures (pack as `.tar.gz`, name the entry MJCF):
+
+```python
+_MJCF = AssetSpec(
+    name="my-robot",
+    url="https://raw.githubusercontent.com/KraHsu/genelab-assets/main/my_robot/my_robot.tar.gz",
+    md5="<32 hex chars>",
+    filename="my_robot.tar.gz",
+    archive_member="my_robot/my_robot.xml",
+)
+```
+
+Either way the factory is the same:
+
+```python
 def MyRobotCfg() -> ArticulationCfg:
     return ArticulationCfg(
         mjcf_path=str(fetch_asset(_MJCF)),
