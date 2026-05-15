@@ -16,17 +16,18 @@ Both tasks are ported from the equivalent ones in
 examples/unitree/
 ├── pyproject.toml
 ├── README.md
-├── assets/g1/                       # vendored MJCF + meshes (~19 MB)
 └── src/genelab_unitree/
     ├── tasks.py                     # registers both tasks into genelab's registry
     └── g1/
-        ├── constants.py             # actuator gains, default pose, action scale
-        ├── robot.py                 # G1RobotCfg factory
         ├── env_cfg.py               # velocity-tracking env cfg
         ├── ppo_cfg.py               # velocity-tracking PPO cfg
         ├── tracking_env_cfg.py      # motion-imitation env cfg
         └── tracking_ppo_cfg.py      # motion-imitation PPO cfg
 ```
+
+The G1 robot itself (actuators, default pose, foot links, MJCF) is provided by
+`genelab.asset_zoo.unitree_g1.UnitreeG1Cfg`, which fetches the MJCF + STL bundle from
+the `genelab-assets` repository on first use and caches it under `.cache/`.
 
 ## Quickstart
 
@@ -102,8 +103,10 @@ and one a few hours in to compare cumulative time per section. Optional env vars
 
 ## Notes
 
-- The G1 MJCF and STL meshes are vendored under `assets/g1/`. They originate from Unitree's
-  mujoco_menagerie release; refer to that repository for licensing details.
+- The G1 MJCF and STL meshes are fetched on first use by
+  `genelab.asset_zoo.unitree_g1.UnitreeG1Cfg` from the `genelab-assets` repository and
+  cached under `.cache/`. They originate from Unitree's mujoco_menagerie release; refer
+  to that repository for licensing details.
 - The motion-imitation task drops mjlab's adaptive-bin failure sampling; only `start` and
   `uniform` sampling modes are wired up. Self-collision penalties are also omitted because
   GeneLab has no contact-sensor abstraction yet — the env still penalises action rate and

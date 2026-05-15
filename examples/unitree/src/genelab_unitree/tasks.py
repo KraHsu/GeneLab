@@ -3,15 +3,11 @@
 from genelab.configs import TaskCfg
 from genelab.registry import (
     ENVS,
-    ROBOTS,
     TASKS,
     register_env,
-    register_robot,
     register_task,
 )
 from genelab_unitree.g1 import (
-    G1RobotCfg,
-    get_g1_robot_cfg,
     unitree_g1_ppo_runner_cfg,
     unitree_g1_tracking_env_cfg,
     unitree_g1_tracking_ppo_runner_cfg,
@@ -20,7 +16,8 @@ from genelab_unitree.g1 import (
 
 VELOCITY_TASK_ID = "Genelab-Velocity-Flat-Unitree-G1-v0"
 TRACKING_TASK_ID = "Genelab-Tracking-Flat-Unitree-G1-v0"
-ROBOT_NAME = "unitree-g1"
+# Matches the name registered by `genelab.asset_zoo.unitree_g1`.
+ROBOT_NAME = "g1"
 VELOCITY_ENV_NAME = "g1-velocity-flat-env"
 TRACKING_ENV_NAME = "g1-tracking-flat-env"
 
@@ -98,13 +95,7 @@ class G1TrackingTask:
 
 
 def register() -> None:
-    if ROBOT_NAME not in ROBOTS:
-        register_robot(
-            ROBOT_NAME,
-            get_g1_robot_cfg,
-            description="Unitree G1 (29-DoF humanoid) for Genesis.",
-            cfg_type=G1RobotCfg,
-        )
+    # The G1 robot itself is registered by `genelab.asset_zoo.unitree_g1`; no robot registration here.
     if VELOCITY_ENV_NAME not in ENVS:
         register_env(
             VELOCITY_ENV_NAME,
