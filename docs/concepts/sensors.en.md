@@ -95,6 +95,32 @@ that consumes `lin_acc_b` or `ang_acc_b` near reset boundaries.
 finite-difference at the control rate is **not** filtered internally; layer
 `ObservationTermCfg.noise` + `scale` on top, or apply a custom EMA in the observation term.
 
+### CameraSensor
+
+Rigid-mount RGB-D camera bolted to a named link via a fixed 4×4 transform. `bind()`
+resolves the link, allocates one Genesis camera handle through `scene.gs_scene.add_camera`,
+builds the offset matrix from `offset_pos` / `offset_quat`, and calls `cam.attach`.
+Each `data` access invokes `cam.move_to_attach()` then `cam.render(...)` once per
+control step; the cached :class:`CameraData` returns `rgb` (uint8) and / or `depth`
+(float meters), shaped `(num_envs, H, W, 3)` / `(num_envs, H, W)`.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `link_name` | `str` | Link the camera is bolted to (resolved through `env.link_names`). |
+| `offset_pos` | `tuple[float, float, float]` | Camera origin in the link's local frame. |
+| `offset_quat` | `tuple[float, float, float, float]` | Camera orientation (wxyz) relative to the link; `+x` is forward in Genesis convention. |
+| `width`, `height` | `int` | Pixel resolution; all BatchRender cameras on a scene must share resolution. |
+| `fov` | `float` | Vertical field-of-view in degrees. |
+| `near`, `far` | `float` | Depth clip planes in meters. |
+| `render_rgb`, `render_depth` | `bool` | Independently toggle each channel; the disabled channel is `None` in the output dataclass. |
+
+!!! warning "BatchRenderer is the only parallel-env backend"
+    Multi-env RGB-D requires `gs.init(backend=gs.cuda)` plus
+    `gs.Scene(renderer=gs.renderers.BatchRenderer(use_rasterizer=False), ...)` —
+    Linux x86-64 + CUDA only. The module file can still be imported on macOS / CPU,
+    but `bind()` will raise as soon as Genesis allocates the camera against an
+    incompatible renderer.
+
 ### ContactSensor
 
 Per-link aggregate of `robot.get_links_net_contact_force()`. With `track_air_time=True`, an
