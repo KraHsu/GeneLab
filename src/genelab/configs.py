@@ -3,11 +3,17 @@
 from dataclasses import dataclass, field, is_dataclass
 from pathlib import Path
 from types import UnionType
-from typing import Any, cast, get_args, get_origin, get_type_hints
+from typing import TYPE_CHECKING, Any, cast, get_args, get_origin, get_type_hints
 
-from genelab.entity import ArticulationCfg, RigidObjectCfg
-from genelab.sensor import SensorCfg
-from genelab.terrains import TerrainGeneratorCfg
+# Heavy types are quoted so ``import genelab.configs`` does not transitively drag
+# torch in through entity / sensor / terrains. Resolution happens lazily inside
+# ``_field_annotation`` via ``get_type_hints``; that call is guarded against the
+# NameError that fires when the heavy modules have not been imported yet.
+if TYPE_CHECKING:
+    from genelab.entity import ArticulationCfg, RigidObjectCfg
+    from genelab.recording import RecordingCfg
+    from genelab.sensor import SensorCfg
+    from genelab.terrains import TerrainGeneratorCfg
 
 type _Annotation = object
 
@@ -29,14 +35,18 @@ class InteractiveSceneCfg:
     """Composition of an interactive scene: entities + terrain + sensors + viewer plugins."""
 
     env_spacing: tuple[float, float] = (2.0, 2.0)
-    sensors: tuple[SensorCfg, ...] = field(default_factory=tuple)
+    sensors: "tuple[SensorCfg, ...]" = field(default_factory=tuple)
     mouse_interaction: bool = False
-    entities: dict[str, ArticulationCfg | RigidObjectCfg] = field(default_factory=dict)
-    terrain: TerrainGeneratorCfg | None = None
+    entities: "dict[str, ArticulationCfg | RigidObjectCfg]" = field(default_factory=dict)
+    terrain: "TerrainGeneratorCfg | None" = None
     # When True, ``InteractiveScene._build`` passes
     # ``gs.renderers.BatchRenderer(use_rasterizer=False)`` to ``gs.Scene``. Required for
     # ``CameraSensor`` to produce per-env RGB-D tensors. Linux x86-64 + CUDA only.
     batch_render: bool = False
+    # Recordings are registered as Genesis recorders just before ``gs_scene.build``;
+    # each entry describes a data source and one or more output sinks (live plots, file
+    # writers, video). See :mod:`genelab.recording` for the dataclass surface.
+    recordings: "tuple[RecordingCfg, ...]" = field(default_factory=tuple)
 
 
 @dataclass
@@ -104,12 +114,16 @@ _PATH_ALIASES = {
 }
 
 
+def resolve_override_alias(raw_path: str) -> str:
+    """Return the dotted path that ``raw_path`` resolves to via the alias table."""
+    return _PATH_ALIASES.get(raw_path, raw_path)
+
+
 def apply_overrides(cfg: object, overrides: dict[str, str]) -> None:
     """Apply dotted CLI overrides to a dataclass config object."""
 
     for raw_path, raw_value in overrides.items():
-        path = _PATH_ALIASES.get(raw_path, raw_path)
-        _set_dotted_value(cfg, path, raw_value)
+        _set_dotted_value(cfg, resolve_override_alias(raw_path), raw_value)
 
 
 def _set_dotted_value(root: object, dotted_path: str, raw_value: str) -> None:
@@ -147,7 +161,14 @@ def _descend(target: object, key: str, dotted_path: str) -> object:
 def _field_annotation(obj: object, field_name: str) -> _Annotation | None:
     if not is_dataclass(obj):
         return None
-    return cast(_Annotation | None, get_type_hints(type(obj)).get(field_name))
+    try:
+        hints = get_type_hints(type(obj))
+    except NameError:
+        # Quoted annotations (e.g. ``"tuple[SensorCfg, ...]"``) only resolve once
+        # the referenced module is imported. Coercion falls back to ``type(current)``
+        # in this case, which is correct for every override path realistically used.
+        return None
+    return cast(_Annotation | None, hints.get(field_name))
 
 
 def _coerce_value(raw_value: str, current: object, annotation: _Annotation | None) -> object:

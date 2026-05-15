@@ -1,4 +1,5 @@
 import re
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -1037,3 +1038,210 @@ def test_prof_open_missing_dir_exits(tmp_path: Path) -> None:
     with pytest.raises(SystemExit) as excinfo:
         main(["prof", "open", str(missing)])
     assert "not found" in str(excinfo.value)
+
+
+def _patch_picker(monkeypatch: pytest.MonkeyPatch, attr: str, value: str | None) -> None:
+    """Replace a picker at both consumer sites (top-level import + late import)."""
+
+    def fake(*_args: object, **_kwargs: object) -> str | None:
+        return value
+
+    monkeypatch.setattr(f"genelab.cli._interactive.{attr}", fake)
+    if hasattr(__import__("genelab.cli", fromlist=[attr]), attr):
+        monkeypatch.setattr(f"genelab.cli.{attr}", fake)
+
+
+def test_play_unknown_task_falls_back_to_picker(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _patch_picker(monkeypatch, "pick_name_interactively", "External-Fake-Task-v0")
+    main(["--import", "tests.fake_extension", "play", "not-a-task"])
+
+    out = capsys.readouterr().out
+    assert "played External-Fake-Task-v0" in out
+
+
+def test_play_unknown_task_exits_without_picker_choice(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Default test stdin is non-TTY -> picker returns None -> original KeyError surfaces.
+    _patch_picker(monkeypatch, "pick_name_interactively", None)
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--import", "tests.fake_extension", "play", "not-a-task"])
+    assert "not-a-task" in str(excinfo.value)
+
+
+def test_info_unknown_name_falls_back_to_picker(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _patch_picker(monkeypatch, "pick_name_interactively", "External-Fake-Task-v0")
+    main(["--import", "tests.fake_extension", "info", "definitely-not-a-name"])
+
+    out = capsys.readouterr().out
+    assert "External-Fake-Task-v0" in out
+    assert "Task from a fake external package." in out
+
+
+def test_play_invalid_agent_falls_back_to_picker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_play(task_id: str, **kwargs: object) -> None:
+        captured["task_id"] = task_id
+        captured.update(kwargs)
+
+    fake_rl = type("FakeRl", (), {"play_task": staticmethod(_fake_play), "AgentKind": str})
+    monkeypatch.setitem(sys.modules, "genelab.rl", fake_rl)
+    _patch_picker(monkeypatch, "pick_agent_kind", "zero")
+
+    main(
+        [
+            "--import",
+            "tests.fake_extension",
+            "play",
+            "External-Fake-Task-v0",
+            "--agent",
+            "bogus",
+        ]
+    )
+
+    assert captured["agent"] == "zero"
+
+
+def test_play_invalid_agent_without_picker_still_exits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_picker(monkeypatch, "pick_agent_kind", None)
+    with pytest.raises(SystemExit) as excinfo:
+        main(
+            [
+                "--import",
+                "tests.fake_extension",
+                "play",
+                "External-Fake-Task-v0",
+                "--agent",
+                "bogus",
+            ]
+        )
+    assert "--agent" in str(excinfo.value)
+
+
+def test_play_unknown_override_path_falls_back_to_picker(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # --env.simulation.step (typo for "steps"); picker corrects to the real path.
+    _patch_picker(monkeypatch, "pick_override_path", "env.simulation.steps")
+
+    main(
+        [
+            "--import",
+            "tests.fake_extension",
+            "play",
+            "External-Fake-Task-v0",
+            "--env.simulation.step",
+            "3",
+        ]
+    )
+
+    assert "played External-Fake-Task-v0 for 3 steps" in capsys.readouterr().out
+
+
+def test_play_unknown_override_path_exits_without_picker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_picker(monkeypatch, "pick_override_path", None)
+    with pytest.raises(SystemExit) as excinfo:
+        main(
+            [
+                "--import",
+                "tests.fake_extension",
+                "play",
+                "External-Fake-Task-v0",
+                "--env.simulation.step",
+                "3",
+            ]
+        )
+    assert "env.simulation.step" in str(excinfo.value)
+
+
+def test_play_task_argument_accepts_either_ordering(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    main(["--import", "tests.fake_extension", "play", "External-Fake-Task-v0", "--steps", "2"])
+    first = capsys.readouterr().out
+    main(["--import", "tests.fake_extension", "play", "--steps", "2", "External-Fake-Task-v0"])
+    second = capsys.readouterr().out
+
+    assert "played External-Fake-Task-v0 for 2 steps" in first
+    assert "played External-Fake-Task-v0 for 2 steps" in second
+
+
+def test_play_task_argument_preserves_dashed_runner_flags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_play(task_id: str, **kwargs: object) -> None:
+        captured["task_id"] = task_id
+        captured.update(kwargs)
+
+    fake_rl = type("FakeRl", (), {"play_task": staticmethod(_fake_play), "AgentKind": str})
+    monkeypatch.setitem(sys.modules, "genelab.rl", fake_rl)
+
+    main(
+        [
+            "--import",
+            "tests.fake_extension",
+            "play",
+            "External-Fake-Task-v0",
+            "--num-envs",
+            "8",
+        ]
+    )
+
+    assert captured["task_id"] == "External-Fake-Task-v0"
+    assert captured["num_envs"] == 8
+
+
+def test_complete_task_names_returns_registered_ids() -> None:
+    from genelab.cli._completion import complete_task_names
+
+    load_extension_module("tests.fake_extension")
+
+    assert "External-Fake-Task-v0" in complete_task_names("Ex")
+    assert complete_task_names("zzz") == []
+
+
+def test_complete_any_registry_name_returns_union() -> None:
+    from genelab.cli._completion import complete_any_registry_name
+
+    load_extension_module("tests.fake_extension")
+    completions = complete_any_registry_name("")
+
+    assert "External-Fake-Task-v0" in completions
+    assert "fake-extension-env" in completions
+    assert "fake-extension-robot" in completions
+
+
+def test_completion_callbacks_swallow_extension_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from genelab.cli import _completion
+
+    def _boom() -> None:
+        raise RuntimeError("entry point exploded")
+
+    monkeypatch.setattr(_completion, "load_entrypoint_extensions", _boom)
+
+    # Both callbacks must catch the failure and return any names already in the registry.
+    # The exception itself must not propagate.
+    _completion.complete_task_names("")
+    _completion.complete_any_registry_name("")
+
+
+def test_list_kind_argument_remains_enum_for_completion() -> None:
+    """Regression: ``list KIND`` stays an Enum so Typer auto-completes its values."""
+    from genelab.cli import _RegistryKindArg
+
+    assert {member.value for member in _RegistryKindArg} == {"robots", "envs", "tasks"}

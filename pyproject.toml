@@ -25,6 +25,14 @@ rl = [
     "gymnasium>=1.0",
     "tensorboard>=2.20.0",
 ]
+# Live plot backends for ``genelab.recording``. PyQt plots use pyqtgraph + PyQt5;
+# Matplotlib plots use matplotlib. File-only recordings (NPZ/CSV/Video) don't need
+# any of these — they're handled by Genesis's own dependencies (numpy + PyAV).
+recording = [
+    "pyqtgraph>=0.13",
+    "PyQt5>=5.15",
+    "matplotlib>=3.8",
+]
 docs = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",

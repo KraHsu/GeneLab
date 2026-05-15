@@ -12,6 +12,14 @@ uv run genelab play <task-id> [SHORT FLAGS] [-- OVERRIDES]
 
 Short flags may appear before or after `<task-id>`; the CLI normalises the order internally.
 
+!!! tip "Interactive recovery"
+
+    Omitting `<task-id>` on a TTY opens a `questionary` picker over the
+    registered tasks. Unknown task ids, malformed `--agent` values, and
+    `--<a.b.c>` override paths that do not exist on the resolved cfg fall
+    back to the same picker. Non-TTY callers — CI, pipes, scripts — see the
+    original error messages unchanged.
+
 ### Simulation shortcuts
 
 The following short flags rewrite to the corresponding `env.simulation.*` overrides:
