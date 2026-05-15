@@ -95,9 +95,10 @@ Only rank 0 emits a trace under distributed launches.
 
 ## Notes
 
-- The G1 MJCF and STL meshes are vendored under `examples/unitree/assets/g1/`. They
-  originate from Unitree's `mujoco_menagerie` release; refer to that repository for
-  licensing details.
+- The G1 MJCF and STL meshes are fetched on first use via
+  `genelab.asset_zoo.unitree_g1.UnitreeG1Cfg` from the `genelab-assets` repository and
+  cached under `.cache/`. They originate from Unitree's `mujoco_menagerie` release;
+  refer to that repository for licensing details.
 - The motion-imitation task drops mjlab's adaptive-bin failure sampling; only
   `start` and `uniform` sampling modes are wired up. Self-collision penalties are
   omitted because GeneLab has no contact-pair sensor abstraction yet — the env still
