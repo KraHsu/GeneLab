@@ -23,6 +23,34 @@ GeneLab targets Python `>=3.12`. Write modern code only; do not add compatibilit
 - **`collections.abc` over `typing`** for `Callable`, `Iterable`, `Iterator`, `Sequence`, `Mapping`, etc.
 - **Whitelisted `typing` imports.** Only `Any`, `cast`, `Protocol`, `Literal`, `Final`, `Annotated`, `TYPE_CHECKING`, `runtime_checkable`, `get_args`, `get_origin`, `get_type_hints` are expected to appear. Anything else is suspect.
 
+## Import discipline
+
+The CLI cold path (`genelab --help`, tab-completion roundtrips) re-imports the project on every shell process. Pulling `torch` or Genesis into a top-level package `__init__.py` regresses CLI latency by hundreds of milliseconds per invocation.
+
+- **Do not eager-import torch / Genesis from a top-level `__init__.py`.** This includes any module reachable from `genelab/__init__.py`, `genelab/cli/__init__.py`, or `genelab/utils/__init__.py` without going through a deeper submodule path. Heavy imports belong in the leaf modules that actually use them.
+- **Re-exports use PEP 562 `__getattr__`.** When a package needs to advertise a heavy class as part of its public API, declare it in `__all__`, type-stub it under `if TYPE_CHECKING:`, and resolve it lazily:
+
+  ```python
+  from typing import TYPE_CHECKING
+
+  __all__ = ["HeavyCfg"]
+
+  if TYPE_CHECKING:
+      from genelab.submodule import HeavyCfg
+
+  _LAZY_EXPORTS = frozenset({"HeavyCfg"})
+
+  def __getattr__(name: str) -> object:
+      if name in _LAZY_EXPORTS:
+          from genelab import submodule
+          value = getattr(submodule, name)
+          globals()[name] = value
+          return value
+      raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+  ```
+
+- **Quoted annotations in `genelab.configs`.** When a dataclass field references a heavy type (e.g. `tuple[SensorCfg, ...]`), import the name under `if TYPE_CHECKING:` and quote the annotation. `_field_annotation` swallows the `NameError` that `get_type_hints` raises when the heavy module has not been imported, falling back to `type(current)`.
+
 ## Documentation conventions
 
 Docs live under `docs/` and are built by MkDocs Material with the `mkdocs-static-i18n` plugin. Every content page exists in two languages with the `.en.md` / `.zh.md` suffix; the rendered site serves English at `/` and 中文 at `/zh/`. The following rules apply to both languages.

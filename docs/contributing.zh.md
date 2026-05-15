@@ -30,6 +30,34 @@ GeneLab 锁定 Python `>=3.12`。只写现代代码，不要为旧解释器加�
   `TYPE_CHECKING`、`runtime_checkable`、`get_args`、`get_origin`、`get_type_hints`。其他名字
   视为可疑。
 
+## Import 纪律 { #import-discipline }
+
+CLI 冷路径（`genelab --help`、tab 补全 roundtrip）每次新 shell 进程都要重新 import 一遍项目。把 `torch` 或 Genesis 拖进顶层包的 `__init__.py` 会让 CLI 启动每次多付几百毫秒。
+
+- **不要在顶层 `__init__.py` 里 eager-import torch / Genesis。** 包括从 `genelab/__init__.py`、`genelab/cli/__init__.py`、`genelab/utils/__init__.py` 不经过更深子模块路径就能触达的任何模块。重依赖只放在真正使用它的叶子模块里。
+- **Re-export 走 PEP 562 `__getattr__`。** 顶层包要把重类作为公开 API 暴露时，在 `__all__` 中声明，在 `if TYPE_CHECKING:` 下放类型 stub，访问时再 lazy resolve：
+
+  ```python
+  from typing import TYPE_CHECKING
+
+  __all__ = ["HeavyCfg"]
+
+  if TYPE_CHECKING:
+      from genelab.submodule import HeavyCfg
+
+  _LAZY_EXPORTS = frozenset({"HeavyCfg"})
+
+  def __getattr__(name: str) -> object:
+      if name in _LAZY_EXPORTS:
+          from genelab import submodule
+          value = getattr(submodule, name)
+          globals()[name] = value
+          return value
+      raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+  ```
+
+- **`genelab.configs` 内的引号注解。** 当 dataclass 字段引用重类（如 `tuple[SensorCfg, ...]`）时，把名字放到 `if TYPE_CHECKING:` 下并把注解加引号。`_field_annotation` 在 `get_type_hints` 触发 `NameError`（重模块尚未 import）时会兜住，回退到 `type(current)`。
+
 ## 文档约定
 
 文档位于 `docs/`，由 MkDocs Material 与 `mkdocs-static-i18n` 插件构建。每个内容页都有
