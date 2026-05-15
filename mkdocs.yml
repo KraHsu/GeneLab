@@ -101,8 +101,11 @@ plugins:
             Terrains: 地形
             Asset zoo: 资产库
             Extensions: 扩展加载
+            Scene and entities: 场景与实体
             Examples: 示例
             Inverted Pendulum: 倒立摆
+            Unitree G1: Unitree G1
+            Showcase: 可视化 showcase
             API Reference: API 参考
             Contributing: 贡献指南
   - mkdocstrings:
@@ -163,6 +166,7 @@ nav:
   - Concepts:
       - Registry: concepts/registry.md
       - Configs: concepts/configs.md
+      - Scene and entities: concepts/scene.md
       - Actuators: concepts/actuators.md
       - Sensors: concepts/sensors.md
       - Terrains: concepts/terrains.md
@@ -171,5 +175,7 @@ nav:
   - Examples:
       - Overview: examples/overview.md
       - Inverted Pendulum: examples/inverted-pendulum.md
+      - Unitree G1: examples/unitree-g1.md
+      - Showcase: examples/showcase.md
   - API Reference: api/reference.md
   - Contributing: contributing.md
