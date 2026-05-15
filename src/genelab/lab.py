@@ -47,6 +47,9 @@ from genelab.registry import (
     load_extension_module,
 )
 from genelab.sensor import (
+    CameraData,
+    CameraSensor,
+    CameraSensorCfg,
     ContactData,
     ContactSensor,
     ContactSensorCfg,
@@ -106,6 +109,9 @@ __all__ = [
     "AnymalCCfg",
     "Articulation",
     "ArticulationCfg",
+    "CameraData",
+    "CameraSensor",
+    "CameraSensorCfg",
     "CartpoleCfg",
     "ContactData",
     "ContactSensor",
