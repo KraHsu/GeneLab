@@ -24,17 +24,17 @@ Isaac Lab 自带 40+ 现成机器人配置，MjLab 自带 3 个；两者都把�
 | `go1` | `UnitreeGo1Cfg()` | 12 | `hip` / `thigh` / `calf`（ImplicitPD，k=25） |
 | `anymal-c` | `AnymalCCfg()` | 12 | `legs`（单 ImplicitPD 组，k=80） |
 
-注册完成后用 `genelab info <name>` 打印完整的 override 路径树。Cartpole 的增益与 `examples/inverted_pendulum` 保持一致；G1 与 `examples/unitree/.../g1/constants.py` 对齐；Go1 与 Anymal C 沿用 Isaac Lab 公开的默认值，方便跨栈对比实验。
+注册完成后用 `genelab info <name>` 打印完整的 override 路径树。Cartpole 的增益与 `examples/inverted_pendulum` 保持一致；G1 与 `examples/unitree/.../g1/constants.py` 对齐；Franka、Go1 与 Anymal C 沿用 Isaac Lab 公开的默认值，方便跨栈对比实验。4 个 Menagerie 来源条目（`franka`、`g1`、`go1`、`anymal-c`）以 `.tar.gz` archive 形式发布，mesh 与纹理随 MJCF 一并发送。
 
 ## 缓存目录与 md5 校验
 
-单文件模式（cartpole、franka）：
+单文件模式（cartpole）：
 
 ```
 .cache/assets/<name>/<md5>/<filename>
 ```
 
-archive 模式（g1、go1、anymal-c）：
+archive 模式（franka、g1、go1、anymal-c）：
 
 ```
 .cache/assets/<name>/<md5>/extracted/<archive_member>
