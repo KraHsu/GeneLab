@@ -10,7 +10,7 @@
 - **`GeneLab-Inverted-Pendulum-v0`** —— 小车 + 单杆倒立摆。
 - **`GeneLab-Double-Inverted-Pendulum-v0`** —— 小车 + 串联双杆倒立摆。
 
-源码位于 `examples/inverted_pendulum/`；完整流程见 [倒立摆](inverted-pendulum.md)。
+源码位于 `examples/inverted_pendulum/`。
 
 ## genelab_examples
 
@@ -28,9 +28,6 @@
 Unitree G1 人形机器人的两个 PPO 任务 —— 速度跟踪与动作模仿，从 mjlab 移植并适配到 Genesis。
 形态与 `genelab_examples` 相同（entry point、`register()`、按模块拆分的注册文件）。源码位于
 `examples/unitree/`。
-
-完整动手教程（安装、训练、checkpoint 回放、动作模仿）见
-[快速开始 §5](../getting-started/quickstart.md#unitree-g1)。
 
 ## external_project
 

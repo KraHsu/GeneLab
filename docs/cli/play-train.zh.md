@@ -11,6 +11,13 @@ uv run genelab play <task-id> [短标志] [-- 覆盖项]
 
 短标志可放在 `<task-id>` 前或后；CLI 内部会自动整理顺序。
 
+!!! tip "交互式回退"
+
+    在 TTY 下省略 `<task-id>` 会唤起 `questionary` 选择器，从已注册 task 中
+    挑一个。task id 拼错、`--agent` 值不合法、`--<a.b.c>` override 路径在
+    已解析 cfg 上不存在，都会回退到同一个选择器。非 TTY 调用者（CI、管道、
+    脚本）看到的报错与未启用回退层时一致。
+
 ### 仿真短标志
 
 下列短标志会被改写为对应的 `env.simulation.*` override：

@@ -22,6 +22,7 @@ import torch
 
 from genelab.entity import Articulation, ArticulationCfg, RigidObject, RigidObjectCfg
 from genelab.entity._torch import to_tensor
+from genelab.recording.bridge import RecorderBridge
 from genelab.sensor import Sensor
 from genelab.terrains import TerrainImporter
 
@@ -63,6 +64,14 @@ class InteractiveScene:
         # snapshots at build time (e.g. cameras for BatchRenderer) are registered in
         # time. ``ManagerBasedRlEnv`` reuses these instances rather than re-building.
         self._sensors: dict[str, Sensor[Any]] = {}
+        # Recorder bridge: only allocated when the scene cfg declares recordings. The
+        # bridge holds late-bound env / sensor references used by data callables
+        # registered with Genesis before ``gs_scene.build``.
+        self._recorder_bridge: RecorderBridge | None = (
+            RecorderBridge(scene=self)
+            if tuple(getattr(scene_cfg, "recordings", ()) or ())
+            else None
+        )
 
     def add_entity(self, name: str, cfg: ArticulationCfg | RigidObjectCfg) -> None:
         """Register an additional entity before ``build()``."""
@@ -150,6 +159,20 @@ class InteractiveScene:
             sensor.pre_build_genesis(self._gs_scene, dict(self._entities))
             self._sensors[sensor_cfg.name] = sensor
 
+        # Register Genesis recorders before ``gs_scene.build`` (which calls
+        # ``recorder_manager.build`` internally and flips it to ``assert_built``).
+        if self._recorder_bridge is not None:
+            from genelab.recording.register import register_recorders
+
+            self._recorder_bridge.sensors = self._sensors
+            self._recorder_bridge.entities = dict(self._entities)
+            register_recorders(
+                gs_scene=self._gs_scene,
+                bridge=self._recorder_bridge,
+                recording_cfgs=tuple(self._scene_cfg.recordings),
+                physics_dt=float(self._sim_cfg.dt),
+            )
+
         self._gs_scene.build(
             n_envs=self._num_envs,
             env_spacing=tuple(self._scene_cfg.env_spacing),
@@ -234,6 +257,9 @@ class InteractiveScene:
         scene = self._gs_scene
         if scene is None:
             return
+        # Flush recorder buffers and join threads before destroying the Genesis scene.
+        if self._recorder_bridge is not None:
+            self._recorder_bridge.stop()
         for attr in ("close", "stop", "destroy"):
             fn = getattr(scene, attr, None)
             if callable(fn):
@@ -285,3 +311,8 @@ class InteractiveScene:
         calls :py:meth:`bind` on each entry post-build to complete env-side wiring.
         """
         return self._sensors
+
+    @property
+    def recorder_bridge(self) -> RecorderBridge | None:
+        """The recorder bridge if the scene cfg declared any ``recordings``, else ``None``."""
+        return self._recorder_bridge
