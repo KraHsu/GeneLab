@@ -4,6 +4,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 import torch
 
 from genelab.managers import (
@@ -14,6 +15,7 @@ from genelab.managers import (
 from genelab.mdp.noise import Gnoise, Unoise
 from genelab.sensor import (
     BodyVelocitySensorCfg,
+    CameraSensorCfg,
     ContactSensorCfg,
     FrameTransformerSensorCfg,
     GridPattern,
@@ -821,3 +823,141 @@ def test_frame_transformer_rejects_empty_target_frames() -> None:
         assert "target" in str(exc).lower()
     else:
         raise AssertionError("expected ValueError for empty target_frames")
+
+
+# ---------------------------------------------------------------------------- camera
+
+
+class _FakeGsLink:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
+class _FakeGsRobot:
+    def __init__(self, link_names: tuple[str, ...]) -> None:
+        self._links = {name: _FakeGsLink(name) for name in link_names}
+
+    def get_link(self, name: str) -> _FakeGsLink:
+        return self._links[name]
+
+
+class _FakeGsCamera:
+    def __init__(self, *, num_envs: int, **kwargs: Any) -> None:
+        self.kwargs: dict[str, Any] = kwargs
+        self.num_envs = num_envs
+        self.attached_link: _FakeGsLink | None = None
+        self.attached_offset_T: Any = None
+        self.move_calls: int = 0
+        self.render_calls: int = 0
+
+    def attach(self, link: Any, offset_T: Any) -> None:
+        self.attached_link = link
+        self.attached_offset_T = offset_T
+
+    def move_to_attach(self) -> None:
+        self.move_calls += 1
+
+    def render(
+        self,
+        rgb: bool = False,
+        depth: bool = False,
+        segmentation: bool = False,  # noqa: ARG002
+        normal: bool = False,  # noqa: ARG002
+    ) -> tuple[Any, Any, Any, Any]:
+        self.render_calls += 1
+        h = int(self.kwargs["res"][1])
+        w = int(self.kwargs["res"][0])
+        rgb_t = torch.zeros(self.num_envs, h, w, 3, dtype=torch.uint8) if rgb else None
+        depth_t = torch.full((self.num_envs, h, w), 0.5) if depth else None
+        return rgb_t, depth_t, None, None
+
+
+class _FakeGsScene:
+    def __init__(self, num_envs: int) -> None:
+        self.num_envs = num_envs
+        self.cameras: list[_FakeGsCamera] = []
+
+    def add_camera(self, **kwargs: Any) -> _FakeGsCamera:
+        cam = _FakeGsCamera(num_envs=self.num_envs, **kwargs)
+        self.cameras.append(cam)
+        return cam
+
+
+class _FakeInteractiveScene:
+    def __init__(self, num_envs: int) -> None:
+        self.gs_scene = _FakeGsScene(num_envs)
+
+
+class _FakeCameraEnv:
+    """Extends ``_FakeEnv`` with the surface the camera sensor reaches into."""
+
+    def __init__(self, num_envs: int = 2, link_names: tuple[str, ...] = ("base", "head")) -> None:
+        self.num_envs = num_envs
+        self.device = "cpu"
+        self.sensors: dict[str, Sensor[Any]] = {}
+        self.link_names: list[str] = list(link_names)
+        self.robot = _FakeGsRobot(link_names)
+        self.scene = _FakeInteractiveScene(num_envs)
+
+
+def test_camera_bind_attaches_to_link() -> None:
+    env = _FakeCameraEnv(num_envs=2, link_names=("base", "head"))
+    sensor = CameraSensorCfg(
+        name="cam",
+        link_name="head",
+        offset_pos=(0.05, 0.0, 0.15),
+        offset_quat=(1.0, 0.0, 0.0, 0.0),
+        width=4,
+        height=4,
+    ).build()
+    sensor.bind(env)  # type: ignore[arg-type]
+    cam = env.scene.gs_scene.cameras[0]
+    assert isinstance(cam.attached_link, _FakeGsLink)
+    assert cam.attached_link.name == "head"
+    assert cam.attached_offset_T.shape == (4, 4)
+    # Identity rotation → upper-left 3×3 is the identity.
+    assert np.allclose(cam.attached_offset_T[:3, :3], np.eye(3))
+    # Translation block reflects ``offset_pos``.
+    assert np.allclose(cam.attached_offset_T[:3, 3], np.array([0.05, 0.0, 0.15]))
+    assert cam.attached_offset_T[3, 3] == 1.0
+
+
+def test_camera_compute_returns_rgb_and_depth() -> None:
+    env = _FakeCameraEnv(num_envs=2)
+    sensor = CameraSensorCfg(name="cam", link_name="head", width=4, height=4).build()
+    sensor.bind(env)  # type: ignore[arg-type]
+    cam = env.scene.gs_scene.cameras[0]
+    data = sensor.data
+    assert data.rgb is not None and data.depth is not None
+    assert data.rgb.shape == (2, 4, 4, 3)
+    assert data.depth.shape == (2, 4, 4)
+    assert cam.move_calls == 1
+    assert cam.render_calls == 1
+    # Cache invalidates on update(), so the second access triggers another render.
+    sensor.update(0.02)
+    _ = sensor.data
+    assert cam.move_calls == 2
+    assert cam.render_calls == 2
+
+
+def test_camera_render_rgb_only() -> None:
+    env = _FakeCameraEnv(num_envs=2)
+    sensor = CameraSensorCfg(
+        name="cam", link_name="head", width=4, height=4, render_depth=False
+    ).build()
+    sensor.bind(env)  # type: ignore[arg-type]
+    data = sensor.data
+    assert data.rgb is not None
+    assert data.depth is None
+
+
+def test_camera_unknown_link_raises() -> None:
+    env = _FakeCameraEnv(num_envs=2, link_names=("base", "torso"))
+    sensor = CameraSensorCfg(name="cam", link_name="head").build()
+    try:
+        sensor.bind(env)  # type: ignore[arg-type]
+    except ValueError as exc:
+        assert "head" in str(exc)
+        assert "env.link_names" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for unknown link_name")
