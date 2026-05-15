@@ -92,9 +92,7 @@ def _build_articulation_with_refresh_handle(num_envs: int = 4) -> Articulation:
         mjcf_path="/dev/null",
         default_joint_pos={name: 0.0 for name in joint_names},
         actuators={
-            "all": ImplicitPDActuatorCfg(
-                target_names_expr=(".*",), stiffness=1.0, damping=0.1
-            ),
+            "all": ImplicitPDActuatorCfg(target_names_expr=(".*",), stiffness=1.0, damping=0.1),
         },
     )
     art = Articulation(cfg, name="test")
@@ -167,9 +165,7 @@ def test_refresh_without_genesis_getters_keeps_buffers_at_zero() -> None:
         mjcf_path="/dev/null",
         default_joint_pos={"j0": 0.0},
         actuators={
-            "all": ImplicitPDActuatorCfg(
-                target_names_expr=(".*",), stiffness=1.0, damping=0.1
-            ),
+            "all": ImplicitPDActuatorCfg(target_names_expr=(".*",), stiffness=1.0, damping=0.1),
         },
     )
     art = Articulation(cfg, name="bare")

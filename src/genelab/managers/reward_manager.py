@@ -71,9 +71,7 @@ class RewardManager:
         # Stack per-term means into a single tensor and pull all values to host with one sync.
         # The per-term ``.item()`` loop was a per-reset CUDA sync per reward term (6+ per step
         # on busy reset paths in g1-velocity-flat).
-        means = torch.stack(
-            [torch.mean(self._episode_sums[name][env_ids]) for name in names]
-        )
+        means = torch.stack([torch.mean(self._episode_sums[name][env_ids]) for name in names])
         means_list = (means / max_episode_length_s).tolist()
         for name in names:
             self._episode_sums[name][env_ids] = 0.0
