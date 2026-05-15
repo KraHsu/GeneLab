@@ -8,6 +8,21 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `genelab.asset_zoo` namespace with the first two built-in robot configurations,
+  `CartpoleCfg` and `FrankaPandaCfg`. Both are registered into `ROBOTS` as an import
+  side-effect of `load_builtin_registries()`; factories stay lazy so `genelab list
+  robots` never touches the network. Cartpole gain values mirror
+  `examples/inverted_pendulum` (`stiffness=80`, passive pole); Franka follows Isaac
+  Lab's high-PD configuration (`panda_arm` k=400, `panda_hand` k=1e4) with the
+  Menagerie home pose.
+- `genelab.utils.download.fetch_asset` + `AssetSpec` + `AssetDownloadError`: md5-verified
+  download helper for asset zoo entries. Files cache under
+  `<project_root>/.cache/assets/<name>/<md5>/<filename>` via atomic stage-and-rename;
+  md5 mismatches and `URLError` failures raise `AssetDownloadError` with both expected
+  and actual digests in the message.
+- `docs/concepts/asset_zoo.{en,zh}.md`: bilingual concept page covering the asset
+  lifecycle, cache layout, md5 verification, and the template for adding new robot
+  configurations.
 - `FrameTransformerSensor` (with `FrameTransformerSensorCfg`, `TargetFrameCfg`, and
   `FrameTransformerData`): stateless forward-kinematics probe that outputs the world-frame
   pose AND source-frame pose for one or more target frames relative to a single source
