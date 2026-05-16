@@ -10,10 +10,15 @@ from genelab.mdp.events import reset_joints_by_offset
 class _FakeArticulation:
     """Captures the most recent ``write_joint_state`` call so tests can inspect it."""
 
-    def __init__(self) -> None:
+    def __init__(self, joint_pos_limits: torch.Tensor | None = None) -> None:
         self.last_pos: torch.Tensor | None = None
         self.last_vel: torch.Tensor | None = None
         self.last_env_ids: torch.Tensor | None = None
+        # Empty tensor signals "no limits configured" — matches the real
+        # Articulation's stub state before bind, and disables the clamp.
+        self.joint_pos_limits = (
+            joint_pos_limits if joint_pos_limits is not None else torch.empty(0, 2)
+        )
 
     def write_joint_state(
         self, pos: torch.Tensor, vel: torch.Tensor, env_ids: torch.Tensor
@@ -84,3 +89,33 @@ def test_reset_joints_by_offset_empty_env_ids_is_noop() -> None:
     assert env.articulation.last_pos is None
     reset_joints_by_offset(env, env_ids=torch.tensor([], dtype=torch.long))
     assert env.articulation.last_pos is None
+
+
+def test_reset_joints_by_offset_clamps_to_joint_limits() -> None:
+    """mjlab parity: large position offsets must be clipped to the joint limits."""
+    torch.manual_seed(0)
+    # 2 joints, tight limits: joint 0 ∈ [-0.05, 0.05], joint 1 ∈ [-0.1, 0.1].
+    limits = torch.tensor([[-0.05, 0.05], [-0.1, 0.1]])
+    env = _FakeEnv(
+        default_joint_pos=torch.zeros(2),
+        articulation=_FakeArticulation(joint_pos_limits=limits),
+    )
+    env_ids = torch.arange(32)
+    # Sample range much wider than limits → every value should saturate within.
+    reset_joints_by_offset(env, env_ids, position_range=(-1.0, 1.0), velocity_range=(0.0, 0.0))
+    pos = env.articulation.last_pos
+    assert pos is not None
+    assert torch.all(pos[:, 0] >= -0.05) and torch.all(pos[:, 0] <= 0.05)
+    assert torch.all(pos[:, 1] >= -0.1) and torch.all(pos[:, 1] <= 0.1)
+
+
+def test_reset_joints_by_offset_no_clamp_when_limits_empty() -> None:
+    """Stub limits (numel=0) means the clamp is skipped — used by tests/fakes."""
+    torch.manual_seed(1)
+    env = _make_env(n_joints=4)  # default fake has empty limits tensor
+    env_ids = torch.arange(64)
+    reset_joints_by_offset(env, env_ids, position_range=(-2.0, 2.0), velocity_range=(0.0, 0.0))
+    pos = env.articulation.last_pos
+    assert pos is not None
+    # No clamp → can see values outside ±π (the fake has no limits enforcement).
+    assert (pos.abs() > 0.5).any()

@@ -56,6 +56,13 @@ from genelab.sensor import (
 # IMU site offset from the pelvis link origin; matches g1.xml's <site name="imu_in_pelvis">.
 _IMU_OFFSET = (0.04525, 0.0, -0.08339)
 
+# Foot-site offset from each ankle_roll_link origin; matches g1.xml's
+# <site name="left_foot"/"right_foot" pos="0.04 0 -0.037">. mjlab evaluates
+# feet_clearance / feet_swing_height / feet_slip and foot_height_scan at the
+# site, not at the link origin — sitting ~0.037 m lower matters next to the
+# 0.1 m target swing height.
+_G1_FOOT_SITE_OFFSET: tuple[float, float, float] = (0.04, 0.0, -0.037)
+
 # Link names — Genesis-side equivalents of the body names mjlab uses.
 _TORSO_LINK = "torso_link"
 _PELVIS_LINK = "pelvis"
@@ -103,8 +110,17 @@ _G1_POSE_STD_RUNNING: dict[str, float] = {
 
 
 def _feet_cfg() -> SceneEntityCfg:
-    """Reusable selector pointing at the two foot links."""
-    return SceneEntityCfg(name="robot", link_names=_G1_FOOT_LINKS)
+    """Reusable selector pointing at the two foot links + the mjlab foot site.
+
+    The ``link_offsets`` make feet_clearance / feet_swing_height / feet_slip
+    evaluate at the ``left_foot``/``right_foot`` *site* (G1 XML `g1.xml:100,149`),
+    matching mjlab's reward signal.
+    """
+    return SceneEntityCfg(
+        name="robot",
+        link_names=_G1_FOOT_LINKS,
+        link_offsets=(_G1_FOOT_SITE_OFFSET,) * len(_G1_FOOT_LINKS),
+    )
 
 
 def _obs_terms() -> dict[str, ObservationTermCfg]:
@@ -213,11 +229,16 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 # ``foot_height_scan`` (mjlab parity): single down-pointing ray per foot,
                 # ``reduction="min"`` so a multi-ray pattern stays a no-op on flat ground.
                 # On a heightfield, the inner ``RayCastSensor`` walks the terrain mesh.
+                # ``link_offsets`` anchors the ray at the ``left_foot``/``right_foot`` site
+                # (g1.xml:100,149) instead of the ankle_roll_link origin — flat-ground
+                # height becomes ``link_z + offset_z`` so the 0.037 m site z-offset
+                # matters when comparing to ``target_height=0.1``.
                 TerrainHeightSensorCfg(
                     name="foot_height_scan",
                     link_names=_G1_FOOT_LINKS,
                     pattern=GridPattern(resolution=1.0, size=(0.0, 0.0)),
                     reduction="min",
+                    link_offsets=(_G1_FOOT_SITE_OFFSET,) * len(_G1_FOOT_LINKS),
                 ),
                 # mjlab's ``self_collision`` ContactSensor used a subtree-vs-subtree filter on
                 # the pelvis subtree; in GeneLab the SelfContactSensor reads Genesis's pair

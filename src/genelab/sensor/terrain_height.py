@@ -50,6 +50,19 @@ class TerrainHeightSensorCfg(SensorCfg):
     attach_yaw_only: bool = True
     max_distance: float = 10.0
     ground_height: float = 0.0
+    link_offsets: tuple[tuple[float, float, float], ...] | None = None
+    """Per-link local-frame offsets for the ray-pattern origin (mjlab site parity).
+
+    When set in multi-frame mode, must have the same length as ``link_names``;
+    each entry is the site position in the corresponding link's body frame.
+    G1's foot-height scan uses ``((0.04, 0, -0.037), (0.04, 0, -0.037))`` to
+    sample under the foot site rather than the ankle_roll_link origin —
+    important on flat ground where the ~0.037 m site z-offset matters next to
+    a 0.1 m target swing height.
+
+    In single-frame mode (``link_name`` set), pass a length-1 tuple. ``None``
+    keeps all offsets at zero (pre-parity behaviour).
+    """
 
     def __post_init__(self) -> None:
         has_single = bool(self.link_name)
@@ -63,6 +76,13 @@ class TerrainHeightSensorCfg(SensorCfg):
             raise ValueError(
                 f"TerrainHeightSensorCfg(name={self.name!r}): set either link_name or link_names"
             )
+        if self.link_offsets is not None:
+            expected = 1 if has_single else len(self.link_names)
+            if len(self.link_offsets) != expected:
+                raise ValueError(
+                    f"TerrainHeightSensorCfg(name={self.name!r}): link_offsets length "
+                    f"({len(self.link_offsets)}) must match frame count ({expected})"
+                )
 
     def build(self) -> "TerrainHeightSensor":
         return TerrainHeightSensor(self)
@@ -88,6 +108,15 @@ class TerrainHeightSensor(Sensor[torch.Tensor]):
         frame_link_names: tuple[str, ...] = (
             (cfg.link_name,) if self._legacy_single_frame else cfg.link_names
         )
+        # Per-frame local offset: pass through to the inner RayCastSensor so the ray
+        # fan anchors at the configured site rather than the link origin. ``None``
+        # means "no offset" — produces an all-zero per-frame value.
+        offsets: tuple[tuple[float, float, float], ...] = (
+            cfg.link_offsets
+            if cfg.link_offsets is not None
+            else tuple((0.0, 0.0, 0.0) for _ in frame_link_names)
+        )
+
         # One inner RayCastSensor per frame. The link count here is small (typically
         # two feet); the per-frame instantiation cost is amortised against many steps.
         self._inners: list[RayCastSensor] = [
@@ -99,9 +128,10 @@ class TerrainHeightSensor(Sensor[torch.Tensor]):
                     attach_yaw_only=cfg.attach_yaw_only,
                     max_distance=cfg.max_distance,
                     ground_height=cfg.ground_height,
+                    link_offset=offset,
                 )
             )
-            for frame_name in frame_link_names
+            for frame_name, offset in zip(frame_link_names, offsets, strict=True)
         ]
 
     def bind(self, env: "ManagerBasedRlEnv") -> None:

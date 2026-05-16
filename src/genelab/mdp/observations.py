@@ -28,16 +28,18 @@ def projected_gravity(env: "ManagerBasedRlEnv") -> torch.Tensor:
 
 
 def joint_pos_rel(env: "ManagerBasedRlEnv") -> torch.Tensor:
-    """Joint positions minus default pose, with encoder bias added.
+    """Joint positions minus default pose.
 
-    The bias is normally zero — populated only when the env's startup events
-    include ``genelab.mdp.dr.encoder_bias``. It models a small constant offset
-    between the policy's perceived joint angle and the physical encoder reading;
+    Mirrors mjlab's default ``joint_pos_rel`` (no bias term). When the env's
+    startup events include ``genelab.mdp.dr.encoder_bias``,
     :class:`~genelab.mdp.actions.joint_position.JointPositionAction` subtracts
-    the same bias from its PD target so that the real joint sits ``bias`` away
-    from the commanded reference.
+    the bias from its PD target so the real joint sits ``-bias`` away from the
+    commanded reference. The obs then surfaces that physical offset directly,
+    which is what the policy must learn to compensate for. Adding the bias here
+    too would cancel the perturbation in the observation and silently neutralise
+    the encoder-bias DR.
     """
-    return env.robot_state.joint_pos - env.default_joint_pos + env.robot_state.encoder_bias
+    return env.robot_state.joint_pos - env.default_joint_pos
 
 
 def joint_vel_rel(env: "ManagerBasedRlEnv") -> torch.Tensor:
