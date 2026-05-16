@@ -1,5 +1,6 @@
 """Reusable MDP term library (observations, rewards, terminations, events, commands, actions)."""
 
+from genelab.mdp import dr as dr
 from genelab.mdp.actions import JointPositionAction, JointPositionActionCfg
 from genelab.mdp.commands import (
     MotionCommand,
@@ -88,6 +89,7 @@ __all__ = [
     "base_lin_vel",
     "body_angular_velocity_penalty",
     "commands_vel",
+    "dr",
     "feet_air_time",
     "feet_clearance",
     "feet_slip",
