@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.managers.scene_entity_cfg import SceneEntityCfg
 from genelab.mdp.dr._common import normalise_env_ids, resolve_link_indices
 
 if TYPE_CHECKING:
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 def body_com_offset(
     env: "ManagerBasedRlEnv",
     env_ids: torch.Tensor | None,
-    link_names: tuple[str, ...] | None = None,
+    asset_cfg: SceneEntityCfg,
     ranges: dict[int, tuple[float, float]] | None = None,
 ) -> None:
     """Per-env, per-link offset on the centre-of-mass position.
@@ -32,7 +33,7 @@ def body_com_offset(
     env_ids = normalise_env_ids(env, env_ids)
     if env_ids.numel() == 0:
         return
-    link_indices = resolve_link_indices(env, link_names)
+    link_indices = resolve_link_indices(env, asset_cfg)
     n_envs = int(env_ids.numel())
     n_links = len(link_indices)
     com_shift = torch.zeros(n_envs, n_links, 3, device=env.device)
@@ -51,7 +52,7 @@ def body_com_offset(
 def body_mass_offset(
     env: "ManagerBasedRlEnv",
     env_ids: torch.Tensor | None,
-    link_names: tuple[str, ...] | None = None,
+    asset_cfg: SceneEntityCfg,
     ranges: tuple[float, float] = (-0.5, 0.5),
 ) -> None:
     """Per-env, per-link additive offset on link mass (kg).
@@ -64,7 +65,7 @@ def body_mass_offset(
     env_ids = normalise_env_ids(env, env_ids)
     if env_ids.numel() == 0:
         return
-    link_indices = resolve_link_indices(env, link_names)
+    link_indices = resolve_link_indices(env, asset_cfg)
     n_envs = int(env_ids.numel())
     n_links = len(link_indices)
     mass_shift = torch.empty(n_envs, n_links, device=env.device).uniform_(*ranges)

@@ -4,15 +4,30 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.managers.scene_entity_cfg import SceneEntityCfg
+
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
 
-def resolve_link_indices(env: "ManagerBasedRlEnv", link_names: tuple[str, ...] | None) -> list[int]:
-    """Resolve a tuple of link names to integer indices; ``None`` = every link."""
-    if link_names is None:
+def resolve_link_indices(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg) -> list[int]:
+    """Pull link indices from a resolved ``SceneEntityCfg``; fall back to every link.
+
+    ``asset_cfg.link_names=None`` is the "no selection" state — for DR functions
+    that's the natural "act on every link" semantic (mjlab matches this). The
+    manager-level resolve pass runs before this is called, so a present
+    ``link_names`` always has matching ``link_ids``.
+    """
+    if asset_cfg.link_ids is None:
         return list(range(len(env.link_names)))
-    return [env.link_names.index(n) for n in link_names]
+    return list(asset_cfg.link_ids)
+
+
+def resolve_joint_indices(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg) -> list[int]:
+    """Pull joint indices from a resolved ``SceneEntityCfg``; fall back to every joint."""
+    if asset_cfg.joint_ids is None:
+        return list(range(len(env.joint_names)))
+    return list(asset_cfg.joint_ids)
 
 
 def normalise_env_ids(env: "ManagerBasedRlEnv", env_ids: torch.Tensor | None) -> torch.Tensor:

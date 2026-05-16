@@ -4,6 +4,9 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.managers.scene_entity_cfg import SceneEntityCfg
+from genelab.mdp.dr._common import resolve_joint_indices
+
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
@@ -11,7 +14,7 @@ if TYPE_CHECKING:
 def encoder_bias(
     env: "ManagerBasedRlEnv",
     env_ids: torch.Tensor | None,
-    joint_names: tuple[str, ...] | None = None,
+    asset_cfg: SceneEntityCfg,
     bias_range: tuple[float, float] = (-0.015, 0.015),
 ) -> None:
     """Sample a per-env, per-joint encoder bias and write it into ``robot_state``.
@@ -36,21 +39,17 @@ def encoder_bias(
         return
 
     n_envs = int(env_ids.numel())
-    if joint_names is None:
-        joint_ids = torch.arange(len(env.joint_names), device=env.device)
-    else:
-        joint_ids = torch.tensor(
-            [env.joint_names.index(n) for n in joint_names],
-            dtype=torch.long,
-            device=env.device,
-        )
-    n_joints = int(joint_ids.numel())
+    joint_indices = resolve_joint_indices(env, asset_cfg)
+    joint_ids_tensor = torch.tensor(joint_indices, dtype=torch.long, device=env.device)
+    n_joints = int(joint_ids_tensor.numel())
 
     samples = torch.empty(n_envs, n_joints, device=env.device).uniform_(*bias_range)
-    if joint_names is None:
+    if asset_cfg.joint_ids is None:
+        # Optimisation: hitting every joint, so a flat row-slice avoids the 2-d
+        # advanced indexing overhead. Behavior is identical to the else branch.
         env.robot_state.encoder_bias[env_ids] = samples
     else:
         # 2-d advanced indexing: outer product of env rows × joint columns. The
         # ``env_ids[:, None]`` / ``joint_ids[None, :]`` broadcast produces the
         # correct ``(n_envs, n_joints)`` write target.
-        env.robot_state.encoder_bias[env_ids[:, None], joint_ids[None, :]] = samples
+        env.robot_state.encoder_bias[env_ids[:, None], joint_ids_tensor[None, :]] = samples

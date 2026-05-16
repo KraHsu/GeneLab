@@ -13,8 +13,21 @@ from dataclasses import dataclass, field
 
 import torch
 
+from genelab.managers.scene_entity_cfg import SceneEntityCfg
 from genelab.mdp import dr
 from genelab.mdp.observations import joint_pos_rel
+
+
+def _link_cfg(env, *names: str) -> SceneEntityCfg:
+    cfg = SceneEntityCfg(name="robot", link_names=names or None)
+    cfg.resolve(env)
+    return cfg
+
+
+def _joint_cfg(env, *names: str) -> SceneEntityCfg:
+    cfg = SceneEntityCfg(name="robot", joint_names=names or None)
+    cfg.resolve(env)
+    return cfg
 
 
 # --------------------------------------------------------------------- fakes
@@ -82,7 +95,7 @@ def test_geom_friction_shared_random_gives_one_value_per_env() -> None:
     dr.geom_friction(
         env,
         env_ids=None,
-        link_names=("left_foot", "right_foot"),
+        asset_cfg=_link_cfg(env, "left_foot", "right_foot"),
         ranges=(0.5, 1.5),
         shared_random=True,
     )
@@ -102,7 +115,7 @@ def test_geom_friction_independent_random_decorrelates_links() -> None:
     dr.geom_friction(
         env,
         env_ids=None,
-        link_names=("left_foot", "right_foot"),
+        asset_cfg=_link_cfg(env, "left_foot", "right_foot"),
         ranges=(0.5, 1.5),
         shared_random=False,
     )
@@ -116,16 +129,17 @@ def test_geom_friction_independent_random_decorrelates_links() -> None:
 def test_geom_friction_respects_env_ids_subset() -> None:
     env = _FakeEnv(num_envs=8, link_names=["base", "foot"])
     subset = torch.tensor([2, 5, 7])
-    dr.geom_friction(env, env_ids=subset, link_names=("foot",))
+    dr.geom_friction(env, env_ids=subset, asset_cfg=_link_cfg(env, "foot"))
     call = env.robot.friction
     assert call is not None
     assert call.tensor.shape == (3, 1)
     assert torch.equal(call.envs_idx, subset)
 
 
-def test_geom_friction_link_names_none_covers_every_link() -> None:
+def test_geom_friction_asset_cfg_unset_covers_every_link() -> None:
+    """``SceneEntityCfg`` with no ``link_names`` falls back to every link in env."""
     env = _FakeEnv(num_envs=1, link_names=["a", "b", "c"])
-    dr.geom_friction(env, env_ids=None, link_names=None)
+    dr.geom_friction(env, env_ids=None, asset_cfg=SceneEntityCfg(name="robot"))
     call = env.robot.friction
     assert call is not None
     assert call.links_idx_local == [0, 1, 2]
@@ -141,7 +155,7 @@ def test_body_com_offset_only_fills_axes_listed_in_ranges() -> None:
     dr.body_com_offset(
         env,
         env_ids=None,
-        link_names=("pelvis",),
+        asset_cfg=_link_cfg(env, "pelvis"),
         ranges={0: (-0.02, 0.02), 2: (-0.03, 0.03)},  # x and z only
     )
     call = env.robot.com_shift
@@ -155,7 +169,7 @@ def test_body_com_offset_only_fills_axes_listed_in_ranges() -> None:
 def test_body_com_offset_zero_when_ranges_missing() -> None:
     """Calling with empty ranges should still record a shape-correct zero tensor."""
     env = _FakeEnv(num_envs=2, link_names=["a"])
-    dr.body_com_offset(env, env_ids=None, link_names=("a",), ranges=None)
+    dr.body_com_offset(env, env_ids=None, asset_cfg=_link_cfg(env, "a"), ranges=None)
     call = env.robot.com_shift
     assert call is not None
     assert call.tensor.shape == (2, 1, 3)
@@ -168,7 +182,9 @@ def test_body_com_offset_zero_when_ranges_missing() -> None:
 def test_body_mass_offset_samples_within_range() -> None:
     torch.manual_seed(3)
     env = _FakeEnv(num_envs=256, link_names=["base", "torso"])
-    dr.body_mass_offset(env, env_ids=None, ranges=(-0.5, 0.5))
+    dr.body_mass_offset(
+        env, env_ids=None, asset_cfg=SceneEntityCfg(name="robot"), ranges=(-0.5, 0.5)
+    )
     call = env.robot.mass_shift
     assert call is not None
     assert call.tensor.shape == (256, 2)
@@ -182,7 +198,12 @@ def test_body_mass_offset_samples_within_range() -> None:
 def test_encoder_bias_writes_uniform_samples_into_robot_state() -> None:
     torch.manual_seed(4)
     env = _FakeEnv(num_envs=32, joint_names=["hip", "knee", "ankle"])
-    dr.encoder_bias(env, env_ids=None, bias_range=(-0.01, 0.01))
+    dr.encoder_bias(
+        env,
+        env_ids=None,
+        asset_cfg=SceneEntityCfg(name="robot"),
+        bias_range=(-0.01, 0.01),
+    )
     assert env.robot_state is not None
     bias = env.robot_state.encoder_bias
     assert bias.shape == (32, 3)
@@ -195,7 +216,12 @@ def test_encoder_bias_respects_env_ids_subset() -> None:
     env = _FakeEnv(num_envs=4, joint_names=["hip", "knee"])
     assert env.robot_state is not None
     env.robot_state.encoder_bias.fill_(0.0)
-    dr.encoder_bias(env, env_ids=torch.tensor([1, 3]), bias_range=(0.01, 0.01))
+    dr.encoder_bias(
+        env,
+        env_ids=torch.tensor([1, 3]),
+        asset_cfg=SceneEntityCfg(name="robot"),
+        bias_range=(0.01, 0.01),
+    )
     bias = env.robot_state.encoder_bias
     # Touched envs got the constant 0.01; untouched stay at 0.
     assert torch.allclose(bias[1], torch.tensor([0.01, 0.01]), atol=1e-6)
@@ -208,7 +234,12 @@ def test_encoder_bias_filters_to_named_joints_only() -> None:
     env = _FakeEnv(num_envs=2, joint_names=["hip", "knee", "ankle"])
     assert env.robot_state is not None
     env.robot_state.encoder_bias.fill_(0.0)
-    dr.encoder_bias(env, env_ids=None, joint_names=("knee",), bias_range=(0.02, 0.02))
+    dr.encoder_bias(
+        env,
+        env_ids=None,
+        asset_cfg=_joint_cfg(env, "knee"),
+        bias_range=(0.02, 0.02),
+    )
     bias = env.robot_state.encoder_bias
     # Only the knee column is filled; hip and ankle stay zero.
     assert torch.all(bias[:, 0] == 0.0)
