@@ -89,7 +89,9 @@ def _make_env(
         # Apply to every link tagged "*foot*" — keep test setup terse.
         for i, n in enumerate(link_names):
             if "foot" in n:
-                link_pos[:, i, 2] = float(foot_z[0] if i == link_names.index("left_foot") else foot_z[1])
+                link_pos[:, i, 2] = float(
+                    foot_z[0] if i == link_names.index("left_foot") else foot_z[1]
+                )
     if foot_vel_xy is not None:
         for i, n in enumerate(link_names):
             if "foot" in n:
@@ -185,9 +187,7 @@ def test_feet_slip_penalises_grounded_xy_speed_squared() -> None:
     # Push large contact forces so both feet register grounded.
     assert env.robot is not None
     env.robot.set_contact_force(
-        torch.tensor(
-            [[[0, 0, 0], [0, 0, 100.0], [0, 0, 100.0]]] * env.num_envs, dtype=torch.float
-        )
+        torch.tensor([[[0, 0, 0], [0, 0, 100.0], [0, 0, 100.0]]] * env.num_envs, dtype=torch.float)
     )
     contact = ContactSensorCfg(
         name="feet", link_names=("left_foot", "right_foot"), track_air_time=False
@@ -228,13 +228,13 @@ def test_soft_landing_fires_only_on_first_contact_step() -> None:
 
     # Landing tick: force jumps, first_contact fires, cost = Σ|F|.
     env.robot.set_contact_force(
-        torch.tensor(
-            [[[0, 0, 0], [0, 0, 50.0], [0, 0, 30.0]]] * env.num_envs, dtype=torch.float
-        )
+        torch.tensor([[[0, 0, 0], [0, 0, 50.0], [0, 0, 30.0]]] * env.num_envs, dtype=torch.float)
     )
     contact._invalidate_cache()
     contact.update(0.02)
-    out_landing = soft_landing(env, sensor_name="feet", command_name="twist", command_threshold=0.05)
+    out_landing = soft_landing(
+        env, sensor_name="feet", command_name="twist", command_threshold=0.05
+    )
     assert torch.allclose(out_landing, torch.full((env.num_envs,), 80.0), atol=1e-5)
 
     # Continued contact: edge no longer fires.
@@ -280,9 +280,7 @@ def test_feet_swing_height_charges_at_touchdown_proportional_to_apex_error() -> 
 
     # Step 1: contact (both feet grounded at z=0); no cost.
     env.robot.set_contact_force(
-        torch.tensor(
-            [[[0, 0, 0], [0, 0, 100.0], [0, 0, 100.0]]] * env.num_envs, dtype=torch.float
-        )
+        torch.tensor([[[0, 0, 0], [0, 0, 100.0], [0, 0, 100.0]]] * env.num_envs, dtype=torch.float)
     )
     contact.update(0.02)
     out = reward(env, **cfg.params)
@@ -308,9 +306,7 @@ def test_feet_swing_height_charges_at_touchdown_proportional_to_apex_error() -> 
     env.robot_state.link_pos[:, 1, 2] = 0.0
     env.robot_state.link_pos[:, 2, 2] = 0.0
     env.robot.set_contact_force(
-        torch.tensor(
-            [[[0, 0, 0], [0, 0, 100.0], [0, 0, 100.0]]] * env.num_envs, dtype=torch.float
-        )
+        torch.tensor([[[0, 0, 0], [0, 0, 100.0], [0, 0, 100.0]]] * env.num_envs, dtype=torch.float)
     )
     contact._invalidate_cache()
     contact.update(0.02)
@@ -333,9 +329,7 @@ def test_feet_swing_height_silent_when_command_is_standing() -> None:
     env.robot.set_contact_force(torch.zeros(env.num_envs, 3, 3))
     contact.update(0.02)
     env.robot.set_contact_force(
-        torch.tensor(
-            [[[0, 0, 0], [0, 0, 100.0], [0, 0, 100.0]]] * env.num_envs, dtype=torch.float
-        )
+        torch.tensor([[[0, 0, 0], [0, 0, 100.0], [0, 0, 100.0]]] * env.num_envs, dtype=torch.float)
     )
     contact._invalidate_cache()
     contact.update(0.02)

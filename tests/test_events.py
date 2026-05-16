@@ -54,9 +54,7 @@ def test_reset_joints_by_offset_samples_within_position_range() -> None:
     env = _make_env(n_joints=8)
     env_ids = torch.arange(64)  # large N stabilises range checks
     lo, hi = -0.3, 0.5
-    reset_joints_by_offset(
-        env, env_ids, position_range=(lo, hi), velocity_range=(0.0, 0.0)
-    )
+    reset_joints_by_offset(env, env_ids, position_range=(lo, hi), velocity_range=(0.0, 0.0))
     assert env.articulation.last_pos is not None
     offsets = env.articulation.last_pos - env.default_joint_pos.unsqueeze(0)
     assert torch.all(offsets >= lo)
@@ -69,9 +67,7 @@ def test_reset_joints_by_offset_velocity_range_applies_independently() -> None:
     torch.manual_seed(0)
     env = _make_env(n_joints=6)
     env_ids = torch.arange(32)
-    reset_joints_by_offset(
-        env, env_ids, position_range=(0.0, 0.0), velocity_range=(-1.0, 1.0)
-    )
+    reset_joints_by_offset(env, env_ids, position_range=(0.0, 0.0), velocity_range=(-1.0, 1.0))
     assert env.articulation.last_vel is not None
     vel = env.articulation.last_vel
     assert torch.all(vel >= -1.0) and torch.all(vel <= 1.0)
