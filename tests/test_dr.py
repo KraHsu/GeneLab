@@ -4,9 +4,10 @@ Uses fake robots that record Genesis-setter calls so we can verify the DR
 functions translate cfg ranges and link/joint filters into the right tensor
 shapes, link indices, and env-id passthroughs without needing a Genesis runtime.
 
-End-to-end encoder-bias coverage builds a fake env that exercises both halves
-of the loop (``mdp.joint_pos_rel`` adds the bias, ``JointPositionAction``
-subtracts it).
+End-to-end encoder-bias coverage builds a fake env: ``JointPositionAction``
+subtracts the bias from its target so the physical joint sits ``bias`` away
+from the commanded reference, while ``mdp.joint_pos_rel`` returns the raw
+``joint_pos − default`` (no bias) so the policy actually sees the perturbation.
 """
 
 from dataclasses import dataclass, field
@@ -145,6 +146,48 @@ def test_geom_friction_asset_cfg_unset_covers_every_link() -> None:
     assert call.links_idx_local == [0, 1, 2]
 
 
+def test_geom_friction_converts_absolute_to_ratio_via_nominal() -> None:
+    """mjlab parity: the sampled value is the absolute friction, not a ratio.
+
+    Genesis only exposes a batched ``set_friction_ratio`` setter, so we divide
+    by each link's nominal friction (read from ``robot.links[i].geoms[0]._friction``)
+    before passing the value through.
+    """
+    from dataclasses import dataclass
+
+    @dataclass
+    class _FakeGeom:
+        _friction: float
+
+    @dataclass
+    class _FakeLink:
+        geoms: list[_FakeGeom]
+
+    class _RobotWithNominal(_RecordingRobot):
+        # Two link slots: link 0 has nominal=0.6 (G1 foot default), link 1 has 1.0.
+        links = [
+            _FakeLink(geoms=[_FakeGeom(_friction=0.6)]),
+            _FakeLink(geoms=[_FakeGeom(_friction=1.0)]),
+        ]
+
+    env = _FakeEnv(num_envs=1, link_names=["foot", "other"])
+    env.robot = _RobotWithNominal()
+    torch.manual_seed(7)
+    # Constant range so the sampled absolute friction is exactly 0.9.
+    dr.geom_friction(
+        env,
+        env_ids=None,
+        asset_cfg=_link_cfg(env, "foot", "other"),
+        ranges=(0.9, 0.9),
+        shared_random=True,
+    )
+    call = env.robot.friction
+    assert call is not None
+    # ratio[link0] = 0.9 / 0.6 = 1.5; ratio[link1] = 0.9 / 1.0 = 0.9.
+    assert torch.allclose(call.tensor[0, 0], torch.tensor(1.5), atol=1e-6)
+    assert torch.allclose(call.tensor[0, 1], torch.tensor(0.9), atol=1e-6)
+
+
 # --------------------------------------------------------------------- body_com_offset
 
 
@@ -247,25 +290,30 @@ def test_encoder_bias_filters_to_named_joints_only() -> None:
     assert torch.all(bias[:, 2] == 0.0)
 
 
-def test_encoder_bias_shows_up_in_joint_pos_rel_obs() -> None:
-    """End-to-end: write a non-zero bias, the obs picks it up."""
+def test_joint_pos_rel_does_not_add_encoder_bias() -> None:
+    """mjlab parity: ``joint_pos_rel`` returns the raw physical offset.
+
+    Pre-parity behaviour added ``encoder_bias`` to the obs, which cancelled the
+    matching action-side subtraction and silently neutralised the encoder-bias
+    DR signal. With the fix the policy must learn to compensate.
+    """
     env = _FakeEnv(num_envs=2, joint_names=["hip", "knee"])
     assert env.robot_state is not None
     env.robot_state.joint_pos = torch.tensor([[0.1, -0.2], [0.0, 0.3]])
     env.default_joint_pos = torch.tensor([0.0, 0.0])
     env.robot_state.encoder_bias = torch.tensor([[0.01, -0.02], [0.03, 0.04]])
     obs = joint_pos_rel(env)
-    expected = torch.tensor([[0.1 + 0.01, -0.2 - 0.02], [0.0 + 0.03, 0.3 + 0.04]])
+    expected = torch.tensor([[0.1, -0.2], [0.0, 0.3]])
     assert torch.allclose(obs, expected, atol=1e-6)
 
 
 def test_encoder_bias_subtracts_in_joint_position_action_target() -> None:
     """End-to-end: ``JointPositionAction.process_actions`` subtracts the bias.
 
-    With the action-target bias offset cancelling the obs-side bias, the policy
-    sees a self-consistent loop but the physical joint sits ``bias`` away from
-    where the policy thinks it commanded — that's exactly the sim2real
-    perturbation the encoder-bias DR models.
+    The physical joint sits ``-bias`` away from the policy's nominal command;
+    ``joint_pos_rel`` surfaces that offset directly so the policy must learn
+    to compensate — that's exactly the sim2real perturbation the encoder-bias
+    DR models.
     """
     from genelab.mdp.actions.joint_position import (
         JointPositionAction,

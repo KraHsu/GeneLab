@@ -10,6 +10,11 @@ mjlab parity for ``SceneEntityCfg``, slimmed to GeneLab's surface:
 
 * ``link_names`` / ``link_ids`` (mjlab: ``body_names`` — same concept, just the
   Genesis-side name).
+* ``link_offsets`` — optional per-link local-frame offsets ``(x, y, z)``. Lets
+  consumers point at a named *site* on the link (e.g. ``left_foot`` at
+  ``(0.04, 0, -0.037)`` from the ankle_roll_link origin) without Genesis having
+  to expose MuJoCo-style sites. ``resolve`` materialises a stacked tensor
+  ``link_offsets_tensor: (num_selected_links, 3)`` for hot-path use.
 * ``joint_names`` / ``joint_ids``.
 * No ``geom_names`` / ``site_names`` / ``actuator_names`` etc. — Genesis doesn't
   surface those as separate selectable collections in GeneLab today. Add fields
@@ -20,8 +25,10 @@ a no-op. Each manager deep-copies its cfg at construction, so the same
 ``SceneEntityCfg`` instance never gets resolved against two different envs.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+
+import torch
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
@@ -39,7 +46,11 @@ class SceneEntityCfg:
             params={
                 "sensor_name": "feet_ground_contact",
                 "asset_cfg": SceneEntityCfg(
-                    "robot", link_names=("left_ankle_roll_link", "right_ankle_roll_link")
+                    "robot",
+                    link_names=("left_ankle_roll_link", "right_ankle_roll_link"),
+                    # mjlab parity: foot rewards evaluate at the ``left_foot``/``right_foot``
+                    # sites, which sit (0.04, 0, -0.037) from the ankle_roll_link origin.
+                    link_offsets=((0.04, 0.0, -0.037), (0.04, 0.0, -0.037)),
                 ),
                 "command_name": "twist",
             },
@@ -59,6 +70,24 @@ class SceneEntityCfg:
 
     link_ids: tuple[int, ...] | None = None
     """Populated by :meth:`resolve` from ``link_names``. Don't set manually."""
+
+    link_offsets: tuple[tuple[float, float, float], ...] | None = None
+    """Optional per-link local-frame offsets (mjlab-style site positions).
+
+    When set, must have the same length as ``link_names``. Each entry is the
+    site position in the corresponding link's body frame. Foot rewards
+    (``feet_clearance`` / ``feet_swing_height`` / ``feet_slip``) read this to
+    evaluate at the foot's contact site rather than the link origin. ``None``
+    is equivalent to all-zero offsets and keeps pre-parity callers unchanged.
+    """
+
+    link_offsets_tensor: torch.Tensor | None = field(default=None, repr=False)
+    """Stacked ``(num_selected_links, 3)`` tensor materialised by :meth:`resolve`.
+
+    Lives on the env's device and dtype. Consumers should prefer this over
+    rebuilding a tensor from ``link_offsets`` each call. ``None`` when
+    ``link_offsets`` is ``None``. Don't set manually.
+    """
 
     joint_names: tuple[str, ...] | None = None
     """Names of the joints this term acts on. ``None`` means "no joint selection"."""
@@ -81,6 +110,16 @@ class SceneEntityCfg:
                     f"env.link_names={env.link_names!r}"
                 )
             self.link_ids = tuple(env.link_names.index(n) for n in self.link_names)
+        if self.link_offsets is not None and self.link_offsets_tensor is None:
+            if self.link_names is None or len(self.link_offsets) != len(self.link_names):
+                raise ValueError(
+                    f"SceneEntityCfg(name={self.name!r}): link_offsets length "
+                    f"({len(self.link_offsets)}) must match link_names length "
+                    f"({len(self.link_names) if self.link_names is not None else 0})"
+                )
+            self.link_offsets_tensor = torch.tensor(
+                self.link_offsets, dtype=torch.float32, device=env.device
+            )
         if self.joint_names is not None and self.joint_ids is None:
             missing = [n for n in self.joint_names if n not in env.joint_names]
             if missing:

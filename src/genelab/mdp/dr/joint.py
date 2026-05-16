@@ -20,18 +20,16 @@ def encoder_bias(
     """Sample a per-env, per-joint encoder bias and write it into ``robot_state``.
 
     Models the small constant offset between the policy's perceived joint angle
-    (the encoder reading) and the physical reality. Once populated, the bias is
-    read on both sides of the loop:
+    (the encoder reading) and the physical reality.
+    :class:`~genelab.mdp.actions.joint_position.JointPositionAction` subtracts
+    the bias from its PD target, so the joint settles at ``-bias`` relative to
+    the policy's nominal command. The observation
+    (:func:`genelab.mdp.observations.joint_pos_rel`) returns the raw
+    ``joint_pos − default`` and therefore exposes that offset directly — the
+    policy must learn to compensate, which is the sim2real-hardening behaviour
+    mjlab gets from the same DR.
 
-    * :func:`genelab.mdp.observations.joint_pos_rel` adds it to the observation
-      so the policy sees a biased angle.
-    * :class:`~genelab.mdp.actions.joint_position.JointPositionAction` subtracts
-      it from the PD target so the joint settles ``bias`` away from where the
-      policy thinks it commanded.
-
-    Net effect: the policy's reference frame is silently shifted per joint per
-    env; mjlab uses this with ``(-0.015, 0.015)`` rad (≈0.86°) to harden the G1
-    policy against zero-point miscalibration.
+    mjlab uses ``(-0.015, 0.015)`` rad (≈0.86°) for the G1 velocity task.
     """
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)

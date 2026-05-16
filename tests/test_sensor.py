@@ -1177,13 +1177,13 @@ def test_self_contact_sensor_zero_when_no_genesis_runtime() -> None:
     assert data.force_history is None
 
 
-def test_self_contact_sensor_sums_pair_force_magnitudes_per_env() -> None:
-    """Two valid pairs per env, both with force vector (3,4,0) ⇒ |F|=5 ea ⇒ sum=10."""
+def test_self_contact_sensor_reports_max_pair_force_per_env() -> None:
+    """mjlab parity: per-env signal is the *max* pair magnitude, not the sum."""
     contacts = {
         "force_a": torch.tensor(
             [
-                [[3.0, 4.0, 0.0], [3.0, 4.0, 0.0]],  # env 0: both valid
-                [[3.0, 4.0, 0.0], [0.0, 0.0, 0.0]],  # env 1: only first valid
+                [[3.0, 4.0, 0.0], [6.0, 8.0, 0.0]],  # env 0: |F|=5, |F|=10 → max=10
+                [[3.0, 4.0, 0.0], [9.0, 0.0, 0.0]],  # env 1: max=5 (second masked)
             ]
         ),
         "valid_mask": torch.tensor([[True, True], [True, False]]),
@@ -1196,29 +1196,37 @@ def test_self_contact_sensor_sums_pair_force_magnitudes_per_env() -> None:
     assert torch.allclose(data.force, torch.tensor([10.0, 5.0]), atol=1e-6)
 
 
-def test_self_contact_sensor_found_bit_uses_force_threshold() -> None:
+def test_self_contact_sensor_found_bit_is_any_pair_above_threshold() -> None:
+    """mjlab parity: ``found`` is True iff at least one *single* pair exceeded thr.
+
+    The pre-parity behaviour thresholded the *sum* of all pair forces; with that
+    rule two 0.6-magnitude pairs would falsely flag a 1.0-threshold sensor (sum=1.2).
+    The any-pair rule keeps each pair independent: each must clear the bar alone.
+    """
     contacts = {
-        "force_a": torch.tensor([[[0.0, 0.0, 0.5]]]),  # |F|=0.5
-        "valid_mask": torch.tensor([[True]]),
+        # Two pairs of magnitude 0.6 each — sum=1.2 but max=0.6.
+        "force_a": torch.tensor([[[0.6, 0.0, 0.0], [0.6, 0.0, 0.0]]]),
+        "valid_mask": torch.tensor([[True, True]]),
     }
     env = _FakeSelfContactEnv(num_envs=1, contacts=contacts)
     sensor = SelfContactSensorCfg(name="self", force_threshold=1.0).build()
     sensor.bind(env)
     sensor.update(0.02)
-    assert sensor.data.found.item() is False
-    sensor = SelfContactSensorCfg(name="self2", force_threshold=0.1).build()
+    assert sensor.data.found.item() is False  # would be True under the sum rule
+    # Lowering the threshold catches the per-pair 0.6.
+    sensor = SelfContactSensorCfg(name="self2", force_threshold=0.5).build()
     sensor.bind(env)
     sensor.update(0.02)
     assert sensor.data.found.item() is True
 
 
-def test_self_contact_sensor_history_buffer_fills_and_resets() -> None:
+def test_self_contact_sensor_history_buffer_stores_any_above_bools() -> None:
     contacts = {
-        "force_a": torch.tensor([[[1.0, 0.0, 0.0]]]),
+        "force_a": torch.tensor([[[2.0, 0.0, 0.0]]]),
         "valid_mask": torch.tensor([[True]]),
     }
     env = _FakeSelfContactEnv(num_envs=2, contacts=contacts)
-    sensor = SelfContactSensorCfg(name="self", history_length=3).build()
+    sensor = SelfContactSensorCfg(name="self", force_threshold=1.0, history_length=3).build()
     sensor.bind(env)
     for _ in range(3):
         sensor._invalidate_cache()
@@ -1226,11 +1234,12 @@ def test_self_contact_sensor_history_buffer_fills_and_resets() -> None:
     fh = sensor.data.force_history
     assert fh is not None
     assert fh.shape == (2, 3)
-    assert torch.allclose(fh, torch.ones(2, 3), atol=1e-6)
+    assert fh.dtype == torch.bool
+    assert torch.all(fh)  # all three substeps tripped the threshold
     # Reset env 0 — its history should clear; env 1 stays untouched.
     sensor.reset(torch.tensor([0]))
-    assert torch.all(sensor._force_history[0] == 0.0)  # type: ignore[index]
-    assert torch.all(sensor._force_history[1] == 1.0)  # type: ignore[index]
+    assert not sensor._force_history[0].any().item()  # type: ignore[index]
+    assert sensor._force_history[1].all().item()  # type: ignore[index]
 
 
 # --------------------------------------------------------------------- RootAngularMomentumSensor
