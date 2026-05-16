@@ -435,9 +435,7 @@ def test_contact_sensor_first_contact_clears_on_reset() -> None:
     sensor._invalidate_cache()
     # next update will overwrite both anyway, but pre-update state must reflect reset.
     assert sensor._air_state is not None
-    assert torch.equal(
-        sensor._air_state.first_contact, torch.tensor([[False], [True]])
-    )
+    assert torch.equal(sensor._air_state.first_contact, torch.tensor([[False], [True]]))
 
 
 # --------------------------------------------------------------------- RayCast / TerrainHeight

@@ -18,9 +18,7 @@ def _resolve_link_indices(env: "ManagerBasedRlEnv", names: tuple[str, ...]) -> l
     """Resolve a tuple of link names to indices in ``env.link_names``."""
     missing = [n for n in names if n not in env.link_names]
     if missing:
-        raise ValueError(
-            f"link(s) {missing!r} not found in env.link_names (have {env.link_names})"
-        )
+        raise ValueError(f"link(s) {missing!r} not found in env.link_names (have {env.link_names})")
     return [env.link_names.index(n) for n in names]
 
 
@@ -33,9 +31,7 @@ def _contact_sensor(env: "ManagerBasedRlEnv", sensor_name: str) -> ContactSensor
     return sensor
 
 
-def _command_active(
-    env: "ManagerBasedRlEnv", command_name: str, threshold: float
-) -> torch.Tensor:
+def _command_active(env: "ManagerBasedRlEnv", command_name: str, threshold: float) -> torch.Tensor:
     """Returns ``(B,)`` float mask: 1 where ``||cmd[:3]||_2 > threshold``, else 0."""
     cmd = env.command_manager.get_command(command_name)
     mag = torch.norm(cmd[:, :3], dim=-1)
@@ -175,9 +171,7 @@ def joint_pos_limits(env: "ManagerBasedRlEnv") -> torch.Tensor:
 # policy is asked to stand still — otherwise the standing envs would pile up free penalty.
 
 
-def body_angular_velocity_penalty(
-    env: "ManagerBasedRlEnv", link_name: str
-) -> torch.Tensor:
+def body_angular_velocity_penalty(env: "ManagerBasedRlEnv", link_name: str) -> torch.Tensor:
     """``Σ ω_xy²`` for a named body link in world frame.
 
     mjlab: ``tasks/velocity/mdp/rewards.py::body_angular_velocity_penalty``. Typical G1 use
@@ -284,9 +278,7 @@ class feet_swing_height:
         foot_link_names = tuple(params["foot_link_names"])
         indices = _resolve_link_indices(env, foot_link_names)
         self._foot_indices = torch.tensor(indices, dtype=torch.long, device=env.device)
-        self._peak_heights = torch.zeros(
-            env.num_envs, len(indices), device=env.device
-        )
+        self._peak_heights = torch.zeros(env.num_envs, len(indices), device=env.device)
 
     def __call__(
         self,
@@ -302,9 +294,7 @@ class feet_swing_height:
         foot_z = env.robot_state.link_pos[:, self._foot_indices, 2]
 
         # On lift-off, snap the peak to the current height so the new swing measures fresh.
-        self._peak_heights = torch.where(
-            data.first_detached, foot_z, self._peak_heights
-        )
+        self._peak_heights = torch.where(data.first_detached, foot_z, self._peak_heights)
         # While airborne, accumulate the peak.
         in_air = ~data.found
         self._peak_heights = torch.where(
