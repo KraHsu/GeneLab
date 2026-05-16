@@ -94,6 +94,9 @@ class Articulation:
         self._num_links: int = 0
         self._actuated_dof_idx: torch.Tensor = torch.empty(0, dtype=torch.long)
         self._default_joint_pos: torch.Tensor = torch.empty(0)
+        # ``(num_actuated_joints, 2)`` lower/upper joint-position limits sliced from
+        # Genesis's per-DoF limits. Used by ``mdp.joint_pos_limits``. Populated in bind.
+        self._joint_pos_limits: torch.Tensor = torch.empty(0, 2)
         self._action_scale_tensor: torch.Tensor = torch.empty(0)
         self._actuators: dict[str, ActuatorBase] = {}
         self._joint_pos_target: torch.Tensor = torch.empty(0)
@@ -123,6 +126,34 @@ class Articulation:
         self._default_joint_pos = self.build_per_joint_tensor(
             self.cfg.default_joint_pos, default=0.0
         )
+        # Cache per-actuated-joint position limits as ``(num_joints, 2)`` (lower, upper).
+        # Genesis returns one (lo, hi) per entity DoF including the 6 floating-base DoFs;
+        # index by ``_actuated_dof_idx`` to keep only the joints the policy controls.
+        # Base DoFs typically have ±inf limits, so omitting them keeps the reward finite.
+        get_dofs_limit = getattr(self._gs_handle, "get_dofs_limit", None)
+        if get_dofs_limit is not None and self._actuated_dof_idx.numel() > 0:
+            try:
+                lower, upper = get_dofs_limit()
+                lower = lower.to(device)
+                upper = upper.to(device)
+                # Some Genesis versions return per-env (n_envs, n_dofs); collapse if so.
+                if lower.dim() == 2:
+                    lower = lower[0]
+                if upper.dim() == 2:
+                    upper = upper[0]
+                idx = self._actuated_dof_idx.to(device)
+                self._joint_pos_limits = torch.stack(
+                    [lower.index_select(0, idx), upper.index_select(0, idx)], dim=-1
+                )
+            except Exception:
+                # Fallback (e.g. fake env in tests): wide-open limits so the reward
+                # function still works without raising.
+                self._joint_pos_limits = torch.tensor(
+                    [[-float("inf"), float("inf")]] * self._actuated_dof_idx.numel(),
+                    device=device,
+                )
+        else:
+            self._joint_pos_limits = torch.empty(self._actuated_dof_idx.numel(), 2, device=device)
         self._joint_pos_target = (
             self._default_joint_pos.unsqueeze(0).expand(num_envs, -1).contiguous()
         )
@@ -447,6 +478,17 @@ class Articulation:
     @property
     def default_joint_pos(self) -> torch.Tensor:
         return self._default_joint_pos
+
+    @property
+    def joint_pos_limits(self) -> torch.Tensor:
+        """Per-actuated-joint ``(lower, upper)`` position limits, shape ``(num_joints, 2)``.
+
+        Read from Genesis at bind time via ``get_dofs_limit()`` and sliced to the
+        actuated DoFs. Used by :func:`genelab.mdp.joint_pos_limits` to compute the
+        per-joint excursion penalty against the real model limits rather than a
+        flat ±π fallback.
+        """
+        return self._joint_pos_limits
 
     @property
     def actuators(self) -> dict[str, ActuatorBase]:
