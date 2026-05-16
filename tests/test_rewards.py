@@ -31,9 +31,20 @@ from genelab.sensor import ContactSensorCfg
 from genelab.sensor.self_contact import SelfContactData, SelfContactSensor, SelfContactSensorCfg
 
 
-def _foot_cfg(env, names=("left_foot", "right_foot")) -> SceneEntityCfg:
-    """Helper: build a resolved asset_cfg pointing at the named foot links."""
-    cfg = SceneEntityCfg(name="robot", link_names=names)
+def _foot_cfg(
+    env,
+    names=("left_foot", "right_foot"),
+    offsets: tuple[tuple[float, float, float], ...] | None = None,
+) -> SceneEntityCfg:
+    """Helper: build a resolved asset_cfg pointing at the named foot links.
+
+    When ``offsets`` is provided, the cfg carries per-link site offsets — the
+    foot rewards then evaluate at ``link_pos + R · offset`` for position and
+    ``v_link + ω × (R · offset)`` for velocity, matching mjlab's site-frame
+    reward signal (G1 ``left_foot``/``right_foot`` sites sit
+    ``(0.04, 0, -0.037)`` below the ankle_roll_link origins).
+    """
+    cfg = SceneEntityCfg(name="robot", link_names=names, link_offsets=offsets)
     cfg.resolve(env)
     return cfg
 
@@ -277,6 +288,78 @@ def test_feet_clearance_penalty_uses_link_z_when_no_sensor() -> None:
     )
     # Σ_foot |h - target| * |v_xy| = 2 feet * 0.2 * 2.0 = 0.8
     assert torch.allclose(out, torch.full((env.num_envs,), 0.8), atol=1e-6)
+
+
+def test_feet_clearance_link_offset_shifts_height_under_identity_rotation() -> None:
+    """mjlab parity: ``link_offsets`` moves the evaluation point to the foot site.
+
+    With identity link quaternion, a site offset of ``(0.04, 0, -0.037)`` puts the
+    evaluated height ``0.037 m`` *below* the link origin — important when the
+    target swing height is ``0.1 m``. Setting ``link_z = 0.137`` then makes the
+    site sit at exactly ``0.1 m`` and the reward goes to zero (perfect clearance).
+    Without the offset the reward would be ``2 * |0.137 − 0.1| * 2 = 0.148`` per env.
+    """
+    env = _make_env(
+        foot_z=(0.137, 0.137),
+        foot_vel_xy=(2.0, 0.0),
+        command_xyz=(1.0, 0.0, 0.0),
+    )
+    # With offset → site sits at 0.1 m → |h − target| = 0 → reward = 0.
+    out_with = feet_clearance(
+        env,
+        asset_cfg=_foot_cfg(env, offsets=((0.04, 0.0, -0.037), (0.04, 0.0, -0.037))),
+        target_height=0.1,
+        command_name="twist",
+        command_threshold=0.05,
+    )
+    assert torch.allclose(out_with, torch.zeros(env.num_envs), atol=1e-6)
+    # Without offset → reads link_z = 0.137 → reward = 2 * 0.037 * 2 = 0.148.
+    out_without = feet_clearance(
+        env,
+        asset_cfg=_foot_cfg(env),
+        target_height=0.1,
+        command_name="twist",
+        command_threshold=0.05,
+    )
+    assert torch.allclose(out_without, torch.full((env.num_envs,), 0.148), atol=1e-6)
+
+
+def test_feet_slip_link_offset_adds_omega_cross_r_to_foot_velocity() -> None:
+    """mjlab parity: foot xy-velocity is ``v_link + ω × (R · offset)``.
+
+    With offset ``r=(0.1, 0, 0)`` and link spinning about +z at ``ω_z=2`` rad/s,
+    the cross-product contributes ``(0, 0.2, 0)`` to xy. Combined with the
+    link-origin ``v_link = (3, 4, 0)``, the site sees ``(3, 4.2, 0)`` →
+    ``|v_xy|² = 9 + 17.64 = 26.64`` per foot × 2 feet = ``53.28``. Without offset
+    the reward gets the unshifted ``v_link`` and lands on ``50``.
+    """
+    env = _make_env(foot_vel_xy=(3.0, 4.0), command_xyz=(1.0, 0.0, 0.0))
+    # Spin both feet about +z to surface the lever-arm term.
+    assert env.robot_state.link_ang_vel_w is not None
+    foot_ids = [env.link_names.index("left_foot"), env.link_names.index("right_foot")]
+    for fid in foot_ids:
+        env.robot_state.link_ang_vel_w[:, fid, 2] = 2.0
+    # Push large contact forces so both feet register grounded.
+    assert env.robot is not None
+    env.robot.set_contact_force(
+        torch.tensor([[[0, 0, 0], [0, 0, 100.0], [0, 0, 100.0]]] * env.num_envs, dtype=torch.float)
+    )
+    contact = ContactSensorCfg(
+        name="feet", link_names=("left_foot", "right_foot"), track_air_time=False
+    ).build()
+    contact.bind(env)
+    contact.update(0.05)
+    env.sensors["feet"] = contact
+
+    out = feet_slip(
+        env,
+        sensor_name="feet",
+        asset_cfg=_foot_cfg(env, offsets=((0.1, 0.0, 0.0), (0.1, 0.0, 0.0))),
+        command_name="twist",
+        command_threshold=0.05,
+    )
+    # Per foot: |(3, 4 + 0.2)|² = 9 + 17.64 = 26.64; × 2 feet = 53.28.
+    assert torch.allclose(out, torch.full((env.num_envs,), 53.28), atol=1e-5)
 
 
 # --------------------------------------------------------------------- feet_slip
@@ -599,26 +682,41 @@ class _FakeSelfContactSensor(SelfContactSensor):
     going through ``bind``/``update``/Genesis.
     """
 
-    def __init__(self, *, force: torch.Tensor, force_history: torch.Tensor | None) -> None:
+    def __init__(
+        self,
+        *,
+        force: torch.Tensor,
+        force_history: torch.Tensor | None,
+        any_above: torch.Tensor | None = None,
+    ) -> None:
         super().__init__(SelfContactSensorCfg(name="self_stub"))
         self._latest_force = force
+        # ``found`` is the per-step "any pair above threshold" bool. If the test
+        # doesn't pass one explicitly, derive it from ``force > 1.0`` so the
+        # historical no-history call sites keep their semantics.
+        self._latest_any_above = any_above if any_above is not None else (force > 1.0)
         self._force_history = force_history
 
     @property
     def data(self) -> SelfContactData:  # type: ignore[override]
+        assert self._latest_force is not None
+        assert self._latest_any_above is not None
         return SelfContactData(
-            force=self._latest_force,  # type: ignore[arg-type]
-            found=(self._latest_force > 1.0),  # type: ignore[operator]
+            force=self._latest_force,
+            found=self._latest_any_above,
             force_history=self._force_history,
         )
 
 
-def test_self_collision_cost_history_counts_hits_above_threshold() -> None:
-    """4-step history with two frames over threshold ⇒ cost=2."""
+def test_self_collision_cost_history_counts_any_above_substeps() -> None:
+    """4-step bool history with two ``True`` substeps ⇒ cost=2 (mjlab parity)."""
     env = _make_env(num_envs=1)
-    history = torch.tensor([[0.5, 12.0, 3.0, 15.0]])  # (B=1, H=4)
+    # History stores the per-step "any pair above threshold" bool (the sensor
+    # does the thresholding before history accumulation, since Genesis pair
+    # indices reshuffle each step).
+    history = torch.tensor([[False, True, False, True]])
     env.sensors["self"] = _FakeSelfContactSensor(force=torch.zeros(1), force_history=history)
-    out = self_collision_cost(env, sensor_name="self", force_threshold=10.0)
+    out = self_collision_cost(env, sensor_name="self")
     assert torch.allclose(out, torch.tensor([2.0]), atol=1e-6)
 
 
@@ -626,9 +724,11 @@ def test_self_collision_cost_single_step_when_no_history() -> None:
     """Without ``force_history``, the cost reduces to the current single-step bool."""
     env = _make_env(num_envs=2)
     env.sensors["self"] = _FakeSelfContactSensor(
-        force=torch.tensor([0.5, 12.0]), force_history=None
+        force=torch.tensor([0.5, 12.0]),
+        force_history=None,
+        any_above=torch.tensor([False, True]),
     )
-    out = self_collision_cost(env, sensor_name="self", force_threshold=10.0)
+    out = self_collision_cost(env, sensor_name="self")
     assert torch.allclose(out, torch.tensor([0.0, 1.0]), atol=1e-6)
 
 

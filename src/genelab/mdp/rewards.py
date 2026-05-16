@@ -10,7 +10,7 @@ from genelab.managers.scene_entity_cfg import SceneEntityCfg
 from genelab.mdp.commands.motion_command import MotionCommand
 from genelab.sensor.contact import ContactSensor
 from genelab.sensor.self_contact import SelfContactSensor
-from genelab.utils.math import quat_apply_inverse, quat_error_magnitude
+from genelab.utils.math import quat_apply, quat_apply_inverse, quat_error_magnitude
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
@@ -30,6 +30,51 @@ def _link_ids(asset_cfg: SceneEntityCfg) -> tuple[int, ...]:
             f"and let the manager resolve it, or set link_ids explicitly"
         )
     return asset_cfg.link_ids
+
+
+def _site_pos_w(
+    env: "ManagerBasedRlEnv",
+    indices: list[int],
+    offsets: torch.Tensor | None,
+) -> torch.Tensor:
+    """World-frame site position for each selected link.
+
+    ``site_pos_w = link_pos_w + R_link · offset_local``. With ``offsets=None``
+    this reduces to ``link_pos_w`` — matches the pre-parity behaviour.
+
+    Returns ``(B, F, 3)`` aligned with ``indices``.
+    """
+    rs = env.robot_state
+    link_pos = rs.link_pos[:, indices]  # (B, F, 3)
+    if offsets is None:
+        return link_pos
+    link_quat = rs.link_quat_w[:, indices]  # (B, F, 4)
+    # Broadcast offsets ``(F, 3)`` over the batch dimension before quat_apply.
+    offsets_b = offsets.unsqueeze(0).expand_as(link_pos).contiguous()
+    return link_pos + quat_apply(link_quat, offsets_b)
+
+
+def _site_lin_vel_w(
+    env: "ManagerBasedRlEnv",
+    indices: list[int],
+    offsets: torch.Tensor | None,
+) -> torch.Tensor:
+    """World-frame linear velocity at each selected link's site.
+
+    ``v_site = v_link + ω × (R_link · offset_local)``. With ``offsets=None`` this
+    reduces to ``link_lin_vel_w`` — matches the pre-parity behaviour.
+
+    Returns ``(B, F, 3)`` aligned with ``indices``.
+    """
+    rs = env.robot_state
+    link_lin_vel = rs.link_lin_vel_w[:, indices]  # (B, F, 3)
+    if offsets is None:
+        return link_lin_vel
+    link_quat = rs.link_quat_w[:, indices]  # (B, F, 4)
+    link_ang_vel = rs.link_ang_vel_w[:, indices]  # (B, F, 3)
+    offsets_b = offsets.unsqueeze(0).expand_as(link_lin_vel).contiguous()
+    r_world = quat_apply(link_quat, offsets_b)
+    return link_lin_vel + torch.cross(link_ang_vel, r_world, dim=-1)
 
 
 def _contact_sensor(env: "ManagerBasedRlEnv", sensor_name: str) -> ContactSensor:
@@ -269,13 +314,16 @@ def feet_clearance(
     velocity — so feet are pushed toward the target swing height only while they're
     actually moving. mjlab: ``feet_clearance``.
 
-    Height source: if ``height_sensor_name`` is given, the sensor is expected to be a
-    multi-frame :class:`~genelab.sensor.TerrainHeightSensor` returning ``(B, F)`` with
-    one clearance per foot (column order must match ``asset_cfg.link_names``). Without
-    a sensor the reward falls back to ``link_pos.z`` — correct on flat ground.
+    Honors ``asset_cfg.link_offsets`` (mjlab site parity): when set, the foot
+    velocity used here is ``v_link + ω × (R · offset)`` and, when no height
+    sensor is given, the fallback height uses the site-frame z. The
+    ``height_sensor_name`` path delegates to a multi-frame
+    :class:`~genelab.sensor.TerrainHeightSensor`, which applies its own
+    ``link_offsets`` to the ray origin.
     """
     indices = list(_link_ids(asset_cfg))
-    foot_vel_xy = env.robot_state.link_lin_vel_w[:, indices, :2]
+    offsets = asset_cfg.link_offsets_tensor
+    foot_vel_xy = _site_lin_vel_w(env, indices, offsets)[..., :2]
     vel_norm = torch.norm(foot_vel_xy, dim=-1)  # (B, F)
 
     if height_sensor_name is not None:
@@ -286,7 +334,7 @@ def feet_clearance(
                 f"expected {len(indices)} to match asset_cfg link order"
             )
     else:
-        heights = env.robot_state.link_pos[:, indices, 2]
+        heights = _site_pos_w(env, indices, offsets)[..., 2]
 
     delta = (heights - target_height).abs()
     cost = torch.sum(delta * vel_norm, dim=-1)
@@ -303,10 +351,11 @@ def feet_slip(
     """``Σ_foot ||v_xy||² · in_contact`` — penalise horizontal foot slip while grounded.
 
     mjlab: ``feet_slip``. Gated by command magnitude so standing envs don't accumulate.
+    Honors ``asset_cfg.link_offsets`` for site-frame velocity (mjlab parity).
     """
     indices = list(_link_ids(asset_cfg))
     in_contact = _contact_sensor(env, sensor_name).data.found.float()
-    foot_vel_xy = env.robot_state.link_lin_vel_w[:, indices, :2]
+    foot_vel_xy = _site_lin_vel_w(env, indices, asset_cfg.link_offsets_tensor)[..., :2]
     vel_sq = torch.sum(foot_vel_xy * foot_vel_xy, dim=-1)  # (B, F)
     cost = torch.sum(vel_sq * in_contact, dim=-1)
     return cost * _command_active(env, command_name, command_threshold)
@@ -337,6 +386,10 @@ class feet_swing_height:
     foot touchdown emits a cost proportional to how far the swing apex was from
     ``target_height``. mjlab: ``feet_swing_height``.
 
+    Honors ``asset_cfg.link_offsets`` (mjlab site parity): the tracked height is the
+    site-frame z, ``link_z + (R_link · offset)_z``, so a foot site sitting 0.037 m
+    below the ankle_roll_link origin measures swing height correctly.
+
     The peak buffer is automatically refreshed at lift-off (``first_detached``) by
     copying the current foot height in, so each new swing measures from scratch. No env
     reset hook is needed: ``first_contact`` only fires after a prior air phase, and that
@@ -347,7 +400,9 @@ class feet_swing_height:
         self._env = env
         asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         indices = list(_link_ids(asset_cfg))
-        self._foot_indices = torch.tensor(indices, dtype=torch.long, device=env.device)
+        self._foot_indices: list[int] = indices
+        self._foot_indices_tensor = torch.tensor(indices, dtype=torch.long, device=env.device)
+        self._offsets_tensor: torch.Tensor | None = asset_cfg.link_offsets_tensor
         self._peak_heights = torch.zeros(env.num_envs, len(indices), device=env.device)
 
     def __call__(
@@ -361,7 +416,7 @@ class feet_swing_height:
     ) -> torch.Tensor:
         del asset_cfg  # consumed at __init__
         data = _contact_sensor(env, sensor_name).data
-        foot_z = env.robot_state.link_pos[:, self._foot_indices, 2]
+        foot_z = _site_pos_w(env, self._foot_indices, self._offsets_tensor)[..., 2]
 
         # On lift-off, snap the peak to the current height so the new swing measures fresh.
         self._peak_heights = torch.where(data.first_detached, foot_z, self._peak_heights)
@@ -397,16 +452,22 @@ def angular_momentum_penalty(env: "ManagerBasedRlEnv", sensor_name: str) -> torc
 def self_collision_cost(
     env: "ManagerBasedRlEnv",
     sensor_name: str,
-    force_threshold: float = 10.0,
+    force_threshold: float = 10.0,  # noqa: ARG001 - kept for cfg back-compat; threshold lives on sensor cfg
 ) -> torch.Tensor:
     """Count of recent self-contact "hit" frames.
 
     Reads :class:`~genelab.sensor.SelfContactSensor`. When the sensor was configured
-    with ``history_length > 0`` the result counts how many frames in the rolling
-    window saw a per-env self-contact force sum exceeding ``force_threshold`` —
-    mjlab's ``self_collision_cost`` semantic, used in G1 with a 4-step window to
-    catch transient sub-step impacts. Without history (``history_length=0``) the
+    with ``history_length > 0`` the result counts how many substeps in the rolling
+    window saw at least one self-contact pair above the sensor's ``force_threshold``
+    — mjlab's ``self_collision_cost`` semantic (``force_history.any(dim=pair_axis).sum``),
+    used in G1 with a 4-step window. Without history (``history_length=0``) the
     result is the single-step bool cast to float.
+
+    ``force_threshold`` here is kept for cfg back-compat with the pre-parity
+    signature; the active threshold is the sensor's ``force_threshold`` field —
+    where it has to live, because the sensor compresses to a bool *before*
+    history accumulation (Genesis contact-pair indices reshuffle each step, so
+    deferring the threshold to the reward would lose the per-pair breakdown).
     """
     sensor = env.sensors[sensor_name]
     if not isinstance(sensor, SelfContactSensor):
@@ -415,8 +476,8 @@ def self_collision_cost(
         )
     data = sensor.data
     if data.force_history is not None:
-        return (data.force_history > force_threshold).float().sum(dim=-1)
-    return (data.force > force_threshold).float()
+        return data.force_history.float().sum(dim=-1)
+    return data.found.float()
 
 
 def feet_air_time(
