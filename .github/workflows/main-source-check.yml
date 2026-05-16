@@ -1,0 +1,19 @@
+name: main-source-check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure PR head is dev
+        run: |
+          if [ "${{ github.head_ref }}" != "dev" ]; then
+            echo "::error::Only the 'dev' branch may be merged into main. PR head was '${{ github.head_ref }}'."
+            exit 1
+          fi
