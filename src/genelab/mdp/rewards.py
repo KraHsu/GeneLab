@@ -8,6 +8,7 @@ import torch
 from genelab.managers.reward_manager import RewardTermCfg
 from genelab.mdp.commands.motion_command import MotionCommand
 from genelab.sensor.contact import ContactSensor
+from genelab.sensor.self_contact import SelfContactSensor
 from genelab.utils.math import quat_error_magnitude
 
 if TYPE_CHECKING:
@@ -305,6 +306,44 @@ class feet_swing_height:
         landing = data.first_contact.float()
         cost = torch.sum(error.pow(2) * landing, dim=-1)
         return cost * _command_active(env, command_name, command_threshold)
+
+
+def angular_momentum_penalty(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
+    """``||L||₂`` — magnitude of root-frame angular momentum.
+
+    Reads :class:`~genelab.sensor.RootAngularMomentumSensor`'s ``(B, 3)`` vector and
+    returns its Euclidean norm. mjlab parity for ``angular_momentum_penalty`` (weight
+    −0.02 in the G1 config). Note: GeneLab's sensor uses the **orbital approximation**
+    (omits the per-link spin term ``Σ I·ω``) — see ``sensor/angular_momentum.py`` for
+    the rationale.
+    """
+    angmom = env.sensors[sensor_name].data
+    return torch.sqrt(torch.sum(angmom * angmom, dim=-1))
+
+
+def self_collision_cost(
+    env: "ManagerBasedRlEnv",
+    sensor_name: str,
+    force_threshold: float = 10.0,
+) -> torch.Tensor:
+    """Count of recent self-contact "hit" frames.
+
+    Reads :class:`~genelab.sensor.SelfContactSensor`. When the sensor was configured
+    with ``history_length > 0`` the result counts how many frames in the rolling
+    window saw a per-env self-contact force sum exceeding ``force_threshold`` —
+    mjlab's ``self_collision_cost`` semantic, used in G1 with a 4-step window to
+    catch transient sub-step impacts. Without history (``history_length=0``) the
+    result is the single-step bool cast to float.
+    """
+    sensor = env.sensors[sensor_name]
+    if not isinstance(sensor, SelfContactSensor):
+        raise TypeError(
+            f"sensor {sensor_name!r} is not a SelfContactSensor (got {type(sensor).__name__})"
+        )
+    data = sensor.data
+    if data.force_history is not None:
+        return (data.force_history > force_threshold).float().sum(dim=-1)
+    return (data.force > force_threshold).float()
 
 
 def feet_air_time(
