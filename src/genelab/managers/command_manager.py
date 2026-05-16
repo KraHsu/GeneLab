@@ -96,6 +96,14 @@ class CommandManager:
     def get_command(self, name: str) -> torch.Tensor:
         return self._terms[name].command
 
+    def get_term(self, name: str) -> "CommandTerm":
+        """Return the live ``CommandTerm`` for ``name``.
+
+        Useful for curriculum / debug code that needs to mutate the term's cfg (e.g.
+        :func:`genelab.mdp.commands_vel` rewrites ``cfg.ranges`` in place each reset).
+        """
+        return self._terms[name]
+
     def compute(self, dt: float) -> None:
         for term in self._terms.values():
             term.compute(dt)

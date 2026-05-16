@@ -29,6 +29,8 @@ class ContactData:
     last_air_time: torch.Tensor  # (B, N) duration of the most recently completed air phase
     current_contact_time: torch.Tensor  # (B, N) seconds since last landing; 0 while airborne
     last_contact_time: torch.Tensor  # (B, N) duration of the most recently completed contact
+    first_contact: torch.Tensor  # (B, N) bool: this step transitioned from air → contact
+    first_detached: torch.Tensor  # (B, N) bool: this step transitioned from contact → air
 
 
 @dataclass
@@ -56,6 +58,8 @@ class _AirTimeState:
     last_air_time: torch.Tensor
     current_contact_time: torch.Tensor
     last_contact_time: torch.Tensor
+    first_contact: torch.Tensor
+    first_detached: torch.Tensor
 
 
 def _resolve_link_indices(
@@ -108,6 +112,8 @@ class ContactSensor(Sensor[ContactData]):
                 last_air_time=torch.zeros(*shape, device=env.device),
                 current_contact_time=torch.zeros(*shape, device=env.device),
                 last_contact_time=torch.zeros(*shape, device=env.device),
+                first_contact=torch.zeros(*shape, dtype=torch.bool, device=env.device),
+                first_detached=torch.zeros(*shape, dtype=torch.bool, device=env.device),
             )
 
     def update(self, dt: float) -> None:
@@ -118,8 +124,12 @@ class ContactSensor(Sensor[ContactData]):
         in_contact = force.norm(dim=-1) > self._cfg_typed.force_threshold
         state = self._air_state
         # Capture transitions before mutating the timers (the timer values matter pre-tick).
+        # Persisting them as state lets consumers ask "did a foot just land this step?" via
+        # ``data.first_contact`` — used by ``soft_landing`` / ``feet_swing_height`` rewards.
         first_contact = in_contact & (state.current_air_time > 0)
         first_detached = (~in_contact) & (state.current_contact_time > 0)
+        state.first_contact = first_contact
+        state.first_detached = first_detached
         state.last_air_time = torch.where(
             first_contact, state.current_air_time + dt, state.last_air_time
         )
@@ -147,6 +157,8 @@ class ContactSensor(Sensor[ContactData]):
             self._air_state.last_contact_time,
         ):
             buf[env_ids] = 0.0
+        self._air_state.first_contact[env_ids] = False
+        self._air_state.first_detached[env_ids] = False
 
     def _compute_data(self) -> ContactData:
         force = self._read_link_forces()
@@ -154,6 +166,7 @@ class ContactSensor(Sensor[ContactData]):
         found = force_norm > self._cfg_typed.force_threshold
         if self._air_state is None:
             zeros = torch.zeros_like(force_norm)
+            falses = torch.zeros_like(found)
             return ContactData(
                 force=force,
                 force_norm=force_norm,
@@ -162,6 +175,8 @@ class ContactSensor(Sensor[ContactData]):
                 last_air_time=zeros,
                 current_contact_time=zeros.clone(),
                 last_contact_time=zeros.clone(),
+                first_contact=falses,
+                first_detached=falses.clone(),
             )
         s = self._air_state
         return ContactData(
@@ -172,6 +187,8 @@ class ContactSensor(Sensor[ContactData]):
             last_air_time=s.last_air_time,
             current_contact_time=s.current_contact_time,
             last_contact_time=s.last_contact_time,
+            first_contact=s.first_contact,
+            first_detached=s.first_detached,
         )
 
     def _read_link_forces(self) -> torch.Tensor:
