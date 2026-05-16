@@ -1,5 +1,9 @@
 """Sensor abstractions for cameras, contacts, tactile data, and future streams."""
 
+from genelab.sensor.angular_momentum import (
+    RootAngularMomentumSensor,
+    RootAngularMomentumSensorCfg,
+)
 from genelab.sensor.body_velocity import BodyVelocitySensor, BodyVelocitySensorCfg
 from genelab.sensor.camera import CameraData, CameraSensor, CameraSensorCfg
 from genelab.sensor.contact import ContactData, ContactSensor, ContactSensorCfg
@@ -17,6 +21,11 @@ from genelab.sensor.ray_cast import (
     RayCastSensor,
     RayCastSensorCfg,
     RingPattern,
+)
+from genelab.sensor.self_contact import (
+    SelfContactData,
+    SelfContactSensor,
+    SelfContactSensorCfg,
 )
 from genelab.sensor.sensor import Sensor, SensorCfg
 from genelab.sensor.terrain_height import TerrainHeightSensor, TerrainHeightSensorCfg
@@ -42,6 +51,11 @@ __all__ = [
     "RayCastSensor",
     "RayCastSensorCfg",
     "RingPattern",
+    "RootAngularMomentumSensor",
+    "RootAngularMomentumSensorCfg",
+    "SelfContactData",
+    "SelfContactSensor",
+    "SelfContactSensorCfg",
     "Sensor",
     "SensorCfg",
     "TargetFrameCfg",

@@ -23,6 +23,8 @@ from genelab.sensor import (
     IMUSensorCfg,
     RayCastSensorCfg,
     RingPattern,
+    RootAngularMomentumSensorCfg,
+    SelfContactSensorCfg,
     Sensor,
     SensorCfg,
     TargetFrameCfg,
@@ -438,6 +440,69 @@ def test_contact_sensor_first_contact_clears_on_reset() -> None:
     assert torch.equal(sensor._air_state.first_contact, torch.tensor([[False], [True]]))
 
 
+def test_contact_sensor_force_history_buffer_writes_and_wraps() -> None:
+    """``history_length=3`` keeps the most recent 3 force snapshots; the buffer is
+    written in place at an advancing head pointer, so after >H steps it wraps."""
+    env = _FakeContactEnv(num_envs=1, link_names=("foot",))
+    sensor = ContactSensorCfg(
+        name="c", link_names=("foot",), track_air_time=False, history_length=3
+    ).build()
+    sensor.bind(env)
+    assert sensor._force_history is not None
+    assert sensor._force_history.shape == (1, 1, 3, 3)
+
+    forces = [10.0, 20.0, 30.0, 40.0]
+    for i, fz in enumerate(forces):
+        env.robot.set_contact_force(torch.tensor([[[0.0, 0.0, fz]]]))
+        sensor._invalidate_cache()
+        sensor.update(0.05)
+        # After step i (i ∈ 0..3), head has advanced (i+1) % 3 times.
+        assert sensor._history_head == (i + 1) % 3
+
+    # After 4 writes into a 3-slot ring, the buffer holds the latest three magnitudes
+    # in write-pointer order. We don't care about order — just the set.
+    z_mags = sensor._force_history[0, 0, :, 2].tolist()
+    assert sorted(z_mags) == [20.0, 30.0, 40.0]
+
+
+def test_contact_sensor_force_history_exposed_via_data() -> None:
+    env = _FakeContactEnv(num_envs=2, link_names=("foot",))
+    sensor = ContactSensorCfg(
+        name="c", link_names=("foot",), track_air_time=False, history_length=4
+    ).build()
+    sensor.bind(env)
+    env.robot.set_contact_force(torch.tensor([[[0, 0, 5.0]], [[0, 0, 50.0]]]))
+    sensor.update(0.05)
+    fh = sensor.data.force_history
+    assert fh is not None
+    assert fh.shape == (2, 1, 4, 3)
+
+
+def test_contact_sensor_force_history_none_by_default() -> None:
+    env = _FakeContactEnv(num_envs=1, link_names=("foot",))
+    sensor = ContactSensorCfg(name="c", link_names=("foot",), track_air_time=True).build()
+    sensor.bind(env)
+    env.robot.set_contact_force(torch.tensor([[[0, 0, 100.0]]]))
+    sensor.update(0.05)
+    assert sensor.data.force_history is None
+
+
+def test_contact_sensor_force_history_reset_clears_env_ids_only() -> None:
+    env = _FakeContactEnv(num_envs=2, link_names=("foot",))
+    sensor = ContactSensorCfg(
+        name="c", link_names=("foot",), track_air_time=False, history_length=2
+    ).build()
+    sensor.bind(env)
+    env.robot.set_contact_force(torch.tensor([[[0, 0, 30.0]], [[0, 0, 30.0]]]))
+    sensor.update(0.05)
+    sensor._invalidate_cache()
+    sensor.update(0.05)
+    sensor.reset(torch.tensor([0]))
+    assert sensor._force_history is not None
+    assert torch.all(sensor._force_history[0] == 0.0)
+    assert torch.any(sensor._force_history[1] != 0.0)
+
+
 # --------------------------------------------------------------------- RayCast / TerrainHeight
 
 
@@ -546,6 +611,58 @@ def test_terrain_height_sensor_lifecycle_propagates_to_inner_sensor() -> None:
     _ = sensor.data
     sensor.reset(torch.tensor([0]))
     assert sensor._cache_valid is False
+
+
+def test_terrain_height_sensor_multi_frame_min_reduction_per_link() -> None:
+    """Two-foot scan with ``reduction='min'`` returns ``(B, F=2)`` per-foot min heights."""
+    # Left foot at z=0.2, right foot at z=0.5. All rays scan straight down to z=0.
+    link_pos = torch.tensor([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.2], [0.0, 0.0, 0.5]]])
+    env = _FakeTerrainEnv(1, ("base", "left_foot", "right_foot"), link_pos)
+    sensor = TerrainHeightSensorCfg(
+        name="feet_h",
+        link_names=("left_foot", "right_foot"),
+        pattern=GridPattern(resolution=0.5, size=(0.5, 0.5)),
+        reduction="min",
+    ).build()
+    sensor.bind(env)
+    heights = sensor.data
+    assert heights.shape == (1, 2)
+    assert torch.allclose(heights[0], torch.tensor([0.2, 0.5]), atol=1e-6)
+
+
+def test_terrain_height_sensor_multi_frame_reduction_none_keeps_per_ray_axis() -> None:
+    link_pos = torch.tensor([[[0.0, 0.0, 0.3], [0.0, 0.0, 0.7]]])
+    env = _FakeTerrainEnv(1, ("left_foot", "right_foot"), link_pos)
+    sensor = TerrainHeightSensorCfg(
+        name="feet_h_raw",
+        link_names=("left_foot", "right_foot"),
+        pattern=GridPattern(resolution=0.5, size=(0.5, 0.5)),  # 2x2 = 4 rays
+        reduction="none",
+    ).build()
+    sensor.bind(env)
+    heights = sensor.data
+    # 2 frames × 4 rays per frame → (B, F, num_rays).
+    assert heights.shape == (1, 2, 4)
+    assert torch.allclose(heights[0, 0], torch.full((4,), 0.3), atol=1e-6)
+    assert torch.allclose(heights[0, 1], torch.full((4,), 0.7), atol=1e-6)
+
+
+def test_terrain_height_sensor_rejects_both_link_name_modes() -> None:
+    try:
+        TerrainHeightSensorCfg(name="bad", link_name="torso", link_names=("foot",))
+    except ValueError as exc:
+        assert "link_name" in str(exc) and "link_names" in str(exc)
+    else:
+        raise AssertionError("expected ValueError when both link_name and link_names are set")
+
+
+def test_terrain_height_sensor_rejects_neither_link_mode() -> None:
+    try:
+        TerrainHeightSensorCfg(name="empty")
+    except ValueError as exc:
+        assert "link_name" in str(exc)
+    else:
+        raise AssertionError("expected ValueError when neither link_name nor link_names set")
 
 
 # --------------------------------------------------------------------- Pattern: Ring / Hemisphere
@@ -1021,3 +1138,185 @@ def test_camera_unknown_link_raises() -> None:
         assert "env.link_names" in str(exc)
     else:
         raise AssertionError("expected ValueError for unknown link_name")
+
+
+# --------------------------------------------------------------------- SelfContactSensor
+
+
+class _FakeContactDictRobot:
+    """Fake robot returning a controlled ``get_contacts(with_entity=…)`` dict."""
+
+    def __init__(self, contacts: dict | None) -> None:
+        self._contacts = contacts
+
+    def get_contacts(self, with_entity=None) -> dict | None:  # noqa: ARG002 - param for signature parity
+        return self._contacts
+
+
+class _FakeSelfContactEnv:
+    def __init__(self, num_envs: int, contacts: dict | None) -> None:
+        self.num_envs = num_envs
+        self.device = "cpu"
+        self.robot = _FakeContactDictRobot(contacts)
+
+
+def test_self_contact_sensor_zero_when_no_genesis_runtime() -> None:
+    """Robot without ``get_contacts`` (typical for unit-test fakes) → all zeros."""
+
+    class _NoContactRobot:
+        pass
+
+    env = _FakeSelfContactEnv(num_envs=2, contacts=None)
+    env.robot = _NoContactRobot()  # type: ignore[assignment]
+    sensor = SelfContactSensorCfg(name="self", force_threshold=1.0).build()
+    sensor.bind(env)
+    sensor.update(0.02)
+    data = sensor.data
+    assert torch.all(data.force == 0.0)
+    assert not data.found.any().item()
+    assert data.force_history is None
+
+
+def test_self_contact_sensor_sums_pair_force_magnitudes_per_env() -> None:
+    """Two valid pairs per env, both with force vector (3,4,0) ⇒ |F|=5 ea ⇒ sum=10."""
+    contacts = {
+        "force_a": torch.tensor(
+            [
+                [[3.0, 4.0, 0.0], [3.0, 4.0, 0.0]],  # env 0: both valid
+                [[3.0, 4.0, 0.0], [0.0, 0.0, 0.0]],  # env 1: only first valid
+            ]
+        ),
+        "valid_mask": torch.tensor([[True, True], [True, False]]),
+    }
+    env = _FakeSelfContactEnv(num_envs=2, contacts=contacts)
+    sensor = SelfContactSensorCfg(name="self").build()
+    sensor.bind(env)
+    sensor.update(0.02)
+    data = sensor.data
+    assert torch.allclose(data.force, torch.tensor([10.0, 5.0]), atol=1e-6)
+
+
+def test_self_contact_sensor_found_bit_uses_force_threshold() -> None:
+    contacts = {
+        "force_a": torch.tensor([[[0.0, 0.0, 0.5]]]),  # |F|=0.5
+        "valid_mask": torch.tensor([[True]]),
+    }
+    env = _FakeSelfContactEnv(num_envs=1, contacts=contacts)
+    sensor = SelfContactSensorCfg(name="self", force_threshold=1.0).build()
+    sensor.bind(env)
+    sensor.update(0.02)
+    assert sensor.data.found.item() is False
+    sensor = SelfContactSensorCfg(name="self2", force_threshold=0.1).build()
+    sensor.bind(env)
+    sensor.update(0.02)
+    assert sensor.data.found.item() is True
+
+
+def test_self_contact_sensor_history_buffer_fills_and_resets() -> None:
+    contacts = {
+        "force_a": torch.tensor([[[1.0, 0.0, 0.0]]]),
+        "valid_mask": torch.tensor([[True]]),
+    }
+    env = _FakeSelfContactEnv(num_envs=2, contacts=contacts)
+    sensor = SelfContactSensorCfg(name="self", history_length=3).build()
+    sensor.bind(env)
+    for _ in range(3):
+        sensor._invalidate_cache()
+        sensor.update(0.02)
+    fh = sensor.data.force_history
+    assert fh is not None
+    assert fh.shape == (2, 3)
+    assert torch.allclose(fh, torch.ones(2, 3), atol=1e-6)
+    # Reset env 0 — its history should clear; env 1 stays untouched.
+    sensor.reset(torch.tensor([0]))
+    assert torch.all(sensor._force_history[0] == 0.0)  # type: ignore[index]
+    assert torch.all(sensor._force_history[1] == 1.0)  # type: ignore[index]
+
+
+# --------------------------------------------------------------------- RootAngularMomentumSensor
+
+
+class _FakeMassRobot:
+    def __init__(self, masses: torch.Tensor | None) -> None:
+        self._masses = masses
+
+    def get_links_inertial_mass(self) -> torch.Tensor | None:
+        return self._masses
+
+
+class _FakeAngMomState:
+    def __init__(
+        self,
+        root_pos: torch.Tensor,
+        link_pos: torch.Tensor,
+        link_lin_vel_w: torch.Tensor,
+    ) -> None:
+        self.root_pos = root_pos
+        self.link_pos = link_pos
+        self.link_lin_vel_w = link_lin_vel_w
+
+
+class _FakeAngMomEnv:
+    def __init__(
+        self,
+        num_envs: int,
+        link_names: tuple[str, ...],
+        masses: torch.Tensor | None,
+        root_pos: torch.Tensor,
+        link_pos: torch.Tensor,
+        link_lin_vel_w: torch.Tensor,
+    ) -> None:
+        self.num_envs = num_envs
+        self.device = "cpu"
+        self.link_names = list(link_names)
+        self.robot = _FakeMassRobot(masses)
+        self.robot_state = _FakeAngMomState(root_pos, link_pos, link_lin_vel_w)
+
+
+def test_root_angular_momentum_zero_when_links_static() -> None:
+    """L = Σ m·r×v vanishes when every link velocity is zero."""
+    env = _FakeAngMomEnv(
+        num_envs=2,
+        link_names=("base", "left_arm"),
+        masses=torch.tensor([1.0, 0.5]),
+        root_pos=torch.zeros(2, 3),
+        link_pos=torch.tensor([[[0, 0, 0], [1.0, 0, 0]], [[0, 0, 0], [1.0, 0, 0]]]),
+        link_lin_vel_w=torch.zeros(2, 2, 3),
+    )
+    sensor = RootAngularMomentumSensorCfg(name="L").build()
+    sensor.bind(env)
+    out = sensor.data
+    assert out.shape == (2, 3)
+    assert torch.all(out == 0.0)
+
+
+def test_root_angular_momentum_single_link_orbital_formula() -> None:
+    """One link at r=(1, 0, 0) with v=(0, 1, 0), mass=2 ⇒ L = m·r×v = (0, 0, 2)."""
+    env = _FakeAngMomEnv(
+        num_envs=1,
+        link_names=("base", "arm"),
+        # mass of the root link is irrelevant (r=0 ⇒ cross=0); only ``arm`` contributes.
+        masses=torch.tensor([1.0, 2.0]),
+        root_pos=torch.zeros(1, 3),
+        link_pos=torch.tensor([[[0, 0, 0], [1.0, 0, 0]]]),
+        link_lin_vel_w=torch.tensor([[[0, 0, 0], [0.0, 1.0, 0.0]]]),
+    )
+    sensor = RootAngularMomentumSensorCfg(name="L").build()
+    sensor.bind(env)
+    out = sensor.data
+    assert torch.allclose(out, torch.tensor([[0.0, 0.0, 2.0]]), atol=1e-6)
+
+
+def test_root_angular_momentum_zero_when_get_mass_unavailable() -> None:
+    """If the robot lacks ``get_links_inertial_mass``, the sensor falls back to zero L."""
+    env = _FakeAngMomEnv(
+        num_envs=1,
+        link_names=("base",),
+        masses=None,  # FakeMassRobot returns None
+        root_pos=torch.zeros(1, 3),
+        link_pos=torch.zeros(1, 1, 3),
+        link_lin_vel_w=torch.tensor([[[1.0, 0.0, 0.0]]]),
+    )
+    sensor = RootAngularMomentumSensorCfg(name="L").build()
+    sensor.bind(env)
+    assert torch.all(sensor.data == 0.0)
