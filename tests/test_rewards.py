@@ -16,11 +16,15 @@ from genelab.managers.scene_entity_cfg import SceneEntityCfg
 from genelab.mdp.rewards import (
     angular_momentum_penalty,
     body_angular_velocity_penalty,
+    feet_air_time,
     feet_clearance,
     feet_slip,
     feet_swing_height,
+    joint_pos_limits,
     self_collision_cost,
     soft_landing,
+    track_angular_velocity_z_exp,
+    track_linear_velocity_xy_exp,
     upright_exp,
 )
 from genelab.sensor import ContactSensorCfg
@@ -52,6 +56,9 @@ class _FakeRobotState:
     link_ang_vel_w: torch.Tensor
     link_quat_w: torch.Tensor | None = None
     projected_gravity_b: torch.Tensor | None = None
+    root_lin_vel_b: torch.Tensor | None = None
+    root_ang_vel_b: torch.Tensor | None = None
+    joint_pos: torch.Tensor | None = None
 
 
 class _FakeCommandManager:
@@ -82,6 +89,10 @@ class _FakeRewardEnv:
     device: str = "cpu"
     sensors: dict[str, Any] = field(default_factory=dict)
     robot: _FakeRewardRobot | None = None
+    # Per-actuated-joint (lower, upper) limits exposed by the real env via
+    # ``Articulation.joint_pos_limits``. Populated lazily so tests that don't
+    # touch ``joint_pos_limits`` don't need to wire it.
+    joint_pos_limits: torch.Tensor | None = None
 
     @property
     def command_manager(self) -> _FakeCommandManager:
@@ -125,12 +136,19 @@ def _make_env(
     # Root-frame gravity: world ``(0, 0, -1)`` with identity root quat — same vector.
     projected_gravity_b = torch.zeros(num_envs, 3)
     projected_gravity_b[:, 2] = -1.0
+    # Root body-frame velocities + joint position scaffolding for tracking / limit tests.
+    root_lin_vel_b = torch.zeros(num_envs, 3)
+    root_ang_vel_b = torch.zeros(num_envs, 3)
+    joint_pos = torch.zeros(num_envs, 1)
     state = _FakeRobotState(
         link_pos=link_pos,
         link_lin_vel_w=link_lin_vel_w,
         link_ang_vel_w=link_ang_vel_w,
         link_quat_w=link_quat_w,
         projected_gravity_b=projected_gravity_b,
+        root_lin_vel_b=root_lin_vel_b,
+        root_ang_vel_b=root_ang_vel_b,
+        joint_pos=joint_pos,
     )
     command = torch.tensor(command_xyz, dtype=torch.float).unsqueeze(0).expand(num_envs, -1).clone()
     return _FakeRewardEnv(
@@ -447,14 +465,128 @@ class _StubSensor:
         self.data = value
 
 
-def test_angular_momentum_penalty_returns_vector_magnitude() -> None:
-    """``L=(3, 4, 0)`` ⇒ ``|L|=5`` per env."""
+def test_angular_momentum_penalty_returns_squared_magnitude() -> None:
+    """``L=(3, 4, 0)`` ⇒ ``||L||² = 25`` per env (mjlab parity: squared norm)."""
     env = _make_env()
     env.sensors["L"] = _StubSensor(
         torch.tensor([[3.0, 4.0, 0.0], [0.0, 0.0, 1.0]], dtype=torch.float)
     )
     out = angular_momentum_penalty(env, sensor_name="L")
-    assert torch.allclose(out, torch.tensor([5.0, 1.0]), atol=1e-6)
+    assert torch.allclose(out, torch.tensor([25.0, 1.0]), atol=1e-6)
+
+
+# --------------------------------------------------------------------- track_lin/ang_vel
+
+
+def test_track_linear_velocity_penalises_z_velocity() -> None:
+    """mjlab parity: ``exp(-((cmd-vel_xy)² + vel_z²) / std²)``.
+
+    A perfectly tracked xy command with a non-zero z velocity should NOT score 1 —
+    the z² term shows up in the error.
+    """
+    env = _make_env(command_xyz=(0.5, 0.0, 0.0))
+    assert env.robot_state.root_lin_vel_b is not None
+    env.robot_state.root_lin_vel_b[:, 0] = 0.5  # matches command exactly
+    env.robot_state.root_lin_vel_b[:, 2] = 1.0  # but z is non-zero
+    out = track_linear_velocity_xy_exp(env, command_name="twist", std=1.0)
+    # xy_err = 0; z_err = 1; total = 1; reward = exp(-1) ≈ 0.368.
+    expected = math.exp(-1.0)
+    assert torch.allclose(out, torch.full((env.num_envs,), expected), atol=1e-6)
+
+
+def test_track_angular_velocity_penalises_xy_angular_rates() -> None:
+    """mjlab parity: ``exp(-((cmd_z-vel_z)² + ||vel_xy||²) / std²)``."""
+    env = _make_env(command_xyz=(0.0, 0.0, 0.3))
+    assert env.robot_state.root_ang_vel_b is not None
+    env.robot_state.root_ang_vel_b[:, 2] = 0.3  # tracks z command
+    env.robot_state.root_ang_vel_b[:, 0] = 0.6  # but is pitching
+    env.robot_state.root_ang_vel_b[:, 1] = -0.8
+    out = track_angular_velocity_z_exp(env, command_name="twist", std=1.0)
+    # z_err = 0; xy_err = 0.36 + 0.64 = 1.0; total = 1.0; reward = exp(-1) ≈ 0.368.
+    expected = math.exp(-1.0)
+    assert torch.allclose(out, torch.full((env.num_envs,), expected), atol=1e-6)
+
+
+# --------------------------------------------------------------------- joint_pos_limits
+
+
+def test_joint_pos_limits_zero_inside_real_per_joint_window() -> None:
+    """Joints sitting within their (lower, upper) window contribute zero penalty."""
+    env = _make_env()
+    # Two joints: knee in [0, 2.0]; hip in [-1.5, 1.5]. joint_pos within both.
+    env.joint_pos_limits = torch.tensor([[0.0, 2.0], [-1.5, 1.5]])
+    assert env.robot_state.joint_pos is not None
+    env.robot_state.joint_pos = torch.tensor([[1.0, 0.5], [1.8, -1.0]])
+    out = joint_pos_limits(env)
+    assert torch.allclose(out, torch.zeros(env.num_envs), atol=1e-6)
+
+
+def test_joint_pos_limits_charges_absolute_excursion_per_joint() -> None:
+    """Past-limit excursions accumulate as absolute distance, not squared."""
+    env = _make_env()
+    env.joint_pos_limits = torch.tensor([[0.0, 2.0], [-1.5, 1.5]])
+    assert env.robot_state.joint_pos is not None
+    # Env 0: knee at 2.3 (0.3 over upper); hip at 0 (in range).
+    # Env 1: knee at -0.2 (0.2 under lower); hip at 1.8 (0.3 over upper).
+    env.robot_state.joint_pos = torch.tensor([[2.3, 0.0], [-0.2, 1.8]])
+    out = joint_pos_limits(env)
+    # Env 0 → 0.3; env 1 → 0.2 + 0.3 = 0.5.
+    expected = torch.tensor([0.3, 0.5])
+    assert torch.allclose(out, expected, atol=1e-6)
+
+
+# --------------------------------------------------------------------- feet_air_time
+
+
+def test_feet_air_time_counts_feet_in_window() -> None:
+    """Counts feet whose current_air_time is in (threshold_min, threshold_max)."""
+    env = _make_env(command_xyz=(1.0, 0.0, 0.0))
+    contact = ContactSensorCfg(
+        name="feet", link_names=("left_foot", "right_foot"), track_air_time=True
+    ).build()
+    contact.bind(env)
+    env.sensors["feet"] = contact
+    # Push the air_time state via the cached _AirTimeState so we don't depend on
+    # update() timer arithmetic in this test.
+    assert contact._air_state is not None
+    contact._air_state.current_air_time = torch.tensor(
+        [
+            [0.2, 0.7],  # env 0: foot 0 in-range; foot 1 too long.
+            [0.04, 0.1],  # env 1: foot 0 too short; foot 1 in-range.
+        ]
+    )
+    contact._invalidate_cache()
+    out = feet_air_time(
+        env,
+        sensor_name="feet",
+        threshold_min=0.05,
+        threshold_max=0.5,
+        command_name="twist",
+        command_threshold=0.5,
+    )
+    assert torch.allclose(out, torch.tensor([1.0, 1.0]), atol=1e-6)
+
+
+def test_feet_air_time_gated_by_command_magnitude() -> None:
+    """Below ``command_threshold`` the reward is zero on every env."""
+    env = _make_env(command_xyz=(0.1, 0.0, 0.0))  # |cmd| = 0.1 below 0.5 threshold
+    contact = ContactSensorCfg(
+        name="feet", link_names=("left_foot", "right_foot"), track_air_time=True
+    ).build()
+    contact.bind(env)
+    env.sensors["feet"] = contact
+    assert contact._air_state is not None
+    contact._air_state.current_air_time = torch.tensor([[0.2, 0.3], [0.2, 0.3]])
+    contact._invalidate_cache()
+    out = feet_air_time(
+        env,
+        sensor_name="feet",
+        threshold_min=0.05,
+        threshold_max=0.5,
+        command_name="twist",
+        command_threshold=0.5,
+    )
+    assert torch.all(out == 0.0)
 
 
 # --------------------------------------------------------------------- self_collision_cost
