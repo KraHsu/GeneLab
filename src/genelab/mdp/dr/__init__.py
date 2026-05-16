@@ -3,7 +3,7 @@
 Thin wrappers over the per-env Genesis mutation API
 (``set_friction_ratio`` / ``set_mass_shift`` / ``set_COM_shift``) plus the
 genelab-native ``encoder_bias`` that lives in :class:`RobotState` and gets
-applied on both sides of the obs/action loop. Each function follows the
+subtracted from the PD target on the action side of the loop. Each function follows the
 :class:`~genelab.managers.event_manager.EventTermCfg` calling convention so
 configs hook them in with ``mode="startup"`` (constant DR sampled once per
 episode start) — mjlab's standard pattern for sim2real perturbations.

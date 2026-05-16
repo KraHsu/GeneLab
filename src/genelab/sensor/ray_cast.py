@@ -228,6 +228,13 @@ class RayCastSensorCfg(SensorCfg):
     attach_yaw_only: bool = True
     max_distance: float = 10.0
     ground_height: float = 0.0
+    link_offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    """Local-frame offset of the ray-pattern origin relative to ``link_name``.
+
+    mjlab parity: foot height scans anchor at the ``left_foot``/``right_foot``
+    site (offset ``(0.04, 0, -0.037)`` from ``ankle_roll_link`` in G1's XML),
+    not at the link origin. Set to non-zero when you need site-frame ray casts.
+    """
 
     def build(self) -> "RayCastSensor":
         return RayCastSensor(self)
@@ -240,6 +247,7 @@ class RayCastSensor(Sensor[RayCastData]):
         self._link_idx: int = -1
         self._ray_starts_local: torch.Tensor | None = None
         self._ray_dirs_local: torch.Tensor | None = None
+        self._link_offset_local: torch.Tensor | None = None
 
     @property
     def num_rays(self) -> int:
@@ -257,22 +265,28 @@ class RayCastSensor(Sensor[RayCastData]):
                 f"env.link_names={env.link_names!r}"
             ) from exc
         self._ray_starts_local, self._ray_dirs_local = self._cfg_typed.pattern.generate(env.device)
+        self._link_offset_local = torch.tensor(
+            self._cfg_typed.link_offset, dtype=torch.float32, device=env.device
+        )
 
     def _compute_data(self) -> RayCastData:
         assert (
             self._env is not None
             and self._ray_starts_local is not None
             and self._ray_dirs_local is not None
+            and self._link_offset_local is not None
         )
         rs = self._env.robot_state
         link_pos = rs.link_pos[:, self._link_idx]
         link_quat = rs.link_quat_w[:, self._link_idx]
         rot_q = yaw_quat(link_quat) if self._cfg_typed.attach_yaw_only else link_quat
-        # Project the local pattern into world coordinates per env.
+        # Project the local pattern (shifted by ``link_offset`` so the ray fan anchors
+        # at the configured site rather than the link origin) into world coordinates.
         b = link_pos.shape[0]
         m = self._ray_starts_local.shape[0]
         q_expanded = rot_q.unsqueeze(1).expand(b, m, 4).contiguous()
-        starts_local_b = self._ray_starts_local.unsqueeze(0).expand(b, m, 3).contiguous()
+        starts_local = self._ray_starts_local + self._link_offset_local
+        starts_local_b = starts_local.unsqueeze(0).expand(b, m, 3).contiguous()
         dirs_local_b = self._ray_dirs_local.unsqueeze(0).expand(b, m, 3).contiguous()
         starts_w = quat_apply(q_expanded, starts_local_b) + link_pos.unsqueeze(1)
         dirs_w = quat_apply(q_expanded, dirs_local_b)

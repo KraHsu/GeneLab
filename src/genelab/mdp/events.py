@@ -113,6 +113,9 @@ def reset_joints_by_offset(
     * Accepts asymmetric ``(lo, hi)`` ranges rather than a symmetric jitter scalar.
     * Same range applies uniformly to all joints (mjlab supports per-joint via
       ``SceneEntityCfg``; once :class:`SceneEntityCfg` lands in P5 we can extend here).
+    * Clamps the sampled position to ``env.articulation.joint_pos_limits`` so
+      large offsets can't violate the joint limits — mirrors mjlab's
+      ``soft_joint_pos_limits`` clamp.
 
     ``position_range=(0, 0)`` and ``velocity_range=(0, 0)`` reproduces the mjlab call
     site that resets to bare default pose with zero velocity.
@@ -124,6 +127,11 @@ def reset_joints_by_offset(
     lo, hi = position_range
     if lo != 0.0 or hi != 0.0:
         pos += torch.empty_like(pos).uniform_(lo, hi)
+        limits = env.articulation.joint_pos_limits
+        if limits.numel() > 0 and limits.shape[0] == pos.shape[1]:
+            # Only clamp when finite (Genesis returns ±inf for floating-base DoFs
+            # but those are stripped from joint_pos_limits at bind time).
+            pos = pos.clamp(min=limits[:, 0], max=limits[:, 1])
     vel = torch.zeros_like(pos)
     lo, hi = velocity_range
     if lo != 0.0 or hi != 0.0:
