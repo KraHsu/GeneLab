@@ -12,13 +12,16 @@ import torch
 
 from genelab.managers.reward_manager import RewardTermCfg
 from genelab.mdp.rewards import (
+    angular_momentum_penalty,
     body_angular_velocity_penalty,
     feet_clearance,
     feet_slip,
     feet_swing_height,
+    self_collision_cost,
     soft_landing,
 )
 from genelab.sensor import ContactSensorCfg
+from genelab.sensor.self_contact import SelfContactData, SelfContactSensor, SelfContactSensorCfg
 
 
 # --------------------------------------------------------------------- fakes
@@ -335,3 +338,78 @@ def test_feet_swing_height_silent_when_command_is_standing() -> None:
     contact.update(0.02)
     out = reward(env, **cfg.params)
     assert torch.all(out == 0.0)
+
+
+# --------------------------------------------------------------------- angular_momentum_penalty
+
+
+class _StubSensor:
+    """Minimal sensor stand-in: ``data`` attribute is the only thing the rewards read."""
+
+    def __init__(self, value) -> None:
+        self.data = value
+
+
+def test_angular_momentum_penalty_returns_vector_magnitude() -> None:
+    """``L=(3, 4, 0)`` ⇒ ``|L|=5`` per env."""
+    env = _make_env()
+    env.sensors["L"] = _StubSensor(
+        torch.tensor([[3.0, 4.0, 0.0], [0.0, 0.0, 1.0]], dtype=torch.float)
+    )
+    out = angular_momentum_penalty(env, sensor_name="L")
+    assert torch.allclose(out, torch.tensor([5.0, 1.0]), atol=1e-6)
+
+
+# --------------------------------------------------------------------- self_collision_cost
+
+
+class _FakeSelfContactSensor(SelfContactSensor):
+    """Real ``SelfContactSensor`` subclass with hard-coded ``data`` for the reward to read.
+
+    Subclassing keeps the ``isinstance`` check in ``self_collision_cost`` happy without
+    going through ``bind``/``update``/Genesis.
+    """
+
+    def __init__(self, *, force: torch.Tensor, force_history: torch.Tensor | None) -> None:
+        super().__init__(SelfContactSensorCfg(name="self_stub"))
+        self._latest_force = force
+        self._force_history = force_history
+
+    @property
+    def data(self) -> SelfContactData:  # type: ignore[override]
+        return SelfContactData(
+            force=self._latest_force,  # type: ignore[arg-type]
+            found=(self._latest_force > 1.0),  # type: ignore[operator]
+            force_history=self._force_history,
+        )
+
+
+def test_self_collision_cost_history_counts_hits_above_threshold() -> None:
+    """4-step history with two frames over threshold ⇒ cost=2."""
+    env = _make_env(num_envs=1)
+    history = torch.tensor([[0.5, 12.0, 3.0, 15.0]])  # (B=1, H=4)
+    env.sensors["self"] = _FakeSelfContactSensor(force=torch.zeros(1), force_history=history)
+    out = self_collision_cost(env, sensor_name="self", force_threshold=10.0)
+    assert torch.allclose(out, torch.tensor([2.0]), atol=1e-6)
+
+
+def test_self_collision_cost_single_step_when_no_history() -> None:
+    """Without ``force_history``, the cost reduces to the current single-step bool."""
+    env = _make_env(num_envs=2)
+    env.sensors["self"] = _FakeSelfContactSensor(
+        force=torch.tensor([0.5, 12.0]), force_history=None
+    )
+    out = self_collision_cost(env, sensor_name="self", force_threshold=10.0)
+    assert torch.allclose(out, torch.tensor([0.0, 1.0]), atol=1e-6)
+
+
+def test_self_collision_cost_rejects_wrong_sensor_type() -> None:
+    """Mistakenly wiring a generic ``ContactSensor`` should fail loudly at call time."""
+    env = _make_env()
+    env.sensors["wrong"] = _StubSensor(torch.zeros(1))  # not a SelfContactSensor
+    try:
+        self_collision_cost(env, sensor_name="wrong")
+    except TypeError as exc:
+        assert "SelfContactSensor" in str(exc)
+    else:
+        raise AssertionError("expected TypeError for non-SelfContactSensor wiring")

@@ -36,6 +36,7 @@ from genelab.mdp.observations import (
 )
 from genelab.mdp.rewards import (
     action_rate_l2,
+    angular_momentum_penalty,
     body_angular_velocity_penalty,
     feet_air_time,
     feet_clearance,
@@ -50,6 +51,7 @@ from genelab.mdp.rewards import (
     motion_global_body_linear_velocity_error_exp,
     motion_relative_body_orientation_error_exp,
     motion_relative_body_position_error_exp,
+    self_collision_cost,
     soft_landing,
     track_angular_velocity_z_exp,
     track_linear_velocity_xy_exp,
@@ -77,6 +79,7 @@ __all__ = [
     "UniformVelocityCommandCfg",
     "Unoise",
     "action_rate_l2",
+    "angular_momentum_penalty",
     "bad_anchor_ori",
     "bad_anchor_pos_z_only",
     "bad_motion_body_pos_z_only",
@@ -116,6 +119,7 @@ __all__ = [
     "robot_body_ori_b",
     "robot_body_pos_b",
     "root_height_below",
+    "self_collision_cost",
     "sensor_data",
     "soft_landing",
     "terrain_levels_vel",
