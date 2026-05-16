@@ -272,6 +272,55 @@ def test_feet_clearance_zero_when_command_below_threshold() -> None:
     assert torch.all(out == 0.0)
 
 
+def test_feet_clearance_gate_uses_l1_xy_plus_abs_yaw_not_l2_of_three() -> None:
+    """mjlab parity: gate is ``||cmd_xy|| + |cmd_z|``, not ``||cmd[:3]||``.
+
+    For ``cmd=(0.03, 0, 0.03)`` and threshold ``0.05``:
+
+    * mjlab gate: ``0.03 + 0.03 = 0.06`` → active (penalty fires).
+    * Pre-parity L2 gate: ``√(0.03² + 0.03²) ≈ 0.042`` → silent.
+
+    Picking these numbers also keeps the threshold-boundary diagnostic simple:
+    the GeneLab gate must now fire here.
+    """
+    env = _make_env(
+        foot_z=(0.3, 0.3),
+        foot_vel_xy=(1.0, 0.0),
+        command_xyz=(0.03, 0.0, 0.03),
+    )
+    out = feet_clearance(
+        env,
+        asset_cfg=_foot_cfg(env),
+        target_height=0.1,
+        command_name="twist",
+        command_threshold=0.05,
+    )
+    # 2 feet × |0.3 − 0.1| × 1.0 = 0.4 — non-zero confirms the gate fired.
+    assert torch.all(out > 0.0)
+
+
+def test_feet_clearance_gate_still_silent_below_combined_threshold() -> None:
+    """The L1-xy + |ωz| gate stays silent when the combined total is sub-threshold.
+
+    For ``cmd=(0.02, 0, 0.02)`` total = 0.04 < 0.05 ⇒ inactive. Sanity-check
+    that the new formula isn't permissive everywhere; only the cases the L2
+    rule missed.
+    """
+    env = _make_env(
+        foot_z=(0.3, 0.3),
+        foot_vel_xy=(1.0, 0.0),
+        command_xyz=(0.02, 0.0, 0.02),
+    )
+    out = feet_clearance(
+        env,
+        asset_cfg=_foot_cfg(env),
+        target_height=0.1,
+        command_name="twist",
+        command_threshold=0.05,
+    )
+    assert torch.all(out == 0.0)
+
+
 def test_feet_clearance_penalty_uses_link_z_when_no_sensor() -> None:
     """Without ``height_sensor_name``, the reward falls back to ``link_pos.z``."""
     env = _make_env(

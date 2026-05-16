@@ -16,7 +16,14 @@ from genelab.mdp.events import (
     reset_joints_to_default,
     reset_root_state_uniform,
 )
-from genelab.mdp.metrics import mean_action_acc
+from genelab.mdp.metrics import (
+    air_time_mean,
+    angular_momentum_mean,
+    landing_force_mean,
+    mean_action_acc,
+    peak_height_mean,
+    slip_velocity_mean,
+)
 from genelab.mdp.noise import Gnoise, NoiseCfg, Unoise
 from genelab.mdp.observations import (
     base_ang_vel,
@@ -81,6 +88,8 @@ __all__ = [
     "UniformVelocityCommandCfg",
     "Unoise",
     "action_rate_l2",
+    "air_time_mean",
+    "angular_momentum_mean",
     "angular_momentum_penalty",
     "bad_anchor_ori",
     "bad_anchor_pos_z_only",
@@ -105,6 +114,7 @@ __all__ = [
     "joint_pos_limits",
     "joint_pos_rel",
     "joint_vel_rel",
+    "landing_force_mean",
     "last_action",
     "mean_action_acc",
     "motion_anchor_ori_b",
@@ -115,6 +125,7 @@ __all__ = [
     "motion_global_body_linear_velocity_error_exp",
     "motion_relative_body_orientation_error_exp",
     "motion_relative_body_position_error_exp",
+    "peak_height_mean",
     "projected_gravity",
     "push_by_setting_velocity",
     "reset_joints_by_offset",
@@ -125,6 +136,7 @@ __all__ = [
     "root_height_below",
     "self_collision_cost",
     "sensor_data",
+    "slip_velocity_mean",
     "soft_landing",
     "terrain_levels_vel",
     "time_out",

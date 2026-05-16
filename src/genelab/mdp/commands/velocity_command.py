@@ -153,9 +153,12 @@ class UniformVelocityCommand(CommandTerm):
 
         # Standing envs override everything; assign last so an env that's both standing
         # and forward ends up at zero (matches mjlab precedence — standing wins).
+        # Clear both ``_command`` and ``_command_w`` so the cached world-frame command
+        # also reads zero for standing envs (mjlab parity — ``velocity_command.py:137-138``).
         standing_ids = env_ids[self._is_standing[env_ids]]
         if standing_ids.numel() > 0:
             self._command[standing_ids] = 0.0
+            self._command_w[standing_ids] = 0.0
 
     def _update_command(self) -> None:
         # 1. Heading PD overrides ωz for heading envs only.
@@ -184,4 +187,8 @@ class UniformVelocityCommand(CommandTerm):
             self._command[w_ids, 1] = -sin_h * vx_w + cos_h * vy_w
 
         # 3. Standing envs zero out — final assignment so it overrides heading/world.
+        # mjlab parity (velocity_command.py:137-138): clear both buffers, not just the
+        # body-frame one, so a standing env in world mode doesn't read a stale
+        # ``_command_w`` value at the next ``_update_command`` step before resample.
         self._command[self._is_standing] = 0.0
+        self._command_w[self._is_standing] = 0.0
