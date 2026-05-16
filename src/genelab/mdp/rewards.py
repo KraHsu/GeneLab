@@ -201,7 +201,7 @@ def feet_clearance(
     target_height: float,
     command_name: str,
     command_threshold: float = 0.05,
-    height_sensor_names: tuple[str, ...] | None = None,
+    height_sensor_name: str | None = None,
 ) -> torch.Tensor:
     """``Σ_foot |h − target| · |v_xy|`` while command is active.
 
@@ -209,24 +209,22 @@ def feet_clearance(
     velocity — so feet are pushed toward the target swing height only while they're
     actually moving. mjlab: ``feet_clearance``.
 
-    Height source: if ``height_sensor_names`` is given (one ``TerrainHeightSensor`` name
-    per foot, in the same order as ``asset_cfg.link_names``), use the sensor's mean
-    clearance. Otherwise fall back to ``link_pos.z`` — correct on flat ground.
+    Height source: if ``height_sensor_name`` is given, the sensor is expected to be a
+    multi-frame :class:`~genelab.sensor.TerrainHeightSensor` returning ``(B, F)`` with
+    one clearance per foot (column order must match ``asset_cfg.link_names``). Without
+    a sensor the reward falls back to ``link_pos.z`` — correct on flat ground.
     """
     indices = list(_link_ids(asset_cfg))
     foot_vel_xy = env.robot_state.link_lin_vel_w[:, indices, :2]
     vel_norm = torch.norm(foot_vel_xy, dim=-1)  # (B, F)
 
-    if height_sensor_names is not None:
-        if len(height_sensor_names) != len(indices):
+    if height_sensor_name is not None:
+        heights = env.sensors[height_sensor_name].data  # (B, F)
+        if heights.shape[-1] != len(indices):
             raise ValueError(
-                f"height_sensor_names ({len(height_sensor_names)}) must match the "
-                f"number of links in asset_cfg ({len(indices)})"
+                f"sensor {height_sensor_name!r} returned {heights.shape[-1]} frames, "
+                f"expected {len(indices)} to match asset_cfg link order"
             )
-        # Each TerrainHeightSensor returns (B, num_rays); reduce by mean to one height per foot.
-        heights = torch.stack(
-            [env.sensors[n].data.mean(dim=-1) for n in height_sensor_names], dim=-1
-        )
     else:
         heights = env.robot_state.link_pos[:, indices, 2]
 
