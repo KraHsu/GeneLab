@@ -10,7 +10,7 @@ from genelab.managers.scene_entity_cfg import SceneEntityCfg
 from genelab.mdp.commands.motion_command import MotionCommand
 from genelab.sensor.contact import ContactSensor
 from genelab.sensor.self_contact import SelfContactSensor
-from genelab.utils.math import quat_error_magnitude
+from genelab.utils.math import quat_apply_inverse, quat_error_magnitude
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
@@ -82,14 +82,42 @@ def flat_orientation_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return torch.sum(env.robot_state.projected_gravity_b[:, :2] ** 2, dim=-1)
 
 
-def upright_exp(env: "ManagerBasedRlEnv", std: float = 0.45) -> torch.Tensor:
-    """``exp(-||projected_gravity_xy||^2 / std^2)`` — positive reward for an upright base.
+def upright_exp(
+    env: "ManagerBasedRlEnv",
+    std: float = 0.45,
+    asset_cfg: SceneEntityCfg | None = None,
+) -> torch.Tensor:
+    """``exp(-||projected_gravity_xy||^2 / std^2)`` — positive reward for an upright link.
 
     Port of mjlab's ``upright`` reward (flat-ground variant). Saturates near zero tilt
     instead of growing unbounded like an L2 penalty, which matches the policy gradients
     the reference implementation relies on.
+
+    Body selection:
+
+    * ``asset_cfg=None`` — read the cached root-frame gravity projection
+      (``robot_state.projected_gravity_b``). Penalises **pelvis** tilt for a
+      floating-base humanoid. Backward-compatible default.
+    * ``asset_cfg=SceneEntityCfg(link_names=(L,))`` — project the world gravity
+      vector into ``L``'s frame via ``link_quat_w``. mjlab's G1 cfg targets
+      ``torso_link`` so the reward penalises **torso** tilt rather than pelvis
+      — different signal when the waist joints flex.
+
+    When multiple links are selected, their xy-squared tilts are summed.
     """
-    xy_squared = torch.sum(env.robot_state.projected_gravity_b[:, :2] ** 2, dim=-1)
+    if asset_cfg is None or asset_cfg.link_ids is None:
+        xy_squared = torch.sum(env.robot_state.projected_gravity_b[:, :2] ** 2, dim=-1)
+        return torch.exp(-xy_squared / (std * std))
+    # ``gravity_w = (0, 0, -1)`` is the convention used throughout robot_state — project
+    # it into each selected link's frame via the link's world quaternion. Result xy
+    # components measure tilt of that link about the gravity vector.
+    link_ids = list(asset_cfg.link_ids)
+    gravity_w = torch.zeros(env.num_envs, 3, device=env.device)
+    gravity_w[:, 2] = -1.0
+    quat_w = env.robot_state.link_quat_w[:, link_ids, :]  # (B, N, 4)
+    gravity_expanded = gravity_w.unsqueeze(1).expand_as(quat_w[..., :3])  # (B, N, 3)
+    projected = quat_apply_inverse(quat_w, gravity_expanded)  # (B, N, 3)
+    xy_squared = torch.sum(projected[..., :2] ** 2, dim=(-1, -2))
     return torch.exp(-xy_squared / (std * std))
 
 

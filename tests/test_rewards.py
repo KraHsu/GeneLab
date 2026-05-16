@@ -5,6 +5,7 @@ enough surface (link_names, robot_state, command_manager, sensors) for the rewar
 functions to read what they need. No Genesis runtime required.
 """
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -20,6 +21,7 @@ from genelab.mdp.rewards import (
     feet_swing_height,
     self_collision_cost,
     soft_landing,
+    upright_exp,
 )
 from genelab.sensor import ContactSensorCfg
 from genelab.sensor.self_contact import SelfContactData, SelfContactSensor, SelfContactSensorCfg
@@ -48,6 +50,8 @@ class _FakeRobotState:
     link_pos: torch.Tensor
     link_lin_vel_w: torch.Tensor
     link_ang_vel_w: torch.Tensor
+    link_quat_w: torch.Tensor | None = None
+    projected_gravity_b: torch.Tensor | None = None
 
 
 class _FakeCommandManager:
@@ -115,11 +119,92 @@ def _make_env(
                 link_lin_vel_w[:, i, 0] = float(foot_vel_xy[0])
                 link_lin_vel_w[:, i, 1] = float(foot_vel_xy[1])
     link_ang_vel_w[:, 0, :] = torch.tensor(base_ang_vel)
-    state = _FakeRobotState(link_pos, link_lin_vel_w, link_ang_vel_w)
+    # Default link quaternions are identity (wxyz = [1, 0, 0, 0]).
+    link_quat_w = torch.zeros(num_envs, num_links, 4)
+    link_quat_w[..., 0] = 1.0
+    # Root-frame gravity: world ``(0, 0, -1)`` with identity root quat — same vector.
+    projected_gravity_b = torch.zeros(num_envs, 3)
+    projected_gravity_b[:, 2] = -1.0
+    state = _FakeRobotState(
+        link_pos=link_pos,
+        link_lin_vel_w=link_lin_vel_w,
+        link_ang_vel_w=link_ang_vel_w,
+        link_quat_w=link_quat_w,
+        projected_gravity_b=projected_gravity_b,
+    )
     command = torch.tensor(command_xyz, dtype=torch.float).unsqueeze(0).expand(num_envs, -1).clone()
     return _FakeRewardEnv(
         num_envs=num_envs, link_names=list(link_names), robot_state=state, command=command
     )
+
+
+# --------------------------------------------------------------------- body_angular_velocity_penalty
+
+
+# --------------------------------------------------------------------- upright_exp
+
+
+def test_upright_exp_default_uses_root_projected_gravity() -> None:
+    """Without ``asset_cfg``, the reward reads ``robot_state.projected_gravity_b``."""
+    env = _make_env()
+    assert env.robot_state.projected_gravity_b is not None
+    # Force a non-zero tilt by setting the projected gravity xy.
+    env.robot_state.projected_gravity_b[:, :2] = torch.tensor([0.3, -0.4])
+    env.robot_state.projected_gravity_b[:, 2] = math.sqrt(1 - 0.25)  # keep unit-ish
+    out = upright_exp(env, std=0.5)
+    # xy_squared = 0.09 + 0.16 = 0.25; expected = exp(-0.25 / 0.25) = exp(-1).
+    expected = math.exp(-1.0)
+    assert torch.allclose(out, torch.full((env.num_envs,), expected), atol=1e-6)
+
+
+def test_upright_exp_with_asset_cfg_projects_world_gravity_into_link_frame() -> None:
+    """``asset_cfg`` selects a link; world gravity is projected into its frame.
+
+    With an identity quaternion, the projection equals world gravity ``(0, 0, -1)``,
+    xy=0, so the reward is 1.0 (perfectly upright).
+    """
+    env = _make_env()
+    out = upright_exp(env, std=0.45, asset_cfg=_link_cfg(env, "base"))
+    assert torch.allclose(out, torch.ones(env.num_envs), atol=1e-6)
+
+
+def test_upright_exp_link_mode_picks_up_link_quat_tilt() -> None:
+    """If a target link is rotated, its frame's projected gravity becomes non-zero."""
+    env = _make_env()
+    # Rotate the base link by 90° about +x: quat = (cos45, sin45, 0, 0) = (√2/2, √2/2, 0, 0).
+    # World gravity (0, 0, -1) projected into a frame rotated 90° about +x becomes (0, 1, 0)
+    # — xy magnitude = 1.
+    s2 = math.sqrt(2.0) / 2.0
+    assert env.robot_state.link_quat_w is not None
+    env.robot_state.link_quat_w[:, 0] = torch.tensor([s2, s2, 0.0, 0.0])
+    out = upright_exp(env, std=0.45, asset_cfg=_link_cfg(env, "base"))
+    # xy_squared = 1.0; expected = exp(-1 / 0.45²) ≈ exp(-4.938).
+    expected = math.exp(-1.0 / (0.45 * 0.45))
+    assert torch.allclose(out, torch.full((env.num_envs,), expected), atol=1e-5)
+
+
+def test_upright_exp_pelvis_vs_torso_diverge_under_waist_flex() -> None:
+    """Regression for the mjlab parity gap: ``upright_exp`` with root mode and
+    with ``asset_cfg=torso_link`` give DIFFERENT signals when the torso is
+    rotated relative to the pelvis (waist joint flexed).
+
+    Setup: pelvis stays upright (root projected_gravity_b = world up); torso link
+    is rotated 45° forward (so its projected gravity has xy ≠ 0).
+    """
+    env = _make_env(link_names=("pelvis", "torso_link"))
+    # Pelvis: perfect up. Already (0, 0, -1) by default.
+    # Torso link: rotated 45° about +x. q = (cos22.5, sin22.5, 0, 0).
+    angle = math.pi / 4
+    assert env.robot_state.link_quat_w is not None
+    env.robot_state.link_quat_w[:, 1] = torch.tensor(
+        [math.cos(angle / 2), math.sin(angle / 2), 0.0, 0.0]
+    )
+    out_root = upright_exp(env, std=0.45)
+    out_torso = upright_exp(env, std=0.45, asset_cfg=_link_cfg(env, "torso_link"))
+    # Pelvis (root) sees no tilt → reward ~1.
+    assert torch.allclose(out_root, torch.ones(env.num_envs), atol=1e-6)
+    # Torso sees real tilt → reward < 1.
+    assert (out_torso < 0.99).all().item()
 
 
 # --------------------------------------------------------------------- body_angular_velocity_penalty
