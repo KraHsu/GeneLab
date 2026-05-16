@@ -11,7 +11,7 @@ from genelab.cache import ensure_project_cache
 from genelab.registry import TASKS
 from genelab.rl.profiler import maybe_profile
 from genelab.rl.config import RslRlOnPolicyRunnerCfg
-from genelab.rl.distributed import is_main_process
+from genelab.rl.distributed import is_main_process, shutdown_process_group
 from genelab.rl.rsl_rl_wrapper import RslRlVecEnvWrapper
 
 if TYPE_CHECKING:
@@ -147,31 +147,36 @@ def train_task(
     )
     if resume_from is not None:
         runner.load(str(resume_from))
-    with maybe_profile(
-        enabled=prof,
-        out_dir=prof_out,
-        wait=prof_wait,
-        warmup=prof_warmup,
-        active=prof_active,
-        repeat=prof_repeat,
-        record_shapes=prof_record_shapes,
-        with_stack=prof_with_stack,
-    ) as prof_step:
-        if prof_step is not None:
-            # Advance the profiler schedule once per env step. RSL-RL doesn't expose a
-            # per-iteration hook, so the wrapper's ``step`` is the closest fire-once-per-
-            # rollout-step seam. Multiply WAIT/WARMUP/ACTIVE by ``num_steps_per_env`` if
-            # you want the schedule expressed in PPO iterations.
-            original_step = wrapped.step
+    try:
+        with maybe_profile(
+            enabled=prof,
+            out_dir=prof_out,
+            wait=prof_wait,
+            warmup=prof_warmup,
+            active=prof_active,
+            repeat=prof_repeat,
+            record_shapes=prof_record_shapes,
+            with_stack=prof_with_stack,
+        ) as prof_step:
+            if prof_step is not None:
+                # Advance the profiler schedule once per env step. RSL-RL doesn't expose a
+                # per-iteration hook, so the wrapper's ``step`` is the closest fire-once-per-
+                # rollout-step seam. Multiply WAIT/WARMUP/ACTIVE by ``num_steps_per_env`` if
+                # you want the schedule expressed in PPO iterations.
+                original_step = wrapped.step
 
-            def _step_with_profiler(*args: Any, **kwargs: Any) -> Any:
-                result = original_step(*args, **kwargs)
-                prof_step()
-                return result
+                def _step_with_profiler(*args: Any, **kwargs: Any) -> Any:
+                    result = original_step(*args, **kwargs)
+                    prof_step()
+                    return result
 
-            wrapped.step = _step_with_profiler  # type: ignore[method-assign]
-        runner.learn(num_learning_iterations=agent_cfg.max_iterations)
-    env.close()
+                wrapped.step = _step_with_profiler  # type: ignore[method-assign]
+            runner.learn(num_learning_iterations=agent_cfg.max_iterations)
+    finally:
+        env.close()
+        # rsl_rl's OnPolicyRunner inits the NCCL process group but never tears it down;
+        # without this every rank prints a destroy_process_group resource-leak warning.
+        shutdown_process_group()
     return log_dir
 
 
