@@ -405,7 +405,10 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             "self_collisions": RewardTermCfg(
                 func=mdp.self_collision_cost,
                 weight=-1.0,
-                params={"sensor_name": "self_collision", "force_threshold": 10.0},
+                # Force threshold lives on ``SelfContactSensorCfg.force_threshold`` (10.0
+                # above); the reward used to accept a redundant param of the same name,
+                # which is dropped here so the cfg has one source of truth.
+                params={"sensor_name": "self_collision"},
             ),
         },
         terminations_cfg={
@@ -446,9 +449,39 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             ),
         },
         metrics_cfg={
-            # Logged to ``Episode_Metrics/mean_action_acc``; smoother is better.
-            # Name matches mjlab's metrics dict so tensorboard tags line up.
+            # Logged to ``Episode_Metrics/<name>``; values mirror mjlab's
+            # ``Metrics/<name>_mean`` cross-(env, foot) writes from inside the
+            # reward bodies (see ``mjlab/.../velocity/mdp/rewards.py:205, 229,
+            # 317, 352, 373``). GeneLab's MetricsManager averages over the
+            # episode and reports at reset; mjlab averages over the rollout via
+            # rsl-rl. Per-step scalars match; the time horizons differ.
             "mean_action_acc": MetricsTermCfg(func=mdp.mean_action_acc),
+            "angular_momentum_mean": MetricsTermCfg(
+                func=mdp.angular_momentum_mean,
+                params={"sensor_name": "root_angmom"},
+            ),
+            "air_time_mean": MetricsTermCfg(
+                func=mdp.air_time_mean,
+                params={"sensor_name": "feet_ground_contact"},
+            ),
+            "slip_velocity_mean": MetricsTermCfg(
+                func=mdp.slip_velocity_mean,
+                params={
+                    "sensor_name": "feet_ground_contact",
+                    "asset_cfg": _feet_cfg(),
+                },
+            ),
+            "landing_force_mean": MetricsTermCfg(
+                func=mdp.landing_force_mean,
+                params={"sensor_name": "feet_ground_contact"},
+            ),
+            "peak_height_mean": MetricsTermCfg(
+                func=mdp.peak_height_mean,
+                params={
+                    "sensor_name": "feet_ground_contact",
+                    "asset_cfg": _feet_cfg(),
+                },
+            ),
         },
     )
 

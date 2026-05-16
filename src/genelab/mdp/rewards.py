@@ -7,90 +7,19 @@ import torch
 
 from genelab.managers.reward_manager import RewardTermCfg
 from genelab.managers.scene_entity_cfg import SceneEntityCfg
+from genelab.mdp._helpers import (
+    command_active as _command_active,
+    contact_sensor as _contact_sensor,
+    link_ids as _link_ids,
+    site_lin_vel_w as _site_lin_vel_w,
+    site_pos_w as _site_pos_w,
+)
 from genelab.mdp.commands.motion_command import MotionCommand
-from genelab.sensor.contact import ContactSensor
 from genelab.sensor.self_contact import SelfContactSensor
-from genelab.utils.math import quat_apply, quat_apply_inverse, quat_error_magnitude
+from genelab.utils.math import quat_apply_inverse, quat_error_magnitude
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
-
-
-def _link_ids(asset_cfg: SceneEntityCfg) -> tuple[int, ...]:
-    """Pull resolved link ids off an ``asset_cfg`` or fail loudly if they're missing.
-
-    ``asset_cfg`` is normally resolved by ``managers._base.instantiate_class_term``
-    at manager construction; this helper double-checks so a misconfigured term
-    raises with a useful message instead of silently passing ``None`` to a
-    tensor indexer.
-    """
-    if asset_cfg.link_ids is None:
-        raise ValueError(
-            f"SceneEntityCfg(name={asset_cfg.name!r}) has no link_ids — set link_names "
-            f"and let the manager resolve it, or set link_ids explicitly"
-        )
-    return asset_cfg.link_ids
-
-
-def _site_pos_w(
-    env: "ManagerBasedRlEnv",
-    indices: list[int],
-    offsets: torch.Tensor | None,
-) -> torch.Tensor:
-    """World-frame site position for each selected link.
-
-    ``site_pos_w = link_pos_w + R_link · offset_local``. With ``offsets=None``
-    this reduces to ``link_pos_w`` — matches the pre-parity behaviour.
-
-    Returns ``(B, F, 3)`` aligned with ``indices``.
-    """
-    rs = env.robot_state
-    link_pos = rs.link_pos[:, indices]  # (B, F, 3)
-    if offsets is None:
-        return link_pos
-    link_quat = rs.link_quat_w[:, indices]  # (B, F, 4)
-    # Broadcast offsets ``(F, 3)`` over the batch dimension before quat_apply.
-    offsets_b = offsets.unsqueeze(0).expand_as(link_pos).contiguous()
-    return link_pos + quat_apply(link_quat, offsets_b)
-
-
-def _site_lin_vel_w(
-    env: "ManagerBasedRlEnv",
-    indices: list[int],
-    offsets: torch.Tensor | None,
-) -> torch.Tensor:
-    """World-frame linear velocity at each selected link's site.
-
-    ``v_site = v_link + ω × (R_link · offset_local)``. With ``offsets=None`` this
-    reduces to ``link_lin_vel_w`` — matches the pre-parity behaviour.
-
-    Returns ``(B, F, 3)`` aligned with ``indices``.
-    """
-    rs = env.robot_state
-    link_lin_vel = rs.link_lin_vel_w[:, indices]  # (B, F, 3)
-    if offsets is None:
-        return link_lin_vel
-    link_quat = rs.link_quat_w[:, indices]  # (B, F, 4)
-    link_ang_vel = rs.link_ang_vel_w[:, indices]  # (B, F, 3)
-    offsets_b = offsets.unsqueeze(0).expand_as(link_lin_vel).contiguous()
-    r_world = quat_apply(link_quat, offsets_b)
-    return link_lin_vel + torch.cross(link_ang_vel, r_world, dim=-1)
-
-
-def _contact_sensor(env: "ManagerBasedRlEnv", sensor_name: str) -> ContactSensor:
-    sensor = env.sensors[sensor_name]
-    if not isinstance(sensor, ContactSensor):
-        raise TypeError(
-            f"sensor {sensor_name!r} is not a ContactSensor (got {type(sensor).__name__})"
-        )
-    return sensor
-
-
-def _command_active(env: "ManagerBasedRlEnv", command_name: str, threshold: float) -> torch.Tensor:
-    """Returns ``(B,)`` float mask: 1 where ``||cmd[:3]||_2 > threshold``, else 0."""
-    cmd = env.command_manager.get_command(command_name)
-    mag = torch.norm(cmd[:, :3], dim=-1)
-    return (mag > threshold).float()
 
 
 def track_linear_velocity_xy_exp(
@@ -452,7 +381,6 @@ def angular_momentum_penalty(env: "ManagerBasedRlEnv", sensor_name: str) -> torc
 def self_collision_cost(
     env: "ManagerBasedRlEnv",
     sensor_name: str,
-    force_threshold: float = 10.0,  # noqa: ARG001 - kept for cfg back-compat; threshold lives on sensor cfg
 ) -> torch.Tensor:
     """Count of recent self-contact "hit" frames.
 
@@ -463,11 +391,12 @@ def self_collision_cost(
     used in G1 with a 4-step window. Without history (``history_length=0``) the
     result is the single-step bool cast to float.
 
-    ``force_threshold`` here is kept for cfg back-compat with the pre-parity
-    signature; the active threshold is the sensor's ``force_threshold`` field —
-    where it has to live, because the sensor compresses to a bool *before*
-    history accumulation (Genesis contact-pair indices reshuffle each step, so
-    deferring the threshold to the reward would lose the per-pair breakdown).
+    The threshold lives on :class:`~genelab.sensor.SelfContactSensorCfg.force_threshold`
+    (not here). It has to: the sensor compresses to a bool *before* history
+    accumulation because Genesis contact-pair indices reshuffle each step, and
+    deferring the threshold to the reward would lose the per-pair breakdown.
+    A pre-parity ``force_threshold`` reward parameter was dropped here in favour
+    of the single source of truth on the sensor cfg.
     """
     sensor = env.sensors[sensor_name]
     if not isinstance(sensor, SelfContactSensor):
@@ -507,12 +436,7 @@ def feet_air_time(
     in_range = (current_air_time > threshold_min) & (current_air_time < threshold_max)
     reward = torch.sum(in_range.float(), dim=-1)
     if command_name is not None:
-        cmd = env.command_manager.get_command(command_name)
-        # mjlab uses ``||cmd_xy|| + |cmd_z|`` for the gate; match it so the cutoff
-        # behaves the same across both backends. ``_command_active`` uses an L2
-        # norm and would gate slightly differently — keep the mjlab formula here.
-        total = torch.norm(cmd[:, :2], dim=-1) + torch.abs(cmd[:, 2])
-        reward = reward * (total > command_threshold).float()
+        reward = reward * _command_active(env, command_name, command_threshold)
     return reward
 
 
