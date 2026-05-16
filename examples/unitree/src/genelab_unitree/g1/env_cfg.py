@@ -287,7 +287,13 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             "upright": RewardTermCfg(
                 func=mdp.upright_exp,
                 weight=1.0,
-                params={"std": math.sqrt(0.2)},
+                # mjlab targets ``torso_link`` (not pelvis) so the reward penalises
+                # torso tilt — the part of the body humans "read" as posture — rather
+                # than the floating base. When the waist joints flex, the two diverge.
+                params={
+                    "std": math.sqrt(0.2),
+                    "asset_cfg": SceneEntityCfg(name="robot", link_names=(_TORSO_LINK,)),
+                },
             ),
             "pose": RewardTermCfg(
                 func=mdp.variable_posture,
