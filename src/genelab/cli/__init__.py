@@ -88,7 +88,8 @@ Shorthand flags rewritten into env overrides:
 \b
   -v, --vis        Enable the Genesis viewer (env.simulation.vis=true).
   --gpu            Use the GPU backend (env.simulation.gpu=true).
-  --steps N        Run for N steps (env.simulation.steps=N).
+  --steps N        Run for N steps. Play: env.simulation.steps=N.
+                   Train: alias for --max_iterations N.
   --dt SECONDS     Override the sim timestep (env.simulation.dt=SECONDS).
   --a.b.c VALUE    Set any dotted cfg path.
 
@@ -375,6 +376,19 @@ def _configured_task(
 
     task = _resolve_task(task_id)
 
+    # In train mode, ``--steps N`` is the short form for ``--max_iterations N``.
+    # ``env.simulation.steps`` is not consumed by ``train_task`` / ``ManagerBasedRlEnv``
+    # (episodes are governed by ``episode_length_s``), so leaving the override on the env
+    # cfg would silently no-op and the user would see iterations counted to the cfg
+    # default (e.g. 0/30000) instead of stopping at N.
+    if command == "train" and "env.simulation.steps" in overrides:
+        if "max_iterations" in overrides:
+            raise SystemExit(
+                "--steps and --max_iterations conflict in train mode: drop one. "
+                "(--steps is the short form for --max_iterations.)"
+            )
+        overrides["max_iterations"] = overrides.pop("env.simulation.steps")
+
     runner_args = split_runner_keys(overrides)
     prof_args = split_prof_keys(overrides)
 
@@ -533,7 +547,7 @@ def _dispatch_train(
     gpus = int(gpus_raw) if gpus_raw is not None else 1
     num_envs_per_rank = _resolve_per_rank_num_envs(runner_args, gpus=gpus)
     if gpus > 1 and "TORCHELASTIC_RUN_ID" not in os.environ:
-        _relaunch_under_torchrun(gpus, agent_cfg, runner_args, num_envs_per_rank)
+        _relaunch_under_torchrun(gpus, agent_cfg, runner_args, num_envs_per_rank, task_id=task_id)
         return
 
     max_iter_raw = runner_args.get("max_iterations")
@@ -586,6 +600,8 @@ def _relaunch_under_torchrun(
     agent_cfg: Any,
     runner_args: dict[str, str],
     num_envs_per_rank: int | None,
+    *,
+    task_id: str,
 ) -> None:
     """Re-exec the current ``train`` invocation under torchrun.
 
@@ -593,7 +609,10 @@ def _relaunch_under_torchrun(
     ranks land in the same directory (avoiding per-rank timestamp drift). The original
     argv is forwarded verbatim minus the ``--gpus`` / ``--num-envs`` / ``--num-envs-per-gpu``
     tokens; if either env-count flag was set, an authoritative ``--num-envs-per-gpu N``
-    is injected so each worker sees the parent-resolved per-rank value.
+    is injected so each worker sees the parent-resolved per-rank value. The resolved
+    ``task_id`` is also injected when missing from the forwarded argv — otherwise a
+    parent-side interactive pick would force every torchrun worker back into the
+    questionary picker, producing repeated CPR-probe warnings (and a blocked launch).
     """
     from genelab.rl.runner import resolve_log_dir
 
@@ -602,6 +621,12 @@ def _relaunch_under_torchrun(
     log_dir = resolve_log_dir(log_root, agent_cfg.experiment_name, agent_cfg.run_name)
 
     inner = _strip_distributed_flags(sys.argv[1:])
+    if task_id not in inner:
+        try:
+            insert_at = inner.index("train") + 1
+        except ValueError:
+            insert_at = 0
+        inner.insert(insert_at, task_id)
     if num_envs_per_rank is not None:
         inner += ["--num-envs-per-gpu", str(num_envs_per_rank)]
     if not _has_log_dir_flag(inner):

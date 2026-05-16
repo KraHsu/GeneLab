@@ -38,6 +38,26 @@ def is_main_process() -> bool:
     return global_rank() == 0
 
 
+def shutdown_process_group() -> None:
+    """Destroy the torch distributed process group when one is initialized.
+
+    rsl_rl's ``OnPolicyRunner.__init__`` calls ``init_process_group`` under the hood
+    but never calls ``destroy_process_group``; without an explicit teardown every
+    rank prints ``WARNING: destroy_process_group() was not called before program
+    exit, which can leak resources.`` at exit. Safe to call unconditionally — it
+    no-ops when ``torch.distributed`` isn't initialized.
+    """
+    try:
+        import torch.distributed as dist
+    except ImportError:
+        return
+    if not dist.is_available():
+        return
+    if not dist.is_initialized():
+        return
+    dist.destroy_process_group()
+
+
 def pin_cuda_device() -> str | None:
     """Return the canonical ``cuda:{LOCAL_RANK}`` string for this worker.
 
