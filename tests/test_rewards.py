@@ -11,6 +11,7 @@ from typing import Any
 import torch
 
 from genelab.managers.reward_manager import RewardTermCfg
+from genelab.managers.scene_entity_cfg import SceneEntityCfg
 from genelab.mdp.rewards import (
     angular_momentum_penalty,
     body_angular_velocity_penalty,
@@ -22,6 +23,19 @@ from genelab.mdp.rewards import (
 )
 from genelab.sensor import ContactSensorCfg
 from genelab.sensor.self_contact import SelfContactData, SelfContactSensor, SelfContactSensorCfg
+
+
+def _foot_cfg(env, names=("left_foot", "right_foot")) -> SceneEntityCfg:
+    """Helper: build a resolved asset_cfg pointing at the named foot links."""
+    cfg = SceneEntityCfg(name="robot", link_names=names)
+    cfg.resolve(env)
+    return cfg
+
+
+def _link_cfg(env, link_name: str) -> SceneEntityCfg:
+    cfg = SceneEntityCfg(name="robot", link_names=(link_name,))
+    cfg.resolve(env)
+    return cfg
 
 
 # --------------------------------------------------------------------- fakes
@@ -113,14 +127,14 @@ def _make_env(
 
 def test_body_angular_velocity_penalty_sums_xy_squared_only() -> None:
     env = _make_env(base_ang_vel=(0.3, -0.4, 5.0))  # z=5 must be ignored
-    out = body_angular_velocity_penalty(env, link_name="base")
+    out = body_angular_velocity_penalty(env, _link_cfg(env, "base"))
     # 0.3^2 + (-0.4)^2 = 0.09 + 0.16 = 0.25
     assert torch.allclose(out, torch.full((env.num_envs,), 0.25), atol=1e-6)
 
 
 def test_body_angular_velocity_penalty_zero_when_link_static() -> None:
     env = _make_env(base_ang_vel=(0.0, 0.0, 0.0))
-    out = body_angular_velocity_penalty(env, link_name="base")
+    out = body_angular_velocity_penalty(env, _link_cfg(env, "base"))
     assert torch.all(out == 0.0)
 
 
@@ -136,7 +150,7 @@ def test_feet_clearance_zero_when_command_below_threshold() -> None:
     )
     out = feet_clearance(
         env,
-        foot_link_names=("left_foot", "right_foot"),
+        asset_cfg=_foot_cfg(env),
         target_height=0.1,
         command_name="twist",
         command_threshold=0.05,
@@ -153,7 +167,7 @@ def test_feet_clearance_penalty_uses_link_z_when_no_sensor() -> None:
     )
     out = feet_clearance(
         env,
-        foot_link_names=("left_foot", "right_foot"),
+        asset_cfg=_foot_cfg(env),
         target_height=0.1,
         command_name="twist",
         command_threshold=0.05,
@@ -178,7 +192,7 @@ def test_feet_slip_zero_when_feet_airborne() -> None:
     out = feet_slip(
         env,
         sensor_name="feet",
-        foot_link_names=("left_foot", "right_foot"),
+        asset_cfg=_foot_cfg(env),
         command_name="twist",
         command_threshold=0.05,
     )
@@ -201,7 +215,7 @@ def test_feet_slip_penalises_grounded_xy_speed_squared() -> None:
     out = feet_slip(
         env,
         sensor_name="feet",
-        foot_link_names=("left_foot", "right_foot"),
+        asset_cfg=_foot_cfg(env),
         command_name="twist",
         command_threshold=0.05,
     )
@@ -250,13 +264,14 @@ def test_soft_landing_fires_only_on_first_contact_step() -> None:
 # --------------------------------------------------------------------- feet_swing_height
 
 
-def _swing_height_cfg(*, target: float, command_threshold: float = 0.05) -> RewardTermCfg:
+def _swing_height_cfg(env, *, target: float, command_threshold: float = 0.05) -> RewardTermCfg:
+    """Build the swing-height term cfg with a pre-resolved asset_cfg."""
     return RewardTermCfg(
         func=feet_swing_height,
         weight=1.0,
         params={
             "sensor_name": "feet",
-            "foot_link_names": ("left_foot", "right_foot"),
+            "asset_cfg": _foot_cfg(env),
             "target_height": target,
             "command_name": "twist",
             "command_threshold": command_threshold,
@@ -274,11 +289,8 @@ def test_feet_swing_height_charges_at_touchdown_proportional_to_apex_error() -> 
     env.sensors["feet"] = contact
 
     # Build the stateful reward via the standard manager hook.
-    cfg = _swing_height_cfg(target=0.1)
+    cfg = _swing_height_cfg(env, target=0.1)
     reward = feet_swing_height(cfg=cfg, env=env)
-    cfg.params.pop("foot_link_names")  # __call__ doesn't accept it again
-    # Restore for the call signature: feet_swing_height.__call__ expects foot_link_names too.
-    cfg.params["foot_link_names"] = ("left_foot", "right_foot")
     assert env.robot is not None
 
     # Step 1: contact (both feet grounded at z=0); no cost.
@@ -325,7 +337,7 @@ def test_feet_swing_height_silent_when_command_is_standing() -> None:
     ).build()
     contact.bind(env)
     env.sensors["feet"] = contact
-    cfg = _swing_height_cfg(target=0.1)
+    cfg = _swing_height_cfg(env, target=0.1)
     reward = feet_swing_height(cfg=cfg, env=env)
     # Provoke first_contact and check the gate suppresses cost.
     assert env.robot is not None

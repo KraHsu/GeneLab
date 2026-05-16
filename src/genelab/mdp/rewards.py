@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, cast
 import torch
 
 from genelab.managers.reward_manager import RewardTermCfg
+from genelab.managers.scene_entity_cfg import SceneEntityCfg
 from genelab.mdp.commands.motion_command import MotionCommand
 from genelab.sensor.contact import ContactSensor
 from genelab.sensor.self_contact import SelfContactSensor
@@ -15,12 +16,20 @@ if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
 
-def _resolve_link_indices(env: "ManagerBasedRlEnv", names: tuple[str, ...]) -> list[int]:
-    """Resolve a tuple of link names to indices in ``env.link_names``."""
-    missing = [n for n in names if n not in env.link_names]
-    if missing:
-        raise ValueError(f"link(s) {missing!r} not found in env.link_names (have {env.link_names})")
-    return [env.link_names.index(n) for n in names]
+def _link_ids(asset_cfg: SceneEntityCfg) -> tuple[int, ...]:
+    """Pull resolved link ids off an ``asset_cfg`` or fail loudly if they're missing.
+
+    ``asset_cfg`` is normally resolved by ``managers._base.instantiate_class_term``
+    at manager construction; this helper double-checks so a misconfigured term
+    raises with a useful message instead of silently passing ``None`` to a
+    tensor indexer.
+    """
+    if asset_cfg.link_ids is None:
+        raise ValueError(
+            f"SceneEntityCfg(name={asset_cfg.name!r}) has no link_ids — set link_names "
+            f"and let the manager resolve it, or set link_ids explicitly"
+        )
+    return asset_cfg.link_ids
 
 
 def _contact_sensor(env: "ManagerBasedRlEnv", sensor_name: str) -> ContactSensor:
@@ -172,20 +181,23 @@ def joint_pos_limits(env: "ManagerBasedRlEnv") -> torch.Tensor:
 # policy is asked to stand still — otherwise the standing envs would pile up free penalty.
 
 
-def body_angular_velocity_penalty(env: "ManagerBasedRlEnv", link_name: str) -> torch.Tensor:
-    """``Σ ω_xy²`` for a named body link in world frame.
+def body_angular_velocity_penalty(
+    env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg
+) -> torch.Tensor:
+    """``Σ ω_xy²`` across the links named by ``asset_cfg`` (typical G1 use: torso only).
 
-    mjlab: ``tasks/velocity/mdp/rewards.py::body_angular_velocity_penalty``. Typical G1 use
-    targets the torso link to suppress pitching/rolling during locomotion.
+    mjlab: ``tasks/velocity/mdp/rewards.py::body_angular_velocity_penalty``. With a
+    single ``link_names=("torso_link",)`` selector the output matches mjlab's
+    single-body variant; multiple links sum their contributions.
     """
-    idx = env.link_names.index(link_name)
-    ang_vel = env.robot_state.link_ang_vel_w[:, idx, :2]
-    return torch.sum(ang_vel * ang_vel, dim=-1)
+    indices = list(_link_ids(asset_cfg))
+    ang_vel = env.robot_state.link_ang_vel_w[:, indices, :2]
+    return torch.sum(ang_vel * ang_vel, dim=(-1, -2))
 
 
 def feet_clearance(
     env: "ManagerBasedRlEnv",
-    foot_link_names: tuple[str, ...],
+    asset_cfg: SceneEntityCfg,
     target_height: float,
     command_name: str,
     command_threshold: float = 0.05,
@@ -198,18 +210,18 @@ def feet_clearance(
     actually moving. mjlab: ``feet_clearance``.
 
     Height source: if ``height_sensor_names`` is given (one ``TerrainHeightSensor`` name
-    per foot), use the sensor's mean clearance. Otherwise fall back to ``foot_link_z`` —
-    correct on flat ground.
+    per foot, in the same order as ``asset_cfg.link_names``), use the sensor's mean
+    clearance. Otherwise fall back to ``link_pos.z`` — correct on flat ground.
     """
-    indices = _resolve_link_indices(env, foot_link_names)
+    indices = list(_link_ids(asset_cfg))
     foot_vel_xy = env.robot_state.link_lin_vel_w[:, indices, :2]
     vel_norm = torch.norm(foot_vel_xy, dim=-1)  # (B, F)
 
     if height_sensor_names is not None:
-        if len(height_sensor_names) != len(foot_link_names):
+        if len(height_sensor_names) != len(indices):
             raise ValueError(
-                f"height_sensor_names ({len(height_sensor_names)}) must match "
-                f"foot_link_names ({len(foot_link_names)})"
+                f"height_sensor_names ({len(height_sensor_names)}) must match the "
+                f"number of links in asset_cfg ({len(indices)})"
             )
         # Each TerrainHeightSensor returns (B, num_rays); reduce by mean to one height per foot.
         heights = torch.stack(
@@ -226,7 +238,7 @@ def feet_clearance(
 def feet_slip(
     env: "ManagerBasedRlEnv",
     sensor_name: str,
-    foot_link_names: tuple[str, ...],
+    asset_cfg: SceneEntityCfg,
     command_name: str,
     command_threshold: float = 0.05,
 ) -> torch.Tensor:
@@ -234,7 +246,7 @@ def feet_slip(
 
     mjlab: ``feet_slip``. Gated by command magnitude so standing envs don't accumulate.
     """
-    indices = _resolve_link_indices(env, foot_link_names)
+    indices = list(_link_ids(asset_cfg))
     in_contact = _contact_sensor(env, sensor_name).data.found.float()
     foot_vel_xy = env.robot_state.link_lin_vel_w[:, indices, :2]
     vel_sq = torch.sum(foot_vel_xy * foot_vel_xy, dim=-1)  # (B, F)
@@ -275,9 +287,8 @@ class feet_swing_height:
 
     def __init__(self, cfg: RewardTermCfg, env: "ManagerBasedRlEnv") -> None:
         self._env = env
-        params = cfg.params
-        foot_link_names = tuple(params["foot_link_names"])
-        indices = _resolve_link_indices(env, foot_link_names)
+        asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        indices = list(_link_ids(asset_cfg))
         self._foot_indices = torch.tensor(indices, dtype=torch.long, device=env.device)
         self._peak_heights = torch.zeros(env.num_envs, len(indices), device=env.device)
 
@@ -285,12 +296,12 @@ class feet_swing_height:
         self,
         env: "ManagerBasedRlEnv",
         sensor_name: str,
-        foot_link_names: tuple[str, ...],
+        asset_cfg: SceneEntityCfg,
         target_height: float,
         command_name: str,
         command_threshold: float = 0.05,
     ) -> torch.Tensor:
-        del foot_link_names  # consumed at __init__
+        del asset_cfg  # consumed at __init__
         data = _contact_sensor(env, sensor_name).data
         foot_z = env.robot_state.link_pos[:, self._foot_indices, 2]
 

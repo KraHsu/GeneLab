@@ -12,6 +12,7 @@ from genelab.managers.observation_manager import (
     ObservationTermCfg,
 )
 from genelab.managers.reward_manager import RewardManager, RewardTermCfg
+from genelab.managers.scene_entity_cfg import SceneEntityCfg
 from genelab.managers.termination_manager import TerminationManager, TerminationTermCfg
 
 __all__ = [
@@ -34,6 +35,7 @@ __all__ = [
     "ObservationTermCfg",
     "RewardManager",
     "RewardTermCfg",
+    "SceneEntityCfg",
     "TerminationManager",
     "TerminationTermCfg",
 ]

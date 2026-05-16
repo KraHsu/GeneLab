@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.managers.scene_entity_cfg import SceneEntityCfg
 from genelab.mdp.dr._common import normalise_env_ids, resolve_link_indices
 
 if TYPE_CHECKING:
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 def geom_friction(
     env: "ManagerBasedRlEnv",
     env_ids: torch.Tensor | None,
-    link_names: tuple[str, ...] | None = None,
+    asset_cfg: SceneEntityCfg,
     ranges: tuple[float, float] = (0.5, 1.5),
     shared_random: bool = True,
 ) -> None:
@@ -21,8 +22,8 @@ def geom_friction(
 
     Calls Genesis's :meth:`set_friction_ratio` (``rigid_entity.py:4018``), which
     multiplies the configured friction of every geom owned by the listed links
-    by the sampled ratio. ``link_names=None`` covers the whole entity (mjlab's
-    G1 cfg restricts to foot geoms for a focused friction sweep).
+    by the sampled ratio. ``asset_cfg.link_names=None`` covers the whole entity
+    (mjlab's G1 cfg restricts to foot geoms for a focused friction sweep).
 
     Parameters
     ----------
@@ -30,7 +31,7 @@ def geom_friction(
         Uniform sample range for the multiplier. Default ``(0.5, 1.5)`` centres
         on the configured nominal; mjlab's G1 uses ``(0.3, 1.2)``.
     shared_random
-        If True (mjlab default), every selected link of a given env shares the
+        If True (mjlab default), every selected link of a given env gets the
         same random sample — useful when "ground friction" should be one value
         per env even if multiple foot geoms exist. If False, every link gets
         an independent sample.
@@ -38,7 +39,7 @@ def geom_friction(
     env_ids = normalise_env_ids(env, env_ids)
     if env_ids.numel() == 0:
         return
-    link_indices = resolve_link_indices(env, link_names)
+    link_indices = resolve_link_indices(env, asset_cfg)
     n_envs = int(env_ids.numel())
     n_links = len(link_indices)
     if shared_random:
