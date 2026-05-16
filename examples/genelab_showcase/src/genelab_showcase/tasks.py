@@ -27,6 +27,8 @@ from genelab_showcase.curriculum.env_cfg import curriculum_showcase_env_cfg
 from genelab_showcase.curriculum.runner import CurriculumShowcaseRunner
 from genelab_showcase.raycast.env_cfg import raycast_showcase_env_cfg
 from genelab_showcase.raycast.runner import RayCastShowcaseRunner
+from genelab_showcase.recording.env_cfg import recording_showcase_env_cfg
+from genelab_showcase.recording.runner import RecordingShowcaseRunner
 from genelab_showcase.runner import ShowcaseRunner
 from genelab_showcase.sensors.env_cfg import sensors_showcase_env_cfg
 from genelab_showcase.sensors.runner import SensorsShowcaseRunner
@@ -39,6 +41,7 @@ CONTACT_TASK_ID = "GeneLab-Contact-Showcase-v0"
 TERRAIN_TASK_ID = "GeneLab-Terrain-Showcase-v0"
 CURRICULUM_TASK_ID = "GeneLab-Curriculum-Showcase-v0"
 ACTUATOR_TASK_ID = "GeneLab-Actuator-Showcase-v0"
+RECORDING_TASK_ID = "GeneLab-Recording-Showcase-v0"
 
 
 class _ShowcaseTaskBase:
@@ -121,6 +124,14 @@ class ActuatorShowcaseTask(_ShowcaseTaskBase):
     env_factory = staticmethod(actuator_showcase_env_cfg)
 
 
+class RecordingShowcaseTask(_ShowcaseTaskBase):
+    task_id = RECORDING_TASK_ID
+    env_name = "recording-showcase-env"
+    robot_name = "franka"
+    runner_cls = RecordingShowcaseRunner
+    env_factory = staticmethod(recording_showcase_env_cfg)
+
+
 _TASK_CLASSES: tuple[type[_ShowcaseTaskBase], ...] = (
     SensorsShowcaseTask,
     RayCastShowcaseTask,
@@ -128,6 +139,7 @@ _TASK_CLASSES: tuple[type[_ShowcaseTaskBase], ...] = (
     TerrainShowcaseTask,
     CurriculumShowcaseTask,
     ActuatorShowcaseTask,
+    RecordingShowcaseTask,
 )
 
 
@@ -138,6 +150,7 @@ _DESCRIPTIONS: dict[str, str] = {
     TERRAIN_TASK_ID: "Unitree G1 dropped on a 1×5 row of the five built-in sub-terrains.",
     CURRICULUM_TASK_ID: "Unitree G1 on a 5×5 RandomRough grid driven by terrain_levels_vel.",
     ACTUATOR_TASK_ID: "Franka with IdealPDActuator on the arm (force-channel control).",
+    RECORDING_TASK_ID: "Franka with live PyQt/MPL plots and NPZ/CSV data dumps from an IMU.",
 }
 
 

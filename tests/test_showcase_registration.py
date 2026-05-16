@@ -1,4 +1,4 @@
-"""Smoke test: ``examples/genelab_showcase`` registers six play-only tasks.
+"""Smoke test: ``examples/genelab_showcase`` registers every play-only task.
 
 No env build, no Genesis import. The test loads the showcase extension by module
 path (``--import genelab_showcase.tasks``) and checks the registry contents — keeping
@@ -15,10 +15,11 @@ _EXPECTED_TASK_IDS: tuple[str, ...] = (
     "GeneLab-Terrain-Showcase-v0",
     "GeneLab-Curriculum-Showcase-v0",
     "GeneLab-Actuator-Showcase-v0",
+    "GeneLab-Recording-Showcase-v0",
 )
 
 
-def test_showcase_extension_registers_all_six_tasks() -> None:
+def test_showcase_extension_registers_all_tasks() -> None:
     main(["--no-entry-points", "--import", "genelab_showcase.tasks", "list", "tasks"])
     registered = set(TASKS.names())
     missing = [t for t in _EXPECTED_TASK_IDS if t not in registered]

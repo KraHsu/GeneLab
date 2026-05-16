@@ -1,6 +1,6 @@
 # Showcase
 
-`examples/genelab_showcase/` ships six play-only tasks that exercise every M1–M4
+`examples/genelab_showcase/` ships seven play-only tasks that exercise every M1–M4
 building block in a single command. Each task drops a real robot — Franka or
 Unitree G1 — into a minimal `ManagerBasedRlEnv`, runs a scripted action loop, and
 writes a per-feature evidence file under `logs/showcase/<slug>/`. The intent is
@@ -16,6 +16,7 @@ human visual / numerical verification, not training.
 | `GeneLab-Terrain-Showcase-v0` | Unitree G1 | `TerrainGeneratorCfg` 1×5 row of the five built-in sub-terrains |
 | `GeneLab-Curriculum-Showcase-v0` | Unitree G1 | `terrain_levels_vel` curriculum on a 5×5 RandomRough grid |
 | `GeneLab-Actuator-Showcase-v0` | Franka | `IdealPDActuator` arm (force-channel control); tracking-error dump |
+| `GeneLab-Recording-Showcase-v0` | Franka | `genelab.recording` — live PyQt + MPL plots, NPZ + CSV dumps from an IMU |
 
 ## Installation
 
