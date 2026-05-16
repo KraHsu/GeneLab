@@ -73,6 +73,10 @@ class ActionManager:
             (self.num_envs, self.total_action_dim), dtype=torch.float, device=self.device
         )
         self._prev_action: torch.Tensor = torch.zeros_like(self._action)
+        # Second-order history slot so ``mean_action_acc`` and similar metrics can compute a
+        # finite-difference acceleration ``a_t − 2·a_{t-1} + a_{t-2}``. Two extra (B, A)
+        # buffers are cheap; mjlab keeps the same pair on its ActionManager.
+        self._prev_prev_action: torch.Tensor = torch.zeros_like(self._action)
 
     @property
     def num_envs(self) -> int:
@@ -98,16 +102,24 @@ class ActionManager:
     def prev_action(self) -> torch.Tensor:
         return self._prev_action
 
+    @property
+    def prev_prev_action(self) -> torch.Tensor:
+        return self._prev_prev_action
+
     def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
         if env_ids is None:
             env_ids = slice(None)
         self._action[env_ids] = 0.0
         self._prev_action[env_ids] = 0.0
+        self._prev_prev_action[env_ids] = 0.0
         for term in self._terms.values():
             term.reset(env_ids)
 
     def process_action(self, action: torch.Tensor) -> None:
         """Cache and slice a fresh policy action across the per-term controllers."""
+        # Shift through the three slots so the new value lands in ``action`` while the
+        # previous two stay one and two steps behind respectively.
+        self._prev_prev_action[:] = self._prev_action
         self._prev_action[:] = self._action
         self._action[:] = action
         offset = 0

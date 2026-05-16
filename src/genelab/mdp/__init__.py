@@ -16,6 +16,7 @@ from genelab.mdp.events import (
     reset_joints_to_default,
     reset_root_state_uniform,
 )
+from genelab.mdp.metrics import mean_action_acc
 from genelab.mdp.noise import Gnoise, NoiseCfg, Unoise
 from genelab.mdp.observations import (
     base_ang_vel,
@@ -105,6 +106,7 @@ __all__ = [
     "joint_pos_rel",
     "joint_vel_rel",
     "last_action",
+    "mean_action_acc",
     "motion_anchor_ori_b",
     "motion_anchor_pos_b",
     "motion_global_anchor_orientation_error_exp",
