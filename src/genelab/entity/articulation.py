@@ -67,6 +67,14 @@ class RobotState:
         self.link_quat_w[..., 0] = 1.0
         self.link_lin_vel_w = z(num_envs, num_links, 3)
         self.link_ang_vel_w = z(num_envs, num_links, 3)
+        # Per-env, per-DoF encoder bias. Zero by default — populated by the
+        # ``encoder_bias`` DR event (``genelab.mdp.dr.encoder_bias``). When non-zero,
+        # ``mdp.joint_pos_rel`` adds it to the observation and
+        # ``JointPositionAction.process_actions`` subtracts it from the PD target, so
+        # the policy sees a biased joint reading while the real joint settles
+        # ``bias`` away from its commanded reference — mjlab parity for the joint-
+        # encoder-bias sim2real DR.
+        self.encoder_bias = z(num_envs, num_dofs)
 
 
 class Articulation:
