@@ -1,0 +1,257 @@
+"""Unit tests for ``genelab.mdp.dr`` events.
+
+Uses fake robots that record Genesis-setter calls so we can verify the DR
+functions translate cfg ranges and link/joint filters into the right tensor
+shapes, link indices, and env-id passthroughs without needing a Genesis runtime.
+
+End-to-end encoder-bias coverage builds a fake env that exercises both halves
+of the loop (``mdp.joint_pos_rel`` adds the bias, ``JointPositionAction``
+subtracts it).
+"""
+
+from dataclasses import dataclass, field
+
+import torch
+
+from genelab.mdp import dr
+from genelab.mdp.observations import joint_pos_rel
+
+
+# --------------------------------------------------------------------- fakes
+
+
+@dataclass
+class _SetterCall:
+    """One captured call to a Genesis-style setter."""
+
+    tensor: torch.Tensor
+    links_idx_local: list[int] | None
+    envs_idx: torch.Tensor | None
+
+
+class _RecordingRobot:
+    """Captures the most recent set_* call's args so tests can introspect."""
+
+    def __init__(self) -> None:
+        self.friction: _SetterCall | None = None
+        self.com_shift: _SetterCall | None = None
+        self.mass_shift: _SetterCall | None = None
+
+    def set_friction_ratio(self, friction, links_idx_local=None, envs_idx=None) -> None:
+        self.friction = _SetterCall(friction, links_idx_local, envs_idx)
+
+    def set_COM_shift(self, com_shift, links_idx_local=None, envs_idx=None) -> None:
+        self.com_shift = _SetterCall(com_shift, links_idx_local, envs_idx)
+
+    def set_mass_shift(self, mass_shift, links_idx_local=None, envs_idx=None) -> None:
+        self.mass_shift = _SetterCall(mass_shift, links_idx_local, envs_idx)
+
+
+class _StubRobotState:
+    """Minimal surface for encoder_bias tests."""
+
+    def __init__(self, num_envs: int, num_dofs: int) -> None:
+        self.encoder_bias = torch.zeros(num_envs, num_dofs)
+        self.joint_pos = torch.zeros(num_envs, num_dofs)
+
+
+@dataclass
+class _FakeEnv:
+    num_envs: int
+    link_names: list[str] = field(default_factory=list)
+    joint_names: list[str] = field(default_factory=list)
+    device: str = "cpu"
+    robot: _RecordingRobot = field(default_factory=_RecordingRobot)
+    robot_state: _StubRobotState | None = None
+    default_joint_pos: torch.Tensor | None = None
+
+    def __post_init__(self) -> None:
+        if self.robot_state is None:
+            self.robot_state = _StubRobotState(self.num_envs, len(self.joint_names) or 1)
+        if self.default_joint_pos is None:
+            self.default_joint_pos = torch.zeros(len(self.joint_names) or 1)
+
+
+# --------------------------------------------------------------------- geom_friction
+
+
+def test_geom_friction_shared_random_gives_one_value_per_env() -> None:
+    """``shared_random=True``: every selected link of a given env gets the same sample."""
+    torch.manual_seed(0)
+    env = _FakeEnv(num_envs=4, link_names=["base", "left_foot", "right_foot", "arm"])
+    dr.geom_friction(
+        env,
+        env_ids=None,
+        link_names=("left_foot", "right_foot"),
+        ranges=(0.5, 1.5),
+        shared_random=True,
+    )
+    call = env.robot.friction
+    assert call is not None
+    assert call.tensor.shape == (4, 2)
+    # Per-env: the two feet share the same value (broadcast from one Bernoulli sample).
+    assert torch.all(call.tensor[:, 0] == call.tensor[:, 1])
+    assert call.links_idx_local == [1, 2]
+    assert call.envs_idx is not None
+    assert torch.equal(call.envs_idx, torch.arange(4))
+
+
+def test_geom_friction_independent_random_decorrelates_links() -> None:
+    torch.manual_seed(1)
+    env = _FakeEnv(num_envs=128, link_names=["base", "left_foot", "right_foot"])
+    dr.geom_friction(
+        env,
+        env_ids=None,
+        link_names=("left_foot", "right_foot"),
+        ranges=(0.5, 1.5),
+        shared_random=False,
+    )
+    call = env.robot.friction
+    assert call is not None
+    # With independent draws the two columns should disagree on most envs.
+    disagreements = (call.tensor[:, 0] != call.tensor[:, 1]).sum().item()
+    assert disagreements > 100
+
+
+def test_geom_friction_respects_env_ids_subset() -> None:
+    env = _FakeEnv(num_envs=8, link_names=["base", "foot"])
+    subset = torch.tensor([2, 5, 7])
+    dr.geom_friction(env, env_ids=subset, link_names=("foot",))
+    call = env.robot.friction
+    assert call is not None
+    assert call.tensor.shape == (3, 1)
+    assert torch.equal(call.envs_idx, subset)
+
+
+def test_geom_friction_link_names_none_covers_every_link() -> None:
+    env = _FakeEnv(num_envs=1, link_names=["a", "b", "c"])
+    dr.geom_friction(env, env_ids=None, link_names=None)
+    call = env.robot.friction
+    assert call is not None
+    assert call.links_idx_local == [0, 1, 2]
+
+
+# --------------------------------------------------------------------- body_com_offset
+
+
+def test_body_com_offset_only_fills_axes_listed_in_ranges() -> None:
+    """Axes absent from the ranges dict must stay at exactly zero."""
+    torch.manual_seed(2)
+    env = _FakeEnv(num_envs=64, link_names=["pelvis"])
+    dr.body_com_offset(
+        env,
+        env_ids=None,
+        link_names=("pelvis",),
+        ranges={0: (-0.02, 0.02), 2: (-0.03, 0.03)},  # x and z only
+    )
+    call = env.robot.com_shift
+    assert call is not None
+    assert call.tensor.shape == (64, 1, 3)
+    assert torch.all(call.tensor[..., 1] == 0.0)  # y untouched
+    assert (call.tensor[..., 0].abs() > 0).any()
+    assert (call.tensor[..., 2].abs() > 0).any()
+
+
+def test_body_com_offset_zero_when_ranges_missing() -> None:
+    """Calling with empty ranges should still record a shape-correct zero tensor."""
+    env = _FakeEnv(num_envs=2, link_names=["a"])
+    dr.body_com_offset(env, env_ids=None, link_names=("a",), ranges=None)
+    call = env.robot.com_shift
+    assert call is not None
+    assert call.tensor.shape == (2, 1, 3)
+    assert torch.all(call.tensor == 0.0)
+
+
+# --------------------------------------------------------------------- body_mass_offset
+
+
+def test_body_mass_offset_samples_within_range() -> None:
+    torch.manual_seed(3)
+    env = _FakeEnv(num_envs=256, link_names=["base", "torso"])
+    dr.body_mass_offset(env, env_ids=None, ranges=(-0.5, 0.5))
+    call = env.robot.mass_shift
+    assert call is not None
+    assert call.tensor.shape == (256, 2)
+    assert torch.all(call.tensor >= -0.5)
+    assert torch.all(call.tensor <= 0.5)
+
+
+# --------------------------------------------------------------------- encoder_bias
+
+
+def test_encoder_bias_writes_uniform_samples_into_robot_state() -> None:
+    torch.manual_seed(4)
+    env = _FakeEnv(num_envs=32, joint_names=["hip", "knee", "ankle"])
+    dr.encoder_bias(env, env_ids=None, bias_range=(-0.01, 0.01))
+    assert env.robot_state is not None
+    bias = env.robot_state.encoder_bias
+    assert bias.shape == (32, 3)
+    assert torch.all(bias >= -0.01) and torch.all(bias <= 0.01)
+    # Distribution should span both signs (with 32×3=96 samples this is essentially certain).
+    assert (bias > 0).any().item() and (bias < 0).any().item()
+
+
+def test_encoder_bias_respects_env_ids_subset() -> None:
+    env = _FakeEnv(num_envs=4, joint_names=["hip", "knee"])
+    assert env.robot_state is not None
+    env.robot_state.encoder_bias.fill_(0.0)
+    dr.encoder_bias(env, env_ids=torch.tensor([1, 3]), bias_range=(0.01, 0.01))
+    bias = env.robot_state.encoder_bias
+    # Touched envs got the constant 0.01; untouched stay at 0.
+    assert torch.allclose(bias[1], torch.tensor([0.01, 0.01]), atol=1e-6)
+    assert torch.allclose(bias[3], torch.tensor([0.01, 0.01]), atol=1e-6)
+    assert torch.all(bias[0] == 0.0)
+    assert torch.all(bias[2] == 0.0)
+
+
+def test_encoder_bias_filters_to_named_joints_only() -> None:
+    env = _FakeEnv(num_envs=2, joint_names=["hip", "knee", "ankle"])
+    assert env.robot_state is not None
+    env.robot_state.encoder_bias.fill_(0.0)
+    dr.encoder_bias(env, env_ids=None, joint_names=("knee",), bias_range=(0.02, 0.02))
+    bias = env.robot_state.encoder_bias
+    # Only the knee column is filled; hip and ankle stay zero.
+    assert torch.all(bias[:, 0] == 0.0)
+    assert torch.allclose(bias[:, 1], torch.full((2,), 0.02), atol=1e-6)
+    assert torch.all(bias[:, 2] == 0.0)
+
+
+def test_encoder_bias_shows_up_in_joint_pos_rel_obs() -> None:
+    """End-to-end: write a non-zero bias, the obs picks it up."""
+    env = _FakeEnv(num_envs=2, joint_names=["hip", "knee"])
+    assert env.robot_state is not None
+    env.robot_state.joint_pos = torch.tensor([[0.1, -0.2], [0.0, 0.3]])
+    env.default_joint_pos = torch.tensor([0.0, 0.0])
+    env.robot_state.encoder_bias = torch.tensor([[0.01, -0.02], [0.03, 0.04]])
+    obs = joint_pos_rel(env)
+    expected = torch.tensor([[0.1 + 0.01, -0.2 - 0.02], [0.0 + 0.03, 0.3 + 0.04]])
+    assert torch.allclose(obs, expected, atol=1e-6)
+
+
+def test_encoder_bias_subtracts_in_joint_position_action_target() -> None:
+    """End-to-end: ``JointPositionAction.process_actions`` subtracts the bias.
+
+    With the action-target bias offset cancelling the obs-side bias, the policy
+    sees a self-consistent loop but the physical joint sits ``bias`` away from
+    where the policy thinks it commanded — that's exactly the sim2real
+    perturbation the encoder-bias DR models.
+    """
+    from genelab.mdp.actions.joint_position import (
+        JointPositionAction,
+        JointPositionActionCfg,
+    )
+
+    env = _FakeEnv(num_envs=2, joint_names=["hip", "knee"])
+    assert env.robot_state is not None
+    env.default_joint_pos = torch.tensor([0.5, -0.3])
+    # Fixed bias so the test is deterministic.
+    env.robot_state.encoder_bias = torch.tensor([[0.01, -0.02], [0.03, 0.04]])
+
+    cfg = JointPositionActionCfg(scale=1.0, joint_names=(".*",))
+    term = JointPositionAction(cfg, env)  # type: ignore[arg-type]
+    action = torch.tensor([[0.1, 0.2], [-0.1, 0.0]])
+    term.process_actions(action)
+
+    # target = default + scale * action - bias
+    expected = env.default_joint_pos.unsqueeze(0) + action - env.robot_state.encoder_bias
+    assert torch.allclose(term._target, expected, atol=1e-6)
