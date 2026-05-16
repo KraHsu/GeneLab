@@ -51,20 +51,33 @@ def _command_active(env: "ManagerBasedRlEnv", command_name: str, threshold: floa
 def track_linear_velocity_xy_exp(
     env: "ManagerBasedRlEnv", command_name: str, std: float = 0.5
 ) -> torch.Tensor:
-    """``exp(-||cmd_xy - vel_xy||^2 / std^2)``."""
+    """``exp(-(||cmd_xy - vel_xy||² + vel_z²) / std²)``.
+
+    mjlab parity: assumes the commanded z-velocity is zero, so any non-zero
+    vertical motion contributes to the tracking error. Discourages vertical
+    bouncing alongside xy-tracking.
+    """
     cmd = env.command_manager.get_command(command_name)[:, :2]
-    vel = env.robot_state.root_lin_vel_b[:, :2]
-    err = torch.sum((cmd - vel) ** 2, dim=-1)
-    return torch.exp(-err / (std**2))
+    vel = env.robot_state.root_lin_vel_b
+    xy_err = torch.sum((cmd - vel[:, :2]) ** 2, dim=-1)
+    z_err = vel[:, 2] ** 2
+    return torch.exp(-(xy_err + z_err) / (std**2))
 
 
 def track_angular_velocity_z_exp(
     env: "ManagerBasedRlEnv", command_name: str, std: float = 0.5
 ) -> torch.Tensor:
+    """``exp(-((cmd_z − vel_z)² + ||vel_xy||²) / std²)``.
+
+    mjlab parity: assumes the commanded xy angular velocities are zero, so any
+    pitching/rolling rate contributes to the error term. Discourages tumbling
+    alongside yaw-tracking.
+    """
     cmd = env.command_manager.get_command(command_name)[:, 2]
-    vel = env.robot_state.root_ang_vel_b[:, 2]
-    err = (cmd - vel) ** 2
-    return torch.exp(-err / (std**2))
+    vel = env.robot_state.root_ang_vel_b
+    z_err = (cmd - vel[:, 2]) ** 2
+    xy_err = torch.sum(vel[:, :2] ** 2, dim=-1)
+    return torch.exp(-(z_err + xy_err) / (std**2))
 
 
 def action_rate_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
@@ -198,9 +211,28 @@ class variable_posture:
 
 
 def joint_pos_limits(env: "ManagerBasedRlEnv") -> torch.Tensor:
-    """L2 of joint-position excursion past ±π (cheap stand-in for true limit penalty)."""
-    excess = (env.robot_state.joint_pos.abs() - 3.14).clamp(min=0.0)
-    return torch.sum(excess**2, dim=-1)
+    """Sum of per-joint excursions past the actuator's configured limits.
+
+    mjlab parity (``envs/mdp/rewards.py::joint_pos_limits``):
+
+    * Reads each joint's ``(lower, upper)`` limit from Genesis (sliced to the
+      actuated DoFs at bind time — see :attr:`Articulation.joint_pos_limits`).
+    * Returns ``Σⱼ (max(0, lower − q) + max(0, q − upper))`` per env.
+    * **Absolute** excursion (not squared) — matches mjlab's formula. A joint
+      sitting exactly at its limit contributes zero; beyond, the penalty grows
+      linearly.
+
+    Joints whose limits are ±∞ (e.g. continuous joints) contribute zero from
+    the clamps. Joints not configured for the policy (floating-base DoFs)
+    were already filtered out of ``joint_pos``.
+    """
+    limits = env.joint_pos_limits  # (J, 2)
+    lower = limits[:, 0]
+    upper = limits[:, 1]
+    joint_pos = env.robot_state.joint_pos  # (B, J)
+    out_of_lower = (lower.unsqueeze(0) - joint_pos).clamp(min=0.0)
+    out_of_upper = (joint_pos - upper.unsqueeze(0)).clamp(min=0.0)
+    return torch.sum(out_of_lower + out_of_upper, dim=-1)
 
 
 # --------------------------------------------------------------------- locomotion gait shaping
@@ -346,16 +378,20 @@ class feet_swing_height:
 
 
 def angular_momentum_penalty(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
-    """``||L||₂`` — magnitude of root-frame angular momentum.
+    """``||L||₂²`` — squared magnitude of root-frame angular momentum.
 
-    Reads :class:`~genelab.sensor.RootAngularMomentumSensor`'s ``(B, 3)`` vector and
-    returns its Euclidean norm. mjlab parity for ``angular_momentum_penalty`` (weight
-    −0.02 in the G1 config). Note: GeneLab's sensor uses the **orbital approximation**
-    (omits the per-link spin term ``Σ I·ω``) — see ``sensor/angular_momentum.py`` for
-    the rationale.
+    Reads :class:`~genelab.sensor.RootAngularMomentumSensor`'s ``(B, 3)`` vector
+    and returns its squared Euclidean norm. mjlab parity — see
+    ``mjlab/tasks/velocity/mdp/rewards.py::angular_momentum_penalty``, which
+    returns ``angmom_magnitude_sq`` (i.e. squared norm). The quadratic curve
+    penalises large momenta much harder than small ones; with weight −0.02 the
+    G1 reference uses this shape to discourage flailing.
+
+    GeneLab's underlying sensor uses the **orbital approximation** (omits the
+    per-link spin term ``Σ I·ω``) — see ``sensor/angular_momentum.py``.
     """
     angmom = env.sensors[sensor_name].data
-    return torch.sqrt(torch.sum(angmom * angmom, dim=-1))
+    return torch.sum(angmom * angmom, dim=-1)
 
 
 def self_collision_cost(
@@ -385,22 +421,38 @@ def self_collision_cost(
 
 def feet_air_time(
     env: "ManagerBasedRlEnv",
-    threshold: float = 0.4,
+    sensor_name: str,
+    threshold_min: float = 0.05,
+    threshold_max: float = 0.5,
+    command_name: str | None = None,
+    command_threshold: float = 0.5,
 ) -> torch.Tensor:
-    """Stub: reward proportional to mean foot-link height above ground.
+    """Count of feet whose current air time is in ``(threshold_min, threshold_max)``.
 
-    A faithful air-time reward needs contact sensors; until those are wired into the env we
-    approximate with the lowest foot z. ``threshold`` controls the height where reward saturates.
+    mjlab parity (``feet_air_time``): reads ``ContactSensor.current_air_time`` and
+    counts how many feet are mid-swing within the configured window — encourages
+    stepping cadence without rewarding pathologically long swings.
+
+    When ``command_name`` is given, the reward is masked to zero on envs whose
+    commanded velocity magnitude is below ``command_threshold`` so the policy
+    doesn't get a free signal while standing.
+
+    Note: GeneLab's pre-P5 stub used a foot-z height proxy. This implementation
+    now matches mjlab; the G1 reference cfg sets weight=0 so the term doesn't
+    fire during training there.
     """
-    foot_names = env.cfg.robot.foot_link_names
-    if not foot_names or not env.link_names:
-        return torch.zeros(env.num_envs, device=env.device)
-    indices = [env.link_names.index(n) for n in foot_names if n in env.link_names]
-    if not indices:
-        return torch.zeros(env.num_envs, device=env.device)
-    foot_z = env.robot_state.link_pos[:, indices, 2]
-    height = foot_z.mean(dim=-1).clamp(0.0, threshold)
-    return height / threshold
+    data = _contact_sensor(env, sensor_name).data
+    current_air_time = data.current_air_time
+    in_range = (current_air_time > threshold_min) & (current_air_time < threshold_max)
+    reward = torch.sum(in_range.float(), dim=-1)
+    if command_name is not None:
+        cmd = env.command_manager.get_command(command_name)
+        # mjlab uses ``||cmd_xy|| + |cmd_z|`` for the gate; match it so the cutoff
+        # behaves the same across both backends. ``_command_active`` uses an L2
+        # norm and would gate slightly differently — keep the mjlab formula here.
+        total = torch.norm(cmd[:, :2], dim=-1) + torch.abs(cmd[:, 2])
+        reward = reward * (total > command_threshold).float()
+    return reward
 
 
 # --------------------------------------------------------------------- motion imitation
