@@ -113,6 +113,9 @@ def _obs_terms() -> dict[str, ObservationTermCfg]:
     Noise levels match mjlab's reference 1:1. The ``joint_vel`` term has no extra
     ``scale`` factor (mjlab parity) — the policy reads raw rad/s + noise.
     """
+    # Order matches ``mjlab.tasks.velocity.velocity_env_cfg.make_velocity_env_cfg``'s
+    # actor_terms dict — important for the policy net's input concat layout when
+    # comparing training curves across the two backends.
     return {
         "base_lin_vel": ObservationTermCfg(
             func=mdp.sensor_data,
@@ -127,12 +130,12 @@ def _obs_terms() -> dict[str, ObservationTermCfg]:
         "projected_gravity": ObservationTermCfg(
             func=mdp.projected_gravity, noise=Unoise(-0.05, 0.05)
         ),
-        "velocity_commands": ObservationTermCfg(
-            func=mdp.generated_commands, params={"command_name": "twist"}
-        ),
         "joint_pos": ObservationTermCfg(func=mdp.joint_pos_rel, noise=Unoise(-0.01, 0.01)),
         "joint_vel": ObservationTermCfg(func=mdp.joint_vel_rel, noise=Unoise(-1.5, 1.5)),
         "actions": ObservationTermCfg(func=mdp.last_action),
+        "velocity_commands": ObservationTermCfg(
+            func=mdp.generated_commands, params={"command_name": "twist"}
+        ),
     }
 
 
@@ -312,6 +315,11 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             ),
             "dof_pos_limits": RewardTermCfg(func=mdp.joint_pos_limits, weight=-1.0),
             "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.1),
+            # ``air_time`` is kept with weight 0.0 for mjlab log-parity — the term
+            # surfaces as ``Episode_Reward/air_time`` (always 0) so plots line up with
+            # mjlab even though the gradient is muted. RewardManager short-circuits
+            # weight-0 terms in compute(), so the stub function never runs.
+            "air_time": RewardTermCfg(func=mdp.feet_air_time, weight=0.0),
             "foot_clearance": RewardTermCfg(
                 func=mdp.feet_clearance,
                 weight=-2.0,
@@ -400,8 +408,9 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             ),
         },
         metrics_cfg={
-            # Logged to ``Episode_Metrics/action_acc``; smoother is better.
-            "action_acc": MetricsTermCfg(func=mdp.mean_action_acc),
+            # Logged to ``Episode_Metrics/mean_action_acc``; smoother is better.
+            # Name matches mjlab's metrics dict so tensorboard tags line up.
+            "mean_action_acc": MetricsTermCfg(func=mdp.mean_action_acc),
         },
     )
 
