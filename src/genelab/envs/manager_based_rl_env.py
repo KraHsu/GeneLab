@@ -85,6 +85,9 @@ class ManagerBasedRlEnv:
         self._episode_length_buf = torch.zeros(
             self._num_envs, dtype=torch.long, device=self._device
         )
+        # Global control-step counter (transitions seen across all envs / resets). Curriculum
+        # terms read it to ramp difficulty over training time — see ``mdp.commands_vel``.
+        self.common_step_counter: int = 0
         self._extras: dict[str, Any] = {}
 
         # Managers (order matters: actions before observations/rewards; commands before obs)
@@ -279,6 +282,7 @@ class ManagerBasedRlEnv:
         for sensor in self._sensors.values():
             sensor.update(self._step_dt)
         self._episode_length_buf += 1
+        self.common_step_counter += 1
         # Resample commands and trigger interval-mode events.
         self.command_manager.compute(self._step_dt)
         self.event_manager.apply("interval", dt=self._step_dt)
