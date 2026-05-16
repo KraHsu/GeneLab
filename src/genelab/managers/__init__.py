@@ -5,6 +5,7 @@ from genelab.managers.command_manager import CommandManager, CommandTerm, Comman
 from genelab.managers.curriculum_manager import CurriculumManager, CurriculumTermCfg
 from genelab.managers.event_manager import EventManager, EventMode, EventTermCfg
 from genelab.managers.manager_term_cfg import ManagerTermBaseCfg
+from genelab.managers.metrics_manager import MetricsManager, MetricsTermCfg
 from genelab.managers.observation_manager import (
     ObservationGroupCfg,
     ObservationManager,
@@ -26,6 +27,8 @@ __all__ = [
     "EventMode",
     "EventTermCfg",
     "ManagerTermBaseCfg",
+    "MetricsManager",
+    "MetricsTermCfg",
     "ObservationGroupCfg",
     "ObservationManager",
     "ObservationTermCfg",
