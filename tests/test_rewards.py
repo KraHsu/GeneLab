@@ -159,7 +159,7 @@ def test_feet_clearance_zero_when_command_below_threshold() -> None:
 
 
 def test_feet_clearance_penalty_uses_link_z_when_no_sensor() -> None:
-    """Without ``height_sensor_names``, the reward falls back to ``link_pos.z``."""
+    """Without ``height_sensor_name``, the reward falls back to ``link_pos.z``."""
     env = _make_env(
         foot_z=(0.3, 0.3),  # both feet 0.2 above target
         foot_vel_xy=(2.0, 0.0),  # vel_norm = 2.0

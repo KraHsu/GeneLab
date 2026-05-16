@@ -1,4 +1,15 @@
-"""PPO config for the Unitree G1 velocity tracking task."""
+"""PPO config for the Unitree G1 velocity tracking task.
+
+1:1 mirror of ``mjlab.tasks.velocity.config.g1.rl_cfg.unitree_g1_ppo_runner_cfg``.
+GeneLab adds two small extras mjlab leaves to defaults: a fixed RNG seed (``42``)
+and the explicit ``logger="tensorboard"`` selection. Everything else (network
+width / depth, init_std, entropy_coef, schedule, num_steps_per_env,
+max_iterations, save_interval) matches mjlab's reference.
+
+mjlab does **not** set ``clip_actions``; we leave GeneLab's default (``None``)
+in place so the policy output passes through without pre-env clipping —
+the joint position action already routes through the actuator group's scale.
+"""
 
 from genelab.rl import RslRlModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
 
@@ -11,7 +22,6 @@ def unitree_g1_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
         save_interval=50,
         experiment_name="g1_velocity_flat",
         logger="tensorboard",
-        clip_actions=100.0,
         actor=RslRlModelCfg(
             hidden_dims=(512, 256, 128),
             activation="elu",
