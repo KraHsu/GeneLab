@@ -398,6 +398,53 @@ def test_cli_parses_gpus_flag_into_runner_args() -> None:
     assert overrides == {}
 
 
+def test_configured_task_train_mode_retargets_steps_to_max_iterations() -> None:
+    """In train mode, ``--steps N`` is the short form for ``--max_iterations N``.
+
+    ``env.simulation.steps`` is not consumed by ``train_task`` / ``ManagerBasedRlEnv`` —
+    leaving the override on the env cfg would silently no-op and the user would see
+    iterations counted to the cfg default instead of stopping at N.
+    """
+    from genelab.cli import _configured_task
+
+    load_extension_module("genelab_examples.tasks")
+    task, runner_args, _ = _configured_task(
+        ["GeneLab-Wuji-Hand-Playback-v0", "--steps", "20"],
+        command="train",
+    )
+
+    assert runner_args == {"max_iterations": "20"}
+    # The env cfg's simulation.steps must NOT be set to 20; it should keep its default.
+    assert task.cfg.env.simulation.steps != 20
+
+
+def test_configured_task_train_mode_rejects_steps_with_explicit_max_iterations() -> None:
+    """Passing both ``--steps`` and ``--max_iterations`` in train mode is a hard error."""
+    from genelab.cli import _configured_task
+
+    load_extension_module("genelab_examples.tasks")
+    with pytest.raises(SystemExit) as excinfo:
+        _configured_task(
+            ["GeneLab-Wuji-Hand-Playback-v0", "--steps", "20", "--max_iterations", "100"],
+            command="train",
+        )
+    assert "conflict" in str(excinfo.value)
+
+
+def test_configured_task_play_mode_keeps_steps_as_env_simulation_steps() -> None:
+    """Play mode behavior is unchanged: ``--steps`` lands on ``env.simulation.steps``."""
+    from genelab.cli import _configured_task
+
+    load_extension_module("genelab_examples.tasks")
+    task, runner_args, _ = _configured_task(
+        ["GeneLab-Wuji-Hand-Playback-v0", "--steps", "5"],
+        command="play",
+    )
+
+    assert task.cfg.env.simulation.steps == 5
+    assert "max_iterations" not in runner_args
+
+
 def test_strip_distributed_flags_drops_gpus_and_env_counts() -> None:
     from genelab.cli import _strip_distributed_flags
 
@@ -417,6 +464,41 @@ def test_strip_distributed_flags_drops_gpus_and_env_counts() -> None:
     assert _strip_distributed_flags(["--num_envs", "8", "--num_envs_per_gpu", "4"]) == []
     # Unrelated flags pass through.
     assert _strip_distributed_flags(["--vis", "--seed", "42"]) == ["--vis", "--seed", "42"]
+
+
+def test_shutdown_process_group_is_a_noop_when_not_initialized() -> None:
+    """Single-GPU runs never call ``init_process_group``; the helper must no-op."""
+    from genelab.rl.distributed import shutdown_process_group
+
+    # The test environment is single-process; nothing was initialized.
+    # The call should return cleanly without raising or trying to destroy anything.
+    shutdown_process_group()
+
+
+def test_shutdown_process_group_destroys_when_initialized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Distributed train runs need an explicit ``destroy_process_group`` to avoid the
+    ``WARNING: destroy_process_group() was not called before program exit`` resource-leak
+    notice that rsl_rl's ``OnPolicyRunner`` triggers on shutdown."""
+
+    import torch.distributed as dist
+
+    from genelab.rl import distributed
+
+    destroyed = {"count": 0}
+
+    monkeypatch.setattr(dist, "is_available", lambda: True)
+    monkeypatch.setattr(dist, "is_initialized", lambda: True)
+    monkeypatch.setattr(
+        dist,
+        "destroy_process_group",
+        lambda: destroyed.__setitem__("count", destroyed["count"] + 1),
+    )
+
+    distributed.shutdown_process_group()
+
+    assert destroyed["count"] == 1
 
 
 def test_has_log_dir_flag_recognises_both_spellings() -> None:
@@ -453,7 +535,9 @@ def test_relaunch_under_torchrun_builds_expected_command(
         ["genelab", "train", "TASK_ID", "--gpus", "4", "--num-envs", "8"],
     )
 
-    _relaunch_under_torchrun(4, _FakeAgentCfg(), runner_args={}, num_envs_per_rank=2)
+    _relaunch_under_torchrun(
+        4, _FakeAgentCfg(), runner_args={}, num_envs_per_rank=2, task_id="TASK_ID"
+    )
 
     args = captured["args"]
     assert isinstance(args, list)
@@ -508,6 +592,7 @@ def test_relaunch_under_torchrun_preserves_explicit_log_dir(
         _FakeAgentCfg(),
         runner_args={"log_dir": "/tmp/keep-this"},
         num_envs_per_rank=None,
+        task_id="TASK",
     )
 
     args = captured["args"]
@@ -516,6 +601,88 @@ def test_relaunch_under_torchrun_preserves_explicit_log_dir(
     assert args.count("--log-dir") == 1
     log_dir_index = args.index("--log-dir")
     assert args[log_dir_index + 1] == "/tmp/keep-this"
+
+
+def test_relaunch_under_torchrun_injects_interactively_picked_task_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When the parent resolved the task via the interactive picker, the original argv
+    has no task id; the relaunch must inject it so torchrun workers don't re-enter
+    the picker (which probes the tty for CPR and floods stderr with warnings)."""
+
+    from dataclasses import dataclass
+
+    from genelab.cli import _relaunch_under_torchrun
+
+    @dataclass
+    class _FakeAgentCfg:
+        experiment_name: str = "exp"
+        run_name: str = ""
+
+    captured: dict[str, object] = {}
+
+    def _fake_execvp(file: str, args: list[str]) -> None:
+        captured["args"] = args
+
+    monkeypatch.setattr("genelab.cli.os.execvp", _fake_execvp)
+    # No task id in argv — parent picked it interactively.
+    monkeypatch.setattr(
+        "genelab.cli.sys.argv",
+        ["genelab", "train", "--num_envs", "8192", "--steps", "20", "--gpus", "8"],
+    )
+
+    _relaunch_under_torchrun(
+        8,
+        _FakeAgentCfg(),
+        runner_args={},
+        num_envs_per_rank=1024,
+        task_id="Picked-Task-v0",
+    )
+
+    args = captured["args"]
+    assert isinstance(args, list)
+    assert "Picked-Task-v0" in args, "resolved task id must be forwarded to torchrun workers"
+    # It should land immediately after the `train` token so child argv normalization is happy.
+    train_index = args.index("train")
+    assert args[train_index + 1] == "Picked-Task-v0"
+    # It should not be duplicated even though sys.argv didn't contain it.
+    assert args.count("Picked-Task-v0") == 1
+
+
+def test_relaunch_under_torchrun_does_not_duplicate_explicit_task_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dataclasses import dataclass
+
+    from genelab.cli import _relaunch_under_torchrun
+
+    @dataclass
+    class _FakeAgentCfg:
+        experiment_name: str = "exp"
+        run_name: str = ""
+
+    captured: dict[str, object] = {}
+
+    def _fake_execvp(file: str, args: list[str]) -> None:
+        captured["args"] = args
+
+    monkeypatch.setattr("genelab.cli.os.execvp", _fake_execvp)
+    monkeypatch.setattr(
+        "genelab.cli.sys.argv",
+        ["genelab", "train", "Explicit-Task-v0", "--gpus", "2"],
+    )
+
+    _relaunch_under_torchrun(
+        2,
+        _FakeAgentCfg(),
+        runner_args={},
+        num_envs_per_rank=None,
+        task_id="Explicit-Task-v0",
+    )
+
+    args = captured["args"]
+    assert isinstance(args, list)
+    assert args.count("Explicit-Task-v0") == 1
 
 
 def test_resolve_per_rank_num_envs_divides_total_by_gpus() -> None:
