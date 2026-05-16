@@ -378,6 +378,66 @@ def test_contact_sensor_rejects_unresolved_links() -> None:
         raise AssertionError("expected ValueError for unknown link")
 
 
+def test_contact_sensor_first_contact_and_first_detached_mark_transitions() -> None:
+    """``first_contact`` fires on air→contact ticks only; ``first_detached`` on contact→air."""
+    env = _FakeContactEnv(num_envs=1, link_names=("foot",))
+    sensor = ContactSensorCfg(name="c", link_names=("foot",), track_air_time=True).build()
+    sensor.bind(env)
+
+    in_air = torch.zeros(1, 1, 3)
+    in_contact = torch.tensor([[[0.0, 0.0, 100.0]]])
+    dt = 0.05
+
+    # Two air ticks: neither edge fires (the very first contact would need a prior air phase
+    # but ``current_air_time`` starts at 0, so the transition predicate guards correctly).
+    env.robot.set_contact_force(in_air)
+    sensor.update(dt)
+    assert sensor.data.first_contact.item() is False
+    assert sensor.data.first_detached.item() is False
+
+    sensor._invalidate_cache()
+    sensor.update(dt)
+    assert sensor.data.first_contact.item() is False
+
+    # Landing tick: contact + ``current_air_time > 0`` → ``first_contact`` fires once.
+    env.robot.set_contact_force(in_contact)
+    sensor._invalidate_cache()
+    sensor.update(dt)
+    assert sensor.data.first_contact.item() is True
+    assert sensor.data.first_detached.item() is False
+
+    # Continued contact: edge no longer fires (air_time is 0).
+    sensor._invalidate_cache()
+    sensor.update(dt)
+    assert sensor.data.first_contact.item() is False
+
+    # Lift-off tick: air + ``current_contact_time > 0`` → ``first_detached`` fires once.
+    env.robot.set_contact_force(in_air)
+    sensor._invalidate_cache()
+    sensor.update(dt)
+    assert sensor.data.first_detached.item() is True
+    assert sensor.data.first_contact.item() is False
+
+
+def test_contact_sensor_first_contact_clears_on_reset() -> None:
+    env = _FakeContactEnv(num_envs=2, link_names=("foot",))
+    sensor = ContactSensorCfg(name="c", link_names=("foot",), track_air_time=True).build()
+    sensor.bind(env)
+    # Force a first_contact tick in both envs.
+    env.robot.set_contact_force(torch.zeros(2, 1, 3))
+    sensor.update(0.05)
+    env.robot.set_contact_force(torch.tensor([[[0, 0, 100.0]], [[0, 0, 100.0]]]))
+    sensor._invalidate_cache()
+    sensor.update(0.05)
+    assert torch.equal(sensor.data.first_contact, torch.tensor([[True], [True]]))
+    # Resetting env 0 should clear its first_contact while env 1's stays set until next tick.
+    sensor.reset(torch.tensor([0]))
+    sensor._invalidate_cache()
+    # next update will overwrite both anyway, but pre-update state must reflect reset.
+    assert sensor._air_state is not None
+    assert torch.equal(sensor._air_state.first_contact, torch.tensor([[False], [True]]))
+
+
 # --------------------------------------------------------------------- RayCast / TerrainHeight
 
 

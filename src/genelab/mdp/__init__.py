@@ -8,9 +8,10 @@ from genelab.mdp.commands import (
     UniformVelocityCommand,
     UniformVelocityCommandCfg,
 )
-from genelab.mdp.curriculums import terrain_levels_vel
+from genelab.mdp.curriculums import commands_vel, terrain_levels_vel
 from genelab.mdp.events import (
     push_by_setting_velocity,
+    reset_joints_by_offset,
     reset_joints_to_default,
     reset_root_state_uniform,
 )
@@ -35,7 +36,11 @@ from genelab.mdp.observations import (
 )
 from genelab.mdp.rewards import (
     action_rate_l2,
+    body_angular_velocity_penalty,
     feet_air_time,
+    feet_clearance,
+    feet_slip,
+    feet_swing_height,
     flat_orientation_l2,
     joint_acc_l2,
     joint_pos_limits,
@@ -45,6 +50,7 @@ from genelab.mdp.rewards import (
     motion_global_body_linear_velocity_error_exp,
     motion_relative_body_orientation_error_exp,
     motion_relative_body_position_error_exp,
+    soft_landing,
     track_angular_velocity_z_exp,
     track_linear_velocity_xy_exp,
     upright_exp,
@@ -77,7 +83,12 @@ __all__ = [
     "bad_orientation",
     "base_ang_vel",
     "base_lin_vel",
+    "body_angular_velocity_penalty",
+    "commands_vel",
     "feet_air_time",
+    "feet_clearance",
+    "feet_slip",
+    "feet_swing_height",
     "flat_orientation_l2",
     "foot_air_time",
     "foot_contact",
@@ -99,12 +110,14 @@ __all__ = [
     "motion_relative_body_position_error_exp",
     "projected_gravity",
     "push_by_setting_velocity",
+    "reset_joints_by_offset",
     "reset_joints_to_default",
     "reset_root_state_uniform",
     "robot_body_ori_b",
     "robot_body_pos_b",
     "root_height_below",
     "sensor_data",
+    "soft_landing",
     "terrain_levels_vel",
     "time_out",
     "track_angular_velocity_z_exp",
