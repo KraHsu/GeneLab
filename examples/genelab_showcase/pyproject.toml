@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Play-only visual showcases for GeneLab M1–M4 building blocks."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["genelab", "pillow"]
+# The ``recording`` extra on genelab pulls in pyqtgraph + PyQt5 + matplotlib so
+# ``GeneLab-Recording-Showcase-v0``'s live PyQt and Matplotlib plotters work
+# out-of-the-box after ``uv pip install -e examples/genelab_showcase``.
+dependencies = ["genelab[recording]", "pillow"]
 
 [project.entry-points."genelab.extensions"]
 genelab_showcase = "genelab_showcase.tasks:register"

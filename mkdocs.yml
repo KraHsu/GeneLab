@@ -102,6 +102,7 @@ plugins:
             MDP terms reference: MDP term 参考
             RL runner: RL runner
             Sensors: 传感器
+            Recording and plotting: 数据录制与绘图
             Terrains: 地形
             Asset zoo: 资产库
             Extensions: 扩展加载
@@ -177,6 +178,7 @@ nav:
       - Scene and entities: concepts/scene.md
       - Actuators: concepts/actuators.md
       - Sensors: concepts/sensors.md
+      - Recording and plotting: concepts/recording.md
       - Terrains: concepts/terrains.md
       - Asset zoo: concepts/asset_zoo.md
       - Extensions: concepts/extensions.md
