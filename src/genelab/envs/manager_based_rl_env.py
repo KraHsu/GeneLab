@@ -22,6 +22,8 @@ from genelab.managers import (
     CurriculumTermCfg,
     EventManager,
     EventTermCfg,
+    MetricsManager,
+    MetricsTermCfg,
     ObservationGroupCfg,
     ObservationManager,
     RewardManager,
@@ -61,6 +63,7 @@ class ManagerBasedRlEnvCfg(ManagerBasedEnvCfg):
     commands_cfg: dict[str, CommandTermCfg] = field(default_factory=dict)
     events_cfg: dict[str, EventTermCfg] = field(default_factory=dict)
     curriculum_cfg: dict[str, CurriculumTermCfg] = field(default_factory=dict)
+    metrics_cfg: dict[str, MetricsTermCfg] = field(default_factory=dict)
 
 
 class ManagerBasedRlEnv:
@@ -100,6 +103,7 @@ class ManagerBasedRlEnv:
         self.termination_manager = TerminationManager(cfg.terminations_cfg, self)
         self.event_manager = EventManager(cfg.events_cfg, self)
         self.curriculum_manager = CurriculumManager(cfg.curriculum_cfg, self)
+        self.metrics_manager = MetricsManager(cfg.metrics_cfg, self)
 
         # Sensors are pre-built by ``InteractiveScene.build`` so any Genesis resources
         # snapshotted at scene-build time (e.g. BatchRenderer cameras) are already
@@ -264,8 +268,14 @@ class ManagerBasedRlEnv:
         reward_extras = self.reward_manager.reset(env_ids)
         term_extras = self.termination_manager.reset(env_ids)
         curr_extras = self.curriculum_manager.compute(env_ids)
+        metrics_extras = self.metrics_manager.reset(env_ids)
         self._episode_length_buf[env_ids] = 0
-        self._extras["log"] = {**reward_extras, **term_extras, **curr_extras}
+        self._extras["log"] = {
+            **reward_extras,
+            **term_extras,
+            **curr_extras,
+            **metrics_extras,
+        }
 
     def step(
         self, action: torch.Tensor
@@ -288,6 +298,7 @@ class ManagerBasedRlEnv:
         self.event_manager.apply("interval", dt=self._step_dt)
 
         reward = self.reward_manager.compute(self._step_dt)
+        self.metrics_manager.compute()
         dones = self.termination_manager.compute()
         time_outs = self.termination_manager.time_outs
         terminated = self.termination_manager.terminated
