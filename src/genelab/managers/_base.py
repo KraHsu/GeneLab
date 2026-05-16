@@ -11,17 +11,21 @@ if TYPE_CHECKING:
 
 
 def instantiate_class_term(term_cfg: ManagerTermBaseCfg, env: "ManagerBasedRlEnv") -> None:
-    """Resolve ``term_cfg`` against ``env``: class funcs get instantiated, any
-    :class:`SceneEntityCfg` values inside ``params`` get their ``*_ids`` populated.
+    """Resolve ``term_cfg`` against ``env``: any :class:`SceneEntityCfg` values inside
+    ``params`` get their ``*_ids`` populated, then class funcs get instantiated.
 
     Single entrypoint called by every manager's ``__init__`` so per-term setup that
     needs the live env (index resolution, stateful func construction) happens in
     exactly one place. Idempotent re-runs are safe — :meth:`SceneEntityCfg.resolve`
     skips fields whose ids are already filled, and the class-instantiation branch
     only fires when ``func`` is still a class.
+
+    **Order matters**: stateful class terms (e.g. ``feet_swing_height``) cache
+    ``asset_cfg.link_ids`` in their ``__init__``. If resolve ran after the class
+    instantiation, those reads would see ``None``. So resolve goes first.
     """
-    if inspect.isclass(term_cfg.func):
-        term_cfg.func = term_cfg.func(cfg=term_cfg, env=env)
     for value in term_cfg.params.values():
         if isinstance(value, SceneEntityCfg):
             value.resolve(env)
+    if inspect.isclass(term_cfg.func):
+        term_cfg.func = term_cfg.func(cfg=term_cfg, env=env)

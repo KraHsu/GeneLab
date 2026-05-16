@@ -93,3 +93,28 @@ def test_instantiate_class_term_ignores_non_scene_entity_params() -> None:
     instantiate_class_term(term_cfg, env)  # type: ignore[arg-type]
     # Sanity: params untouched.
     assert term_cfg.params == {"threshold": 0.5, "names": ("a",), "ranges": (-1.0, 1.0)}
+
+
+def test_instantiate_class_term_resolves_asset_cfg_before_class_init() -> None:
+    """Regression: stateful class terms like ``feet_swing_height`` cache
+    ``asset_cfg.link_ids`` in their ``__init__``. The resolve pass MUST run before
+    the class is instantiated — otherwise the init reads ``None`` and crashes
+    (caught in production by an 8-GPU G1 training run that hit
+    ``ValueError: SceneEntityCfg(name='robot') has no link_ids``).
+    """
+    captured: dict[str, tuple[int, ...] | None] = {}
+
+    class _RecordingTerm:
+        def __init__(self, cfg, env) -> None:  # type: ignore[no-untyped-def]
+            # Mirrors what feet_swing_height.__init__ does — read the cfg at init time.
+            captured["link_ids"] = cfg.params["asset_cfg"].link_ids
+
+        def __call__(self, env) -> None:  # noqa: ARG002 - placeholder
+            return None
+
+    env = _FakeEnv(link_names=["base", "left_foot", "right_foot"], joint_names=[])
+    asset_cfg = SceneEntityCfg(name="robot", link_names=("left_foot", "right_foot"))
+    term_cfg = ManagerTermBaseCfg(func=_RecordingTerm, params={"asset_cfg": asset_cfg})
+    instantiate_class_term(term_cfg, env)  # type: ignore[arg-type]
+    # The recording term's init saw fully resolved link_ids.
+    assert captured["link_ids"] == (1, 2)
