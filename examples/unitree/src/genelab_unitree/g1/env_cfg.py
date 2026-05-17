@@ -342,14 +342,14 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             ),
             "dof_pos_limits": RewardTermCfg(func=mdp.joint_pos_limits, weight=-1.0),
             "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.1),
-            # ``air_time`` is kept with weight 0.0 for mjlab log-parity — the term
-            # surfaces as ``Episode_Reward/air_time`` (always 0) so plots line up
-            # with mjlab even though the gradient is muted. RewardManager short-
-            # circuits weight-0 terms in compute(), so the function never runs.
-            # Params match mjlab in case a downstream cfg flips the weight on.
+            # Diverges from mjlab parity: 2026-05-17 training showed gait collapse
+            # (peak swing ≈2.4cm, air_time ≈55ms), so we turn ``air_time`` on for
+            # positive stepping signal and quadruple ``foot_swing_height`` so the
+            # peak-vs-target landing penalty actually drives the policy. See the
+            # 2026-05-17_09-11-25 run for the baseline metrics.
             "air_time": RewardTermCfg(
                 func=mdp.feet_air_time,
-                weight=0.0,
+                weight=1.0,
                 params={
                     "sensor_name": "feet_ground_contact",
                     "threshold_min": 0.05,
@@ -374,7 +374,7 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             ),
             "foot_swing_height": RewardTermCfg(
                 func=mdp.feet_swing_height,
-                weight=-0.25,
+                weight=-1.0,
                 params={
                     "sensor_name": "feet_ground_contact",
                     "asset_cfg": _feet_cfg(),
