@@ -1,7 +1,7 @@
-# Project new
+# Project New
 
-`genelab project new` scaffolds a downstream extension package — a self-contained Python
-project that registers robots, environments, and tasks into GeneLab's global registries.
+`genelab project new` creates a standalone extension package. Use it for downstream projects rather
+than editing `src/genelab/`.
 
 ## Usage
 
@@ -9,50 +9,38 @@ project that registers robots, environments, and tasks into GeneLab's global reg
 uv run genelab project new my_robot_project
 ```
 
-### Options
+Options:
 
-| Option | Default | Effect |
-|--------|---------|--------|
-| `--path PATH` | `./<name>` | Output directory. Created if missing. |
-| `--package NAME` | derived from project name | Python import name (e.g. `my_robot_project`). |
-| `--task-id ID` | `<package>/<name>-v0` | The first task ID registered by the scaffold. |
-| `--force` | off | Overwrite an existing target directory. Use with care. |
+| Option | Description |
+|---|---|
+| `--path PATH`, `-p PATH` | Parent directory for the generated project. |
+| `--package NAME` | Python package name. Defaults to normalized `NAME`. |
+| `--task-id ID` | Initial task id. Defaults to `<PackageName>-Example-v0`. |
+| `--force` | Overwrite scaffold files if the target exists. |
 
-## Scaffold output
+## Generated structure
 
-```
+```text
 my_robot_project/
-├── pyproject.toml        # with [project.entry-points."genelab.extensions"]
 ├── README.md
-└── src/
-    └── my_robot_project/
-        ├── __init__.py   # exposes register() entry-point callable
-        ├── config.py     # task-specific dataclass plugged into TaskCfg.env
-        ├── robots.py     # robot registrations
-        ├── envs.py       # environment registrations
-        └── tasks.py      # task registration (using --task-id)
+├── pyproject.toml
+└── src/my_robot_project/
+    ├── __init__.py
+    ├── config.py
+    ├── envs.py
+    ├── robots.py
+    └── tasks.py
 ```
 
-The generated `pyproject.toml` declares:
-
-```toml
-[project.entry-points."genelab.extensions"]
-my_robot_project = "my_robot_project:register"
-```
-
-Once installed (`uv pip install -e ./my_robot_project`), the extension is discovered on the
-next CLI invocation without any `--import` flag.
-
-## Post-scaffold workflow
+## After scaffolding
 
 ```bash
-cd my_robot_project
-uv pip install -e .          # install the extension into the GeneLab venv
-uv run genelab list tasks    # confirm the new task ID shows up
-uv run genelab play <task-id> --vis
+uv pip install -e my_robot_project
+uv run genelab list tasks
+uv run genelab play MyRobotProject-Example-v0 --steps 3
 ```
 
 ## See also
 
+- [Build an Extension Project](../best-practices/extension-projects.md)
 - [Extensions](../concepts/extensions.md)
-- [Configs](../concepts/configs.md)

@@ -1,50 +1,46 @@
 # Registry
 
-GeneLab provides a generic `Registry[T]` plus three module-level singletons exported from
-`genelab.lab`:
+GeneLab uses small registries to keep the framework separate from downstream robot projects.
+The core package does not need to know every robot, environment, or task at import time; extensions
+register named factories when the CLI or user code asks for them.
 
-| Singleton | Holds |
-|-----------|-------|
-| `ROBOTS` | Robot factories. |
-| `ENVS` | Environment factories. |
-| `TASKS` | Task factories (each task pairs an environment with optional runner / agent config). |
+## Why registries exist
 
-## Entry shape
+Robotics projects often mix three concerns: asset definitions, environment construction, and
+experiment execution. GeneLab separates them:
 
-A registry entry is a 4-tuple: **`(name, description, factory, cfg_type)`**. The `factory` is a
-callable invoked lazily on `get(name)`, so importing a registration site does not eagerly build
-heavy objects.
+| Registry | Boundary |
+|---|---|
+| `ROBOTS` | Named robot/asset config factories. |
+| `ENVS` | Named environment factories. |
+| `TASKS` | Named task factories that carry `TaskCfg` and runtime methods. |
 
-## API surface
+This gives the CLI a stable discovery model without forcing a central list of all downstream
+projects into `genelab` itself.
 
-```python
-from genelab.lab import ROBOTS, ENVS, TASKS, TaskCfg
+## Lazy factories
 
-def make_my_robot():
-    ...
+Registry entries store factories rather than constructed objects. Listing names and descriptions is
+cheap; expensive work such as importing Genesis, downloading assets, or building a scene happens
+only when the factory is called.
 
-ROBOTS.register(
-    name="my_robot",
-    description="A demo robot.",
-    factory=make_my_robot,
-    cfg_type=None,
-)
+This is why a command like `genelab list tasks` can be fast while `genelab play TASK` is allowed to
+initialize the simulator.
 
-# Later:
-robot = ROBOTS.get("my_robot")
-```
+## Extension loading
 
-The `name` is the canonical lookup key; the `description` is what `genelab list robots`
-displays.
+Extensions can register in three ways:
 
-## Idempotent extension loading
+| Mechanism | Use case |
+|---|---|
+| `genelab.extensions` entry point | Daily use after installing a package. |
+| `--import MODULE` | Local experiments, notebooks, and packages not installed as entry points. |
+| `load_extension_module()` | Programmatic embedding. |
 
-The registry module tracks `_loaded_extension_modules` and `_loaded_entrypoints` sets so that
-repeated calls to load the same extension are no-ops. This matters when entry-point
-auto-discovery (default) combines with explicit `--import` flags — both pathways end up calling
-`load_extension_module`, but the second call is short-circuited.
+Registration should be idempotent when a module may be loaded repeatedly in one process.
 
-## See also
+## Where to continue
 
-- [Extensions](extensions.md)
+- [Build an Extension Project](../best-practices/extension-projects.md)
+- [Discovery: list and info](../cli/list-info.md)
 - [API Reference](../api/reference.md)

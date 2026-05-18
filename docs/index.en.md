@@ -17,7 +17,7 @@ package layout and CLI for downstream robotics projects.
 </p>
 
 <div class="gl-hero__cta" markdown>
-[Get started](getting-started/installation.md){ .md-button .md-button--primary }
+[Start the tutorial](tutorial.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/KraHsu/GeneLab){ .md-button }
 </div>
 
@@ -45,21 +45,21 @@ package layout and CLI for downstream robotics projects.
 
 <div class="grid cards gl-cards" markdown>
 
--   <span class="gl-card__num">01</span> :material-download:{ .lg .middle } **Install**
+-   <span class="gl-card__num">01</span> :material-school-outline:{ .lg .middle } **Tutorial**
+
+    ---
+
+    Build the first robot experiment, then continue to Unitree G1.
+
+    [Tutorial →](tutorial.md)
+
+-   <span class="gl-card__num">02</span> :material-download:{ .lg .middle } **Install**
 
     ---
 
     Set up `uv`, pick a `torch-*` extra, and verify the CLI.
 
     [Installation →](getting-started/installation.md)
-
--   <span class="gl-card__num">02</span> :material-rocket-launch-outline:{ .lg .middle } **Run**
-
-    ---
-
-    List registered tasks and play one in a Genesis viewer.
-
-    [Quickstart →](getting-started/quickstart.md)
 
 -   <span class="gl-card__num">03</span> :material-console-line:{ .lg .middle } **CLI**
 
@@ -79,13 +79,13 @@ package layout and CLI for downstream robotics projects.
 
 </div>
 
-## Modules
+## Abilities
 
-<ul class="gl-modules">
-  <li><code>genelab.registry</code><span>Registries, registration helpers, extension loading.</span></li>
-  <li><code>genelab.configs</code><span>Reusable dataclass configs (<code>ManagerBasedEnvCfg</code>, <code>TaskCfg</code>).</span></li>
-  <li><code>genelab.lab</code><span>Public facade for registry + manager-based environment primitives.</span></li>
-  <li><code>genelab.cli</code><span>Typer + Rich dispatcher; <code>play</code> / <code>train</code> / <code>info</code> / <code>project new</code>.</span></li>
-  <li><code>genelab.envs</code> / <code>robots</code> / <code>tasks</code><span>Core registry helper namespaces.</span></li>
-  <li><code>genelab.actuator</code> / <code>scene</code> / <code>sensor</code> / <code>terrains</code><span>Extension namespaces for robotics research code.</span></li>
+<ul class="gl-abilities">
+  <li><code>Discover</code><span>Register and inspect robots, environments, and tasks from installed or explicit extensions.</span></li>
+  <li><code>Compose</code><span>Build Genesis scenes from robot assets, rigid objects, terrains, sensors, and recordings.</span></li>
+  <li><code>Shape MDPs</code><span>Define actions, commands, observations, rewards, terminations, events, curricula, and metrics as named terms.</span></li>
+  <li><code>Run</code><span>Use one CLI for headless rollouts, viewer playback, config overrides, and task introspection.</span></li>
+  <li><code>Train</code><span>Launch RSL-RL PPO runs, checkpoint replay, profiler traces, and multi-GPU training.</span></li>
+  <li><code>Extend</code><span>Keep downstream robot projects in independent Python packages with entry-point discovery.</span></li>
 </ul>

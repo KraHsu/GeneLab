@@ -1,62 +1,34 @@
 # 配置系统
 
-GeneLab 的配置体系是 `genelab.configs` 下的一个小型 dataclass 层级：
+GeneLab 配置是一棵 dataclass 树。它刻意使用普通 Python，而不是自定义 schema：任务作者可以用常规代码构造配置，CLI 也仍然能暴露稳定的 override 路径。
 
-```
+## 核心概念
+
+`TaskCfg` 是发现层与运行层之间的边界。它记录 task id、已注册 env 和 robot 名、默认 env 配置、
+可选 play-mode env 配置、可选 agent 配置。
+
+```text
 TaskCfg
-└── env: object   # 下游扩展把自己的 env dataclass 接入这里
-    ManagerBasedEnvCfg
-    ├── simulation
-    ├── scene
-    ├── actions
-    ├── observations
-    ├── rewards
-    ├── terminations
-    └── events
+├── env
+├── play_env
+└── agent
 ```
 
-`TaskCfg.env` 类型刻意写成 `object` —— 下游扩展无需触碰核心即可接入自己的 env dataclass。
-大多数情况下 `env` 字段会是 `ManagerBasedEnvCfg` 的子类。
+`env` 有意标成 `object`。下游项目可以使用 `ManagerBasedRlEnvCfg` 这样的子类，而不需要修改 GeneLab core。
 
-## apply_overrides
+## 为什么 dotted override 可行
 
-核心函数是 `apply_overrides(cfg, dict)`，解析点路径并把值应用到配置树：
+CLI 把 `--a.b.c VALUE` 当作 dataclass 树上的路径。`apply_overrides` 解析路径、读取当前值和类型注解、转换字符串值，并在运行前修改配置。
 
-```python
-from genelab.configs import apply_overrides
+这样实验可复现：最终 `TaskCfg` 可以被 dump，非法路径会早失败，而不是被静默忽略。
 
-apply_overrides(cfg, {
-    "env.simulation.dt": "0.005",
-    "env.simulation.steps": "500",
-    "env.robot.actuators.cart.stiffness": "100.0",
-    "env.observations.include_velocity": "true",
-})
-```
+## Play 配置是一等配置
 
-### 类型转换
+训练和人工检查通常需要不同默认值。`play_env` 让 task 把 viewer 友好的设置和训练设置放在一起：
+更少 env、打开 viewer、可选鼠标交互、可选 recording 输出。
 
-字符串值按目标 dataclass 字段的类型注解自动转换：
+## 继续阅读
 
-| 类型注解 | 接受的字符串 |
-|---------|-------------|
-| `bool` | `true`/`false`/`1`/`0`/`yes`/`no`（大小写不敏感） |
-| `int` | 任意 10 进制整数字面量 |
-| `float` | 任意 Python float 字面量 |
-| `Path` | 经过 `pathlib.Path(...)` |
-| `list[T]` | 逗号分隔，每个元素按 `T` 转换 |
-| `tuple[T, ...]` | 逗号分隔，每个元素按 `T` 转换 |
-| `str` | 原样 |
-
-当点路径无法解析到已知字段，或值无法转换时，`apply_overrides` 在配置构造期就抛出明确错误，
-避免错误延后到仿真运行时才暴露。
-
-### CLI 转发路径
-
-`play` / `train` 把每个 `--<a.b.c> VALUE` 标志转发给 `apply_overrides`。三个仿真短标志
-（`--vis`、`--gpu`、`--steps`）在转发前被改写为 `env.simulation.{vis,gpu,steps}`。
-
-## See also
-
-- [执行器](actuators.md)
-- [play 与 train](../cli/play-train.md)
-- [API 参考](../api/reference.md)
+- [配置参考](../reference/configuration.md)
+- [设计任务](../best-practices/task-design.md)
+- [CLI 参考](../reference/cli.md)

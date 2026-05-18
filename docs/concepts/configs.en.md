@@ -1,65 +1,42 @@
 # Configs
 
-The config system is a small dataclass hierarchy under `genelab.configs`:
+GeneLab configuration is a dataclass tree. The tree is intentionally ordinary Python rather than a
+custom schema language: task authors can construct it with normal code, and the CLI can still expose
+stable override paths.
 
-```
+## The core idea
+
+`TaskCfg` is the boundary between discovery and runtime. It records the task id, the registered env
+and robot names, the default env config, an optional play-mode env config, and an optional agent
+config.
+
+```text
 TaskCfg
-└── env: object   # downstream extensions plug in their own env dataclass
-    ManagerBasedEnvCfg
-    ├── simulation
-    ├── scene
-    ├── actions
-    ├── observations
-    ├── rewards
-    ├── terminations
-    └── events
+├── env
+├── play_env
+└── agent
 ```
 
-`TaskCfg.env` is typed `object` on purpose — downstream extensions plug their own env dataclass
-into it without touching core. Most users subclass `ManagerBasedEnvCfg` for their `env` field.
+`env` is typed as `object` on purpose. Downstream projects can use a subclass such as
+`ManagerBasedRlEnvCfg` without changing GeneLab core.
 
-## apply_overrides
+## Why dotted overrides work
 
-The headline function is `apply_overrides(cfg, dict)`, which parses dotted paths and applies
-them to the config tree:
+The CLI treats `--a.b.c VALUE` as a path through this dataclass tree. `apply_overrides` resolves the
+path, reads the current value and annotation, coerces the string value, and mutates the config before
+runtime starts.
 
-```python
-from genelab.configs import apply_overrides
+That keeps experiments reproducible: the final `TaskCfg` can be dumped, and invalid paths fail early
+instead of silently being ignored.
 
-apply_overrides(cfg, {
-    "env.simulation.dt": "0.005",
-    "env.simulation.steps": "500",
-    "env.robot.actuators.cart.stiffness": "100.0",
-    "env.observations.include_velocity": "true",
-})
-```
+## Play configs are first-class
 
-### Type coercion
+Training and inspection often need different defaults. `play_env` lets a task keep viewer-friendly
+settings next to training settings: fewer envs, viewer on, optional mouse interaction, and optional
+recording outputs.
 
-String values are coerced using the field's type hint on the target dataclass. Supported
-targets:
+## Where to continue
 
-| Hint | Accepted strings |
-|------|------------------|
-| `bool` | `true`/`false`/`1`/`0`/`yes`/`no` (case-insensitive) |
-| `int` | any base-10 integer literal |
-| `float` | any Python float literal |
-| `Path` | passed through `pathlib.Path(...)` |
-| `list[T]` | comma-separated, each element coerced as `T` |
-| `tuple[T, ...]` | comma-separated, each element coerced as `T` |
-| `str` | identity |
-
-When a path does not resolve to a known field or a value cannot be coerced, `apply_overrides`
-raises a descriptive error at config build time, not at simulation runtime.
-
-### Forwarding from the CLI
-
-The `play` / `train` subcommands forward every `--<a.b.c> VALUE` flag into `apply_overrides`.
-The three simulation shortcuts (`--vis`, `--gpu`, `--steps`) rewrite to
-`env.simulation.{vis,gpu,steps}` overrides before forwarding.
-
-## See also
-
-- [Actuators](actuators.md)
-- [Play and Train](../cli/play-train.md)
-- [API Reference](../api/reference.md)
+- [Configuration Reference](../reference/configuration.md)
+- [Design a Task](../best-practices/task-design.md)
+- [CLI Reference](../reference/cli.md)
