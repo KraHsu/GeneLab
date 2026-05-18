@@ -242,3 +242,49 @@ def test_resample_subset_keeps_other_envs_state() -> None:
     untouched = torch.tensor([0, 2, 4, 6, 7])
     assert torch.allclose(term.command[untouched], before[untouched])
     assert torch.allclose(term._heading_target[untouched], headings_before[untouched])
+
+
+def test_set_external_source_pins_term_for_bridge_writes() -> None:
+    """External drivers (teleop bridges) need ``_resample_command`` to stop
+    re-randomising and ``_update_command`` to be a no-op so per-step writes to
+    ``_command`` survive both ``compute()`` and any subsequent env reset.
+    """
+    cfg = UniformVelocityCommandCfg(
+        rel_standing_envs=0.5,
+        rel_heading_envs=0.5,
+        rel_forward_envs=0.2,
+        rel_world_envs=0.2,
+        heading_command=True,
+    )
+    term = _build(cfg, num_envs=1)
+    term._resample_command(torch.arange(1))
+
+    term.set_external_source(enabled=True)
+
+    # Command zeroed so the first obs the policy reads matches slider default.
+    assert torch.allclose(term.command, torch.zeros(1, 3))
+    # Group flags cleared so _update_command becomes a no-op.
+    assert not term._is_heading.any()
+    assert not term._is_standing.any()
+    assert not term._is_forward.any()
+    assert not term._is_world.any()
+    # Cfg is left untouched — pinning is governed by the runtime flag, not by
+    # mutating user-owned configuration.
+    assert term.cfg.heading_command is True
+    assert term.cfg.rel_heading_envs == 0.5
+
+    # An external write into _command must survive a compute(dt) call.
+    term._command[:] = torch.tensor([[0.5, -0.2, 0.3]])
+    term.compute(dt=0.02)
+    assert torch.allclose(term.command, torch.tensor([[0.5, -0.2, 0.3]]))
+
+    # A reset that fires _resample must NOT re-randomize while pinned.
+    term._time_left[:] = -1.0  # force the next compute to call _resample
+    term.compute(dt=0.02)
+    assert torch.allclose(term.command, torch.tensor([[0.5, -0.2, 0.3]]))
+
+    # Releasing the external source restores normal sampling behavior.
+    term.set_external_source(enabled=False)
+    term._resample_command(torch.arange(1))
+    # _command should now reflect a fresh sample (very unlikely to be exactly the pinned tuple).
+    assert not torch.allclose(term.command, torch.tensor([[0.5, -0.2, 0.3]]))

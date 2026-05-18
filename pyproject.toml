@@ -33,6 +33,13 @@ recording = [
     "PyQt5>=5.15",
     "matplotlib>=3.8",
 ]
+# GUI / teleop bridges for ``genelab.bridges``. Today this is only DearPyGui;
+# future bridges (gamepad, websocket, ROS2) get their own extras as their
+# transports settle. The keyboard bridge has no extra dependencies — it uses
+# Genesis's built-in viewer keybind mechanism.
+teleop = [
+    "dearpygui>=1.10",
+]
 docs = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
