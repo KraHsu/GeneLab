@@ -833,6 +833,28 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
 ]
+docs = [
+    { name = "mkdocs" },
+    { name = "mkdocs-include-markdown-plugin" },
+    { name = "mkdocs-material" },
+    { name = "mkdocs-static-i18n" },
+    { name = "mkdocstrings", extra = ["python"] },
+    { name = "pymdown-extensions" },
+]
+recording = [
+    { name = "matplotlib" },
+    { name = "pyqt5" },
+    { name = "pyqtgraph" },
+]
+rl = [
+    { name = "gymnasium" },
+    { name = "rsl-rl-lib" },
+    { name = "tensorboard" },
+    { name = "tensordict" },
+]
+teleop = [
+    { name = "dearpygui" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -867,6 +889,26 @@ dev = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "ruff", specifier = ">=0.8.0" },
 ]
+docs = [
+    { name = "mkdocs", specifier = ">=1.6" },
+    { name = "mkdocs-include-markdown-plugin", specifier = ">=7" },
+    { name = "mkdocs-material", specifier = ">=9.5" },
+    { name = "mkdocs-static-i18n", specifier = ">=1.2" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.26" },
+    { name = "pymdown-extensions", specifier = ">=10" },
+]
+recording = [
+    { name = "matplotlib", specifier = ">=3.8" },
+    { name = "pyqt5", specifier = ">=5.15" },
+    { name = "pyqtgraph", specifier = ">=0.13" },
+]
+rl = [
+    { name = "gymnasium", specifier = ">=1.0" },
+    { name = "rsl-rl-lib", specifier = ">=5.2.0" },
+    { name = "tensorboard", specifier = ">=2.20.0" },
+    { name = "tensordict" },
+]
+teleop = [{ name = "dearpygui", specifier = ">=1.10" }]
 
 [[package]]
 name = "genesis-world"

@@ -33,7 +33,7 @@ the `genelab-assets` repository on first use and caches it under `.cache/`.
 
 ```bash
 # From the GeneLab repo root
-uv sync --extra rl --extra torch-cu128       # pick whichever torch flavor fits your GPU
+uv sync --extra torch-cu128       # pick whichever torch flavor fits your GPU
 uv pip install -e examples/unitree
 
 uv run genelab list tasks

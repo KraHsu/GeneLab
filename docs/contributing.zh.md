@@ -55,9 +55,9 @@ GeneLab 锁定 Python `>=3.12`。只写现代代码，不要为旧解释器加�
   生成的 slug。
 - **`.zh.md` 中的中英混排空格。** 中文字符与相邻的 ASCII 单词、数字或行内代码之间留一个空格
   （`运行 \`uv sync\``，不是 `运行\`uv sync\``）。
-- **`mkdocs build --strict` 必须通过。** 用 `uv sync --extra docs` 安装 docs extra，
-  在提交涉及文档的 PR 前运行 `uv run mkdocs build --strict`。strict 模式会因任何未解析的相对链接
-  或锚点失败。
+- **`mkdocs build --strict` 必须通过。** 提交涉及文档的 PR 前运行
+  `uv run mkdocs build --strict`——mkdocs 默认随 `uv sync` 安装。strict 模式会因任何未解析的
+  相对链接或锚点失败。
 
 ## PR 前检查
 

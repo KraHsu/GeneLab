@@ -73,11 +73,11 @@ entry point 的 `pyproject.toml` —— 形态与仓库自带示例扩展一致�
 
 ### 5.1 安装扩展
 
-unitree 扩展依赖 `rl` extra（rsl_rl），并随包附带 MJCF 与网格资源（约 19 MB）。`torch-*`
-extra 需按硬件挑选 —— 对照表见 *安装*。
+unitree 扩展随包附带 MJCF 与网格资源（约 19 MB）。`torch-*` extra 需按硬件挑选 ——
+对照表见 *安装*。
 
 ```bash
-uv sync --extra rl --extra torch-cu128
+uv sync --extra torch-cu128
 uv pip install -e examples/unitree
 
 uv run genelab list tasks

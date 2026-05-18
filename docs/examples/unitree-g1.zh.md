@@ -12,10 +12,10 @@
 
 ## 安装
 
-扩展依赖 `rl` extra (rsl_rl)。`torch-*` extra 按本机硬件挑。
+`torch-*` extra 按本机硬件挑。
 
 ```bash
-uv sync --extra rl --extra torch-cu128
+uv sync --extra torch-cu128
 uv pip install -e examples/unitree
 
 uv run genelab list tasks
