@@ -409,6 +409,19 @@ class Articulation:
         robot = self._gs_handle
         if self._data is None or robot is None:
             return
+
+        # ``_data`` is only refreshed once per env step, but this method runs once
+        # per sim substep inside ``ManagerBasedRlEnv.step``. Reading the stale
+        # cache here feeds the force-channel PD law state up to
+        # ``decimation * dt_sim`` old, which zeros closed-loop damping inside the
+        # substep window and makes the joints visibly oscillate. Pull fresh DoF
+        # state directly from sim for the force-channel branch.
+        fresh_pos: torch.Tensor | None = None
+        fresh_vel: torch.Tensor | None = None
+        if any(a.channel != "implicit_pd" for a in self._actuators.values()):
+            fresh_pos = to_tensor(robot.get_dofs_position(), self._device)
+            fresh_vel = to_tensor(robot.get_dofs_velocity(), self._device)
+
         for actuator in self._actuators.values():
             jids = actuator.joint_ids
             dofs = actuator.dof_ids
@@ -424,8 +437,9 @@ class Articulation:
                 except TypeError:
                     ctrl(target_slice)
             else:
-                joint_pos = self._data.joint_pos.index_select(1, jids)
-                joint_vel = self._data.joint_vel.index_select(1, jids)
+                assert fresh_pos is not None and fresh_vel is not None
+                joint_pos = fresh_pos.index_select(-1, dofs)
+                joint_vel = fresh_vel.index_select(-1, dofs)
                 effort = actuator.compute(joint_pos, joint_vel, target_slice)
                 if effort is None:
                     continue
