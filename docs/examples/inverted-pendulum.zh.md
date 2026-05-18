@@ -58,6 +58,15 @@ uv run genelab play  GeneLab-Double-Inverted-Pendulum-v0 \
 左键点击 cart 或 pole 并拖动，会有一根弹簧把所点击的 link 拉向光标位置；策略仍然在背后试图
 保持平衡。滚轮可绕表面法线旋转拖拽平面，松开左键即移除外力。
 
+## 杆角度实时曲线
+
+`play` 模式下两份 env cfg 都会接入一个 `RecordingCfg`：读 env 0 上 pole hinge 的
+`env.robot_state.joint_pos / joint_vel`，喂给一个 `PyQtPlotCfg` 窗口，里面两幅上下叠放的
+子图——上面是角度（rad），下面是角速度（rad/s）。关节约定 `pole_hinge = 0` 表示杆竖直朝上，
+和 `pole_upright` / `pole_angle_l2` reward 的零点一致。双倒立摆把两根杆放在同样的两幅子图里，
+每根一条独立曲线。History 长度 400 个 tick（在 play 的 decimation 下约 2 秒）。recorder 只在
+`play=True` 时挂载，避免 4096 env 训练 rollout 因为 callable 调用变慢。
+
 !!! tip "Smoke-test 预算"
     使用 `--num-envs 64 --max-iterations 5` 跑 5–10 次迭代足以验证整条链路。此时 reward 信号
     仍非常嘈杂，真正收敛需要上面给出的 150 / 300 次迭代预算。
@@ -74,4 +83,6 @@ uv run genelab play  GeneLab-Double-Inverted-Pendulum-v0 \
 
 - [Unitree G1 快速开始](../getting-started/quickstart.md#unitree-g1)
 - [传感器](../concepts/sensors.md)
+- [数据录制与绘图](../concepts/recording.md)
+- [Manager 与 MDP term](../concepts/managers.md)
 - [play 与 train CLI](../cli/play-train.md)

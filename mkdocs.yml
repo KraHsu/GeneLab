@@ -111,6 +111,8 @@ plugins:
             Inverted Pendulum: 倒立摆
             Unitree G1: Unitree G1
             Showcase: 可视化 showcase
+            "Rubik's Cube": 魔方
+            Wuji Hand: 五指手
             API Reference: API 参考
             Contributing: 贡献指南
   - mkdocstrings:
@@ -187,5 +189,7 @@ nav:
       - Inverted Pendulum: examples/inverted-pendulum.md
       - Unitree G1: examples/unitree-g1.md
       - Showcase: examples/showcase.md
+      - "Rubik's Cube": examples/rubiks-cube.md
+      - Wuji Hand: examples/wuji-hand.md
   - API Reference: api/reference.md
   - Contributing: contributing.md
