@@ -1,5 +1,7 @@
 """Flat-ground single inverted-pendulum env config (manager-based + Genesis)."""
 
+from typing import TYPE_CHECKING
+
 from genelab import mdp
 from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
@@ -12,6 +14,7 @@ from genelab.managers import (
 )
 from genelab.mdp.actions.joint_position import JointPositionActionCfg
 from genelab.mdp.noise import Unoise
+from genelab.recording import PyQtPlotCfg, RecordingCfg
 from genelab.sensor import BodyVelocitySensorCfg
 
 from genelab_inverted_pendulum import mdp as ip_mdp
@@ -23,6 +26,23 @@ from genelab_inverted_pendulum.single.constants import (
     POLE_LINK,
 )
 from genelab_inverted_pendulum.single.robot import get_inverted_pendulum_robot_cfg
+
+if TYPE_CHECKING:
+    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
+
+def _pole_state(env: "ManagerBasedRlEnv") -> dict[str, object]:
+    """Per-tick (angle, angular velocity) of the pole joint for env 0.
+
+    Joint convention: ``pole_hinge=0`` corresponds to the pole vertically up — the same
+    zero used by ``pole_upright`` / ``pole_angle_l2`` rewards. Output dict keys match
+    the PyQtPlotCfg labels-dict keys so each becomes its own subplot.
+    """
+    idx = env.joint_names.index(POLE_JOINT)
+    return {
+        "angle (rad)": env.robot_state.joint_pos[0, idx : idx + 1],
+        "ang_vel (rad/s)": env.robot_state.joint_vel[0, idx : idx + 1],
+    }
 
 
 def _obs_terms() -> dict[str, ObservationTermCfg]:
@@ -66,6 +86,27 @@ def inverted_pendulum_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                     link_name=POLE_LINK,
                     measure="ang_vel",
                 ),
+            ),
+            recordings=(
+                (
+                    RecordingCfg(
+                        name="pole_state",
+                        source=_pole_state,
+                        env_idx=None,  # callable already returns a dict (no leading env dim)
+                        outputs=(
+                            PyQtPlotCfg(
+                                title="Inverted pendulum — pole state",
+                                labels={
+                                    "angle (rad)": ("pole",),
+                                    "ang_vel (rad/s)": ("pole",),
+                                },
+                                history_length=400,
+                            ),
+                        ),
+                    ),
+                )
+                if play
+                else ()
             ),
         ),
         decimation=2,
