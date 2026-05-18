@@ -101,35 +101,23 @@ uv run genelab play  Genelab-Velocity-Flat-Unitree-G1-v0 \
 
 ### 5.3 动作模仿
 
-动作模仿任务按 body 跟踪一段录制的动作片段（BeyondMimic 风格），需要一份 mjlab NPZ 格式的
-动作文件（键：`joint_pos`、`joint_vel`、`body_pos_w`、`body_quat_w`、`body_lin_vel_w`、
-`body_ang_vel_w`）。可用
-[`mjlab.scripts.csv_to_npz`](https://github.com/Mujoco-Lab/mjlab/blob/main/src/mjlab/scripts/csv_to_npz.py)
-把 CSV 转换为 NPZ，再通过 `--env.commands.motion.motion_file` 传入。
+动作模仿任务按 body 跟踪一段录制的动作片段（BeyondMimic 风格）。默认 clip 是 LAFAN1
+retargeted 的 `dance1_subject2` NPZ，首次使用时由
+`genelab.asset_zoo.unitree_g1_motions.g1_lafan1_dance1_subject2()` 从 `genelab-assets`
+拉取并缓存到 `.cache/`，无需手动下载。
 
 ```bash
-# 不跑策略，机器人按 clip 帧 reset、施加零力矩 —— 用于可视化 clip 本身。
-uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
-    --agent zero \
-    --env.commands.motion.motion_file path/to/clip.npz \
-    --vis
-
-# 随机动作 sanity check（参考姿态附近可见扰动）。
-uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
-    --agent random \
-    --env.commands.motion.motion_file path/to/clip.npz \
-    --vis
+# 逐帧回放参考 clip (不接策略；机器人每步贴到 motion 当前帧)。
+uv run python -m genelab_unitree.replay_motion
 
 # 训练。
 uv run genelab train Genelab-Tracking-Flat-Unitree-G1-v0 \
-    --env.commands.motion.motion_file path/to/clip.npz \
     --num-envs 4096 --max-iterations 30000
 
 # 回放训练好的策略。
 uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
     --agent trained \
-    --checkpoint logs/rsl_rl/g1_tracking_flat/<run>/model_30000.pt \
-    --env.commands.motion.motion_file path/to/clip.npz
+    --checkpoint logs/rsl_rl/g1_tracking_flat/<run>/model_30000.pt
 ```
 
 ### 5.4 `--agent` 三种模式
@@ -138,7 +126,7 @@ uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
 
 | 取值 | 策略来源 |
 |------|---------|
-| `zero` | 恒零动作 —— 适合可视化 clip 与基本健康检查。 |
+| `zero` | 恒零动作 —— 基本健康检查；机器人 reset 后在重力下倒掉。 |
 | `random` | 均匀随机动作 —— 在参考姿态附近显示可见扰动。 |
 | `trained` | 从 `--checkpoint` 加载。设置 `--checkpoint` 时即为默认。 |
 

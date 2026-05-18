@@ -33,20 +33,32 @@ if TYPE_CHECKING:
 
 
 class MotionLoader:
-    """Reads a motion NPZ into device tensors, sliced to the bodies we care about."""
+    """Reads a motion NPZ into device tensors, sliced + permuted into the runtime order.
+
+    ``body_indexes`` selects the (tracked-body) NPZ positions to keep; pass an
+    explicit index tensor whose length equals ``len(cfg.body_names)``. ``joint_perm``
+    optionally permutes the NPZ's joint axis into the robot's actuated-DoF order —
+    leave it ``None`` when the NPZ already matches the robot positionally.
+    """
 
     def __init__(
         self,
         motion_file: str,
         body_indexes: torch.Tensor,
         device: str | torch.device = "cpu",
+        joint_perm: torch.Tensor | None = None,
     ) -> None:
         if not motion_file:
             raise ValueError("MotionLoader requires a non-empty motion_file path")
         data = np.load(motion_file)
         t = torch.float32
-        self.joint_pos = torch.as_tensor(data["joint_pos"], dtype=t, device=device)
-        self.joint_vel = torch.as_tensor(data["joint_vel"], dtype=t, device=device)
+        joint_pos = torch.as_tensor(data["joint_pos"], dtype=t, device=device)
+        joint_vel = torch.as_tensor(data["joint_vel"], dtype=t, device=device)
+        if joint_perm is not None:
+            joint_pos = joint_pos[:, joint_perm]
+            joint_vel = joint_vel[:, joint_perm]
+        self.joint_pos = joint_pos
+        self.joint_vel = joint_vel
         body_pos_w = torch.as_tensor(data["body_pos_w"], dtype=t, device=device)
         body_quat_w = torch.as_tensor(data["body_quat_w"], dtype=t, device=device)
         body_lin_vel_w = torch.as_tensor(data["body_lin_vel_w"], dtype=t, device=device)
@@ -60,11 +72,22 @@ class MotionLoader:
 
 @dataclass
 class MotionCommandCfg(CommandTermCfg):
-    """Configuration for the motion-imitation command term."""
+    """Configuration for the motion-imitation command term.
+
+    ``motion_body_order`` names the bodies stored along axis 1 of the NPZ in the
+    file's native order — typically mjlab's MJCF DFS traversal. When provided, it
+    is used to map ``body_names`` to NPZ positions; when empty, the legacy
+    positional-arange slicing is kept for clips that already match the robot order.
+
+    ``motion_joint_order`` does the same for the NPZ's actuated joint axis; when
+    empty the joint axis is assumed to already match the robot's joint order.
+    """
 
     motion_file: str = ""
     anchor_body_name: str = ""
     body_names: tuple[str, ...] = ()
+    motion_body_order: tuple[str, ...] = ()
+    motion_joint_order: tuple[str, ...] = ()
     pose_range: dict[str, tuple[float, float]] = field(default_factory=dict)
     velocity_range: dict[str, tuple[float, float]] = field(default_factory=dict)
     joint_position_range: tuple[float, float] = (0.0, 0.0)
@@ -118,12 +141,40 @@ class MotionCommand(CommandTerm):
             device=self.device,
         )
 
-        # Read NPZ once on CPU then slice; bodies in the file are stored on robot-index order
-        # by convention (the mjlab csv_to_npz tool emits them that way).
+        if cfg.motion_body_order:
+            try:
+                motion_body_indexes = torch.tensor(
+                    [cfg.motion_body_order.index(n) for n in cfg.body_names],
+                    dtype=torch.long,
+                    device="cpu",
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    f"body in cfg.body_names missing from cfg.motion_body_order: {exc}"
+                ) from exc
+        else:
+            motion_body_indexes = torch.arange(len(cfg.body_names), device="cpu")
+
+        joint_perm: torch.Tensor | None = None
+        if cfg.motion_joint_order:
+            robot_joint_names = env.joint_names
+            missing_joints = [n for n in robot_joint_names if n not in cfg.motion_joint_order]
+            if missing_joints:
+                raise ValueError(
+                    f"motion_joint_order is missing robot joints: {missing_joints}; "
+                    f"motion_joint_order={cfg.motion_joint_order!r}"
+                )
+            joint_perm = torch.tensor(
+                [cfg.motion_joint_order.index(n) for n in robot_joint_names],
+                dtype=torch.long,
+                device="cpu",
+            )
+
         self.motion = MotionLoader(
             cfg.motion_file,
-            torch.arange(len(cfg.body_names), device="cpu"),
+            motion_body_indexes,
             device=self.device,
+            joint_perm=joint_perm,
         )
         self.time_steps = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
         self.body_pos_relative_w = torch.zeros(
