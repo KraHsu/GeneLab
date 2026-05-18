@@ -1,65 +1,32 @@
 # Extensions
 
-GeneLab core ships **no** robots, environments, or tasks. All content lives in downstream
-extension packages. The CLI discovers extensions through three pathways, in order of
-preference.
+Extensions are ordinary Python packages that register robots, environments, and tasks with GeneLab.
+They are the expected way to build real projects.
 
-## 1. Entry-point auto-discovery (recommended)
+## Why extensions are separate
 
-Declare in the extension's `pyproject.toml`:
+Keeping downstream projects outside `src/genelab/` avoids turning the framework into a collection of
+project-specific code. It also lets teams version, install, and publish their robot packages
+independently.
 
-```toml
-[project.entry-points."genelab.extensions"]
-my_robot_project = "my_robot_project:register"
-```
+## Discovery mechanisms
 
-The CLI auto-imports every entry point in the `genelab.extensions` group on startup.
-`register()` is a no-argument callable at the package top level that performs the actual
-`ROBOTS.register(...)` / `ENVS.register(...)` / `TASKS.register(...)` calls (or simply imports
-modules that perform them as a side effect).
+| Mechanism | Best use |
+|---|---|
+| Entry point in `genelab.extensions` | Installed packages and daily workflows. |
+| CLI `--import MODULE` | Temporary local modules or debugging entry-point loading. |
+| Programmatic loading | Embedded applications. |
 
-This is the pathway `genelab project new` wires up automatically.
+All mechanisms end with the same operation: a registration function calls `register_robot`,
+`register_env`, and `register_task`.
 
-## 2. Explicit `--import`
+## Extension contract
 
-```bash
-uv run genelab --import my_pkg.module1 --import my_pkg.module2 list tasks
-```
+An extension should be importable as a package, keep registry-time imports light, expose a
+no-argument `register()` hook, and avoid duplicate registration in repeated loads.
 
-Repeatable. Common uses:
+## Where to continue
 
-- The extension does not (yet) ship a `genelab.extensions` entry point.
-- A fully explicit, reproducible loading order is required (combine with `--no-entry-points`).
-- Iterating on a not-yet-installed package while ad-hoc-adding its source directory to
-  `sys.path` (the CLI also adds the current working directory to `sys.path`).
-
-## 3. Programmatic
-
-```python
-from genelab.registry import load_extension_module
-
-load_extension_module("my_pkg.module")
-```
-
-Used by tests and embedding scripts. The same idempotency guard applies, so calling it after
-the CLI has already auto-discovered the same module is a no-op.
-
-## Disabling auto-discovery
-
-```bash
-uv run genelab --no-entry-points --import my_pkg list tasks
-```
-
-This is the most reproducible setup — only the modules explicitly named are loaded.
-
-## Reference extension
-
-`examples/genelab_examples/` is the reference shape: a `pyproject.toml` with the entry point, a
-top-level `register()` callable, and `config.py` / `robots.py` / `envs.py` / `tasks.py`
-modules. `tests/fake_extension.py` is the same shape stripped to bare minimum for the test
-suite.
-
-## See also
-
-- [Project new](../cli/project-new.md)
+- [Build an Extension Project](../best-practices/extension-projects.md)
+- [Project New](../cli/project-new.md)
 - [Registry](registry.md)
