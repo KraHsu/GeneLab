@@ -131,5 +131,8 @@ pendulum examples:
 ## See also
 
 - [Inverted Pendulum](inverted-pendulum.md)
+- [Wuji Hand](wuji-hand.md) — smaller fixed-trajectory replay example
 - [Actuators](../concepts/actuators.md)
+- [Asset zoo](../concepts/asset_zoo.md)
+- [Sensors](../concepts/sensors.md)
 - [Play and Train CLI](../cli/play-train.md)
