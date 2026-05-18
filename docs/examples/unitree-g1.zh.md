@@ -117,6 +117,9 @@ trace 落在 `logs/torch_profile/`，可用 `tensorboard --logdir logs/torch_pro
 
 ## See also
 
-- [Inverted Pendulum](inverted-pendulum.md)
+- [倒立摆](inverted-pendulum.md)
+- [五指手](wuji-hand.md) —— 更小规模的固定轨迹回放示例
 - [Actuators](../concepts/actuators.md)
-- [Play and Train CLI](../cli/play-train.md)
+- [Asset zoo](../concepts/asset_zoo.md)
+- [传感器](../concepts/sensors.md)
+- [play 与 train CLI](../cli/play-train.md)

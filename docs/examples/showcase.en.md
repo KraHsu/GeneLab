@@ -6,6 +6,17 @@ Unitree G1 — into a minimal `ManagerBasedRlEnv`, runs a scripted action loop, 
 writes a per-feature evidence file under `logs/showcase/<slug>/`. The intent is
 human visual / numerical verification, not training.
 
+## Shared runner
+
+All seven tasks share the same `ShowcaseRunner` base class in
+`examples/genelab_showcase/src/genelab_showcase/runner.py`. It owns the env lifecycle,
+the fixed-length scripted-action loop, log-directory creation, and viewer ticking.
+Subclasses override two hooks: `_scripted_action(env, step)` to return the per-step
+action tensor, and `_dump(env, step, log_root)` to write whatever evidence is relevant
+(PNG frames, histograms, tracking-error logs). The recording showcase is the one
+exception — it leaves `_dump` untouched because the live plots and file writers run on
+Genesis's recorder threads, driven entirely by the env-cfg `recordings=(...)` tuple.
+
 ## Tasks
 
 | Task id | Robot | Feature exercised |
@@ -51,6 +62,8 @@ arm holds the Menagerie home pose. Every 20 control steps the runner dumps:
     Madrona compiled in. On other platforms the env constructor will raise as soon
     as Genesis allocates the renderer.
 
+**See also**: [`CameraSensor` / `IMUSensor` / `FrameTransformerSensor`](../concepts/sensors.md).
+
 ## Ray-cast patterns
 
 ```bash
@@ -73,6 +86,8 @@ step=0020
 `max` clamps at the configured `max_distance`; rays that miss the ground plane (rare
 when the pole axis points down) take that ceiling value.
 
+**See also**: [Ray-cast patterns](../concepts/sensors.md#ray-cast-patterns).
+
 ## Contact and air time
 
 ```bash
@@ -86,6 +101,8 @@ the last completed `last_contact_time` / `last_air_time` snapshots.
 
 A clean reset cycle every 4 s (`episode_length_s=4`) lets the air-time counters tick
 through several boundaries so the snapshot semantics are visible in the log.
+
+**See also**: [`ContactSensor`](../concepts/sensors.md#contactsensor).
 
 ## Terrains
 
@@ -107,6 +124,8 @@ G1 spawns at the row centre with default pose and is allowed to fall. A small
 downward `GridPattern` ray-cast on the pelvis records the local heightfield response
 into `logs/showcase/terrain/terrain.log`.
 
+**See also**: [Terrains](../concepts/terrains.md).
+
 ## Curriculum
 
 ```bash
@@ -118,6 +137,8 @@ roughness amplitude. The runner teleports half the envs 1.5 m forward of spawn e
 30 control steps to trip the `walked > distance_threshold` branch on auto-reset; the
 remaining envs sit still and demote toward level 0. `logs/showcase/curriculum/levels.log`
 appends a per-env level vector plus the row histogram every 30 steps.
+
+**See also**: [Managers and MDP terms](../concepts/managers.md), [Terrains](../concepts/terrains.md).
 
 ## Actuators
 
@@ -132,6 +153,29 @@ to joint 1; `logs/showcase/actuators/tracking.log` records target vs actual posi
 and joint velocity every 20 steps so the tracking quality is directly comparable to
 the sensors showcase (which uses `ImplicitPDActuator`).
 
+**See also**: [Actuators](../concepts/actuators.md).
+
+## Recording
+
+```bash
+uv run genelab play GeneLab-Recording-Showcase-v0 --vis --steps 400
+```
+
+Franka with one `IMUSensor` on the hand link plus three `RecordingCfg` sinks defined on
+the env config:
+
+- IMU `lin_acc_b` → `PyQtPlotCfg` live window **and** `CSVFileCfg` dump to
+  `logs/showcase/recording/lin_acc.csv`.
+- IMU `orientation` → `NPZFileCfg` per-episode dump to
+  `logs/showcase/recording/orientation_*.npz` (`save_on_reset=True`).
+- A custom callable returning `env.robot_state.joint_pos[:, 0]` → `MPLPlotCfg` live
+  window.
+
+The scripted runner just waves joint 1 with a 0.5 rad / 4 s sine; the recorders run on
+Genesis's own recorder threads, so no `_dump` hook is needed.
+
+**See also**: [Recording and plotting](../concepts/recording.md).
+
 !!! tip "Smoke-test budget"
     Every showcase finishes in well under a minute at the default 200 / 400 steps on
     a single env. Increase `--steps` only when accumulating longer log evidence;
@@ -140,11 +184,15 @@ the sensors showcase (which uses `ImplicitPDActuator`).
 ## Logs
 
 Each showcase writes to `logs/showcase/<slug>/` with the slugs `sensors`, `raycast`,
-`contact`, `terrain`, `curriculum`, `actuators`. PNG dumps land alongside the text
-logs so a single directory is all that needs archiving when comparing runs.
+`contact`, `terrain`, `curriculum`, `actuators`, `recording`. PNG / CSV / NPZ dumps land
+alongside the text logs so a single directory is all that needs archiving when
+comparing runs.
 
 ## See also
 
 - [Sensors](../concepts/sensors.md)
 - [Terrains](../concepts/terrains.md)
+- [Actuators](../concepts/actuators.md)
+- [Recording and plotting](../concepts/recording.md)
+- [Managers and MDP terms](../concepts/managers.md)
 - [Scene and entities](../concepts/scene.md)
