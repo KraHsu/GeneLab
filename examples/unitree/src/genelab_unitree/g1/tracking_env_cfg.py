@@ -1,10 +1,11 @@
 """Motion-imitation env config for the Unitree G1 on flat ground.
 
 Port of ``mjlab.tasks.tracking.config.g1.env_cfgs.unitree_g1_flat_tracking_env_cfg`` adapted to
-GeneLab's slim manager system. The motion file path must be supplied at runtime, e.g.::
-
-    uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \\
-        --agent zero --env.commands.motion.motion_file /path/to/clip.npz
+GeneLab's slim manager system. The motion clip defaults to the LAFAN1 ``dance1_subject2``
+NPZ vendored in the asset zoo (fetched lazily on first use via
+:func:`genelab.asset_zoo.unitree_g1_motions.g1_lafan1_dance1_subject2`). Edit the cfg or
+swap the helper to point at any other NPZ that matches
+:class:`genelab.mdp.commands.motion_command.MotionLoader`'s schema.
 """
 
 import math
@@ -20,6 +21,11 @@ from genelab.managers import (
     TerminationTermCfg,
 )
 from genelab.asset_zoo.unitree_g1 import UnitreeG1Cfg
+from genelab.asset_zoo.unitree_g1_motions import (
+    G1_MJLAB_BODY_NAMES,
+    G1_MJLAB_JOINT_NAMES,
+    g1_lafan1_dance1_subject2,
+)
 from genelab.mdp.actions.joint_position import JointPositionActionCfg
 from genelab.mdp.commands.motion_command import MotionCommandCfg
 
@@ -147,9 +153,11 @@ def unitree_g1_tracking_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 # Sampling is driven by clip end (handled inside MotionCommand._update_command),
                 # so we set a huge resampling period to disable the time-based path.
                 resampling_time_range=(1.0e9, 1.0e9),
-                motion_file="",  # supplied at runtime via --env.commands.motion.motion_file
+                motion_file=str(g1_lafan1_dance1_subject2()),
                 anchor_body_name="torso_link",
                 body_names=_G1_TRACKING_BODIES,
+                motion_body_order=G1_MJLAB_BODY_NAMES,
+                motion_joint_order=G1_MJLAB_JOINT_NAMES,
                 pose_range=(
                     {
                         "x": (-0.05, 0.05),

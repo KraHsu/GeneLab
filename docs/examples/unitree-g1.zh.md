@@ -35,38 +35,43 @@ uv run genelab play  Genelab-Velocity-Flat-Unitree-G1-v0 \
 
 ## 动作模仿
 
-tracking 任务需要一段 mjlab NPZ schema 的 motion clip (key：`joint_pos`、`joint_vel`、
-`body_pos_w`、`body_quat_w`、`body_lin_vel_w`、`body_ang_vel_w`)。先用
-`mjlab.scripts.csv_to_npz` 把 CSV 转出来，再通过 `--env.commands.motion.motion_file`
-传进去。
+tracking 任务消费 NPZ motion clip (key：`joint_pos`、`joint_vel`、`body_pos_w`、
+`body_quat_w`、`body_lin_vel_w`、`body_ang_vel_w` —— mjlab `csv_to_npz` 产出的 schema)。
+默认 clip 是 LAFAN1 retargeted 的 `dance1_subject2` NPZ，首次使用时由
+`genelab.asset_zoo.unitree_g1_motions.g1_lafan1_dance1_subject2` 拉取并缓存到
+`.cache/assets/g1_lafan1_dance1_subject2/<md5>/`，无需手动下载，example 开箱即用。
 
 ```bash
-# 仅看 clip 本身 (机器人复位到 clip 帧、零力矩)。
-uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
-    --agent zero \
-    --env.commands.motion.motion_file path/to/clip.npz \
-    --vis
-
-# 随机动作 sanity check，参考姿态附近的扰动。
-uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
-    --agent random \
-    --env.commands.motion.motion_file path/to/clip.npz \
-    --vis
+# 逐帧回放参考 clip (不接策略；机器人每步贴到 motion 当前帧)。
+# 训练前验证 env 接线是否正确的标准方式。
+uv run python -m genelab_unitree.replay_motion
 
 # 训练。
 uv run genelab train Genelab-Tracking-Flat-Unitree-G1-v0 \
-    --env.commands.motion.motion_file path/to/clip.npz \
     --num-envs 4096 --max-iterations 30000
 
 # 回放训练好的策略。
 uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
     --agent trained \
-    --checkpoint logs/rsl_rl/g1_tracking_flat/<run>/model_30000.pt \
-    --env.commands.motion.motion_file path/to/clip.npz
+    --checkpoint logs/rsl_rl/g1_tracking_flat/<run>/model_30000.pt
 ```
 
 `--agent` 取 `zero`、`random` 或 `trained`。不写 `--agent` 时，`--checkpoint` 存在则默认
-`trained`，否则 `zero`。
+`trained`，否则 `zero`。`zero` 和 `random` 都只在 reset 时把机器人摆到 clip 第 0 帧、
+之后施加零 / 随机力矩，机器人只会倒下，不会跟随动作。要做无策略的参考回放，用上面的
+`replay_motion` 脚本。
+
+### 替换 clip
+
+默认 `motion_file` 在 `tracking_env_cfg.unitree_g1_tracking_env_cfg` 里硬编码。把
+`g1_lafan1_dance1_subject2()` 替换成符合上面 schema 的任意 NPZ 路径即可；若新 clip 的
+body / joint 轴顺序不同，记得同步更新 `MotionCommandCfg` 的 `motion_body_order` /
+`motion_joint_order`。[`genelab-assets`](https://github.com/KraHsu/genelab-assets) 仓库
+里附带 `unitree_g1/motions/scripts/convert.sh`，把任意 G1 retargeted CSV 喂给 mjlab 的
+`csv_to_npz` 做一次正运动学回放。
+
+捆绑 clip 继承上游许可 (CC BY-NC-ND 4.0 —— 仅供非商业研究，需署名)；详情见 assets 仓库
+里的 `unitree_g1/motions/LICENSE.NOTICE`。
 
 ## 长时间训练
 
@@ -93,6 +98,9 @@ trace 落在 `logs/torch_profile/`，可用 `tensorboard --logdir logs/torch_pro
 - G1 的 MJCF 与 STL mesh 在首次使用时由 `genelab.asset_zoo.unitree_g1.UnitreeG1Cfg`
   从 `genelab-assets` 仓库拉取并缓存到 `.cache/`。源自 Unitree 的 `mujoco_menagerie`
   release，license 详见上游仓库。
+- 默认 motion NPZ (`dance1_subject2`) 同样从 `genelab-assets` 首次使用时拉取。clip
+  内的 body / joint 轴按 mjlab MJCF 的 DFS 顺序存储；env config 通过 `MotionCommandCfg`
+  的 `motion_body_order` / `motion_joint_order` 把两轴重排到 Genesis 的遍历顺序。
 - 动作模仿任务去掉了 mjlab 的 adaptive-bin 失败采样；只接了 `start` 与 `uniform` 两种
   采样模式。自碰惩罚也省略，因为 GeneLab 还没有接触对 sensor 抽象——env 仍然惩罚动作
   变化率与关节越界。
