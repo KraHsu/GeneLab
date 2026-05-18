@@ -67,6 +67,13 @@ class RobotState:
         self.link_quat_w[..., 0] = 1.0
         self.link_lin_vel_w = z(num_envs, num_links, 3)
         self.link_ang_vel_w = z(num_envs, num_links, 3)
+        # Per-env, per-DoF encoder bias. Zero by default — populated by the
+        # ``encoder_bias`` DR event (``genelab.mdp.dr.encoder_bias``). When non-zero,
+        # ``JointPositionAction.process_actions`` subtracts it from the PD target
+        # so the real joint sits ``bias`` away from the policy's nominal command;
+        # ``mdp.joint_pos_rel`` returns the raw ``joint_pos − default`` and surfaces
+        # that offset to the policy — mjlab parity for joint-encoder-bias sim2real DR.
+        self.encoder_bias = z(num_envs, num_dofs)
 
 
 class Articulation:
@@ -86,6 +93,9 @@ class Articulation:
         self._num_links: int = 0
         self._actuated_dof_idx: torch.Tensor = torch.empty(0, dtype=torch.long)
         self._default_joint_pos: torch.Tensor = torch.empty(0)
+        # ``(num_actuated_joints, 2)`` lower/upper joint-position limits sliced from
+        # Genesis's per-DoF limits. Used by ``mdp.joint_pos_limits``. Populated in bind.
+        self._joint_pos_limits: torch.Tensor = torch.empty(0, 2)
         self._action_scale_tensor: torch.Tensor = torch.empty(0)
         self._actuators: dict[str, ActuatorBase] = {}
         self._joint_pos_target: torch.Tensor = torch.empty(0)
@@ -115,6 +125,34 @@ class Articulation:
         self._default_joint_pos = self.build_per_joint_tensor(
             self.cfg.default_joint_pos, default=0.0
         )
+        # Cache per-actuated-joint position limits as ``(num_joints, 2)`` (lower, upper).
+        # Genesis returns one (lo, hi) per entity DoF including the 6 floating-base DoFs;
+        # index by ``_actuated_dof_idx`` to keep only the joints the policy controls.
+        # Base DoFs typically have ±inf limits, so omitting them keeps the reward finite.
+        get_dofs_limit = getattr(self._gs_handle, "get_dofs_limit", None)
+        if get_dofs_limit is not None and self._actuated_dof_idx.numel() > 0:
+            try:
+                lower, upper = get_dofs_limit()
+                lower = lower.to(device)
+                upper = upper.to(device)
+                # Some Genesis versions return per-env (n_envs, n_dofs); collapse if so.
+                if lower.dim() == 2:
+                    lower = lower[0]
+                if upper.dim() == 2:
+                    upper = upper[0]
+                idx = self._actuated_dof_idx.to(device)
+                self._joint_pos_limits = torch.stack(
+                    [lower.index_select(0, idx), upper.index_select(0, idx)], dim=-1
+                )
+            except Exception:
+                # Fallback (e.g. fake env in tests): wide-open limits so the reward
+                # function still works without raising.
+                self._joint_pos_limits = torch.tensor(
+                    [[-float("inf"), float("inf")]] * self._actuated_dof_idx.numel(),
+                    device=device,
+                )
+        else:
+            self._joint_pos_limits = torch.empty(self._actuated_dof_idx.numel(), 2, device=device)
         self._joint_pos_target = (
             self._default_joint_pos.unsqueeze(0).expand(num_envs, -1).contiguous()
         )
@@ -371,6 +409,19 @@ class Articulation:
         robot = self._gs_handle
         if self._data is None or robot is None:
             return
+
+        # ``_data`` is only refreshed once per env step, but this method runs once
+        # per sim substep inside ``ManagerBasedRlEnv.step``. Reading the stale
+        # cache here feeds the force-channel PD law state up to
+        # ``decimation * dt_sim`` old, which zeros closed-loop damping inside the
+        # substep window and makes the joints visibly oscillate. Pull fresh DoF
+        # state directly from sim for the force-channel branch.
+        fresh_pos: torch.Tensor | None = None
+        fresh_vel: torch.Tensor | None = None
+        if any(a.channel != "implicit_pd" for a in self._actuators.values()):
+            fresh_pos = to_tensor(robot.get_dofs_position(), self._device)
+            fresh_vel = to_tensor(robot.get_dofs_velocity(), self._device)
+
         for actuator in self._actuators.values():
             jids = actuator.joint_ids
             dofs = actuator.dof_ids
@@ -386,8 +437,9 @@ class Articulation:
                 except TypeError:
                     ctrl(target_slice)
             else:
-                joint_pos = self._data.joint_pos.index_select(1, jids)
-                joint_vel = self._data.joint_vel.index_select(1, jids)
+                assert fresh_pos is not None and fresh_vel is not None
+                joint_pos = fresh_pos.index_select(-1, dofs)
+                joint_vel = fresh_vel.index_select(-1, dofs)
                 effort = actuator.compute(joint_pos, joint_vel, target_slice)
                 if effort is None:
                     continue
@@ -439,6 +491,17 @@ class Articulation:
     @property
     def default_joint_pos(self) -> torch.Tensor:
         return self._default_joint_pos
+
+    @property
+    def joint_pos_limits(self) -> torch.Tensor:
+        """Per-actuated-joint ``(lower, upper)`` position limits, shape ``(num_joints, 2)``.
+
+        Read from Genesis at bind time via ``get_dofs_limit()`` and sliced to the
+        actuated DoFs. Used by :func:`genelab.mdp.joint_pos_limits` to compute the
+        per-joint excursion penalty against the real model limits rather than a
+        flat ±π fallback.
+        """
+        return self._joint_pos_limits
 
     @property
     def actuators(self) -> dict[str, ActuatorBase]:

@@ -99,6 +99,46 @@ def reset_joints_to_default(
     env.articulation.write_joint_state(pos, vel, env_ids)
 
 
+def reset_joints_by_offset(
+    env: "ManagerBasedRlEnv",
+    env_ids: torch.Tensor | None,
+    position_range: tuple[float, float] = (0.0, 0.0),
+    velocity_range: tuple[float, float] = (0.0, 0.0),
+) -> None:
+    """Reset joints to ``default + U(*position_range)`` with ``U(*velocity_range)`` velocity.
+
+    mjlab parity for ``envs/mdp/events.reset_joints_by_offset``. Differs from
+    :func:`reset_joints_to_default`:
+
+    * Accepts asymmetric ``(lo, hi)`` ranges rather than a symmetric jitter scalar.
+    * Same range applies uniformly to all joints (mjlab supports per-joint via
+      ``SceneEntityCfg``; once :class:`SceneEntityCfg` lands in P5 we can extend here).
+    * Clamps the sampled position to ``env.articulation.joint_pos_limits`` so
+      large offsets can't violate the joint limits — mirrors mjlab's
+      ``soft_joint_pos_limits`` clamp.
+
+    ``position_range=(0, 0)`` and ``velocity_range=(0, 0)`` reproduces the mjlab call
+    site that resets to bare default pose with zero velocity.
+    """
+    if env_ids is None or env_ids.numel() == 0:
+        return
+    n = int(env_ids.numel())
+    pos = env.default_joint_pos.unsqueeze(0).expand(n, -1).clone()
+    lo, hi = position_range
+    if lo != 0.0 or hi != 0.0:
+        pos += torch.empty_like(pos).uniform_(lo, hi)
+        limits = env.articulation.joint_pos_limits
+        if limits.numel() > 0 and limits.shape[0] == pos.shape[1]:
+            # Only clamp when finite (Genesis returns ±inf for floating-base DoFs
+            # but those are stripped from joint_pos_limits at bind time).
+            pos = pos.clamp(min=limits[:, 0], max=limits[:, 1])
+    vel = torch.zeros_like(pos)
+    lo, hi = velocity_range
+    if lo != 0.0 or hi != 0.0:
+        vel += torch.empty_like(vel).uniform_(lo, hi)
+    env.articulation.write_joint_state(pos, vel, env_ids)
+
+
 def push_by_setting_velocity(
     env: "ManagerBasedRlEnv",
     env_ids: torch.Tensor | None,
