@@ -1,68 +1,47 @@
 # CLI 总览
 
-`genelab` 通过 `genelab = "genelab.cli:main"` entry point 暴露为命令行脚本。配合 `uv` 时
-通常这样调用：
+`genelab` CLI 是注册表和任务配置上的薄调度层。它不拥有任务逻辑；它负责发现扩展、解析已注册对象、应用 override，然后调用 task 或 runner。
+
+## 命令模型
 
 ```bash
-uv run genelab [全局选项] <子命令> [参数]
+uv run genelab [全局选项] <命令> [参数]
 ```
 
-## 子命令
+| 区域 | 命令 |
+|---|---|
+| 注册表发现 | `list robots`、`list envs`、`list tasks`、`info NAME` |
+| 运行时 | `play TASK`、`train TASK` |
+| 工具 | `cache`、`prof open` |
+| 项目骨架 | `project new NAME` |
 
-| 子命令 | 作用 |
-|--------|------|
-| `cache` | 创建项目本地仿真缓存目录（`.cache/`），并设置 `XDG_CACHE_HOME` / `MPLCONFIGDIR`。 |
-| `list robots` | 列出 `ROBOTS` 注册表里已注册的机器人。 |
-| `list envs` | 列出 `ENVS` 注册表里已注册的环境。 |
-| `list tasks` | 列出 `TASKS` 注册表里已注册的任务。 |
-| `play` | 在 Genesis 后端运行已注册任务，支持配置 override。 |
-| `train` | 任务带 RL runner 时启动训练，通过 `torchrun` 支持多 GPU。 |
-| `prof open` | 针对 `torch.profiler` 跟踪目录启动 TensorBoard。 |
-| `project new` | 生成一个新的下游扩展包骨架，三种注册表全部接通。 |
+## 扩展加载顺序
 
-## 全局选项
+任何需要注册表数据的命令都会按顺序加载：
 
-下列标志放在任意子命令之前：
+1. 通过 `load_bundled_asset_zoo()` 加载随包 asset zoo robot。
+2. 已安装的 `genelab.extensions` entry point，除非设置 `--no-entry-points`。
+3. 重复传入的显式 `--import MODULE`。
 
-| 标志 | 作用 |
-|------|------|
-| `--version` | 打印 GeneLab 版本并退出。 |
-| `--import MODULE` | 在派发子命令前显式导入扩展模块。可重复。适合扩展尚未提供 `genelab.extensions` entry point 时使用。 |
-| `--no-entry-points` | 跳过通过 `genelab.extensions` entry-point 组的自动发现。与 `--import` 搭配可实现完全显式、可复现的扩展加载。 |
+日常工作用 entry point，本地实验用 `--import`。
 
-## 扩展发现顺序
+## Overrides
 
-CLI 启动时按三条路径依次发现扩展：entry-point 自动发现、显式 `--import MODULE`、程序内的
-`genelab.registry.load_extension_module(...)`。
+运行时命令在 task id 后接受未知的 `--a.b.c VALUE` 选项。CLI 会把它们转发给
+`apply_overrides`。
 
-## Tab 补全 { #tab-completion }
+```bash
+uv run genelab play TASK_ID --env.simulation.dt 0.005
+```
 
-`--install-completion` 会把补全脚本写入当前 shell（bash / zsh / fish / PowerShell）的
-rc 文件；`--show-completion` 则把脚本打印到 stdout，便于手动安装。安装完成后，tab 补全
-`genelab info <TAB>` 会列出每一个已注册的 task / env / robot 名；`genelab play <TAB>`
-与 `genelab train <TAB>` 列出已注册 task；`genelab list <TAB>` 列出
-`robots / envs / tasks`。
+用 `genelab info TASK_ID` 查看有效路径。
 
-!!! note "仅覆盖 entry-point 扩展"
+## 交互模式
 
-    补全回调通过 `genelab.extensions` entry-point 组加载扩展。临时
-    `--import MODULE` 注册的扩展不会出现在补全列表里 —— shell 在调用补全回调时
-    已经把全局 `--import` 标志从 argv 里剥离，回调看不到这部分模块。
+stdin 是 TTY 时，CLI 可以为缺失 task id、未知注册表名字、非法 `--agent`、未知 override 路径弹出选择器。CI 和脚本中会直接抛出相同错误。
 
-## 交互式回退 { #interactive-recovery }
+## 另见
 
-stdin 为 TTY 时，下列四种输入错误会回退到 `questionary` 选择器，而不是直接报错退出：
-
-- `play` / `train` 没传 task id，或 task id 没注册。
-- `info NAME` 名字找不到。
-- `--agent KIND` 不是 `zero` / `random` / `trained`。
-- `--<a.b.c>` override 路径在已解析任务的 cfg 上不存在。
-
-非 TTY 环境（CI、管道、脚本、pytest）下选择器自动 no-op，错误以原始形态抛出，
-非交互调用者观察到的行为与未加回退层时完全一致。
-
-## See also
-
+- [CLI 参考](../reference/cli.md)
+- [发现：list 与 info](list-info.md)
 - [play 与 train](play-train.md)
-- [新建项目](project-new.md)
-- [扩展加载](../concepts/extensions.md)

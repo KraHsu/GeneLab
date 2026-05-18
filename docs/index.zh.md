@@ -17,7 +17,7 @@ hide:
 </p>
 
 <div class="gl-hero__cta" markdown>
-[开始使用](getting-started/installation.md){ .md-button .md-button--primary }
+[开始教程](tutorial.md){ .md-button .md-button--primary }
 [查看 GitHub](https://github.com/KraHsu/GeneLab){ .md-button }
 </div>
 
@@ -45,21 +45,21 @@ hide:
 
 <div class="grid cards gl-cards" markdown>
 
--   <span class="gl-card__num">01</span> :material-download:{ .lg .middle } **安装**
+-   <span class="gl-card__num">01</span> :material-school-outline:{ .lg .middle } **教程**
+
+    ---
+
+    构建第一个机器人实验，然后继续到 Unitree G1。
+
+    [教程 →](tutorial.md)
+
+-   <span class="gl-card__num">02</span> :material-download:{ .lg .middle } **安装**
 
     ---
 
     准备 `uv`，挑选一个 `torch-*` extra，并验证 CLI。
 
     [安装 →](getting-started/installation.md)
-
--   <span class="gl-card__num">02</span> :material-rocket-launch-outline:{ .lg .middle } **运行**
-
-    ---
-
-    列出已注册任务，并在 Genesis viewer 中 play 一个。
-
-    [快速开始 →](getting-started/quickstart.md)
 
 -   <span class="gl-card__num">03</span> :material-console-line:{ .lg .middle } **CLI**
 
@@ -79,13 +79,13 @@ hide:
 
 </div>
 
-## 模块速览
+## 能力速览
 
-<ul class="gl-modules">
-  <li><code>genelab.registry</code><span>注册表、注册 helper、扩展加载。</span></li>
-  <li><code>genelab.configs</code><span>可复用的 dataclass 配置（<code>ManagerBasedEnvCfg</code>、<code>TaskCfg</code>）。</span></li>
-  <li><code>genelab.lab</code><span>注册表与 manager-based 环境原语的公共 facade。</span></li>
-  <li><code>genelab.cli</code><span>Typer + Rich 调度器；<code>play</code> / <code>train</code> / <code>info</code> / <code>project new</code>。</span></li>
-  <li><code>genelab.envs</code> / <code>robots</code> / <code>tasks</code><span>核心注册 helper 命名空间。</span></li>
-  <li><code>genelab.actuator</code> / <code>scene</code> / <code>sensor</code> / <code>terrains</code><span>面向机器人研究代码的扩展命名空间。</span></li>
+<ul class="gl-abilities">
+  <li><code>发现</code><span>从已安装或显式导入的扩展中注册并检查机器人、环境和任务。</span></li>
+  <li><code>组合</code><span>用机器人资产、刚体、地形、传感器和录制配置构建 Genesis scene。</span></li>
+  <li><code>塑造 MDP</code><span>把 action、command、observation、reward、termination、event、curriculum、metric 定义成命名 term。</span></li>
+  <li><code>运行</code><span>用统一 CLI 做 headless rollout、viewer 回放、配置 override 和任务检查。</span></li>
+  <li><code>训练</code><span>启动 RSL-RL PPO、checkpoint 回放、profiler trace 和多 GPU 训练。</span></li>
+  <li><code>扩展</code><span>把下游机器人项目放在独立 Python 包中，并通过 entry point 自动发现。</span></li>
 </ul>

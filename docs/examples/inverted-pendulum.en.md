@@ -1,93 +1,47 @@
 # Inverted Pendulum
 
-`examples/inverted_pendulum/` ships two PPO tasks for the classical cart-pole problem on flat
-ground. The extension mirrors `examples/unitree/`: `ManagerBasedRlEnv` over Genesis, rsl_rl PPO,
-a `BodyVelocitySensor` on the pole link, and the unified `genelab train` / `genelab play` CLI.
+The inverted pendulum example is the recommended first runnable task. It is small enough for smoke
+tests but exercises the full GeneLab train/play path.
 
 ## Tasks
 
-| Task id | Problem |
-|---------|---------|
-| `GeneLab-Inverted-Pendulum-v0` | Single inverted pole on a cart. |
-| `GeneLab-Double-Inverted-Pendulum-v0` | Two stacked inverted poles on a cart. |
+| Task id | Description |
+|---|---|
+| `GeneLab-Inverted-Pendulum-v0` | Single pole balancing. |
+| `GeneLab-Double-Inverted-Pendulum-v0` | Two-link pole balancing. |
 
-## Installation
-
-Pick the `torch-*` extra that matches the hardware.
+## Install and list
 
 ```bash
-uv sync --extra torch-cu128
 uv pip install -e examples/inverted_pendulum
-
 uv run genelab list tasks
-# -> GeneLab-Inverted-Pendulum-v0
-# -> GeneLab-Double-Inverted-Pendulum-v0
 ```
 
-## Single inverted pendulum
+Without installation:
 
 ```bash
-uv run genelab train GeneLab-Inverted-Pendulum-v0 \
-    --num-envs 4096 --max-iterations 150
-
-uv run genelab play  GeneLab-Inverted-Pendulum-v0 \
-    --checkpoint logs/rsl_rl/inverted_pendulum_flat/<run>/model_150.pt --vis
+PYTHONPATH=examples/inverted_pendulum/src \
+  uv run genelab --import genelab_inverted_pendulum.tasks list tasks
 ```
 
-`--checkpoint` makes `play` route through the RL runner with `--agent trained` by default.
-
-## Double inverted pendulum
+## Run
 
 ```bash
-uv run genelab train GeneLab-Double-Inverted-Pendulum-v0 \
-    --num-envs 4096 --max-iterations 300
-
-uv run genelab play  GeneLab-Double-Inverted-Pendulum-v0 \
-    --checkpoint logs/rsl_rl/double_inverted_pendulum_flat/<run>/model_300.pt --vis
+uv run genelab play GeneLab-Inverted-Pendulum-v0 --steps 64
+uv run genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 500
+uv run genelab train GeneLab-Inverted-Pendulum-v0 --num_envs 64 --max_iterations 2
 ```
 
-## Sensor and underactuation
+## Code entry points
 
-Only the cart slide joint is PD-controlled. The pole hinges default to `kp=0, kv=0` so the
-pendulum stays underactuated and the policy must learn balance through cart motion alone. A
-`BodyVelocitySensor` attached to the top pole supplies a noisy angular-velocity observation
-(corrupted with `Unoise` in the policy group, clean in the critic group).
-
-## Interactive disturbance
-
-Play mode launches a single environment (`num_envs=1`) and enables Genesis'
-`MouseInteractionPlugin`. Left-click on the cart or pole and drag — a spring force pulls the
-clicked link toward the cursor while the policy keeps balancing. Scroll wheel rotates the drag
-plane around the surface normal. Release the button to remove the force.
-
-## Live pole-angle plot
-
-In play mode, both env configs wire a `RecordingCfg` that reads
-`env.robot_state.joint_pos / joint_vel` for the pole hinge(s) of env 0 and feeds them to a
-single `PyQtPlotCfg` window with two stacked subplots — angle (rad) on top, angular velocity
-(rad/s) below. Joint convention: `pole_hinge = 0` corresponds to the pole vertically up, the
-same zero used by the `pole_upright` / `pole_angle_l2` rewards. The double-pendulum config
-plots both poles in the same subplots with separate series. History length is 400 ticks
-(≈2 s at the play decimation). The recorder is only attached when `play=True`, so the
-4096-env training rollout is not slowed by callable invocations.
-
-!!! tip "Smoke-test budget"
-    A 5–10 iteration run with `--num-envs 64 --max-iterations 5` is enough to validate wiring
-    end-to-end. The reward signal will still be noisy at that scale; convergence requires the
-    150 / 300 iteration budgets above.
-
-## Logs
-
-Both tasks write to `logs/rsl_rl/<experiment>/<timestamp>_/` like the Unitree examples:
-
-- `params/env.json` and `params/agent.json` — frozen configs at run time.
-- `model_<iter>.pt` — checkpoints saved every `save_interval` iterations.
-- TensorBoard event files alongside the checkpoints.
+| File | Role |
+|---|---|
+| `tasks.py` | Registers robots, envs, and tasks. |
+| `single/env_cfg.py` | Single-pole manager-based env config. |
+| `double/env_cfg.py` | Double-pole manager-based env config. |
+| `mdp.py` | Example-specific reward and termination helpers. |
 
 ## See also
 
-- [Unitree G1 quickstart](../getting-started/quickstart.md#unitree-g1)
-- [Sensors](../concepts/sensors.md)
-- [Recording and plotting](../concepts/recording.md)
-- [Managers and MDP terms](../concepts/managers.md)
-- [Play and Train CLI](../cli/play-train.md)
+- [Tutorial](../tutorial.md)
+- [Task design](../best-practices/task-design.md)

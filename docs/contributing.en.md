@@ -1,11 +1,48 @@
 # Contributing
 
-The canonical contributor guide lives in [`CONTRIBUTING.md`](https://github.com/KraHsu/GeneLab/blob/main/CONTRIBUTING.md)
-at the repository root and is mirrored below.
+This page is for contributors changing GeneLab itself. Downstream robot projects should usually use
+an extension package instead.
 
----
+## Development setup
 
-{%
-   include-markdown "../CONTRIBUTING.md"
-   heading-offset=1
-%}
+```bash
+uv sync --extra torch-cpu
+uv run genelab cache
+uv run pytest
+uv run ruff check
+uv run pyright
+```
+
+Pick one CUDA extra instead of `torch-cpu` when developing GPU workflows.
+
+## Documentation rules
+
+The docs follow Diátaxis:
+
+| Type | Purpose |
+|---|---|
+| Tutorial | Learning path from zero to a working result. |
+| How-to | Task-focused instructions for experienced users. |
+| Reference | Facts, flags, APIs, and defaults. |
+| Explanation | Architecture and design rationale. |
+
+Keep pages in one type where possible and cross-link rather than mixing long conceptual digressions
+into task guides.
+
+## Code style
+
+- Use Python 3.12+ syntax.
+- Keep registry-time imports light; avoid starting Genesis at import time.
+- Prefer dataclass configs for user-visible knobs.
+- Keep task/example code outside `src/genelab/` unless it is part of the framework.
+
+## Before a PR
+
+```bash
+uv run pytest
+uv run ruff check
+uv run pyright
+uv run mkdocs build --strict
+```
+
+For docs-only changes, still run the MkDocs strict build.
