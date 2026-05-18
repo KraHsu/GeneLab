@@ -1,6 +1,6 @@
 """Reusable curriculum term functions: adapt difficulty / spawn distribution per episode."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import torch
 
@@ -57,3 +57,39 @@ def terrain_levels_vel(
     env.articulation.write_root_state(new_origins, zero_quat, zero_vel, zero_vel, env_ids)
 
     return levels.float().mean()
+
+
+def commands_vel(
+    env: "ManagerBasedRlEnv",
+    env_ids: torch.Tensor | slice | None,
+    command_name: str,
+    velocity_stages: list[dict[str, Any]],
+) -> dict[str, torch.Tensor]:
+    """Stage-wise expansion of a velocity command's per-axis ranges.
+
+    Each stage is ``{"step": int, "lin_vel_x": (lo, hi)?, "lin_vel_y": (lo, hi)?,
+    "ang_vel_z": (lo, hi)?}``. The latest stage whose ``step <= env.common_step_counter``
+    wins; absent axes inherit the previously-applied range. Mutates
+    ``cfg.commands[command_name].ranges`` in place so the next ``_resample_command``
+    samples from the new range.
+
+    Mirrors ``mjlab.tasks.velocity.mdp.curriculums.commands_vel``.
+    """
+    del env_ids  # ranges are global, not per-env
+    term = env.command_manager.get_term(command_name)
+    ranges = term.cfg.ranges  # type: ignore[attr-defined]
+    counter = env.common_step_counter
+    for stage in velocity_stages:
+        if counter < stage["step"]:
+            continue
+        for axis in ("lin_vel_x", "lin_vel_y", "ang_vel_z"):
+            if axis in stage and stage[axis] is not None:
+                setattr(ranges, axis, tuple(stage[axis]))
+    return {
+        "lin_vel_x_min": torch.tensor(ranges.lin_vel_x[0]),
+        "lin_vel_x_max": torch.tensor(ranges.lin_vel_x[1]),
+        "lin_vel_y_min": torch.tensor(ranges.lin_vel_y[0]),
+        "lin_vel_y_max": torch.tensor(ranges.lin_vel_y[1]),
+        "ang_vel_z_min": torch.tensor(ranges.ang_vel_z[0]),
+        "ang_vel_z_max": torch.tensor(ranges.ang_vel_z[1]),
+    }

@@ -89,7 +89,15 @@ class JointPositionAction(ActionTerm):
 
     def process_actions(self, actions: torch.Tensor) -> None:
         self._raw[:] = actions
-        self._target = self._default.unsqueeze(0) + self._scale.unsqueeze(0) * actions
+        # ``encoder_bias`` is normally zero; when populated by the encoder-bias DR
+        # event, subtract it here so the actual PD setpoint sits ``bias`` away
+        # from the policy's nominal command. ``mdp.joint_pos_rel`` returns the
+        # raw ``joint_pos − default`` (no bias) so the policy actually sees the
+        # offset and must learn to compensate — that's the sim2real hardening.
+        encoder_bias = self._env.robot_state.encoder_bias.index_select(1, self._joint_indices)
+        self._target = (
+            self._default.unsqueeze(0) + self._scale.unsqueeze(0) * actions - encoder_bias
+        )
 
     def apply_actions(self) -> None:
         self._env.articulation.write_joint_targets_partial(self._joint_indices, self._target)

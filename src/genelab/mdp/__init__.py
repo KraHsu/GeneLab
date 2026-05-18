@@ -1,5 +1,6 @@
 """Reusable MDP term library (observations, rewards, terminations, events, commands, actions)."""
 
+from genelab.mdp import dr as dr
 from genelab.mdp.actions import JointPositionAction, JointPositionActionCfg
 from genelab.mdp.commands import (
     MotionCommand,
@@ -8,11 +9,20 @@ from genelab.mdp.commands import (
     UniformVelocityCommand,
     UniformVelocityCommandCfg,
 )
-from genelab.mdp.curriculums import terrain_levels_vel
+from genelab.mdp.curriculums import commands_vel, terrain_levels_vel
 from genelab.mdp.events import (
     push_by_setting_velocity,
+    reset_joints_by_offset,
     reset_joints_to_default,
     reset_root_state_uniform,
+)
+from genelab.mdp.metrics import (
+    air_time_mean,
+    angular_momentum_mean,
+    landing_force_mean,
+    mean_action_acc,
+    peak_height_mean,
+    slip_velocity_mean,
 )
 from genelab.mdp.noise import Gnoise, NoiseCfg, Unoise
 from genelab.mdp.observations import (
@@ -35,7 +45,12 @@ from genelab.mdp.observations import (
 )
 from genelab.mdp.rewards import (
     action_rate_l2,
+    angular_momentum_penalty,
+    body_angular_velocity_penalty,
     feet_air_time,
+    feet_clearance,
+    feet_slip,
+    feet_swing_height,
     flat_orientation_l2,
     joint_acc_l2,
     joint_pos_limits,
@@ -45,6 +60,8 @@ from genelab.mdp.rewards import (
     motion_global_body_linear_velocity_error_exp,
     motion_relative_body_orientation_error_exp,
     motion_relative_body_position_error_exp,
+    self_collision_cost,
+    soft_landing,
     track_angular_velocity_z_exp,
     track_linear_velocity_xy_exp,
     upright_exp,
@@ -71,13 +88,22 @@ __all__ = [
     "UniformVelocityCommandCfg",
     "Unoise",
     "action_rate_l2",
+    "air_time_mean",
+    "angular_momentum_mean",
+    "angular_momentum_penalty",
     "bad_anchor_ori",
     "bad_anchor_pos_z_only",
     "bad_motion_body_pos_z_only",
     "bad_orientation",
     "base_ang_vel",
     "base_lin_vel",
+    "body_angular_velocity_penalty",
+    "commands_vel",
+    "dr",
     "feet_air_time",
+    "feet_clearance",
+    "feet_slip",
+    "feet_swing_height",
     "flat_orientation_l2",
     "foot_air_time",
     "foot_contact",
@@ -88,7 +114,9 @@ __all__ = [
     "joint_pos_limits",
     "joint_pos_rel",
     "joint_vel_rel",
+    "landing_force_mean",
     "last_action",
+    "mean_action_acc",
     "motion_anchor_ori_b",
     "motion_anchor_pos_b",
     "motion_global_anchor_orientation_error_exp",
@@ -97,14 +125,19 @@ __all__ = [
     "motion_global_body_linear_velocity_error_exp",
     "motion_relative_body_orientation_error_exp",
     "motion_relative_body_position_error_exp",
+    "peak_height_mean",
     "projected_gravity",
     "push_by_setting_velocity",
+    "reset_joints_by_offset",
     "reset_joints_to_default",
     "reset_root_state_uniform",
     "robot_body_ori_b",
     "robot_body_pos_b",
     "root_height_below",
+    "self_collision_cost",
     "sensor_data",
+    "slip_velocity_mean",
+    "soft_landing",
     "terrain_levels_vel",
     "time_out",
     "track_angular_velocity_z_exp",

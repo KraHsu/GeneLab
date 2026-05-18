@@ -29,6 +29,13 @@ class ContactData:
     last_air_time: torch.Tensor  # (B, N) duration of the most recently completed air phase
     current_contact_time: torch.Tensor  # (B, N) seconds since last landing; 0 while airborne
     last_contact_time: torch.Tensor  # (B, N) duration of the most recently completed contact
+    first_contact: torch.Tensor  # (B, N) bool: this step transitioned from air → contact
+    first_detached: torch.Tensor  # (B, N) bool: this step transitioned from contact → air
+    # ``(B, N, H, 3)`` rolling window of the last ``H = history_length`` net contact forces, in
+    # arbitrary (write-pointer) order. ``None`` when ``history_length=0`` (the default — skips
+    # the per-step copy). Used by impact-aware rewards (mjlab ``self_collision_cost``) that
+    # aggregate over a short look-back to catch transient spikes between policy steps.
+    force_history: torch.Tensor | None
 
 
 @dataclass
@@ -45,6 +52,12 @@ class ContactSensorCfg(SensorCfg):
     link_names_expr: str | None = None
     force_threshold: float = 1.0
     track_air_time: bool = True
+    # When > 0, allocate a rolling (B, N, H, 3) buffer of recent contact forces. The buffer
+    # is overwritten in place at a write-head that advances each step; readers should treat
+    # it as an unordered window of the last ``H`` samples (suitable for ``any`` / ``sum``
+    # aggregations such as :func:`genelab.mdp.self_collision_cost`). Set to 0 (default) to
+    # avoid the per-step write entirely on sensors that only need single-frame state.
+    history_length: int = 0
 
     def build(self) -> "ContactSensor":
         return ContactSensor(self)
@@ -56,6 +69,8 @@ class _AirTimeState:
     last_air_time: torch.Tensor
     current_contact_time: torch.Tensor
     last_contact_time: torch.Tensor
+    first_contact: torch.Tensor
+    first_detached: torch.Tensor
 
 
 def _resolve_link_indices(
@@ -91,6 +106,10 @@ class ContactSensor(Sensor[ContactData]):
         self._link_idx_tensor: torch.Tensor | None = None
         self._resolved_link_names: list[str] = []
         self._air_state: _AirTimeState | None = None
+        # Rolling force history. Buffer holds (B, N, H, 3) with ``_history_head`` being the
+        # next write index modulo H. Allocated in ``bind`` once we know num_envs / N.
+        self._force_history: torch.Tensor | None = None
+        self._history_head: int = 0
 
     @property
     def link_names(self) -> list[str]:
@@ -108,18 +127,46 @@ class ContactSensor(Sensor[ContactData]):
                 last_air_time=torch.zeros(*shape, device=env.device),
                 current_contact_time=torch.zeros(*shape, device=env.device),
                 last_contact_time=torch.zeros(*shape, device=env.device),
+                first_contact=torch.zeros(*shape, dtype=torch.bool, device=env.device),
+                first_detached=torch.zeros(*shape, dtype=torch.bool, device=env.device),
             )
+        if self._cfg_typed.history_length > 0:
+            self._force_history = torch.zeros(
+                env.num_envs,
+                len(indices),
+                self._cfg_typed.history_length,
+                3,
+                device=env.device,
+            )
+            self._history_head = 0
 
     def update(self, dt: float) -> None:
         super().update(dt)
-        if self._air_state is None or self._env is None:
+        if self._env is None:
+            return
+        # Skip the read entirely when neither air-time tracking nor history is enabled —
+        # the sensor will recompute ``force`` lazily in ``_compute_data`` if/when a caller
+        # touches ``sensor.data``.
+        if self._air_state is None and self._force_history is None:
             return
         force = self._read_link_forces()
+        # Roll force history first so it captures every step. Single in-place copy into the
+        # current head slot — no allocation per step.
+        if self._force_history is not None:
+            history_length = self._cfg_typed.history_length
+            self._force_history[:, :, self._history_head, :] = force
+            self._history_head = (self._history_head + 1) % history_length
+        if self._air_state is None:
+            return
         in_contact = force.norm(dim=-1) > self._cfg_typed.force_threshold
         state = self._air_state
         # Capture transitions before mutating the timers (the timer values matter pre-tick).
+        # Persisting them as state lets consumers ask "did a foot just land this step?" via
+        # ``data.first_contact`` — used by ``soft_landing`` / ``feet_swing_height`` rewards.
         first_contact = in_contact & (state.current_air_time > 0)
         first_detached = (~in_contact) & (state.current_contact_time > 0)
+        state.first_contact = first_contact
+        state.first_detached = first_detached
         state.last_air_time = torch.where(
             first_contact, state.current_air_time + dt, state.last_air_time
         )
@@ -136,17 +183,25 @@ class ContactSensor(Sensor[ContactData]):
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         super().reset(env_ids)
-        if self._air_state is None or self._env is None:
+        if self._env is None:
             return
         if env_ids is None:
             env_ids = torch.arange(self._env.num_envs, device=self._env.device)
-        for buf in (
-            self._air_state.current_air_time,
-            self._air_state.last_air_time,
-            self._air_state.current_contact_time,
-            self._air_state.last_contact_time,
-        ):
-            buf[env_ids] = 0.0
+        if self._air_state is not None:
+            for buf in (
+                self._air_state.current_air_time,
+                self._air_state.last_air_time,
+                self._air_state.current_contact_time,
+                self._air_state.last_contact_time,
+            ):
+                buf[env_ids] = 0.0
+            self._air_state.first_contact[env_ids] = False
+            self._air_state.first_detached[env_ids] = False
+        if self._force_history is not None:
+            # Zero out the rolling window for reset envs so prior-episode contacts don't bleed
+            # into the new episode's history-aggregated rewards. The head pointer is global
+            # (shared across envs), so leave it alone — it will overwrite stale slots next step.
+            self._force_history[env_ids] = 0.0
 
     def _compute_data(self) -> ContactData:
         force = self._read_link_forces()
@@ -154,6 +209,7 @@ class ContactSensor(Sensor[ContactData]):
         found = force_norm > self._cfg_typed.force_threshold
         if self._air_state is None:
             zeros = torch.zeros_like(force_norm)
+            falses = torch.zeros_like(found)
             return ContactData(
                 force=force,
                 force_norm=force_norm,
@@ -162,6 +218,9 @@ class ContactSensor(Sensor[ContactData]):
                 last_air_time=zeros,
                 current_contact_time=zeros.clone(),
                 last_contact_time=zeros.clone(),
+                first_contact=falses,
+                first_detached=falses.clone(),
+                force_history=self._force_history,
             )
         s = self._air_state
         return ContactData(
@@ -172,6 +231,9 @@ class ContactSensor(Sensor[ContactData]):
             last_air_time=s.last_air_time,
             current_contact_time=s.current_contact_time,
             last_contact_time=s.last_contact_time,
+            first_contact=s.first_contact,
+            first_detached=s.first_detached,
+            force_history=self._force_history,
         )
 
     def _read_link_forces(self) -> torch.Tensor:
