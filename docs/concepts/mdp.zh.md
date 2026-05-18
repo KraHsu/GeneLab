@@ -49,8 +49,8 @@ actions_cfg = {
 | 名字 | 签名（用到的 Cfg 字段） | 行为 |
 |---|---|---|
 | `UniformVelocityCommand` | `UniformVelocityCommandCfg(ranges, rel_standing_envs, heading_command, heading_control_stiffness, resampling_time_range, asset_name)` | 每 env 一组 body-frame `[lin_vel_x, lin_vel_y, ang_vel_z]`，每 `resampling_time_range` 秒从 `ranges` 均匀重采样。`heading_command=True`（默认）时，`ang_vel_z` 每步被重写以把 body 朝向目标 heading 拉。`rel_standing_envs` 把一定比例的重采样命令清零，让 policy 也见到 "stand still" 目标。`command` shape `(B, 3)`。 |
-| `MotionCommand` | `MotionCommandCfg(motion_file, anchor_body_name, body_names, pose_range, velocity_range, sampling_mode, ...)` | 按帧驱动 env 跟随预录动作 clip。读 mjlab `csv_to_npz` 产生的 NPZ schema。暴露 anchor 与多 body 的 reference / current 位姿 / 速度，供下节相对位姿 reward 函数使用。`sampling_mode="start"` 始终从第 0 帧开始；`"uniform"`（默认）随机抽帧。 |
-| `MotionLoader` | `MotionLoader(motion_file, body_indexes, device)` | `MotionCommand` 内部用的辅助类。把 NPZ 读入设备 tensor，并把 `body_pos_w / body_quat_w / body_lin_vel_w / body_ang_vel_w` 切到要跟踪的几个 body。直接使用极少 —— 通常实例化 `MotionCommandCfg` 即可。 |
+| `MotionCommand` | `MotionCommandCfg(motion_file, anchor_body_name, body_names, motion_body_order, motion_joint_order, pose_range, velocity_range, sampling_mode, ...)` | 按帧驱动 env 跟随预录动作 clip。读 mjlab `csv_to_npz` 产生的 NPZ schema。`motion_body_order` / `motion_joint_order` 描述 NPZ 内部 body / joint 轴的原生顺序（通常是 mjlab MJCF 的 DFS），`MotionLoader` 据此把数据重排到运行时机器人的顺序 —— 上游遍历顺序与 Genesis 不一致时必须传入。暴露 anchor 与多 body 的 reference / current 位姿 / 速度，供下节相对位姿 reward 函数使用。`sampling_mode="start"` 始终从第 0 帧开始；`"uniform"`（默认）随机抽帧。 |
+| `MotionLoader` | `MotionLoader(motion_file, body_indexes, device, joint_perm=None)` | `MotionCommand` 内部用的辅助类。把 NPZ 读入设备 tensor，按可选的 `joint_perm` 重排 joint 轴，并把 `body_pos_w / body_quat_w / body_lin_vel_w / body_ang_vel_w` 切到要跟踪的几个 body。直接使用极少 —— 通常实例化 `MotionCommandCfg` 即可。 |
 
 ```python
 from genelab.mdp.commands.velocity_command import UniformVelocityCommandCfg

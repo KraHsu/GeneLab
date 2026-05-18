@@ -3,10 +3,12 @@
 import dataclasses
 import datetime as dt
 import json
+import logging
 from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from genelab.bridges.base import Bridge
 from genelab.cache import ensure_project_cache
 from genelab.registry import TASKS
 from genelab.rl.profiler import maybe_profile
@@ -16,6 +18,74 @@ from genelab.rl.rsl_rl_wrapper import RslRlVecEnvWrapper
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
+_logger = logging.getLogger(__name__)
+
+
+def _build_bridges(env_cfg: Any) -> list[Bridge]:
+    """Instantiate every bridge declared on ``env_cfg.bridges_cfg``.
+
+    Entries with ``class_type=None`` are skipped (matches manager-term convention).
+    """
+    cfg_dict = getattr(env_cfg, "bridges_cfg", {}) or {}
+    bridges: list[Bridge] = []
+    for name, bridge_cfg in cfg_dict.items():
+        cls = getattr(bridge_cfg, "class_type", None)
+        if cls is None:
+            continue
+        try:
+            bridges.append(cls(bridge_cfg))
+        except Exception:
+            _logger.exception("failed to instantiate bridge %r; skipping", name)
+    return bridges
+
+
+def _close_bridges(bridges: list[Bridge], env: "ManagerBasedRlEnv") -> None:
+    """Call ``on_close`` on every bridge; swallow per-bridge exceptions.
+
+    Runs inside the play loop's ``finally`` so a misbehaving bridge can't block
+    ``env.close()``.
+    """
+    for bridge in bridges:
+        try:
+            bridge.on_close(env)
+        except Exception:
+            _logger.exception("bridge %r raised in on_close; continuing teardown", bridge)
+
+
+def _run_play_loop(
+    env: "ManagerBasedRlEnv",
+    wrapped: Any,
+    policy: Any,
+    bridges: list[Bridge],
+    *,
+    max_steps: int | None,
+    prof_step: Any,
+) -> None:
+    """Inner play loop. Extracted from :func:`play_task` so the bridge lifecycle
+    contract (``pre_step → policy → step → post_step``) is unit-testable without
+    spinning up a Genesis scene.
+    """
+    import torch
+
+    obs, _ = wrapped.reset()
+    step = 0
+    while True:
+        for bridge in bridges:
+            bridge.pre_step(env)
+        with torch.inference_mode():
+            actions = policy(obs)
+        obs, _, _, _ = wrapped.step(actions)
+        for bridge in bridges:
+            bridge.post_step(env)
+        if env.viewer_closed:
+            break
+        if prof_step is not None:
+            prof_step()
+        step += 1
+        if max_steps is not None and step >= max_steps:
+            break
+
 
 AgentKind = Literal["zero", "random", "trained"]
 
@@ -216,6 +286,9 @@ def play_task(
         env_cfg.simulation.num_envs = int(num_envs)
     env = _build_env(env_cfg)
     wrapped = RslRlVecEnvWrapper(env, clip_actions=None)
+    bridges = _build_bridges(env_cfg)
+    for bridge in bridges:
+        bridge.on_build(env)
 
     import torch
 
@@ -258,8 +331,6 @@ def play_task(
         runner.load(str(checkpoint))
         policy = runner.get_inference_policy(device=str(wrapped.device))
 
-    obs, _ = wrapped.reset()
-    step = 0
     try:
         with maybe_profile(
             enabled=prof,
@@ -271,16 +342,7 @@ def play_task(
             record_shapes=prof_record_shapes,
             with_stack=prof_with_stack,
         ) as prof_step:
-            while True:
-                with torch.inference_mode():
-                    actions = policy(obs)
-                obs, _, _, _ = wrapped.step(actions)
-                if env.viewer_closed:
-                    break
-                if prof_step is not None:
-                    prof_step()
-                step += 1
-                if max_steps is not None and step >= max_steps:
-                    break
+            _run_play_loop(env, wrapped, policy, bridges, max_steps=max_steps, prof_step=prof_step)
     finally:
+        _close_bridges(bridges, env)
         env.close()

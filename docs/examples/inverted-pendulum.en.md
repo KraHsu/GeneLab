@@ -13,11 +13,10 @@ a `BodyVelocitySensor` on the pole link, and the unified `genelab train` / `gene
 
 ## Installation
 
-The extension depends on the `rl` extra (rsl_rl). Pick the `torch-*` extra that matches the
-hardware.
+Pick the `torch-*` extra that matches the hardware.
 
 ```bash
-uv sync --extra rl --extra torch-cu128
+uv sync --extra torch-cu128
 uv pip install -e examples/inverted_pendulum
 
 uv run genelab list tasks
