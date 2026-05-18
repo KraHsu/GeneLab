@@ -15,6 +15,7 @@ Lifecycle:
    so its post-build introspection lands.
 """
 
+import os
 from collections.abc import Iterable
 from typing import Any
 
@@ -25,6 +26,44 @@ from genelab.entity._torch import to_tensor
 from genelab.recording.bridge import RecorderBridge
 from genelab.sensor import Sensor
 from genelab.terrains import TerrainImporter
+
+
+_pyrender_save_patch_applied = False
+
+
+def _patch_pyrender_save_filename() -> None:
+    """Coerce pyrender's tkinter SaveAs default extension to match the requested one.
+
+    Upstream pyrender hard-codes ``defaultextension=".png"`` in ``_get_save_filename``,
+    so pressing ``R`` twice to save a recorded video (called with ``file_exts=["mp4"]``)
+    and typing a bare filename produces e.g. ``dancing.png`` — and ``Viewer.save_video``
+    then ``shutil.move``s the .mp4 file to that .png path. We can't modify Genesis, so
+    we wrap the method at the class level: when exactly one extension is requested and
+    the dialog returned a different one, swap the extension. Multi-extension dialogs
+    (e.g. ``_save_image`` offers png/jpg/gif/all) are left alone so the user's chosen
+    type is respected.
+    """
+    global _pyrender_save_patch_applied
+    if _pyrender_save_patch_applied:
+        return
+    try:
+        from genesis.ext.pyrender.viewer import Viewer as _PyrenderViewer
+    except Exception:
+        return
+    original = _PyrenderViewer._get_save_filename  # pyright: ignore[reportPrivateUsage]
+
+    def _genelab_get_save_filename(self: Any, file_exts: list[str]) -> str | None:
+        filename = original(self, file_exts)
+        if filename is None or len(file_exts) != 1:
+            return filename
+        expected_ext = f".{file_exts[0]}".lower()
+        base, ext = os.path.splitext(filename)
+        if ext.lower() != expected_ext:
+            filename = base + expected_ext
+        return filename
+
+    _PyrenderViewer._get_save_filename = _genelab_get_save_filename  # type: ignore[method-assign]  # pyright: ignore[reportPrivateUsage]
+    _pyrender_save_patch_applied = True
 
 
 class InteractiveScene:
@@ -129,11 +168,27 @@ class InteractiveScene:
             if getattr(self._scene_cfg, "batch_render", False)
             else None
         )
-        self._gs_scene = gs.Scene(
+        # Render rate is configured separately from the physics rate: Genesis throttles
+        # ``_visualizer.update`` via ``ViewerOptions.max_FPS``. We only construct
+        # ``ViewerOptions`` when the viewer is enabled so headless training stays
+        # untouched.
+        viewer_options = (
+            gs.options.ViewerOptions(max_FPS=self._sim_cfg.render_fps)
+            if self._sim_cfg.vis
+            else None
+        )
+        if self._sim_cfg.vis:
+            # Workaround for an upstream pyrender bug that saves videos with a .png
+            # extension. Applied once per process; no-op when not built.
+            _patch_pyrender_save_filename()
+        scene_kwargs: dict[str, Any] = dict(
             sim_options=sim_options,
             renderer=renderer,
             show_viewer=self._sim_cfg.vis,
         )
+        if viewer_options is not None:
+            scene_kwargs["viewer_options"] = viewer_options
+        self._gs_scene = gs.Scene(**scene_kwargs)
         if self._terrain is None:
             self._gs_scene.add_entity(gs.morphs.Plane())
         else:
@@ -223,22 +278,30 @@ class InteractiveScene:
 
     # ------------------------------------------------------------------ runtime
 
-    def step(self) -> None:
+    def step(self, *, update_visualizer: bool = True) -> None:
         """Step the Genesis scene by one physics tick.
+
+        ``update_visualizer=False`` skips the viewer refresh (and its FPS-throttled
+        ``rate.sleep``). ``ManagerBasedRlEnv`` uses this to render only on the last
+        tick of its decimation loop so the viewer rate is decoupled from the physics
+        rate. Callers that drive their own simulation loops can leave the default to
+        keep the historic "render every tick" behavior.
 
         If the user closes the Genesis viewer mid-rollout, Genesis raises
         ``GenesisException("Viewer closed.")`` out of ``gs_scene.step``. The kernel
         catches that here, sets :py:attr:`viewer_closed`, and makes subsequent
         ``step`` calls no-ops — so every consumer (RL runner, showcase runner,
         bespoke scripts) only needs to poll the flag to exit cleanly instead of
-        writing the same try / except / string-compare boilerplate.
+        writing the same try / except / string-compare boilerplate. When inner
+        physics ticks skip the viewer update, the close exception only fires on the
+        next render tick, so closure is detected within one control step.
         """
 
         if self._viewer_closed:
             return
         exc_cls = self._gs_exception_cls
         try:
-            self._gs_scene.step()
+            self._gs_scene.step(update_visualizer=update_visualizer)
         except Exception as exc:
             if exc_cls is not None and isinstance(exc, exc_cls) and str(exc) == "Viewer closed.":
                 self._viewer_closed = True
