@@ -121,6 +121,8 @@ def register() -> None:
                 f"genelab play {VELOCITY_TASK_ID}",
                 f"genelab play {VELOCITY_TASK_ID} --agent random",
                 f"genelab play {VELOCITY_TASK_ID} --agent trained --checkpoint PATH/model.pt",
+                f"genelab play {VELOCITY_TASK_ID} --num_envs 1 --checkpoint PATH/model.pt  "
+                "# DearPyGui sliders (uv sync --extra teleop)",
                 f"genelab train {VELOCITY_TASK_ID} --num_envs 4096",
                 f"genelab train {VELOCITY_TASK_ID} --num_envs 4096 --gpus 2",
             ],

@@ -11,6 +11,7 @@ from typing import Any
 
 import torch
 
+from genelab.bridges.base import BridgeCfg
 from genelab.configs import ManagerBasedEnvCfg
 from genelab.entity import Articulation, ArticulationCfg, RobotState
 from genelab.managers import (
@@ -64,6 +65,10 @@ class ManagerBasedRlEnvCfg(ManagerBasedEnvCfg):
     events_cfg: dict[str, EventTermCfg] = field(default_factory=dict)
     curriculum_cfg: dict[str, CurriculumTermCfg] = field(default_factory=dict)
     metrics_cfg: dict[str, MetricsTermCfg] = field(default_factory=dict)
+    # Play-only: consumed by ``genelab.rl.runner.play_task`` to drive live I/O
+    # (keyboard teleop, DearPyGui sliders, ROS2 publishers, …). ``train_task``
+    # ignores this field. Empty by default — bridges are opt-in per env cfg.
+    bridges_cfg: dict[str, BridgeCfg] = field(default_factory=dict)
 
 
 class ManagerBasedRlEnv:

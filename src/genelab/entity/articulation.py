@@ -153,9 +153,16 @@ class Articulation:
                 )
         else:
             self._joint_pos_limits = torch.empty(self._actuated_dof_idx.numel(), 2, device=device)
-        self._joint_pos_target = (
-            self._default_joint_pos.unsqueeze(0).expand(num_envs, -1).contiguous()
-        )
+        # ``expand(...).contiguous()`` is a no-op when the expansion factor is 1
+        # (single env): the expanded tensor is already contiguous, so
+        # ``contiguous()`` returns the same storage rather than copying. That
+        # makes ``_joint_pos_target`` an alias of ``_default_joint_pos`` and any
+        # later ``index_copy_`` on the target also overwrites the defaults — the
+        # bug surfaces as ``joint_pos_rel`` obs reading a corrupted reference at
+        # ``num_envs=1`` while ``num_envs>=2`` behaves correctly because the
+        # broader expand forces a real copy. Use ``.clone()`` to guarantee
+        # independent storage regardless of batch size.
+        self._joint_pos_target = self._default_joint_pos.unsqueeze(0).expand(num_envs, -1).clone()
         self._data = RobotState(num_envs, self._num_dofs, self._num_links, device)
         # Cached constant gravity vector, broadcast across envs. Built once at bind to keep
         # ``refresh`` allocation-free on the hot path (called every step + every reset).
