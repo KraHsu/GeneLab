@@ -38,7 +38,12 @@ from genelab.cli._render import (
 )
 from genelab.cli._scaffold import create_project_skeleton
 from genelab.configs import apply_overrides
-from genelab.registry import TASKS, load_entrypoint_extensions, load_extension_module
+from genelab.registry import (
+    TASKS,
+    load_bundled_asset_zoo,
+    load_entrypoint_extensions,
+    load_extension_module,
+)
 
 __all__ = [
     "PROF_KEYS",
@@ -355,6 +360,11 @@ def _state(ctx: typer.Context) -> _RootState:
 
 
 def _load_extensions(state: _RootState) -> None:
+    # Bundled example robots (g1, go1, anymal-c, franka, cartpole) live in
+    # genelab.asset_zoo. They are an opinionated bundle of examples, not core
+    # API — load explicitly so the registration is intentional rather than a
+    # side-effect of any other import.
+    load_bundled_asset_zoo()
     if not state.no_entry_points:
         load_entrypoint_extensions()
     for module_name in state.extension_modules:

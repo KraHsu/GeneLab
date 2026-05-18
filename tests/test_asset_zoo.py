@@ -1,7 +1,7 @@
 """Asset zoo registration + download helper tests.
 
 Robots are registered as an import side-effect of :mod:`genelab.asset_zoo` (loaded by
-``load_builtin_registries()``). These tests assume that import has already happened by
+``load_bundled_asset_zoo()``). These tests assume that import has already happened by
 the time any test runs, then monkeypatch ``fetch_asset`` so the factories return without
 touching the network. The :func:`fetch_asset` happy / failure paths are exercised
 separately against a stdlib HTTP server bound to a free localhost port.
@@ -26,7 +26,7 @@ from genelab.asset_zoo import (
     UnitreeGo1Cfg,
 )
 from genelab.entity import ArticulationCfg
-from genelab.registry import ROBOTS, load_builtin_registries
+from genelab.registry import ROBOTS, load_bundled_asset_zoo
 from genelab.utils.download import (
     PROGRESS_CALLBACK,
     AssetDownloadError,
@@ -40,7 +40,7 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 @pytest.fixture(autouse=True)
 def ensure_builtin_registry() -> None:
     """Idempotent; import side-effect runs once per process."""
-    load_builtin_registries()
+    load_bundled_asset_zoo()
 
 
 def test_cartpole_registered(monkeypatch: pytest.MonkeyPatch) -> None:

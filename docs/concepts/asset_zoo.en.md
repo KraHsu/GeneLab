@@ -1,7 +1,8 @@
 # Asset zoo
 
-`genelab.asset_zoo` ships curated robot configurations as part of the core package, so
-`from genelab.lab import CartpoleCfg` works out of the box. Each entry pairs a
+`genelab.asset_zoo` ships curated robot configurations as a bundled extension of the
+core package (not part of the `genelab.lab` facade), so `from genelab.asset_zoo import
+CartpoleCfg` works out of the box. Each entry pairs a
 declarative `AssetSpec` (URL + md5 + filename, optionally + `archive_member`) with a
 lazy factory that returns a fresh `ArticulationCfg`. The factories trigger an
 md5-verified download only when invoked, so read-only commands like
@@ -112,7 +113,7 @@ register_robot("my-robot", MyRobotCfg, description="...", cfg_type=ArticulationC
 ```
 
 Then add the module to `asset_zoo/__init__.py` so import side-effects run during
-`load_builtin_registries()`. Downstream projects that prefer to keep robots out-of-tree
+`load_bundled_asset_zoo()`. Downstream projects that prefer to keep robots out-of-tree
 should use the same `AssetSpec` + `register_robot` pattern from their own extension
 package — the helpers are public.
 
@@ -125,7 +126,7 @@ package — the helpers are public.
 * **Stale cache after upstream re-upload** — the path is keyed by md5, so updating the
   spec naturally points at a fresh subdirectory; old digests linger on disk until the
   user deletes `.cache/assets/<name>/` manually.
-* **Factory called before `load_builtin_registries()`** — `ROBOTS.get("cartpole")`
+* **Factory called before `load_bundled_asset_zoo()`** — `ROBOTS.get("cartpole")`
   raises `KeyError`; the CLI calls the loader at startup so this only bites direct API
   use. Import `genelab.asset_zoo` explicitly to register without going through the CLI.
 

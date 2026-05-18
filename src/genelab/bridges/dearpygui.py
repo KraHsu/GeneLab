@@ -1,4 +1,7 @@
-"""DearPyGui teleop bridge: three sliders for ``(vx, vy, ωz)`` in a side window.
+"""DearPyGui twist bridge: three sliders for ``(vx, vy, ωz)`` in a side window.
+
+Drives a 3-component velocity-twist command term (``vx``, ``vy``, ``ωz``). Not
+a generic command bridge — the layout is hardcoded to that shape.
 
 Optional extra (``uv sync --extra teleop`` installs ``dearpygui``). Lazy import
 inside :py:meth:`on_build` so importing this module never crashes core when the
@@ -34,26 +37,34 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-@dataclass
-class DearPyGuiCommandBridgeCfg(BridgeCfg):
-    """Configuration for :class:`DearPyGuiCommandBridge`."""
+@dataclass(kw_only=True)
+class DearPyGuiTwistBridgeCfg(BridgeCfg):
+    """Configuration for :class:`DearPyGuiTwistBridge`.
+
+    Range fields are required (no defaults): a teleop GUI cannot guess sensible
+    slider limits for an unknown robot, so the caller must set them to the
+    twist command term's actual range.
+    """
+
+    vx_range: tuple[float, float]
+    """Slider min/max for ``vx`` (m/s). Set to your robot's twist command limits."""
+
+    vy_range: tuple[float, float]
+    """Slider min/max for ``vy`` (m/s). Set to your robot's twist command limits."""
+
+    wz_range: tuple[float, float]
+    """Slider min/max for ``ωz`` (rad/s). Set to your robot's twist command limits."""
 
     command_name: str = "twist"
     """Name of the command term to drive."""
-
-    vx_range: tuple[float, float] = (-2.0, 2.0)
-    vy_range: tuple[float, float] = (-1.0, 1.0)
-    wz_range: tuple[float, float] = (-1.5, 1.5)
-    """Slider min/max — defaults match the Unitree G1 velocity ranges."""
 
     default_vx: float = 0.0
     default_vy: float = 0.0
     default_wz: float = 0.0
     """Initial slider values, also written into the command buffer at attach so
-    the very first obs the policy sees is in-distribution. Useful when the
-    trained policy is weak at sustained ``[0, 0, 0]`` — set ``default_vx=0.3``
-    to start the robot in a known-good forward-walk mode (e.g. Unitree G1's
-    forward-env training slice), then drag sliders down to test standing.
+    the very first obs the policy sees is in-distribution. Defaults are zero
+    (robot-agnostic safe state); override when the policy is weak at sustained
+    ``[0, 0, 0]`` and you want to start in a known-good locomotion regime.
     """
 
     title: str = "GeneLab Teleop"
@@ -62,15 +73,15 @@ class DearPyGuiCommandBridgeCfg(BridgeCfg):
 
     def __post_init__(self) -> None:
         if self.class_type is None:
-            self.class_type = DearPyGuiCommandBridge
+            self.class_type = DearPyGuiTwistBridge
 
 
-class DearPyGuiCommandBridge:
+class DearPyGuiTwistBridge:
     """``Bridge`` impl that drives ``(vx, vy, ωz)`` from three DPG sliders."""
 
-    cfg: DearPyGuiCommandBridgeCfg
+    cfg: DearPyGuiTwistBridgeCfg
 
-    def __init__(self, cfg: DearPyGuiCommandBridgeCfg) -> None:
+    def __init__(self, cfg: DearPyGuiTwistBridgeCfg) -> None:
         self.cfg = cfg
         self._lock = threading.Lock()
         self._vx: float = cfg.default_vx
