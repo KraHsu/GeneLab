@@ -60,6 +60,17 @@ Play mode launches a single environment (`num_envs=1`) and enables Genesis'
 clicked link toward the cursor while the policy keeps balancing. Scroll wheel rotates the drag
 plane around the surface normal. Release the button to remove the force.
 
+## Live pole-angle plot
+
+In play mode, both env configs wire a `RecordingCfg` that reads
+`env.robot_state.joint_pos / joint_vel` for the pole hinge(s) of env 0 and feeds them to a
+single `PyQtPlotCfg` window with two stacked subplots — angle (rad) on top, angular velocity
+(rad/s) below. Joint convention: `pole_hinge = 0` corresponds to the pole vertically up, the
+same zero used by the `pole_upright` / `pole_angle_l2` rewards. The double-pendulum config
+plots both poles in the same subplots with separate series. History length is 400 ticks
+(≈2 s at the play decimation). The recorder is only attached when `play=True`, so the
+4096-env training rollout is not slowed by callable invocations.
+
 !!! tip "Smoke-test budget"
     A 5–10 iteration run with `--num-envs 64 --max-iterations 5` is enough to validate wiring
     end-to-end. The reward signal will still be noisy at that scale; convergence requires the
@@ -77,4 +88,6 @@ Both tasks write to `logs/rsl_rl/<experiment>/<timestamp>_/` like the Unitree ex
 
 - [Unitree G1 quickstart](../getting-started/quickstart.md#unitree-g1)
 - [Sensors](../concepts/sensors.md)
+- [Recording and plotting](../concepts/recording.md)
+- [Managers and MDP terms](../concepts/managers.md)
 - [Play and Train CLI](../cli/play-train.md)
