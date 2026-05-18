@@ -134,8 +134,14 @@ def register_task[T](
     )
 
 
-def load_builtin_registries() -> None:
+def load_bundled_asset_zoo() -> None:
     """Import the bundled asset zoo so its robots appear in :data:`ROBOTS`.
+
+    The asset zoo is an opinionated bundle of example robots (g1, go1, anymal-c,
+    franka, cartpole), not core API: downstream projects are expected to register
+    their own robots through :func:`register_robot` or entry points. This helper
+    exists so the CLI can populate the registry with the bundled examples when no
+    extension is installed.
 
     Python's module cache makes the import idempotent: subsequent CLI invocations skip
     the registration side-effect. Example tasks live in normal extension packages and
@@ -143,6 +149,22 @@ def load_builtin_registries() -> None:
     """
 
     importlib.import_module("genelab.asset_zoo")
+
+
+def load_builtin_registries() -> None:
+    """Deprecated alias for :func:`load_bundled_asset_zoo`.
+
+    Renamed to make the semantics honest: the function loads bundled example
+    robots, not a core "built-in" registry. Will be removed in a future release.
+    """
+    import warnings
+
+    warnings.warn(
+        "load_builtin_registries() is deprecated; use load_bundled_asset_zoo() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    load_bundled_asset_zoo()
 
 
 def load_extension_module(module_name: str) -> None:

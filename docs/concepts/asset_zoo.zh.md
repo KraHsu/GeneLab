@@ -1,6 +1,6 @@
 # 资产库
 
-`genelab.asset_zoo` 把精选的机器人配置随核心包一起发布，所以 `from genelab.lab import CartpoleCfg` 开箱即用。每个条目把一个声明式的 `AssetSpec`（URL + md5 + 文件名，可选 `archive_member`）和一个返回新 `ArticulationCfg` 的 lazy factory 配对。factory 仅在被调用时才触发带 md5 校验的下载，所以像 `genelab list robots` 这种只读命令不会触网。
+`genelab.asset_zoo` 把精选的机器人配置作为核心包的预置扩展一起发布（不属于 `genelab.lab` 公开门面），所以 `from genelab.asset_zoo import CartpoleCfg` 开箱即用。每个条目把一个声明式的 `AssetSpec`（URL + md5 + 文件名，可选 `archive_member`）和一个返回新 `ArticulationCfg` 的 lazy factory 配对。factory 仅在被调用时才触发带 md5 校验的下载，所以像 `genelab list robots` 这种只读命令不会触网。
 
 ## 为什么需要预置库
 
@@ -82,14 +82,14 @@ def MyRobotCfg() -> ArticulationCfg:
 register_robot("my-robot", MyRobotCfg, description="...", cfg_type=ArticulationCfg)
 ```
 
-随后把模块加进 `asset_zoo/__init__.py`，让 `load_builtin_registries()` 触发导入副作用。下游项目若想把机器人放在树外，可以在自己的扩展包里用同样的 `AssetSpec` + `register_robot` 模式 —— 这两个 helper 都是公开 API。
+随后把模块加进 `asset_zoo/__init__.py`，让 `load_bundled_asset_zoo()` 触发导入副作用。下游项目若想把机器人放在树外，可以在自己的扩展包里用同样的 `AssetSpec` + `register_robot` 模式 —— 这两个 helper 都是公开 API。
 
 ## 需要知道的失败模式
 
 * **网络不可达** —— `AssetDownloadError` 包住 `URLError`；staging 文件已删除，重试从干净状态开始。
 * **md5 不匹配** —— 抛 `AssetDownloadError`，错误带两份 digest；staging 文件在异常抛出前已删除。
 * **上游重新上传后缓存陈旧** —— 路径按 md5 键控，更新 spec 自然指到新子目录；旧 digest 对应的目录留在磁盘上直到用户手动删除 `.cache/assets/<name>/`。
-* **factory 在 `load_builtin_registries()` 之前被调** —— `ROBOTS.get("cartpole")` 抛 `KeyError`；CLI 启动时会调用 loader，所以这只有在直接用 API 时才会出现。需要绕过 CLI 时显式 `import genelab.asset_zoo` 即可注册。
+* **factory 在 `load_bundled_asset_zoo()` 之前被调** —— `ROBOTS.get("cartpole")` 抛 `KeyError`；CLI 启动时会调用 loader，所以这只有在直接用 API 时才会出现。需要绕过 CLI 时显式 `import genelab.asset_zoo` 即可注册。
 
 ## See also
 
