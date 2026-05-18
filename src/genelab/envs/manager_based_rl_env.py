@@ -295,9 +295,14 @@ class ManagerBasedRlEnv:
         # the right device.
         action = action.to(self._device, non_blocking=True)
         self.action_manager.process_action(action)
-        for _ in range(self._decimation):
+        # Render only on the final physics tick of the decimation loop. Genesis's viewer
+        # update calls ``rate.sleep`` at ``ViewerOptions.max_FPS``, so updating every
+        # tick coupled the wall-clock rate to the physics rate and produced slow-motion
+        # playback at large decimation values.
+        last_tick = self._decimation - 1
+        for tick in range(self._decimation):
             self.action_manager.apply_action()
-            self._scene.step()
+            self._scene.step(update_visualizer=(tick == last_tick))
         self._articulation.refresh()
         for sensor in self._sensors.values():
             sensor.update(self._step_dt)

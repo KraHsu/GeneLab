@@ -6,7 +6,27 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ## [Unreleased]
 
+### Fixed
+
+- Slow-motion playback during `genelab play` with non-trivial `decimation`: the
+  Genesis viewer's `max_FPS` rate-limit was applied on every physics tick, so
+  e.g. `decimation=10` produced ~8× slow-motion. `ManagerBasedRlEnv.step` now
+  refreshes the viewer only on the final physics tick of the decimation loop;
+  `InteractiveScene.step` gained an `update_visualizer` kwarg to support that.
+- Video save extension: pressing `R` twice in the Genesis viewer to save a
+  recorded video, then typing a bare filename in the SaveAs dialog, used to
+  write the `.mp4` content to a `.png` path (upstream pyrender hard-codes
+  `defaultextension=".png"`). `InteractiveScene._build` now applies a one-time,
+  class-level monkey-patch on `genesis.ext.pyrender.viewer.Viewer._get_save_filename`
+  to coerce the returned extension to the requested one when exactly one
+  extension was offered. Genesis itself is unchanged.
+
 ### Added
+
+- `SimulationCfg.render_fps: int | None = 60`: viewer FPS cap decoupled from
+  the physics rate (`1/dt`). Forwarded to `gs.options.ViewerOptions(max_FPS=...)`
+  when `vis=True`; headless training paths are untouched. Override via the
+  existing dotted-path grammar (`env.simulation.render_fps=...`).
 
 - `docs/concepts/rl-runner.{en,zh}.md`: bilingual concept page for `genelab.rl`
   (`train_task` / `play_task` signatures, `RslRlOnPolicyRunnerCfg` field

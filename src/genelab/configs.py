@@ -28,6 +28,14 @@ class SimulationCfg:
     dt: float = 0.01
     substeps: int = 4
     num_envs: int = 1
+    # Viewer FPS cap, decoupled from the physics rate (``1/dt``). Forwarded to
+    # ``gs.options.ViewerOptions(max_FPS=...)`` when ``vis=True``. ``None`` runs the
+    # viewer uncapped. ``ManagerBasedRlEnv`` only refreshes the viewer on the last tick
+    # of its decimation loop, so the effective render rate is
+    # ``min(render_fps, 1/(dt*decimation))``; if the control rate exceeds ``render_fps``,
+    # the viewer's rate-limit will throttle the env step itself — lower ``render_fps`` or
+    # raise ``decimation`` if that's not what you want.
+    render_fps: int | None = 60
 
 
 @dataclass
