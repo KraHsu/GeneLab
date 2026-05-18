@@ -65,8 +65,9 @@ class G1VelocityTask:
 class G1TrackingTask:
     """Motion-imitation task wrapper.
 
-    The clip path is not committed; pass ``--env.commands.motion.motion_file PATH`` (or override
-    ``self.cfg.env.commands_cfg["motion"].motion_file``) before invoking play/train.
+    The clip defaults to the asset-zoo LAFAN1 ``dance1_subject2`` NPZ. Swap it by editing
+    ``unitree_g1_tracking_env_cfg`` or assigning a new path into
+    ``self.cfg.env.commands_cfg["motion"].motion_file``.
     """
 
     def __init__(self) -> None:
@@ -130,14 +131,12 @@ def register() -> None:
             G1TrackingTask,
             description=(
                 "PPO motion imitation for Unitree G1 on flat ground. "
-                "Requires a motion clip; see examples."
+                "Default clip: asset-zoo LAFAN1 dance1_subject2."
             ),
             cfg_type=TaskCfg,
             examples=[
-                f"genelab play {TRACKING_TASK_ID} --env.commands.motion.motion_file PATH/clip.npy",
-                f"genelab train {TRACKING_TASK_ID} "
-                "--env.commands.motion.motion_file PATH/clip.npy --num_envs 4096",
-                f"genelab train {TRACKING_TASK_ID} "
-                "--env.commands.motion.motion_file PATH/clip.npy --num_envs 4096 --gpus 2",
+                f"genelab play {TRACKING_TASK_ID} --agent zero --vis",
+                f"genelab train {TRACKING_TASK_ID} --num_envs 4096",
+                f"genelab train {TRACKING_TASK_ID} --num_envs 4096 --gpus 2",
             ],
         )

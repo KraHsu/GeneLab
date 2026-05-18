@@ -106,35 +106,23 @@ uv run genelab play  Genelab-Velocity-Flat-Unitree-G1-v0 \
 
 ### 5.3 Motion imitation
 
-The tracking task imitates a recorded clip per-body (BeyondMimic-style) and requires a motion
-file in mjlab's NPZ schema (keys: `joint_pos`, `joint_vel`, `body_pos_w`, `body_quat_w`,
-`body_lin_vel_w`, `body_ang_vel_w`). Convert a CSV with
-[`mjlab.scripts.csv_to_npz`](https://github.com/Mujoco-Lab/mjlab/blob/main/src/mjlab/scripts/csv_to_npz.py)
-and pass the resulting file via `--env.commands.motion.motion_file`.
+The tracking task imitates a recorded clip per-body (BeyondMimic-style). The default clip
+is the LAFAN1 retargeted `dance1_subject2` NPZ, fetched on first use from `genelab-assets`
+via `genelab.asset_zoo.unitree_g1_motions.g1_lafan1_dance1_subject2()` and cached under
+`.cache/`. No manual download required.
 
 ```bash
-# Visualise a clip with no policy: robot reset to clip frames, zero torques.
-uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
-    --agent zero \
-    --env.commands.motion.motion_file path/to/clip.npz \
-    --vis
-
-# Random-action sanity check (visible perturbation around the reference pose).
-uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
-    --agent random \
-    --env.commands.motion.motion_file path/to/clip.npz \
-    --vis
+# Replay the reference clip frame-by-frame (no policy; robot snaps to motion each step).
+uv run python -m genelab_unitree.replay_motion
 
 # Train.
 uv run genelab train Genelab-Tracking-Flat-Unitree-G1-v0 \
-    --env.commands.motion.motion_file path/to/clip.npz \
     --num-envs 4096 --max-iterations 30000
 
 # Replay trained policy.
 uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
     --agent trained \
-    --checkpoint logs/rsl_rl/g1_tracking_flat/<run>/model_30000.pt \
-    --env.commands.motion.motion_file path/to/clip.npz
+    --checkpoint logs/rsl_rl/g1_tracking_flat/<run>/model_30000.pt
 ```
 
 ### 5.4 `--agent` modes
@@ -143,7 +131,7 @@ uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
 
 | Value | Policy source |
 |-------|--------------|
-| `zero` | Constant zero action — useful for clip visualisation and sanity checks. |
+| `zero` | Constant zero action — basic sanity check; robot resets then falls under gravity. |
 | `random` | Uniform-random action sampling — visible perturbation around the reference pose. |
 | `trained` | Load from `--checkpoint`. This is the default whenever `--checkpoint` is set. |
 
