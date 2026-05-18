@@ -34,7 +34,7 @@ jobs:
           enable-cache: true
           cache-suffix: docs
           python-version: "3.12"
-      - run: uv sync --extra docs --extra torch-cpu
+      - run: uv sync --no-default-groups --group docs --extra torch-cpu
       - run: uv run mkdocs build --strict
       - uses: actions/configure-pages@v5
         with:

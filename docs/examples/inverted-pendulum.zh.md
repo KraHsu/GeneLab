@@ -13,10 +13,10 @@
 
 ## 安装
 
-扩展依赖 `rl` extra（rsl_rl）。`torch-*` extra 按硬件挑选。
+`torch-*` extra 按硬件挑选。
 
 ```bash
-uv sync --extra rl --extra torch-cu128
+uv sync --extra torch-cu128
 uv pip install -e examples/inverted_pendulum
 
 uv run genelab list tasks

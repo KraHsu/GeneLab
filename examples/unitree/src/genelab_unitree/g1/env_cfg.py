@@ -541,4 +541,30 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             },
         )
 
+    if play:
+        # Auto-attach the DearPyGui teleop bridge. It self-disables when num_envs
+        # != 1 (per-axis sliders make no sense across parallel envs), so the
+        # default play (num_envs=50) keeps the existing random-command rollout.
+        # ImportError swallowed so users without the 'teleop' extra still get a
+        # working play path.
+        try:
+            from genelab.bridges.dearpygui import DearPyGuiCommandBridgeCfg
+
+            cfg.bridges_cfg["teleop"] = DearPyGuiCommandBridgeCfg(
+                command_name="twist",
+                vx_range=(-2.0, 2.0),
+                vy_range=(-1.0, 1.0),
+                wz_range=(-0.7, 0.7),
+                # The training mix has only 10% standing envs with 3-8 s resample,
+                # so the policy never sees ``command=[0, 0, 0]`` sustained for a
+                # full episode. Start the slider in the forward-env training slice
+                # (vx ≥ 0.3, vy = 0, ωz = 0) so iter-0 is unambiguously
+                # in-distribution; drag the vx slider down to test standing.
+                default_vx=0.3,
+                default_vy=0.0,
+                default_wz=0.0,
+            )
+        except ImportError:
+            pass
+
     return cfg

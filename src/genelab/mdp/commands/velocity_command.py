@@ -93,6 +93,10 @@ class UniformVelocityCommand(CommandTerm):
         self._is_heading = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         self._is_forward = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         self._is_world = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        # When True, ``_resample_command`` becomes a no-op so play-time bridges
+        # (keyboard / DearPyGui teleop) own ``_command`` exclusively. Toggle via
+        # :py:meth:`set_external_source`.
+        self._external_source: bool = False
 
     @property
     def command(self) -> torch.Tensor:
@@ -114,7 +118,38 @@ class UniformVelocityCommand(CommandTerm):
     def is_world_env(self) -> torch.Tensor:
         return self._is_world
 
+    def set_external_source(self, enabled: bool) -> None:
+        """Hand the command buffer over to (or back from) an external driver.
+
+        Called by play-time bridges (keyboard / DearPyGui teleop) on attach so a
+        per-step write to ``_command`` survives :py:meth:`compute` *and* any
+        subsequent env-level reset. While enabled:
+
+        * :py:meth:`_resample_command` becomes a no-op (the external driver owns
+          ``_command``);
+        * every env-group flag is cleared so :py:meth:`_update_command` is also a
+          no-op — no heading PD, no world-frame rotation, no standing zero-out;
+        * ``_command`` and ``_command_w`` are zeroed so the very first obs the
+          policy sees matches the bridge's startup state (slider 0,0,0) rather
+          than a random sample left over from the prior reset.
+
+        Pass ``enabled=False`` to release the term back to its sampled behavior.
+        """
+        self._external_source = bool(enabled)
+        if not self._external_source:
+            return
+        self._command[:] = 0.0
+        self._command_w[:] = 0.0
+        self._is_heading[:] = False
+        self._is_standing[:] = False
+        self._is_forward[:] = False
+        self._is_world[:] = False
+
     def _resample_command(self, env_ids: torch.Tensor) -> None:
+        # External driver owns the buffer; freeze the term's state for the
+        # subset being reset, leaving ``_command`` / group flags untouched.
+        if self._external_source:
+            return
         n = env_ids.numel()
         r = self.cfg.ranges
         # Sample all three velocity axes unconditionally — heading-mode envs will get

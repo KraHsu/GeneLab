@@ -20,6 +20,12 @@ from genelab.asset_zoo import (
     UnitreeG1Cfg,
     UnitreeGo1Cfg,
 )
+from genelab.bridges import (
+    Bridge,
+    BridgeCfg,
+    KeyboardCommandBridge,
+    KeyboardCommandBridgeCfg,
+)
 from genelab.configs import (
     InteractiveSceneCfg,
     ManagerBasedEnvCfg,
@@ -109,6 +115,8 @@ __all__ = [
     "AnymalCCfg",
     "Articulation",
     "ArticulationCfg",
+    "Bridge",
+    "BridgeCfg",
     "CameraData",
     "CameraSensor",
     "CameraSensorCfg",
@@ -136,6 +144,8 @@ __all__ = [
     "ImplicitPDActuatorCfg",
     "InteractiveScene",
     "InteractiveSceneCfg",
+    "KeyboardCommandBridge",
+    "KeyboardCommandBridgeCfg",
     "ManagerBasedEnv",
     "ManagerBasedEnvCfg",
     "NoiseCfg",

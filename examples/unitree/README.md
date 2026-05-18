@@ -33,7 +33,7 @@ the `genelab-assets` repository on first use and caches it under `.cache/`.
 
 ```bash
 # From the GeneLab repo root
-uv sync --extra rl --extra torch-cu128       # pick whichever torch flavor fits your GPU
+uv sync --extra torch-cu128       # pick whichever torch flavor fits your GPU
 uv pip install -e examples/unitree
 
 uv run genelab list tasks
@@ -50,38 +50,45 @@ uv run genelab play  Genelab-Velocity-Flat-Unitree-G1-v0 --checkpoint logs/rsl_r
 
 ### Motion imitation
 
-The tracking task needs a motion clip in mjlab's NPZ schema (keys: `joint_pos`, `joint_vel`,
-`body_pos_w`, `body_quat_w`, `body_lin_vel_w`, `body_ang_vel_w`). Convert your CSV with
-[`mjlab.scripts.csv_to_npz`](https://github.com/Mujoco-Lab/mjlab/blob/main/src/mjlab/scripts/csv_to_npz.py),
-then pass the resulting file via `--env.commands.motion.motion_file`:
+The tracking task consumes an NPZ motion clip (keys: `joint_pos`, `joint_vel`,
+`body_pos_w`, `body_quat_w`, `body_lin_vel_w`, `body_ang_vel_w`). The default clip is
+the LAFAN1 retargeted `dance1_subject2` NPZ (~131 s @ 50 fps), fetched on first use by
+`genelab.asset_zoo.unitree_g1_motions.g1_lafan1_dance1_subject2()` into
+`.cache/assets/g1_lafan1_dance1_subject2/<md5>/dance1_subject2.npz` — no manual download
+required.
 
 ```bash
-# Visualise a clip with no policy (robot reset to clip frames, zero torques applied)
-uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
-    --agent zero \
-    --env.commands.motion.motion_file path/to/clip.npz \
-    --vis
-
-# Random-action sanity check (visible perturbation around the reference pose)
-uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
-    --agent random \
-    --env.commands.motion.motion_file path/to/clip.npz \
-    --vis
+# Replay the reference clip frame-by-frame (no policy; robot snaps to motion each step).
+# Useful for sanity-checking joint / body ordering before training.
+uv run python -m genelab_unitree.replay_motion
 
 # Train
 uv run genelab train Genelab-Tracking-Flat-Unitree-G1-v0 \
-    --env.commands.motion.motion_file path/to/clip.npz \
     --num-envs 4096 --max-iterations 30000
 
 # Replay trained policy
 uv run genelab play Genelab-Tracking-Flat-Unitree-G1-v0 \
     --agent trained \
-    --checkpoint logs/rsl_rl/g1_tracking_flat/<run>/model_30000.pt \
-    --env.commands.motion.motion_file path/to/clip.npz
+    --checkpoint logs/rsl_rl/g1_tracking_flat/<run>/model_30000.pt
 ```
 
 `--agent` accepts `zero`, `random`, or `trained`. Without `--agent`, play defaults to
-`trained` when `--checkpoint` is set, else `zero`.
+`trained` when `--checkpoint` is set, else `zero`. Note that `--agent zero` just resets
+the robot to the clip's first frame and applies zero torques — the robot will fall, not
+follow the motion. Use the `replay_motion` script above to actually watch the clip play
+out without a trained policy.
+
+The bundled clip inherits its upstream license (CC BY-NC-ND 4.0 — non-commercial,
+attribution required); see `unitree_g1/motions/LICENSE.NOTICE` in the
+[genelab-assets](https://github.com/KraHsu/genelab-assets) repo.
+
+#### Swapping the clip
+
+Edit `examples/unitree/src/genelab_unitree/g1/tracking_env_cfg.py` and replace the
+`motion_file=str(g1_lafan1_dance1_subject2())` line with any NPZ path matching the
+schema above. The genelab-assets repo ships
+`unitree_g1/motions/scripts/convert.sh`, a recipe that drives mjlab's `csv_to_npz`
+forward-kinematics replay for arbitrary G1-retargeted CSVs.
 
 ## Long training runs
 
