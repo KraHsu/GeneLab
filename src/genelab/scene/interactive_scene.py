@@ -142,13 +142,13 @@ class InteractiveScene:
             entity.spawn(self._gs_scene)
 
         if self._sim_cfg.vis and self._scene_cfg.mouse_interaction:
-            from genelab.viewer.mouse_interaction import GeneLabMouseInteractionPlugin
+            from genesis.vis.viewer_plugins import MouseInteractionPlugin
 
             # MouseInteractionPlugin must be attached BEFORE ``scene.build()`` — pre-build
             # registration routes through ``viewer.build`` so the plugin's raycaster sees the
             # fully constructed rigid solver. Post-build registration deadlocks the sim/viewer
             # loop in some Genesis builds.
-            self._gs_scene.viewer.add_plugin(GeneLabMouseInteractionPlugin(use_force=True))
+            self._gs_scene.viewer.add_plugin(MouseInteractionPlugin(use_force=True))
 
         # Pre-build sensors: instantiate every sensor and let it register any Genesis
         # resources (e.g. BatchRenderer cameras) before ``gs_scene.build`` snapshots
