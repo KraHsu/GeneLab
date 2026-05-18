@@ -2,6 +2,7 @@ site_name: GeneLab
 site_description: Isaac Lab-inspired API for RL and robotics research powered by Genesis.
 site_url: https://krahsu.github.io/GeneLab/
 site_author: GeneLab contributors
+dev_addr: 127.0.0.1:8001
 
 repo_name: KraHsu/GeneLab
 repo_url: https://github.com/KraHsu/GeneLab
@@ -71,6 +72,8 @@ plugins:
       lang:
         - en
         - zh
+  - autorefs:
+      resolve_closest: true
   - include-markdown
   - i18n:
       docs_structure: suffix
@@ -87,9 +90,19 @@ plugins:
           site_name: GeneLab
           nav_translations:
             Home: 首页
+            Tutorial: 教程
             Getting Started: 快速上手
             Installation: 安装
             Quickstart: 快速开始
+            How-to Guides: 最佳实践
+            Design a Task: 设计任务
+            Build an Extension Project: 构建扩展项目
+            Run RL Experiments: 运行 RL 实验
+            Debug Common Failures: 调试常见问题
+            Reference: 参考
+            Module Map: 模块地图
+            Configuration Reference: 配置参考
+            CLI Reference: CLI 参考
             CLI: 命令行
             Overview: 总览
             'Discovery: list and info': '发现：list 与 info'
@@ -162,9 +175,20 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Tutorial: tutorial.md
   - Getting Started:
       - Installation: getting-started/installation.md
       - Quickstart: getting-started/quickstart.md
+  - How-to Guides:
+      - Design a Task: best-practices/task-design.md
+      - Build an Extension Project: best-practices/extension-projects.md
+      - Run RL Experiments: best-practices/rl-experiments.md
+      - Debug Common Failures: best-practices/debugging.md
+  - Reference:
+      - Module Map: reference/module-map.md
+      - Configuration Reference: reference/configuration.md
+      - CLI Reference: reference/cli.md
+      - API Reference: api/reference.md
   - CLI:
       - Overview: cli/overview.md
       - 'Discovery: list and info': cli/list-info.md
@@ -191,5 +215,4 @@ nav:
       - Showcase: examples/showcase.md
       - "Rubik's Cube": examples/rubiks-cube.md
       - Wuji Hand: examples/wuji-hand.md
-  - API Reference: api/reference.md
   - Contributing: contributing.md
