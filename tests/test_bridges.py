@@ -10,8 +10,8 @@ torch = pytest.importorskip("torch")
 from genelab.bridges import (  # noqa: E402 (after importorskip)
     Bridge,
     BridgeCfg,
-    KeyboardCommandBridge,
-    KeyboardCommandBridgeCfg,
+    KeyboardTwistBridge,
+    KeyboardTwistBridgeCfg,
 )
 from genelab.configs import apply_overrides  # noqa: E402
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg  # noqa: E402
@@ -154,11 +154,11 @@ def test_close_bridges_swallows_per_bridge_exceptions() -> None:
 def test_bridges_cfg_round_trips_through_apply_overrides() -> None:
     """``bridges_cfg.<name>.<field>`` resolves the same way as commands_cfg etc."""
     cfg = ManagerBasedRlEnvCfg()
-    cfg.bridges_cfg = {"teleop": KeyboardCommandBridgeCfg()}
+    cfg.bridges_cfg = {"teleop": KeyboardTwistBridgeCfg()}
     apply_overrides(cfg, {"bridges_cfg.teleop.command_name": "my_twist"})
     apply_overrides(cfg, {"bridges_cfg.teleop.step_lin": "0.25"})
     teleop = cfg.bridges_cfg["teleop"]
-    assert isinstance(teleop, KeyboardCommandBridgeCfg)
+    assert isinstance(teleop, KeyboardTwistBridgeCfg)
     assert teleop.command_name == "my_twist"
     assert teleop.step_lin == pytest.approx(0.25)
 
@@ -169,7 +169,7 @@ def test_keyboard_bridge_skips_when_num_envs_above_one() -> None:
     Verifies the bridge degrades safely when attached to a multi-env play (e.g.
     default Unitree velocity play with num_envs=50).
     """
-    bridge = KeyboardCommandBridge(KeyboardCommandBridgeCfg())
+    bridge = KeyboardTwistBridge(KeyboardTwistBridgeCfg())
 
     class _MultiEnv:
         num_envs = 50
@@ -181,7 +181,7 @@ def test_keyboard_bridge_skips_when_num_envs_above_one() -> None:
 
 def test_keyboard_bridge_no_viewer_is_a_noop() -> None:
     """num_envs=1 but vis=False → bridge stays disabled without crashing."""
-    bridge = KeyboardCommandBridge(KeyboardCommandBridgeCfg())
+    bridge = KeyboardTwistBridge(KeyboardTwistBridgeCfg())
 
     class _SimCfg:
         vis = False

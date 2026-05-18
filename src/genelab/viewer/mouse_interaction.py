@@ -1,6 +1,6 @@
 """Subclass of ``MouseInteractionPlugin`` patched for Genesis' batched tensor outputs.
 
-The upstream plugin (genesis 0.4.6 ``vis.viewer_plugins.MouseInteractionPlugin``) assumes
+The upstream plugin (``genesis.vis.viewer_plugins.MouseInteractionPlugin``) assumes
 ``link.get_pos()`` / ``get_quat()`` / ``get_vel()`` / ``get_ang()`` return un-batched
 ``(3,)`` / ``(4,)`` arrays, while the link's ``inertial_pos`` / ``inertial_quat`` are
 already un-batched. With the current Genesis (post-build), the dynamic getters return
@@ -9,6 +9,10 @@ longer share shapes and ``_np_quat_mul`` asserts inside ``_apply_spring_force``.
 
 This subclass squeezes the leading batch dim from the dynamic per-link arrays so the
 rest of the spring-force math (which operates on a single env's COM frame) works.
+
+Genesis 0.4.7 added an ``envs_idx`` kwarg to ``get_pos`` / ``get_quat`` / ``get_vel`` /
+``get_ang``; the ``on_draw`` wrapper forwards ``*args, **kwargs`` so calls like
+``get_pos(envs_idx=...)`` from the upstream ``on_draw`` reach the underlying method.
 """
 
 from collections.abc import Callable
@@ -116,9 +120,9 @@ class GeneLabMouseInteractionPlugin(MouseInteractionPlugin):
         orig_get_pos = link.get_pos
         orig_get_quat = link.get_quat
 
-        def _wrap(fn: Callable[[], Any]) -> Callable[[], Any]:
-            def _wrapped() -> np.ndarray:
-                out = fn()
+        def _wrap(fn: Callable[..., Any]) -> Callable[..., np.ndarray]:
+            def _wrapped(*args: Any, **kwargs: Any) -> np.ndarray:
+                out = fn(*args, **kwargs)
                 arr = tensor_to_array(out)
                 return _squeeze_env(arr)
 
