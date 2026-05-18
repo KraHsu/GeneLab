@@ -12,11 +12,10 @@ Both tasks are ports of the equivalent `mjlab` recipes adapted to Genesis.
 
 ## Installation
 
-The extension depends on the `rl` extra (rsl_rl). Pick the `torch-*` extra that matches
-the host.
+Pick the `torch-*` extra that matches the host.
 
 ```bash
-uv sync --extra rl --extra torch-cu128
+uv sync --extra torch-cu128
 uv pip install -e examples/unitree
 
 uv run genelab list tasks

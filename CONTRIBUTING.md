@@ -35,7 +35,7 @@ Docs live under `docs/` and are built by MkDocs Material with the `mkdocs-static
 - **Admonitions over blockquotes.** Use `!!! warning "Title"` / `!!! tip "Title"` / `!!! note "Title"` for callouts; reserve `>` blockquotes for actual quotations.
 - **Stable explicit anchors** for headings that contain non-ASCII characters, numbered prefixes, or wording likely to change. Append `{ #stable-id }` to the heading, e.g. `## 5. Advanced: end-to-end RL on Unitree G1 { #unitree-g1 }`. Cross-link to the slug, not the auto-generated one.
 - **CJK + ASCII spacing in `.zh.md`.** Leave one space between Chinese characters and adjacent ASCII words, numbers, or inline code (`运行 \`uv sync\``, not `运行\`uv sync\``).
-- **`mkdocs build --strict` must pass.** Install the docs extra with `uv sync --extra docs` and run `uv run mkdocs build --strict` before opening a doc-touching PR. The flag fails the build on any unresolved relative link or anchor.
+- **`mkdocs build --strict` must pass.** Run `uv run mkdocs build --strict` before opening a doc-touching PR — mkdocs is included by default in `uv sync`. The flag fails the build on any unresolved relative link or anchor.
 
 ## Checks before opening a PR
 

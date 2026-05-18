@@ -76,12 +76,11 @@ sitting.
 
 ### 5.1 Install the extension
 
-The Unitree extension depends on the `rl` extra (rsl_rl) and pulls in vendored MJCF + meshes
-(~19 MB). Pick the `torch-*` extra that matches your hardware — see *Installation* for the full
-extras table.
+The Unitree extension pulls in vendored MJCF + meshes (~19 MB). Pick the `torch-*` extra that
+matches your hardware — see *Installation* for the full extras table.
 
 ```bash
-uv sync --extra rl --extra torch-cu128
+uv sync --extra torch-cu128
 uv pip install -e examples/unitree
 
 uv run genelab list tasks
