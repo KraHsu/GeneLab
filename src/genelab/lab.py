@@ -13,18 +13,11 @@ from genelab.actuator import (
     ImplicitPDActuator,
     ImplicitPDActuatorCfg,
 )
-from genelab.asset_zoo import (
-    AnymalCCfg,
-    CartpoleCfg,
-    FrankaPandaCfg,
-    UnitreeG1Cfg,
-    UnitreeGo1Cfg,
-)
 from genelab.bridges import (
     Bridge,
     BridgeCfg,
-    KeyboardCommandBridge,
-    KeyboardCommandBridgeCfg,
+    KeyboardTwistBridge,
+    KeyboardTwistBridgeCfg,
 )
 from genelab.configs import (
     InteractiveSceneCfg,
@@ -48,7 +41,7 @@ from genelab.registry import (
     TASKS,
     Registry,
     RegistryEntry,
-    load_builtin_registries,
+    load_bundled_asset_zoo,
     load_entrypoint_extensions,
     load_extension_module,
 )
@@ -112,7 +105,6 @@ __all__ = [
     "TASKS",
     "ActuatorBase",
     "ActuatorBaseCfg",
-    "AnymalCCfg",
     "Articulation",
     "ArticulationCfg",
     "Bridge",
@@ -120,7 +112,6 @@ __all__ = [
     "CameraData",
     "CameraSensor",
     "CameraSensorCfg",
-    "CartpoleCfg",
     "ContactData",
     "ContactSensor",
     "ContactSensorCfg",
@@ -130,7 +121,6 @@ __all__ = [
     "FrameTransformerData",
     "FrameTransformerSensor",
     "FrameTransformerSensorCfg",
-    "FrankaPandaCfg",
     "GenesisBackendCfg",
     "Gnoise",
     "GridPattern",
@@ -144,8 +134,8 @@ __all__ = [
     "ImplicitPDActuatorCfg",
     "InteractiveScene",
     "InteractiveSceneCfg",
-    "KeyboardCommandBridge",
-    "KeyboardCommandBridgeCfg",
+    "KeyboardTwistBridge",
+    "KeyboardTwistBridgeCfg",
     "ManagerBasedEnv",
     "ManagerBasedEnvCfg",
     "NoiseCfg",
@@ -171,11 +161,9 @@ __all__ = [
     "TerrainHeightSensor",
     "TerrainHeightSensorCfg",
     "TerrainImporter",
-    "UnitreeG1Cfg",
-    "UnitreeGo1Cfg",
     "Unoise",
     "apply_overrides",
-    "load_builtin_registries",
+    "load_bundled_asset_zoo",
     "load_entrypoint_extensions",
     "load_extension_module",
 ]

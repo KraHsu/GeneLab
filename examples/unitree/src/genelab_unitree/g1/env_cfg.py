@@ -548,9 +548,9 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         # ImportError swallowed so users without the 'teleop' extra still get a
         # working play path.
         try:
-            from genelab.bridges.dearpygui import DearPyGuiCommandBridgeCfg
+            from genelab.bridges.dearpygui import DearPyGuiTwistBridgeCfg
 
-            cfg.bridges_cfg["teleop"] = DearPyGuiCommandBridgeCfg(
+            cfg.bridges_cfg["teleop"] = DearPyGuiTwistBridgeCfg(
                 command_name="twist",
                 vx_range=(-2.0, 2.0),
                 vy_range=(-1.0, 1.0),

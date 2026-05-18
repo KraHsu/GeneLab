@@ -83,6 +83,9 @@ uv run genelab list tasks
 - `genelab.envs`, `genelab.robots`, `genelab.tasks` — thin core namespaces for registry helpers.
 - `genelab.actuator`, `genelab.entity`, `genelab.scene`, `genelab.sensor`, `genelab.terrains`,
   and `genelab.rl` — extension namespaces for robotics research code.
+- `genelab.asset_zoo` — bundled example robots (`g1`, `go1`, `anymal-c`, `franka`, `cartpole`).
+  Not part of the core facade: fetch via the `ROBOTS` registry (`ROBOTS.get("g1")()`) or import
+  the config directly (`from genelab.asset_zoo import UnitreeG1Cfg`).
 
 Downstream projects live in their own Python packages and register robots, environments, and
 tasks through GeneLab's registry and extension hooks. The minimal template lives at

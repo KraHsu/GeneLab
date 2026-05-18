@@ -1,8 +1,9 @@
-"""Keyboard teleop bridge: drive a velocity command term from WASD / QE / Space.
+"""Keyboard twist bridge: drive a 3-component (vx, vy, ωz) command term from WASD / QE / Space.
 
-This bridge is the simplest possible reference implementation of the :class:`Bridge`
-protocol. It uses Genesis's built-in keybind mechanism (``Viewer.register_keybinds``)
-so no extra dependency is needed.
+Drives a 3-component velocity-twist command term — the layout is hardcoded to
+that shape (not a generic command bridge). It is the simplest possible reference
+implementation of the :class:`Bridge` protocol, using Genesis's built-in keybind
+mechanism (``Viewer.register_keybinds``) so no extra dependency is needed.
 
 Default keymap (rebind via cfg fields):
 
@@ -37,8 +38,8 @@ _logger = logging.getLogger(__name__)
 
 
 @dataclass
-class KeyboardCommandBridgeCfg(BridgeCfg):
-    """Configuration for :class:`KeyboardCommandBridge`."""
+class KeyboardTwistBridgeCfg(BridgeCfg):
+    """Configuration for :class:`KeyboardTwistBridge`."""
 
     command_name: str = "twist"
     """Name of the command term to drive (e.g. the velocity ``twist`` term)."""
@@ -54,15 +55,15 @@ class KeyboardCommandBridgeCfg(BridgeCfg):
 
     def __post_init__(self) -> None:
         if self.class_type is None:
-            self.class_type = KeyboardCommandBridge
+            self.class_type = KeyboardTwistBridge
 
 
-class KeyboardCommandBridge:
+class KeyboardTwistBridge:
     """``Bridge`` impl that maps keyboard input → velocity command buffer."""
 
-    cfg: KeyboardCommandBridgeCfg
+    cfg: KeyboardTwistBridgeCfg
 
-    def __init__(self, cfg: KeyboardCommandBridgeCfg) -> None:
+    def __init__(self, cfg: KeyboardTwistBridgeCfg) -> None:
         self.cfg = cfg
         # Per-axis desired command; written by key callbacks, read in pre_step.
         # Plain Python floats — single-threaded mutation from pyglet's event
@@ -77,7 +78,7 @@ class KeyboardCommandBridge:
     def on_build(self, env: "ManagerBasedRlEnv") -> None:
         if env.num_envs != 1:
             _logger.info(
-                "KeyboardCommandBridge: skipping (num_envs=%d, need 1). "
+                "KeyboardTwistBridge: skipping (num_envs=%d, need 1). "
                 "Pass --num_envs 1 to enable teleop.",
                 env.num_envs,
             )
@@ -85,13 +86,13 @@ class KeyboardCommandBridge:
         sim_cfg = getattr(env.cfg, "simulation", None)
         if sim_cfg is None or not getattr(sim_cfg, "vis", False):
             _logger.warning(
-                "KeyboardCommandBridge: simulation.vis is False — no viewer to attach "
+                "KeyboardTwistBridge: simulation.vis is False — no viewer to attach "
                 "keybinds to. Bridge will be a no-op."
             )
             return
         viewer = env.scene.gs_scene.viewer
         if viewer is None:
-            _logger.warning("KeyboardCommandBridge: scene has no viewer; bridge disabled.")
+            _logger.warning("KeyboardTwistBridge: scene has no viewer; bridge disabled.")
             return
 
         term = env.command_manager.get_term(self.cfg.command_name)
