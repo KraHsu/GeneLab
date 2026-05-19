@@ -1,8 +1,22 @@
 # RL Runner
 
-`genelab.rl` connects registered tasks to RSL-RL. It is deliberately thin: GeneLab owns task
-resolution, config mutation, VecEnv adaptation, logs, profiling hooks, and distributed launch
-helpers; RSL-RL owns the learning algorithm.
+`genelab.rl` connects registered tasks to a pluggable RL **backend**. It is deliberately thin:
+GeneLab owns task resolution, config mutation, env construction, the bridge lifecycle, logs,
+profiling hooks, and distributed launch helpers; the backend owns the learning algorithm.
+
+## Backends
+
+`train_task` / `play_task` are backend-agnostic dispatchers. The backend is chosen from the type of
+`TaskCfg.agent`:
+
+| Agent config | Backend | Algorithms |
+|---|---|---|
+| `RslRlOnPolicyRunnerCfg` | `rsl_rl` (default) | PPO |
+| `SkrlAgentCfg` | `skrl` | PPO, A2C, SAC, TD3, DDPG |
+
+Backends live under `genelab.rl.backends` and register themselves by config type;
+`select_backend(agent_cfg)` resolves one. Adding another library means adding a `Backend`
+(`train` / `play`) plus its agent-config dataclass — no change to the dispatcher or CLI.
 
 ## Training flow
 
@@ -10,12 +24,13 @@ helpers; RSL-RL owns the learning algorithm.
 TASKS.get(task_id)
 └── TaskCfg.env + TaskCfg.agent
     └── ManagerBasedRlEnv
-        └── RslRlVecEnvWrapper
-            └── rsl_rl OnPolicyRunner.learn()
+        └── select_backend(agent_cfg).train(TrainContext)
+            ├── rsl_rl:  RslRlVecEnvWrapper  → OnPolicyRunner.learn()
+            └── skrl:    GenelabSkrlWrapper  → SequentialTrainer.train()
 ```
 
 The main process writes `params/env.json`, `params/agent.json`, TensorBoard events, profiler traces,
-and checkpoints.
+and checkpoints. RSL-RL logs under `logs/rsl_rl/`, skrl under `logs/skrl/`.
 
 ## Playback flow
 
@@ -25,7 +40,7 @@ and checkpoints.
 |---|---|
 | `zero` | Returns zero actions. |
 | `random` | Uniform random actions. |
-| `trained` | Loads a checkpoint and calls RSL-RL inference policy. |
+| `trained` | Loads a checkpoint and calls the backend's inference policy. |
 
 Playback exits cleanly when the Genesis viewer closes or when `max_steps` is reached.
 

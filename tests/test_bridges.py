@@ -15,7 +15,7 @@ from genelab.bridges import (  # noqa: E402 (after importorskip)
 )
 from genelab.configs import apply_overrides  # noqa: E402
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg  # noqa: E402
-from genelab.rl.runner import _build_bridges, _close_bridges, _run_play_loop  # noqa: E402
+from genelab.rl.runner import build_bridges, close_bridges, run_play_loop  # noqa: E402
 
 
 # ---------------------------------------------------------------------- fakes
@@ -90,8 +90,8 @@ def test_run_play_loop_calls_bridges_in_order() -> None:
     env = _FakeEnv()
     wrapped = _FakeWrapped()
 
-    _run_play_loop(env, wrapped, _zero_policy, [bridge], max_steps=2, prof_step=None)
-    # on_build / on_close are runner-level (outside _run_play_loop) — caller is
+    run_play_loop(env, wrapped, _zero_policy, [bridge], max_steps=2, prof_step=None)
+    # on_build / on_close are runner-level (outside run_play_loop) — caller is
     # responsible. Loop itself drives only pre_step / post_step.
     assert log == [
         "rec.pre_step",
@@ -117,7 +117,7 @@ def test_run_play_loop_breaks_on_viewer_closed() -> None:
 
         def on_close(self, _env: Any) -> None: ...
 
-    _run_play_loop(env, wrapped, _zero_policy, [_ClosingBridge()], max_steps=None, prof_step=None)
+    run_play_loop(env, wrapped, _zero_policy, [_ClosingBridge()], max_steps=None, prof_step=None)
     # One full iteration then break before pre_step of iteration 2.
     assert log == ["pre", "post"]
 
@@ -129,7 +129,7 @@ def test_build_bridges_skips_none_class_type() -> None:
         "real": _RecordingBridgeCfg(log=log, name="real"),
         "ghost": BridgeCfg(class_type=None),
     }
-    bridges = _build_bridges(cfg)
+    bridges = build_bridges(cfg)
     assert len(bridges) == 1
     bridges[0].on_build(_FakeEnv())
     assert log == ["real.on_build"]
@@ -147,7 +147,7 @@ def test_close_bridges_swallows_per_bridge_exceptions() -> None:
 
     log: list[str] = []
     good = _RecordingBridge(log, name="good")
-    _close_bridges([_BadBridge(), good], _FakeEnv())
+    close_bridges([_BadBridge(), good], _FakeEnv())
     assert log == ["good.on_close"]
 
 

@@ -1,4 +1,14 @@
-"""Train / play helpers wiring ``ManagerBasedRlEnv`` to RSL-RL's ``OnPolicyRunner``."""
+"""Train / play entry points.
+
+``train_task`` / ``play_task`` are backend-agnostic dispatchers: they resolve the
+env config, build the ``ManagerBasedRlEnv`` (and bridges, for play), then hand a
+:class:`~genelab.rl.backends.base.TrainContext` / ``PlayContext`` to the backend
+that owns the task's agent config (see :mod:`genelab.rl.backends`). The RSL-RL and
+skrl library-specific code lives in ``genelab.rl.backends.rsl_rl`` / ``.skrl``.
+
+This module also keeps the helpers shared by every backend: the bridge lifecycle,
+the rollout loop, log-dir resolution, run-param dumps, and the zero/random policies.
+"""
 
 import dataclasses
 import datetime as dt
@@ -6,23 +16,29 @@ import json
 import logging
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any
 
 from genelab.bridges.base import Bridge
 from genelab.cache import ensure_project_cache
 from genelab.registry import TASKS
-from genelab.rl.profiler import maybe_profile
-from genelab.rl.config import RslRlOnPolicyRunnerCfg
-from genelab.rl.distributed import is_main_process, shutdown_process_group
-from genelab.rl.rsl_rl_wrapper import RslRlVecEnvWrapper
+from genelab.rl.backends import (
+    AgentKind,
+    PlayContext,
+    ProfileArgs,
+    TrainContext,
+    default_backend,
+    select_backend,
+)
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
+__all__ = ["AgentKind", "play_task", "resolve_log_dir", "train_task"]
+
 _logger = logging.getLogger(__name__)
 
 
-def _build_bridges(env_cfg: Any) -> list[Bridge]:
+def build_bridges(env_cfg: Any) -> list[Bridge]:
     """Instantiate every bridge declared on ``env_cfg.bridges_cfg``.
 
     Entries with ``class_type=None`` are skipped (matches manager-term convention).
@@ -40,7 +56,7 @@ def _build_bridges(env_cfg: Any) -> list[Bridge]:
     return bridges
 
 
-def _close_bridges(bridges: list[Bridge], env: "ManagerBasedRlEnv") -> None:
+def close_bridges(bridges: list[Bridge], env: "ManagerBasedRlEnv") -> None:
     """Call ``on_close`` on every bridge; swallow per-bridge exceptions.
 
     Runs inside the play loop's ``finally`` so a misbehaving bridge can't block
@@ -53,7 +69,7 @@ def _close_bridges(bridges: list[Bridge], env: "ManagerBasedRlEnv") -> None:
             _logger.exception("bridge %r raised in on_close; continuing teardown", bridge)
 
 
-def _run_play_loop(
+def run_play_loop(
     env: "ManagerBasedRlEnv",
     wrapped: Any,
     policy: Any,
@@ -87,7 +103,28 @@ def _run_play_loop(
             break
 
 
-AgentKind = Literal["zero", "random", "trained"]
+def make_zero_policy(num_envs: int, num_actions: int, device: Any) -> Any:
+    """Return a policy that always emits zero actions. Backend-agnostic."""
+    import torch
+
+    shape = (num_envs, num_actions)
+
+    def _zero_policy(_obs: Any) -> "torch.Tensor":
+        return torch.zeros(shape, device=device)
+
+    return _zero_policy
+
+
+def make_random_policy(num_envs: int, num_actions: int, device: Any) -> Any:
+    """Return a policy that emits uniform random actions in ``[-1, 1]``. Backend-agnostic."""
+    import torch
+
+    shape = (num_envs, num_actions)
+
+    def _random_policy(_obs: Any) -> "torch.Tensor":
+        return 2.0 * torch.rand(shape, device=device) - 1.0
+
+    return _random_policy
 
 
 def _resolve_env_cfg(task_id: str, play: bool) -> Any:
@@ -108,37 +145,13 @@ def _build_env(env_cfg: Any) -> "ManagerBasedRlEnv":
     return ManagerBasedRlEnv(env_cfg)
 
 
-_MLP_MODEL_KEYS = {
-    "class_name",
-    "hidden_dims",
-    "activation",
-    "obs_normalization",
-    "distribution_cfg",
-}
-
-
-def _prune_model_cfg(model: dict[str, Any]) -> dict[str, Any]:
-    """Drop keys that rsl_rl's ``MLPModel`` does not accept."""
-    if model.get("class_name", "MLPModel") == "MLPModel":
-        return {k: v for k, v in model.items() if k in _MLP_MODEL_KEYS}
-    return model
-
-
-def _runner_cfg_to_dict(cfg: RslRlOnPolicyRunnerCfg) -> dict[str, Any]:
-    """Convert an RslRlOnPolicyRunnerCfg dataclass into the dict shape RSL-RL expects."""
-    data = asdict(cfg)
-    data["actor"] = _prune_model_cfg(data["actor"])
-    data["critic"] = _prune_model_cfg(data["critic"])
-    return data
-
-
 def resolve_log_dir(log_root: Path, experiment_name: str, run_name: str) -> Path:
     timestamp = dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     suffix = f"_{run_name}" if run_name else ""
     return log_root / experiment_name / f"{timestamp}{suffix}"
 
 
-def _save_run_params(log_dir: Path, env_cfg: Any, agent_cfg: RslRlOnPolicyRunnerCfg) -> None:
+def save_run_params(log_dir: Path, env_cfg: Any, agent_cfg: Any) -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
     params_dir = log_dir / "params"
     params_dir.mkdir(exist_ok=True)
@@ -160,9 +173,31 @@ def _save_run_params(log_dir: Path, env_cfg: Any, agent_cfg: RslRlOnPolicyRunner
     (params_dir / "agent.json").write_text(json.dumps(_dump(agent_cfg), indent=2))
 
 
+def _profile_args(
+    prof: bool | None,
+    prof_out: Path | None,
+    prof_wait: int | None,
+    prof_warmup: int | None,
+    prof_active: int | None,
+    prof_repeat: int | None,
+    prof_record_shapes: bool | None,
+    prof_with_stack: bool | None,
+) -> ProfileArgs:
+    return ProfileArgs(
+        prof=prof,
+        prof_out=prof_out,
+        prof_wait=prof_wait,
+        prof_warmup=prof_warmup,
+        prof_active=prof_active,
+        prof_repeat=prof_repeat,
+        prof_record_shapes=prof_record_shapes,
+        prof_with_stack=prof_with_stack,
+    )
+
+
 def train_task(
     task_id: str,
-    agent_cfg: RslRlOnPolicyRunnerCfg,
+    agent_cfg: Any,
     *,
     num_envs: int | None = None,
     max_iterations: int | None = None,
@@ -179,14 +214,18 @@ def train_task(
     prof_record_shapes: bool | None = None,
     prof_with_stack: bool | None = None,
 ) -> Path:
-    """Train ``task_id`` with PPO. Returns the log directory.
+    """Train ``task_id``. Returns the log directory.
 
-    ``log_dir`` (final, pre-resolved) takes precedence over ``log_root`` (parent under
-    which a ``<experiment>/<timestamp>`` directory is created). The torchrun relaunch
-    path pre-resolves the log dir so every rank lands in the same folder.
+    The backend is selected from ``type(agent_cfg)`` (``RslRlOnPolicyRunnerCfg`` →
+    RSL-RL, ``SkrlAgentCfg`` → skrl). ``max_iterations`` is interpreted by the
+    backend — RSL-RL learning iterations for RSL-RL, training timesteps for skrl.
 
-    ``prof*`` keyword arguments override the matching ``GENELAB_PROFILE_*`` env vars; see
-    ``genelab.rl.profiler.maybe_profile`` for the semantics.
+    ``log_dir`` (final, pre-resolved) takes precedence over ``log_root`` (parent
+    under which a ``<experiment>/<timestamp>`` directory is created). The torchrun
+    relaunch path pre-resolves the log dir so every rank lands in the same folder.
+
+    ``prof*`` keyword arguments override the matching ``GENELAB_PROFILE_*`` env vars;
+    see ``genelab.rl.profiler.maybe_profile`` for the semantics.
     """
     ensure_project_cache()
     env_cfg = _resolve_env_cfg(task_id, play=False)
@@ -194,60 +233,24 @@ def train_task(
         env_cfg.simulation.num_envs = int(num_envs)
     if seed is not None:
         env_cfg.seed = int(seed)
-        agent_cfg.seed = int(seed)
-    if max_iterations is not None:
-        agent_cfg.max_iterations = int(max_iterations)
 
     env = _build_env(env_cfg)
-    wrapped = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
-
-    from rsl_rl.runners import OnPolicyRunner
-
-    if log_dir is None:
-        log_root = log_root or Path("logs") / "rsl_rl"
-        log_dir = resolve_log_dir(log_root, agent_cfg.experiment_name, agent_cfg.run_name)
-    if is_main_process():
-        _save_run_params(log_dir, env_cfg, agent_cfg)
-
-    runner = OnPolicyRunner(
-        cast(Any, wrapped),
-        _runner_cfg_to_dict(agent_cfg),
-        log_dir=str(log_dir),
-        device=str(wrapped.device),
+    ctx = TrainContext(
+        task_id=task_id,
+        env=env,
+        env_cfg=env_cfg,
+        agent_cfg=agent_cfg,
+        max_iterations=max_iterations,
+        seed=seed,
+        log_dir=log_dir,
+        log_root=log_root,
+        resume_from=resume_from,
+        profile=_profile_args(
+            prof, prof_out, prof_wait, prof_warmup, prof_active, prof_repeat,
+            prof_record_shapes, prof_with_stack,
+        ),
     )
-    if resume_from is not None:
-        runner.load(str(resume_from))
-    try:
-        with maybe_profile(
-            enabled=prof,
-            out_dir=prof_out,
-            wait=prof_wait,
-            warmup=prof_warmup,
-            active=prof_active,
-            repeat=prof_repeat,
-            record_shapes=prof_record_shapes,
-            with_stack=prof_with_stack,
-        ) as prof_step:
-            if prof_step is not None:
-                # Advance the profiler schedule once per env step. RSL-RL doesn't expose a
-                # per-iteration hook, so the wrapper's ``step`` is the closest fire-once-per-
-                # rollout-step seam. Multiply WAIT/WARMUP/ACTIVE by ``num_steps_per_env`` if
-                # you want the schedule expressed in PPO iterations.
-                original_step = wrapped.step
-
-                def _step_with_profiler(*args: Any, **kwargs: Any) -> Any:
-                    result = original_step(*args, **kwargs)
-                    prof_step()
-                    return result
-
-                wrapped.step = _step_with_profiler  # type: ignore[method-assign]
-            runner.learn(num_learning_iterations=agent_cfg.max_iterations)
-    finally:
-        env.close()
-        # rsl_rl's OnPolicyRunner inits the NCCL process group but never tears it down;
-        # without this every rank prints a destroy_process_group resource-leak warning.
-        shutdown_process_group()
-    return log_dir
+    return select_backend(agent_cfg).train(ctx)
 
 
 def play_task(
@@ -256,7 +259,7 @@ def play_task(
     checkpoint: Path | None = None,
     num_envs: int | None = None,
     agent: AgentKind | None = None,
-    agent_cfg: RslRlOnPolicyRunnerCfg | None = None,
+    agent_cfg: Any | None = None,
     deterministic: bool = True,
     max_steps: int | None = None,
     prof: bool | None = None,
@@ -270,10 +273,12 @@ def play_task(
 ) -> None:
     """Replay a policy. ``agent`` selects between ``"zero"``, ``"random"``, and ``"trained"``.
 
-    When ``agent`` is ``None``, defaults to ``"trained"`` if ``checkpoint`` is set, else ``"zero"``.
+    When ``agent`` is ``None``, defaults to ``"trained"`` if ``checkpoint`` is set,
+    else ``"zero"``. ``"trained"`` routes to the backend owning the task's agent
+    config; ``"zero"`` / ``"random"`` are backend-agnostic.
 
-    ``prof*`` keyword arguments override the matching ``GENELAB_PROFILE_*`` env vars; see
-    ``genelab.rl.profiler.maybe_profile`` for the semantics.
+    ``prof*`` keyword arguments override the matching ``GENELAB_PROFILE_*`` env vars;
+    see ``genelab.rl.profiler.maybe_profile`` for the semantics.
     """
     ensure_project_cache()
     kind: AgentKind = (
@@ -285,64 +290,33 @@ def play_task(
     if num_envs is not None:
         env_cfg.simulation.num_envs = int(num_envs)
     env = _build_env(env_cfg)
-    wrapped = RslRlVecEnvWrapper(env, clip_actions=None)
-    bridges = _build_bridges(env_cfg)
+    bridges = build_bridges(env_cfg)
     for bridge in bridges:
         bridge.on_build(env)
 
-    import torch
+    resolved_agent_cfg = agent_cfg
+    if resolved_agent_cfg is None:
+        task = TASKS.get(task_id)
+        resolved_agent_cfg = getattr(getattr(task, "cfg", None), "agent", None)
 
-    action_shape = (env.num_envs, wrapped.num_actions)
-    device = env.device
-
-    policy: Any
-    if kind == "zero":
-
-        def _zero_policy(_obs: Any) -> "torch.Tensor":
-            return torch.zeros(action_shape, device=device)
-
-        policy = _zero_policy
-    elif kind == "random":
-
-        def _random_policy(_obs: Any) -> "torch.Tensor":
-            return 2.0 * torch.rand(action_shape, device=device) - 1.0
-
-        policy = _random_policy
-    else:
-        assert kind == "trained"
-        assert checkpoint is not None
-        resolved_agent_cfg = agent_cfg
-        if resolved_agent_cfg is None:
-            task = TASKS.get(task_id)
-            candidate = getattr(task.cfg, "agent", None)
-            if not isinstance(candidate, RslRlOnPolicyRunnerCfg):
-                raise ValueError(
-                    f"task {task_id!r} did not register an agent cfg; pass agent_cfg explicitly"
-                )
-            resolved_agent_cfg = candidate
-        from rsl_rl.runners import OnPolicyRunner
-
-        runner = OnPolicyRunner(
-            cast(Any, wrapped),
-            _runner_cfg_to_dict(resolved_agent_cfg),
-            log_dir=None,
-            device=str(wrapped.device),
-        )
-        runner.load(str(checkpoint))
-        policy = runner.get_inference_policy(device=str(wrapped.device))
-
-    try:
-        with maybe_profile(
-            enabled=prof,
-            out_dir=prof_out,
-            wait=prof_wait,
-            warmup=prof_warmup,
-            active=prof_active,
-            repeat=prof_repeat,
-            record_shapes=prof_record_shapes,
-            with_stack=prof_with_stack,
-        ) as prof_step:
-            _run_play_loop(env, wrapped, policy, bridges, max_steps=max_steps, prof_step=prof_step)
-    finally:
-        _close_bridges(bridges, env)
-        env.close()
+    backend = (
+        select_backend(resolved_agent_cfg)
+        if resolved_agent_cfg is not None
+        else default_backend()
+    )
+    ctx = PlayContext(
+        task_id=task_id,
+        env=env,
+        env_cfg=env_cfg,
+        agent_cfg=resolved_agent_cfg,
+        checkpoint=checkpoint,
+        kind=kind,
+        deterministic=deterministic,
+        max_steps=max_steps,
+        bridges=bridges,
+        profile=_profile_args(
+            prof, prof_out, prof_wait, prof_warmup, prof_active, prof_repeat,
+            prof_record_shapes, prof_with_stack,
+        ),
+    )
+    backend.play(ctx)
