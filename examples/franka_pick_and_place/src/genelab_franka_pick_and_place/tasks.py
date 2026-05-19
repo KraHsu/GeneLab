@@ -282,7 +282,7 @@ def register() -> None:
             cfg_type=TaskCfg,
             examples=[
                 f"genelab play {SB3_HER_TASK_ID} --vis",
-                f"genelab train {SB3_HER_TASK_ID} --num-envs 16 --max-iterations 8000",
-                f"genelab train {SB3_HER_TASK_ID} --num-envs 2048 --max-iterations 2000000",
+                f"genelab train {SB3_HER_TASK_ID} --gpu --num-envs 16 --max-iterations 8000",
+                f"genelab train {SB3_HER_TASK_ID} --gpu --num-envs 32 --max-iterations 1000000",
             ],
         )

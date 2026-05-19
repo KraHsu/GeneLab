@@ -130,23 +130,34 @@ def _model_kwargs(
                 "n_sampled_goal": agent_cfg.her.n_sampled_goal,
                 "goal_selection_strategy": agent_cfg.her.goal_selection_strategy,
             }
-            # HerReplayBuffer cannot sample until every env has finished a full
-            # episode, so learning_starts must cover num_envs x episode_length.
-            # The configured value can't know num_envs, so scale it up here.
+            # HerReplayBuffer works in whole episodes, and buffer_size is split
+            # per env as buffer_size // num_envs. Two floors, both scaling with
+            # num_envs (which the static cfg cannot know):
+            #   * learning_starts >= one episode per env, so the first episode
+            #     completes before training samples;
+            #   * buffer_size >= several episodes per env. A near-one-episode
+            #     slice fills and wraps immediately, and HER's wrap bookkeeping
+            #     clears the just-finished episode before training can sample it
+            #     -- so the buffer must comfortably hold multiple episodes.
+            # warning, not info: configured values are being overridden and the
+            # CLI does not surface info-level logs.
             max_ep_len = int(getattr(vec_env, "max_episode_length", 0) or 0)
-            min_starts = vec_env.num_envs * (max_ep_len + 1)
-            if max_ep_len and kwargs["learning_starts"] < min_starts:
-                # warning, not info: the user's configured value is being
-                # overridden, and the CLI does not surface info-level logs.
-                _logger.warning(
-                    "HER: raising learning_starts %d -> %d (num_envs=%d x "
-                    "episode_length=%d) so a full episode completes before training",
-                    kwargs["learning_starts"],
-                    min_starts,
-                    vec_env.num_envs,
-                    max_ep_len,
-                )
-                kwargs["learning_starts"] = min_starts
+            if max_ep_len:
+                unit = vec_env.num_envs * (max_ep_len + 1)
+                floors = {"learning_starts": unit, "buffer_size": 8 * unit}
+                for key, floor in floors.items():
+                    if kwargs[key] < floor:
+                        _logger.warning(
+                            "HER: raising %s %d -> %d (num_envs=%d, "
+                            "episode_length=%d); HER stores whole episodes -- "
+                            "prefer a modest --num-envs.",
+                            key,
+                            kwargs[key],
+                            floor,
+                            vec_env.num_envs,
+                            max_ep_len,
+                        )
+                        kwargs[key] = floor
     kwargs.update(copy.deepcopy(agent_cfg.extra_kwargs))
     return kwargs
 
