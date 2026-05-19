@@ -18,6 +18,7 @@ installed and degrades to a plain object otherwise, so zero/random play and unit
 tests work without SB3. ``gymnasium`` is required either way.
 """
 
+import time
 from typing import TYPE_CHECKING, Any
 
 import gymnasium
@@ -96,6 +97,14 @@ class GenelabSb3VecEnv:
         self.reset_infos: list[dict[str, Any]] = [{} for _ in range(num_envs)]
         self._seeds: list[int | None] = [None for _ in range(num_envs)]
         self._options: list[dict[str, Any]] = [{} for _ in range(num_envs)]
+        # Episode bookkeeping for SB3's ep_info_buffer (drives rollout/ep_*
+        # metrics + rollout/success_rate). Replaces an external VecMonitor —
+        # GPU envs auto-reset internally so we record episode totals before
+        # the reset happens.
+        self._ep_rew_sum = np.zeros(num_envs, dtype=np.float64)
+        self._ep_step = np.zeros(num_envs, dtype=np.int64)
+        self._ep_success = np.zeros(num_envs, dtype=bool)
+        self._ep_start_time = np.full(num_envs, time.time(), dtype=np.float64)
 
     # -- observation assembly -------------------------------------------------
     def _build_obs(self, obs_dict: dict[str, torch.Tensor]) -> Any:
@@ -128,6 +137,10 @@ class GenelabSb3VecEnv:
     def reset(self) -> Any:
         obs_dict, _ = self._env.reset()
         self.reset_infos = [{} for _ in range(self.num_envs)]
+        self._ep_rew_sum[:] = 0.0
+        self._ep_step[:] = 0
+        self._ep_success[:] = False
+        self._ep_start_time[:] = time.time()
         return self._build_obs(obs_dict)
 
     def step_async(self, actions: Any) -> None:
@@ -145,19 +158,87 @@ class GenelabSb3VecEnv:
         truncated_np = truncated.view(-1).detach().to("cpu").numpy().astype(bool)
         dones = terminated_np | truncated_np
 
+        # Episode bookkeeping: track per-env running totals; on done, emit a
+        # VecMonitor-shaped ``info["episode"]`` so SB3's ep_info_buffer picks
+        # up rollout/ep_rew_mean / ep_len_mean. ``is_success`` is computed from
+        # achieved-vs-desired goal distance against the HER threshold (when HER
+        # is configured) so success_rate aggregates into the same buffer.
+        self._ep_rew_sum += rewards
+        self._ep_step += 1
+        per_env_success = self._episode_success_flags(obs, terminated_np, truncated_np)
+        self._ep_success |= per_env_success
+
         # SB3 auto-reset contract: on a done env, ``obs`` already holds the new
         # episode (the env auto-resets internally), and ``terminal_observation``
         # carries the finished episode's last obs. We can't recover the true
         # pre-reset obs after the env's internal auto-reset, so it is approximated
         # by the post-reset obs — the standard caveat for GPU-vectorized SB3 envs.
+        now = time.time()
         infos: list[dict[str, Any]] = []
         for i in range(self.num_envs):
             info: dict[str, Any] = {}
             if dones[i]:
                 info["TimeLimit.truncated"] = bool(truncated_np[i] and not terminated_np[i])
                 info["terminal_observation"] = self._obs_at(obs, i)
+                info["episode"] = {
+                    "r": float(self._ep_rew_sum[i]),
+                    "l": int(self._ep_step[i]),
+                    "t": float(now - self._ep_start_time[i]),
+                }
+                info["is_success"] = bool(self._ep_success[i])
+                self._ep_rew_sum[i] = 0.0
+                self._ep_step[i] = 0
+                self._ep_success[i] = False
+                self._ep_start_time[i] = now
             infos.append(info)
         return obs, rewards, dones, infos
+
+    def _episode_success_flags(
+        self, obs: Any, terminated: np.ndarray, truncated: np.ndarray
+    ) -> np.ndarray:
+        """Per-env ``is_success`` for the current step. ``True`` while the
+        achieved goal is within HER's distance threshold of the desired goal —
+        the same condition the sparse reward + HER ``compute_reward`` use, so
+        an episode's ``info["is_success"]`` (latched across the episode) lines
+        up with what the policy is being graded on. Returns all-False when HER
+        is not configured (no goals exposed)."""
+        if self._her is None or not isinstance(obs, dict):
+            return np.zeros(self.num_envs, dtype=bool)
+        achieved = obs.get("achieved_goal")
+        desired = obs.get("desired_goal")
+        if achieved is None or desired is None:
+            return np.zeros(self.num_envs, dtype=bool)
+        distance = np.linalg.norm(np.asarray(achieved) - np.asarray(desired), axis=-1)
+        threshold = self._her_distance_threshold()
+        return distance < threshold
+
+    def _her_distance_threshold(self) -> float:
+        """Recover the HER distance threshold by probing ``compute_reward`` at
+        identical achieved/desired goals — the sparse reward is ``0`` inside the
+        threshold and ``-1`` outside, so the perturbation that flips the sign
+        reveals the threshold. Cached after the first probe."""
+        cached = getattr(self, "_her_threshold_cache", None)
+        if cached is not None:
+            return cached
+        # Fall back to a reasonable default if probing fails or HER is not set.
+        if self._her is None or self._her.compute_reward is None:
+            self._her_threshold_cache = 0.05
+            return self._her_threshold_cache
+        try:
+            zero = np.zeros((1, 3), dtype=np.float32)
+            lo, hi = 0.0, 1.0
+            for _ in range(40):
+                mid = 0.5 * (lo + hi)
+                probe = np.array([[mid, 0.0, 0.0]], dtype=np.float32)
+                r = float(np.asarray(self._her.compute_reward(zero, probe, None)).reshape(-1)[0])
+                if r >= 0.0:
+                    lo = mid
+                else:
+                    hi = mid
+            self._her_threshold_cache = 0.5 * (lo + hi)
+        except Exception:
+            self._her_threshold_cache = 0.05
+        return self._her_threshold_cache
 
     def step(self, actions: Any) -> tuple[Any, np.ndarray, np.ndarray, list[dict[str, Any]]]:
         self.step_async(actions)
