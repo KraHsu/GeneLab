@@ -542,13 +542,14 @@ def _dispatch_train(
     if agent_cfg is None:
         task.train()
         return
-    from genelab.rl import RslRlOnPolicyRunnerCfg, train_task
+    from genelab.rl import select_backend, train_task
 
-    if not isinstance(agent_cfg, RslRlOnPolicyRunnerCfg):
-        raise SystemExit(
-            f"task agent cfg has unsupported type {type(agent_cfg).__name__}; "
-            "expected RslRlOnPolicyRunnerCfg"
-        )
+    # The backend is chosen by the agent cfg type (RSL-RL, skrl, ...); an
+    # unregistered type raises a clear error here instead of deep in the runner.
+    try:
+        backend = select_backend(agent_cfg)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     task_id = getattr(task_cfg, "name", None)
     if not isinstance(task_id, str):
         raise SystemExit("task config is missing 'name'; cannot route through RL train helper")
@@ -556,9 +557,17 @@ def _dispatch_train(
     gpus_raw = runner_args.pop("gpus", None)
     gpus = int(gpus_raw) if gpus_raw is not None else 1
     num_envs_per_rank = _resolve_per_rank_num_envs(runner_args, gpus=gpus)
-    if gpus > 1 and "TORCHELASTIC_RUN_ID" not in os.environ:
-        _relaunch_under_torchrun(gpus, agent_cfg, runner_args, num_envs_per_rank, task_id=task_id)
-        return
+    if gpus > 1:
+        if backend.name != "rsl_rl":
+            raise SystemExit(
+                f"multi-GPU training (--gpus {gpus}) is only supported by the RSL-RL "
+                f"backend; this task uses the {backend.name!r} backend"
+            )
+        if "TORCHELASTIC_RUN_ID" not in os.environ:
+            _relaunch_under_torchrun(
+                gpus, agent_cfg, runner_args, num_envs_per_rank, task_id=task_id
+            )
+            return
 
     max_iter_raw = runner_args.get("max_iterations")
     seed_raw = runner_args.get("seed")

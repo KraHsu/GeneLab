@@ -1,7 +1,20 @@
 # RL runner
 
-`genelab.rl` 把已注册 task 接到 RSL-RL。它刻意保持很薄：GeneLab 负责 task 解析、配置修改、
-VecEnv 适配、日志、profiling hook 和分布式启动 helper；RSL-RL 负责学习算法。
+`genelab.rl` 把已注册 task 接到可插拔的 RL **后端**。它刻意保持很薄：GeneLab 负责 task 解析、
+配置修改、环境构建、bridge 生命周期、日志、profiling hook 和分布式启动 helper；后端负责学习算法。
+
+## 后端
+
+`train_task` / `play_task` 是与后端无关的分发器。后端由 `TaskCfg.agent` 的类型决定：
+
+| Agent 配置 | 后端 | 算法 |
+|---|---|---|
+| `RslRlOnPolicyRunnerCfg` | `rsl_rl`（默认） | PPO |
+| `SkrlAgentCfg` | `skrl` | PPO、A2C、SAC、TD3、DDPG |
+
+后端位于 `genelab.rl.backends`，按配置类型自行注册，`select_backend(agent_cfg)` 负责解析。
+接入另一个库只需新增一个 `Backend`（`train` / `play`）及其 agent 配置 dataclass——分发器和
+CLI 无需改动。
 
 ## 训练流程
 
@@ -9,11 +22,13 @@ VecEnv 适配、日志、profiling hook 和分布式启动 helper；RSL-RL 负�
 TASKS.get(task_id)
 └── TaskCfg.env + TaskCfg.agent
     └── ManagerBasedRlEnv
-        └── RslRlVecEnvWrapper
-            └── rsl_rl OnPolicyRunner.learn()
+        └── select_backend(agent_cfg).train(TrainContext)
+            ├── rsl_rl:  RslRlVecEnvWrapper  → OnPolicyRunner.learn()
+            └── skrl:    GenelabSkrlWrapper  → SequentialTrainer.train()
 ```
 
-main process 写入 `params/env.json`、`params/agent.json`、TensorBoard event、profiler trace 和 checkpoint。
+main process 写入 `params/env.json`、`params/agent.json`、TensorBoard event、profiler trace 和
+checkpoint。RSL-RL 写到 `logs/rsl_rl/`，skrl 写到 `logs/skrl/`。
 
 ## 回放流程
 
@@ -23,7 +38,7 @@ main process 写入 `params/env.json`、`params/agent.json`、TensorBoard event�
 |---|---|
 | `zero` | 返回零动作。 |
 | `random` | 均匀随机动作。 |
-| `trained` | 加载 checkpoint，并调用 RSL-RL inference policy。 |
+| `trained` | 加载 checkpoint，并调用后端的 inference policy。 |
 
 Genesis viewer 关闭或达到 `max_steps` 时，回放会干净退出。
 
