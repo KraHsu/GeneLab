@@ -1,75 +1,50 @@
-# CLI overview
+# CLI Overview
 
-`genelab` is exposed as a console script via the `genelab = "genelab.cli:main"` entry point.
-With `uv` the canonical invocation is:
+The `genelab` CLI is a thin dispatcher over registries and task configs. It does not own task logic;
+it discovers extensions, resolves a registered object, applies overrides, and calls the task or
+runner.
+
+## Command model
 
 ```bash
-uv run genelab [GLOBAL OPTIONS] <subcommand> [ARGS]
+uv run genelab [global options] <command> [arguments]
 ```
 
-## Subcommands
+| Area | Commands |
+|---|---|
+| Registry discovery | `list robots`, `list envs`, `list tasks`, `info NAME` |
+| Runtime | `play TASK`, `train TASK` |
+| Utilities | `cache`, `prof open` |
+| Project scaffolding | `project new NAME` |
 
-| Subcommand | Purpose |
-|------------|---------|
-| `cache` | Create project-local simulation cache directories (`.cache/`) and set `XDG_CACHE_HOME` / `MPLCONFIGDIR`. |
-| `list robots` | List registered robots from the `ROBOTS` registry. |
-| `list envs` | List registered environments from the `ENVS` registry. |
-| `list tasks` | List registered tasks from the `TASKS` registry. |
-| `play` | Run a registered task in the configured Genesis backend; supports config overrides. |
-| `train` | Train a registered task when an RL runner exists; supports multi-GPU via `torchrun`. |
-| `prof open` | Launch TensorBoard against a `torch.profiler` trace directory. |
-| `project new` | Scaffold a new external extension package with all three registries wired up. |
+## Extension loading order
 
-## Global options
+Every command that needs registry data loads extensions in this order:
 
-The following flags accept any position in front of the subcommand:
+1. Bundled asset zoo robots through `load_bundled_asset_zoo()`.
+2. Installed `genelab.extensions` entry points, unless `--no-entry-points` is set.
+3. Repeated explicit `--import MODULE` values.
 
-| Flag | Effect |
-|------|--------|
-| `--version` | Print the GeneLab version and exit. |
-| `--import MODULE` | Eagerly import an extension module before dispatching. Repeatable. Useful for extensions that do not (yet) ship a `genelab.extensions` entry point. |
-| `--no-entry-points` | Skip auto-discovery via the `genelab.extensions` entry-point group. Combined with `--import`, produces a fully explicit, reproducible loading order. |
+Use entry points for daily work and `--import` for local experiments.
 
-## Extension discovery order
+## Overrides
 
-On startup the CLI discovers extensions through three pathways, in order: entry-point
-auto-discovery, explicit `--import MODULE` flags, then programmatic
-`genelab.registry.load_extension_module(...)` calls.
+Runtime commands accept unknown `--a.b.c VALUE` options after the task id. The CLI forwards them to
+`apply_overrides`.
 
-## Shell completion
+```bash
+uv run genelab play TASK_ID --env.simulation.dt 0.005
+```
 
-`--install-completion` writes a completion script into the current shell's rc file
-(bash, zsh, fish, PowerShell); `--show-completion` prints it to stdout for manual
-installation. After installation, tab-completing `genelab info <TAB>` cycles through
-every registered task, env, and robot name; `genelab play <TAB>` and
-`genelab train <TAB>` cycle through task names; `genelab list <TAB>` offers
-`robots / envs / tasks`.
+Use `genelab info TASK_ID` to list valid paths.
 
-!!! note "Entry-point extensions only"
+## Interactive mode
 
-    Completion callbacks load extensions through the `genelab.extensions`
-    entry-point group. Ad-hoc `--import MODULE` registrations do not appear
-    in the completion list — the shell strips global flags from the argv it
-    hands the callback, so the imported module list is invisible at that
-    point.
-
-## Interactive recovery
-
-When stdin is a TTY, four user-input mistakes fall back to a `questionary`
-picker instead of exiting with a one-line error:
-
-- `play` / `train` invoked with no task id, or with one that does not match
-  any registered task.
-- `info NAME` with an unknown name.
-- `--agent KIND` with a value other than `zero` / `random` / `trained`.
-- `--<a.b.c>` override paths that do not exist on the resolved task's cfg.
-
-Outside a TTY — CI, pipes, scripts, pytest — the picker no-ops and the
-original error surfaces unchanged, so non-interactive callers observe
-identical behavior to a build without the recovery layer.
+When stdin is a TTY, the CLI can prompt for a missing task id, unknown registry name, invalid
+`--agent`, or unknown override path. In CI and scripts it raises the same errors directly.
 
 ## See also
 
+- [CLI Reference](../reference/cli.md)
+- [Discovery: list and info](list-info.md)
 - [Play and Train](play-train.md)
-- [Project new](project-new.md)
-- [Extensions](../concepts/extensions.md)

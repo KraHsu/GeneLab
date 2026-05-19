@@ -1,40 +1,32 @@
 # 示例
 
-仓库在 `examples/` 下提供数个参考扩展，同时也是 CLI 与注册表的集成测试。
+示例是扩展包，用来展示 GeneLab 能力，而不把项目专用代码放进 `src/genelab/`。
 
-## inverted_pendulum
+## 能力地图
 
-两个 PPO cart-pole 任务，训练栈与 Unitree 示例相同（`ManagerBasedRlEnv` + rsl_rl），训练预算
-控制在单机能跑完的量级：
+| 示例 | 包 | 展示内容 |
+|---|---|---|
+| [倒立摆](inverted-pendulum.md) | `examples/inverted_pendulum` | 最小 train/play 闭环、manager term、RSL-RL 集成。 |
+| [Unitree G1](unitree-g1.md) | `examples/unitree` | 人形机器人 locomotion、速度命令、动作模仿。 |
+| [Showcase](showcase.md) | `examples/genelab_showcase` | 传感器、ray cast、接触、地形、课程、执行器、录制。 |
+| [魔方](rubiks-cube.md) | `examples/genelab_examples` | 刚体组合与可视交互。 |
+| [五指手](wuji-hand.md) | `examples/genelab_examples` | 灵巧手 playback 与资产打包。 |
 
-- **`GeneLab-Inverted-Pendulum-v0`** —— 小车 + 单杆倒立摆。
-- **`GeneLab-Double-Inverted-Pendulum-v0`** —— 小车 + 串联双杆倒立摆。
+## 安装示例
 
-源码位于 `examples/inverted_pendulum/`。
+```bash
+uv pip install -e examples/inverted_pendulum
+uv pip install -e examples/genelab_examples
+uv run genelab list tasks
+```
 
-## genelab_examples
+只有需要 Unitree 时再安装：
 
-仓库内的标准扩展，接通两个任务：
+```bash
+uv pip install -e examples/unitree
+```
 
-- **`wuji_hand`** —— 手部操作任务。
-- **`rubiks`** —— 魔方任务。
+## 另见
 
-`pyproject.toml` 声明了 `genelab.extensions` entry point，因此安装该包后会被自动发现；
-项目 `pyproject.toml` 的 `pythonpath` 设置也让测试可以直接 import 而无需安装。源码位于
-`examples/genelab_examples/`。
-
-## unitree
-
-Unitree G1 人形机器人的两个 PPO 任务 —— 速度跟踪与动作模仿，从 mjlab 移植并适配到 Genesis。
-形态与 `genelab_examples` 相同（entry point、`register()`、按模块拆分的注册文件）。源码位于
-`examples/unitree/`。
-
-## external_project
-
-下游项目最小模板。`genelab project new` 生成的内容与之结构一致，留在仓库里作为脚手架输出
-参考。源码位于 `examples/external_project/`。
-
-## See also
-
-- [快速开始](../getting-started/quickstart.md)
-- [扩展加载](../concepts/extensions.md)
+- [教程](../tutorial.md)
+- [构建扩展项目](../best-practices/extension-projects.md)

@@ -1,43 +1,102 @@
-# API Reference
-
-Auto-generated from the source docstrings via
-[`mkdocstrings`](https://mkdocstrings.github.io/). The API surface below covers GeneLab's public
-core. Extension packages document their own APIs in their own projects.
-
-!!! note "Single-source"
-    The API reference is generated from English docstrings and is shared by both language
-    versions of this site.
-
+---
+search:
+  exclude: true
 ---
 
-## `genelab.lab`
+# API Reference
 
-The public facade. Most user code should import from here rather than from `genelab.registry`
-directly.
+This page is generated from source docstrings via
+[`mkdocstrings`](https://mkdocstrings.github.io/). It is shared by both language versions of the
+site. Concept and how-to pages explain how to use the APIs; this page is for signatures, members,
+and defaults.
+
+## Public facade
 
 ::: genelab.lab
     options:
       show_if_no_docstring: true
 
----
-
-## `genelab.registry`
+## Registries and configs
 
 ::: genelab.registry
     options:
       show_if_no_docstring: true
 
----
-
-## `genelab.configs`
-
 ::: genelab.configs
     options:
       show_if_no_docstring: true
 
----
+## Environment
 
-## `genelab.cache`
+::: genelab.envs.manager_based_rl_env
+    options:
+      show_if_no_docstring: true
+
+## Managers
+
+::: genelab.managers
+    options:
+      show_if_no_docstring: true
+
+## MDP library
+
+::: genelab.mdp
+    options:
+      show_if_no_docstring: true
+
+## Scene and entities
+
+::: genelab.scene
+    options:
+      show_if_no_docstring: true
+
+::: genelab.entity
+    options:
+      show_if_no_docstring: true
+
+## Actuators
+
+::: genelab.actuator
+    options:
+      show_if_no_docstring: true
+
+## Sensors
+
+::: genelab.sensor
+    options:
+      show_if_no_docstring: true
+
+## Terrains
+
+::: genelab.terrains
+    options:
+      show_if_no_docstring: true
+
+## RL
+
+::: genelab.rl
+    options:
+      show_if_no_docstring: true
+
+## Recording
+
+::: genelab.recording
+    options:
+      show_if_no_docstring: true
+
+## Bridges
+
+::: genelab.bridges
+    options:
+      show_if_no_docstring: true
+
+## Asset zoo
+
+::: genelab.asset_zoo
+    options:
+      show_if_no_docstring: true
+
+## Utilities
 
 ::: genelab.cache
     options:
