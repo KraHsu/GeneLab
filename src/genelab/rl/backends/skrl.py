@@ -174,7 +174,9 @@ class SkrlBackend:
         if ctx.seed is not None:
             agent_cfg.seed = int(ctx.seed)
         # skrl trains in timesteps; --max-iterations maps onto the timestep budget.
-        timesteps = int(ctx.max_iterations) if ctx.max_iterations is not None else agent_cfg.timesteps
+        timesteps = (
+            int(ctx.max_iterations) if ctx.max_iterations is not None else agent_cfg.timesteps
+        )
 
         from skrl.trainers.torch import SequentialTrainer
         from skrl.utils import set_seed
@@ -260,8 +262,12 @@ class SkrlBackend:
         try:
             with maybe_profile(**ctx.profile.as_maybe_profile_kwargs()) as prof_step:
                 run_play_loop(
-                    env, adapter, policy, ctx.bridges,
-                    max_steps=ctx.max_steps, prof_step=prof_step,
+                    env,
+                    adapter,
+                    policy,
+                    ctx.bridges,
+                    max_steps=ctx.max_steps,
+                    prof_step=prof_step,
                 )
         finally:
             close_bridges(ctx.bridges, env)

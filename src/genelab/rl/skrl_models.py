@@ -182,19 +182,26 @@ def build_models(
         return {"policy": gaussian(model_cfg.clip_actions), "value": value()}
     if algorithm == "DDPG":
         return {
-            "policy": det_policy(), "target_policy": det_policy(),
-            "critic": q(), "target_critic": q(),
+            "policy": det_policy(),
+            "target_policy": det_policy(),
+            "critic": q(),
+            "target_critic": q(),
         }
     if algorithm == "TD3":
         return {
-            "policy": det_policy(), "target_policy": det_policy(),
-            "critic_1": q(), "critic_2": q(),
-            "target_critic_1": q(), "target_critic_2": q(),
+            "policy": det_policy(),
+            "target_policy": det_policy(),
+            "critic_1": q(),
+            "critic_2": q(),
+            "target_critic_1": q(),
+            "target_critic_2": q(),
         }
     if algorithm == "SAC":
         return {
             "policy": gaussian(clip_actions=True),
-            "critic_1": q(), "critic_2": q(),
-            "target_critic_1": q(), "target_critic_2": q(),
+            "critic_1": q(),
+            "critic_2": q(),
+            "target_critic_1": q(),
+            "target_critic_2": q(),
         }
     raise ValueError(f"unsupported skrl algorithm {algorithm!r}")

@@ -49,8 +49,10 @@ class GenelabSkrlWrapper:
             )
         self._observation_space = _box(int(obs_dict[obs_group].shape[-1]))
         self._action_space = gymnasium.spaces.Box(
-            low=-1.0, high=1.0,
-            shape=(env.action_manager.total_action_dim,), dtype=np.float32,
+            low=-1.0,
+            high=1.0,
+            shape=(env.action_manager.total_action_dim,),
+            dtype=np.float32,
         )
         self._state_space: gymnasium.spaces.Box | None = None
         if state_group is not None and state_group in obs_dict:

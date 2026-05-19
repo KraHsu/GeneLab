@@ -25,8 +25,12 @@ _EXPECTED_MODEL_KEYS = {
     "A2C": {"policy", "value"},
     "DDPG": {"policy", "target_policy", "critic", "target_critic"},
     "TD3": {
-        "policy", "target_policy",
-        "critic_1", "critic_2", "target_critic_1", "target_critic_2",
+        "policy",
+        "target_policy",
+        "critic_1",
+        "critic_2",
+        "target_critic_1",
+        "target_critic_2",
     },
     "SAC": {"policy", "critic_1", "critic_2", "target_critic_1", "target_critic_2"},
 }
