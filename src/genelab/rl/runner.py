@@ -199,6 +199,7 @@ def train_task(
     task_id: str,
     agent_cfg: Any,
     *,
+    env_cfg: Any = None,
     num_envs: int | None = None,
     max_iterations: int | None = None,
     seed: int | None = None,
@@ -220,6 +221,11 @@ def train_task(
     RSL-RL, ``SkrlAgentCfg`` → skrl). ``max_iterations`` is interpreted by the
     backend — RSL-RL learning iterations for RSL-RL, training timesteps for skrl.
 
+    ``env_cfg`` defaults to the registered task's train env config. The CLI passes
+    its own already-overridden copy so command-line env overrides (``--gpu``,
+    ``--dt``, ``--a.env.*``) reach training — ``TASKS.get`` returns a fresh task
+    each call, so re-resolving here would discard them.
+
     ``log_dir`` (final, pre-resolved) takes precedence over ``log_root`` (parent
     under which a ``<experiment>/<timestamp>`` directory is created). The torchrun
     relaunch path pre-resolves the log dir so every rank lands in the same folder.
@@ -228,7 +234,8 @@ def train_task(
     see ``genelab.rl.profiler.maybe_profile`` for the semantics.
     """
     ensure_project_cache()
-    env_cfg = _resolve_env_cfg(task_id, play=False)
+    if env_cfg is None:
+        env_cfg = _resolve_env_cfg(task_id, play=False)
     if num_envs is not None:
         env_cfg.simulation.num_envs = int(num_envs)
     if seed is not None:
@@ -262,6 +269,7 @@ def train_task(
 def play_task(
     task_id: str,
     *,
+    env_cfg: Any = None,
     checkpoint: Path | None = None,
     num_envs: int | None = None,
     agent: AgentKind | None = None,
@@ -283,6 +291,11 @@ def play_task(
     else ``"zero"``. ``"trained"`` routes to the backend owning the task's agent
     config; ``"zero"`` / ``"random"`` are backend-agnostic.
 
+    ``env_cfg`` defaults to the registered task's play env config. The CLI passes
+    its own already-overridden copy so command-line env overrides (``--vis``,
+    ``--gpu``, ...) reach playback — ``TASKS.get`` returns a fresh task each call,
+    so re-resolving here would discard them.
+
     ``prof*`` keyword arguments override the matching ``GENELAB_PROFILE_*`` env vars;
     see ``genelab.rl.profiler.maybe_profile`` for the semantics.
     """
@@ -292,7 +305,8 @@ def play_task(
     )
     if kind == "trained" and checkpoint is None:
         raise SystemExit("agent='trained' requires a --checkpoint path")
-    env_cfg = _resolve_env_cfg(task_id, play=True)
+    if env_cfg is None:
+        env_cfg = _resolve_env_cfg(task_id, play=True)
     if num_envs is not None:
         env_cfg.simulation.num_envs = int(num_envs)
     env = _build_env(env_cfg)
