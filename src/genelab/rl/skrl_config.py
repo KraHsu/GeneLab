@@ -55,8 +55,8 @@ class SkrlAgentCfg:
     seed: int = 42
     # skrl trains in environment timesteps, not learning iterations.
     timesteps: int = 100_000
-    rollouts: int = 24                    # on-policy memory size (steps per update)
-    replay_buffer_size: int = 1_000_000   # off-policy replay buffer capacity
+    rollouts: int = 24  # on-policy memory size (steps per update)
+    replay_buffer_size: int = 1_000_000  # off-policy replay buffer capacity
     learning_rate: float = 3.0e-4
     discount_factor: float = 0.99
     # On-policy (PPO / A2C).

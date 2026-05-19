@@ -131,8 +131,12 @@ class RslRlBackend:
         try:
             with maybe_profile(**ctx.profile.as_maybe_profile_kwargs()) as prof_step:
                 run_play_loop(
-                    env, wrapped, policy, ctx.bridges,
-                    max_steps=ctx.max_steps, prof_step=prof_step,
+                    env,
+                    wrapped,
+                    policy,
+                    ctx.bridges,
+                    max_steps=ctx.max_steps,
+                    prof_step=prof_step,
                 )
         finally:
             close_bridges(ctx.bridges, env)

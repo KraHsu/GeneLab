@@ -246,8 +246,14 @@ def train_task(
         log_root=log_root,
         resume_from=resume_from,
         profile=_profile_args(
-            prof, prof_out, prof_wait, prof_warmup, prof_active, prof_repeat,
-            prof_record_shapes, prof_with_stack,
+            prof,
+            prof_out,
+            prof_wait,
+            prof_warmup,
+            prof_active,
+            prof_repeat,
+            prof_record_shapes,
+            prof_with_stack,
         ),
     )
     return select_backend(agent_cfg).train(ctx)
@@ -300,9 +306,7 @@ def play_task(
         resolved_agent_cfg = getattr(getattr(task, "cfg", None), "agent", None)
 
     backend = (
-        select_backend(resolved_agent_cfg)
-        if resolved_agent_cfg is not None
-        else default_backend()
+        select_backend(resolved_agent_cfg) if resolved_agent_cfg is not None else default_backend()
     )
     ctx = PlayContext(
         task_id=task_id,
@@ -315,8 +319,14 @@ def play_task(
         max_steps=max_steps,
         bridges=bridges,
         profile=_profile_args(
-            prof, prof_out, prof_wait, prof_warmup, prof_active, prof_repeat,
-            prof_record_shapes, prof_with_stack,
+            prof,
+            prof_out,
+            prof_wait,
+            prof_warmup,
+            prof_active,
+            prof_repeat,
+            prof_record_shapes,
+            prof_with_stack,
         ),
     )
     backend.play(ctx)
