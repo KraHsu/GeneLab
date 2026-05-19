@@ -1,43 +1,33 @@
 # Examples
 
-The repository ships several reference extensions under `examples/`. They double as integration
-tests for the CLI and registry.
+Examples are extension packages that exercise GeneLab capabilities without adding project-specific
+code to `src/genelab/`.
 
-## inverted_pendulum
+## Capability map
 
-Two PPO cart-pole tasks built on the same `ManagerBasedRlEnv` + rsl_rl stack as the Unitree
-example, sized to fit in a laptop training budget:
+| Example | Package | Shows |
+|---|---|---|
+| [Inverted Pendulum](inverted-pendulum.md) | `examples/inverted_pendulum` | Minimal train/play loop, manager terms, RSL-RL integration. |
+| [Unitree G1](unitree-g1.md) | `examples/unitree` | Humanoid locomotion, velocity commands, motion imitation. |
+| [Showcase](showcase.md) | `examples/genelab_showcase` | Sensors, ray casts, contact, terrains, curricula, actuators, recording. |
+| [Rubik's Cube](rubiks-cube.md) | `examples/genelab_examples` | Rigid-object composition and visual interaction. |
+| [Wuji Hand](wuji-hand.md) | `examples/genelab_examples` | Articulated hand playback and asset packaging. |
 
-- **`GeneLab-Inverted-Pendulum-v0`** — single inverted pole on a cart.
-- **`GeneLab-Double-Inverted-Pendulum-v0`** — two stacked inverted poles on a cart.
+## Install examples
 
-Source at `examples/inverted_pendulum/`.
+```bash
+uv pip install -e examples/inverted_pendulum
+uv pip install -e examples/genelab_examples
+uv run genelab list tasks
+```
 
-## genelab_examples
+Install Unitree only when needed:
 
-The canonical in-tree extension, wiring two tasks:
-
-- **`wuji_hand`** — a hand-manipulation task.
-- **`rubiks`** — a Rubik's cube task.
-
-`pyproject.toml` declares the `genelab.extensions` entry point, so the extension is discovered
-automatically once installed. The project's `pyproject.toml` also adds the source directory to
-pytest's `pythonpath`, so tests can import from it without installation. Source at
-`examples/genelab_examples/`.
-
-## unitree
-
-Two PPO tasks on the Unitree G1 humanoid — velocity tracking and motion imitation — ported from
-mjlab and adapted to Genesis. Same extension shape as `genelab_examples` (entry point,
-`register()`, per-module registration files). Source at `examples/unitree/`.
-
-## external_project
-
-A minimal downstream project template. `genelab project new` produces a project of the same
-shape; this directory is kept in-tree as a reference for the scaffolding output. Source at
-`examples/external_project/`.
+```bash
+uv pip install -e examples/unitree
+```
 
 ## See also
 
-- [Quickstart](../getting-started/quickstart.md)
-- [Extensions](../concepts/extensions.md)
+- [Tutorial](../tutorial.md)
+- [Build an Extension Project](../best-practices/extension-projects.md)

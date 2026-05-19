@@ -1,77 +1,77 @@
 # Installation
 
-GeneLab requires **Python 3.12 or newer** and uses [`uv`](https://docs.astral.sh/uv/) for
-dependency management.
+This page is the focused installation checklist. For the full learning path, start with the
+[tutorial](../tutorial.md).
 
-## 1. Sync the environment
+## Requirements
+
+| Requirement | Version |
+|---|---|
+| Python | 3.12 or newer |
+| Dependency manager | `uv` |
+| Simulator backend | `genesis-world>=0.4.7` |
+| PyTorch | `torch>=2.8.0` through one `torch-*` extra |
+
+## Sync the environment
 
 From the repository root:
 
 ```bash
-uv sync
-uv run genelab --help
+uv sync --extra torch-cpu
+uv run genelab --version
 ```
 
-`uv sync` creates the project virtual environment, installs GeneLab from this checkout, and
-installs the dependencies pinned by `uv.lock`. `uv run ...` runs commands inside that
-environment. A bare `genelab` command works only after `.venv` is activated or GeneLab is
-installed into the active Python environment.
+Choose exactly one PyTorch extra:
 
-## 2. Pick exactly one PyTorch extra
-
-The `torch-*` extras are **mutually exclusive**:
-
-| Extra | Hardware target |
-|-------|----------------|
+| Extra | Target |
+|---|---|
 | `torch-cpu` | CPU-only or non-NVIDIA development machines. |
-| `torch-cu126` | NVIDIA, CUDA 12.6 driver. |
-| `torch-cu128` | NVIDIA, CUDA 12.8 driver. |
-| `torch-cu130` | NVIDIA, CUDA 13.0 driver. |
+| `torch-cu126` | NVIDIA driver compatible with CUDA 12.6 wheels. |
+| `torch-cu128` | NVIDIA driver compatible with CUDA 12.8 wheels. |
+| `torch-cu130` | NVIDIA driver compatible with CUDA 13.0 wheels. |
+
+Refresh an existing torch install:
 
 ```bash
-uv sync --extra torch-cpu        # one of the above
+uv sync --reinstall-package torch --extra torch-cu128
 ```
 
-!!! warning "PyTorch version requirement"
-    Genesis requires `torch>=2.8.0` — older builds emit a `'torch<2.8.0' is not supported`
-    warning at import time and may break Genesis runtime assumptions. All `torch-*` extras pin
-    `torch>=2.8.0`, so `uv sync` will pull a compatible wheel automatically. PyTorch only
-    publishes 2.8+ wheels on the `cpu`, `cu126`, `cu128`, and `cu130` indices; older CUDA
-    flavours (`cu118` / `cu121` / `cu124`) are intentionally not offered as extras. An older
-    `torch` already in the environment can be refreshed with
-    `uv sync --reinstall-package torch --extra torch-cuXXX`.
-
-Run `nvidia-smi` to confirm the driver version when unsure which CUDA build to use.
-
-## 3. Initialize project-local caches
-
-Genesis, Quadrants, and Matplotlib all require a writable cache directory. The CLI sets up both
-the directory layout and the matching environment variables:
+## Create local caches
 
 ```bash
 uv run genelab cache
 ```
 
-This sets `XDG_CACHE_HOME` and `MPLCONFIGDIR` under `.cache/`, so the simulator never writes to
-the user's home directory.
+The command creates writable project-local cache directories and points `XDG_CACHE_HOME` and
+`MPLCONFIGDIR` at `.cache/`.
 
-## 4. Verify
+## Verify imports
 
 ```bash
 uv run python -c "import genelab; print(genelab.__version__)"
-uv run python -c "from genelab.lab import ManagerBasedEnvCfg; print(ManagerBasedEnvCfg.__name__)"
+uv run python -c "from genelab.lab import TaskCfg; print(TaskCfg.__name__)"
+uv run python -c "import torch; print(torch.__version__, torch.version.cuda)"
 uv run python -c "import genesis; print(genesis.__version__)"
-uv run pytest
-uv run ruff check
-uv run pyright
 ```
 
-Verify the selected PyTorch build:
+## Install example extensions
+
+The core package is a framework; tasks are registered by extensions.
 
 ```bash
-uv run python -c "import torch; print(torch.__version__, torch.version.cuda)"
+uv pip install -e examples/inverted_pendulum
+uv pip install -e examples/genelab_examples
+uv run genelab list tasks
+```
+
+Install Unitree only when you want the larger humanoid examples:
+
+```bash
+uv pip install -e examples/unitree
 ```
 
 ## See also
 
-- [Quickstart](quickstart.md)
+- [Tutorial](../tutorial.md)
+- [Debug Common Failures](../best-practices/debugging.md)
+- [Build an Extension Project](../best-practices/extension-projects.md)

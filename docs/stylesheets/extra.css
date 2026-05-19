@@ -447,8 +447,8 @@
   letter-spacing: 0.02em;
 }
 
-/* Modules at a glance — 2-column technical layout */
-.gl-modules {
+/* Abilities at a glance — 2-column technical layout */
+.gl-abilities {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
   gap: 0.4rem 1.6rem;
@@ -457,7 +457,7 @@
   list-style: none;
 }
 
-.gl-modules li {
+.gl-abilities li {
   display: grid;
   grid-template-columns: minmax(8.5rem, max-content) 1fr;
   gap: 1rem;
@@ -468,7 +468,7 @@
   line-height: 1.55;
 }
 
-.gl-modules li code {
+.gl-abilities li code {
   font-size: 0.78rem;
   background: transparent;
   padding: 0;
@@ -476,10 +476,10 @@
   white-space: nowrap;
 }
 
-[data-md-color-scheme="slate"] .gl-modules li code {
+[data-md-color-scheme="slate"] .gl-abilities li code {
   color: var(--md-primary-fg-color--light);
 }
 
-.gl-modules li span {
+.gl-abilities li span {
   color: var(--md-default-fg-color--light);
 }
