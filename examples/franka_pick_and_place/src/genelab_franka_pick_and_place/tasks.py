@@ -283,6 +283,6 @@ def register() -> None:
             examples=[
                 f"genelab play {SB3_HER_TASK_ID} --vis",
                 f"genelab train {SB3_HER_TASK_ID} --num-envs 16 --max-iterations 8000",
-                f"genelab train {SB3_HER_TASK_ID} --num-envs 16 --max-iterations 500000",
+                f"genelab train {SB3_HER_TASK_ID} --num-envs 2048 --max-iterations 2000000",
             ],
         )

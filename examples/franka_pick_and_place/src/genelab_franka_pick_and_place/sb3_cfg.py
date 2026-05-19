@@ -54,10 +54,10 @@ def franka_pick_and_place_sb3_cfg() -> Sb3AgentCfg:
 def franka_pick_and_place_sb3_her_cfg() -> Sb3AgentCfg:
     """SB3 SAC + HER config — goal-conditioned pick-and-place (panda-gym style).
 
-    ``HerReplayBuffer`` cannot sample until at least one full episode has finished
-    in every env, so ``learning_starts`` must exceed ``num_envs x episode_length``
-    (~100 control steps here). The default (4000) covers up to ~32 envs; scale it
-    up for larger ``--num-envs``."""
+    ``HerReplayBuffer`` cannot sample until a full episode has finished in every
+    env, so ``learning_starts`` must cover ``num_envs x episode_length``. The SB3
+    backend raises ``learning_starts`` to that floor automatically, so the value
+    set here only matters when it already exceeds it."""
     return Sb3AgentCfg(
         algorithm="SAC",
         seed=42,

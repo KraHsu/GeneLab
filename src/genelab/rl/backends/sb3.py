@@ -9,6 +9,7 @@ the skrl backend there is no hand-written model factory.
 """
 
 import copy
+import logging
 from pathlib import Path
 from typing import Any, cast
 
@@ -27,6 +28,8 @@ from genelab.rl.runner import (
 from genelab.rl.sb3_config import Sb3AgentCfg
 
 _ACTIVATIONS = ("elu", "relu", "tanh", "gelu", "selu", "leaky_relu")
+
+_logger = logging.getLogger(__name__)
 
 
 def _algo_class(algorithm: str) -> Any:
@@ -127,6 +130,23 @@ def _model_kwargs(
                 "n_sampled_goal": agent_cfg.her.n_sampled_goal,
                 "goal_selection_strategy": agent_cfg.her.goal_selection_strategy,
             }
+            # HerReplayBuffer cannot sample until every env has finished a full
+            # episode, so learning_starts must cover num_envs x episode_length.
+            # The configured value can't know num_envs, so scale it up here.
+            max_ep_len = int(getattr(vec_env, "max_episode_length", 0) or 0)
+            min_starts = vec_env.num_envs * (max_ep_len + 1)
+            if max_ep_len and kwargs["learning_starts"] < min_starts:
+                # warning, not info: the user's configured value is being
+                # overridden, and the CLI does not surface info-level logs.
+                _logger.warning(
+                    "HER: raising learning_starts %d -> %d (num_envs=%d x "
+                    "episode_length=%d) so a full episode completes before training",
+                    kwargs["learning_starts"],
+                    min_starts,
+                    vec_env.num_envs,
+                    max_ep_len,
+                )
+                kwargs["learning_starts"] = min_starts
     kwargs.update(copy.deepcopy(agent_cfg.extra_kwargs))
     return kwargs
 

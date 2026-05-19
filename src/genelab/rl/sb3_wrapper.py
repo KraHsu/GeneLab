@@ -120,6 +120,11 @@ class GenelabSb3VecEnv:
     def device(self) -> torch.device:
         return self._device
 
+    @property
+    def max_episode_length(self) -> int:
+        """Per-episode step budget — used to size HER's ``learning_starts``."""
+        return int(self._env.max_episode_length)
+
     def reset(self) -> Any:
         obs_dict, _ = self._env.reset()
         self.reset_infos = [{} for _ in range(self.num_envs)]
