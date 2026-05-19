@@ -25,6 +25,12 @@ rl = [
     "gymnasium>=1.0",
     "tensorboard>=2.20.0",
 ]
+# Optional second RL backend. ``genelab.rl.backends.skrl`` guards every skrl
+# import, so this extra is only needed to train/play tasks with a ``SkrlAgentCfg``.
+# Pinned ``<2`` until the skrl 2.0 model API is validated against GeneLab.
+skrl = [
+    "skrl>=1.4.0,<2",
+]
 # Live plot backends for ``genelab.recording``. PyQt plots use pyqtgraph + PyQt5;
 # Matplotlib plots use matplotlib. File-only recordings (NPZ/CSV/Video) don't need
 # any of these — they're handled by Genesis's own dependencies (numpy + PyAV).
@@ -73,6 +79,9 @@ rl = [
     "gymnasium>=1.0",
     "tensorboard>=2.20.0",
 ]
+skrl = [
+    "skrl>=1.4.0,<2",
+]
 recording = [
     "pyqtgraph>=0.13",
     "PyQt5>=5.15",
@@ -100,7 +109,7 @@ packages = ["src/genelab"]
 [tool.uv]
 # These groups install on every `uv sync` / `uv run` in this checkout, so daily
 # dev only needs to pick a torch extra (e.g. `uv sync --extra torch-cu126`).
-default-groups = ["dev", "rl", "recording", "teleop", "docs"]
+default-groups = ["dev", "rl", "skrl", "recording", "teleop", "docs"]
 conflicts = [
     [
         { extra = "torch-cpu" },

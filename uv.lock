@@ -810,6 +810,9 @@ rl = [
     { name = "tensorboard" },
     { name = "tensordict" },
 ]
+skrl = [
+    { name = "skrl" },
+]
 teleop = [
     { name = "dearpygui" },
 ]
@@ -852,6 +855,9 @@ rl = [
     { name = "tensorboard" },
     { name = "tensordict" },
 ]
+skrl = [
+    { name = "skrl" },
+]
 teleop = [
     { name = "dearpygui" },
 ]
@@ -873,6 +879,7 @@ requires-dist = [
     { name = "questionary", specifier = ">=2" },
     { name = "rich", specifier = ">=13" },
     { name = "rsl-rl-lib", marker = "extra == 'rl'", specifier = ">=5.2.0" },
+    { name = "skrl", marker = "extra == 'skrl'", specifier = ">=1.4.0,<2" },
     { name = "tensorboard", marker = "extra == 'rl'", specifier = ">=2.20.0" },
     { name = "tensordict", marker = "extra == 'rl'" },
     { name = "torch", marker = "extra == 'torch-cpu'", specifier = ">=2.8.0", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "genelab", extra = "torch-cpu" } },
@@ -881,7 +888,7 @@ requires-dist = [
     { name = "torch", marker = "extra == 'torch-cu130'", specifier = ">=2.8.0", index = "https://download.pytorch.org/whl/cu130", conflict = { package = "genelab", extra = "torch-cu130" } },
     { name = "typer", specifier = ">=0.12" },
 ]
-provides-extras = ["torch-cpu", "torch-cu126", "torch-cu128", "torch-cu130", "rl", "recording", "teleop", "docs"]
+provides-extras = ["torch-cpu", "torch-cu126", "torch-cu128", "torch-cu130", "rl", "skrl", "recording", "teleop", "docs"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -908,6 +915,7 @@ rl = [
     { name = "tensorboard", specifier = ">=2.20.0" },
     { name = "tensordict" },
 ]
+skrl = [{ name = "skrl", specifier = ">=1.4.0,<2" }]
 teleop = [{ name = "dearpygui", specifier = ">=1.10" }]
 
 [[package]]
@@ -3479,6 +3487,21 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
+]
+
+[[package]]
+name = "skrl"
+version = "1.4.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "gymnasium" },
+    { name = "packaging" },
+    { name = "tensorboard" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2c/6e/2f9260949187316e91643f69a2c503d96e1b8287baa12560d6ff07ff7716/skrl-1.4.3.tar.gz", hash = "sha256:24770278730c7ee8a7834ab9d7f737f44c4f3e2495c8316a879e11be1e33ec57", size = 214958, upload-time = "2025-03-30T01:29:20.271Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/08/82/86a1f8ba0aeafc76e842c5c5e6608a8877b68ccfcfc20410d0adee982d66/skrl-1.4.3-py3-none-any.whl", hash = "sha256:7f6396f626c8ecbef6dfcdaea0332e71d0c104149682b3bd9658c07315c4ea36", size = 403710, upload-time = "2025-03-30T01:29:18.264Z" },
 ]
 
 [[package]]
