@@ -13,6 +13,7 @@ profiling hooks, and distributed launch helpers; the backend owns the learning a
 |---|---|---|
 | `RslRlOnPolicyRunnerCfg` | `rsl_rl` (default) | PPO |
 | `SkrlAgentCfg` | `skrl` | PPO, A2C, SAC, TD3, DDPG |
+| `Sb3AgentCfg` | `sb3` | PPO, A2C, SAC, TD3, DDPG (+ HER) |
 
 Backends live under `genelab.rl.backends` and register themselves by config type;
 `select_backend(agent_cfg)` resolves one. Adding another library means adding a `Backend`
@@ -26,11 +27,12 @@ TASKS.get(task_id)
     └── ManagerBasedRlEnv
         └── select_backend(agent_cfg).train(TrainContext)
             ├── rsl_rl:  RslRlVecEnvWrapper  → OnPolicyRunner.learn()
-            └── skrl:    GenelabSkrlWrapper  → SequentialTrainer.train()
+            ├── skrl:    GenelabSkrlWrapper  → SequentialTrainer.train()
+            └── sb3:     GenelabSb3VecEnv    → model.learn()
 ```
 
 The main process writes `params/env.json`, `params/agent.json`, TensorBoard events, profiler traces,
-and checkpoints. RSL-RL logs under `logs/rsl_rl/`, skrl under `logs/skrl/`.
+and checkpoints. RSL-RL logs under `logs/rsl_rl/`, skrl under `logs/skrl/`, SB3 under `logs/sb3/`.
 
 ## Playback flow
 

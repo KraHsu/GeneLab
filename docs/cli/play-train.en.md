@@ -50,18 +50,32 @@ config — no flag required:
 |---|---|---|
 | `RslRlOnPolicyRunnerCfg` | `rsl_rl` (default) | PPO |
 | `SkrlAgentCfg` | `skrl` | PPO, A2C, SAC, TD3, DDPG |
+| `Sb3AgentCfg` | `sb3` | PPO, A2C, SAC, TD3, DDPG (+ HER) |
 
-The [skrl](https://skrl.readthedocs.io) backend is optional — install it with the
-`skrl` extra (`uv sync` already includes it in this checkout; downstream users run
-`pip install genelab[skrl]`). Pick the algorithm via `SkrlAgentCfg.algorithm`.
+The [skrl](https://skrl.readthedocs.io) and
+[Stable-Baselines3](https://stable-baselines3.readthedocs.io) backends are
+optional — install them with the `skrl` / `sb3` extras (`uv sync` already includes
+both in this checkout; downstream users run `pip install genelab[skrl]` or
+`genelab[sb3]`). Pick the algorithm via `SkrlAgentCfg.algorithm` /
+`Sb3AgentCfg.algorithm`.
 
-skrl trains in environment **timesteps** rather than learning iterations, so
-`--max_iterations N` sets the skrl timestep budget for a skrl task. Multi-GPU
-(`--gpus`) is supported by the RSL-RL backend only.
+Both skrl and SB3 train in environment **timesteps** rather than learning
+iterations, so `--max_iterations N` sets the timestep budget for those tasks.
+Multi-GPU (`--gpus`) is supported by the RSL-RL backend only.
+
+SB3 trains through `stable_baselines3.common.vec_env.VecEnv` (numpy, CPU), so the
+SB3 wrapper copies observations to host memory every step — a known cost of
+pairing SB3 with GeneLab's GPU-vectorized env. Hindsight Experience Replay is
+available for the off-policy algorithms via `Sb3AgentCfg.her`, which exposes a
+goal-conditioned observation and trains through SB3's `HerReplayBuffer`.
 
 ```bash
 # A task registered with a SkrlAgentCfg routes through the skrl backend.
 uv run genelab train GeneLab-Franka-Pick-And-Place-skrl-v0 --num_envs 2048 --max_iterations 12000
+
+# An Sb3AgentCfg routes through the SB3 backend (PPO, or SAC + HER).
+uv run genelab train GeneLab-Franka-Pick-And-Place-sb3-v0 --num_envs 2048 --max_iterations 500000
+uv run genelab train GeneLab-Franka-Pick-And-Place-sb3-her-v0 --num_envs 2048 --max_iterations 500000
 ```
 
 ## Config overrides
