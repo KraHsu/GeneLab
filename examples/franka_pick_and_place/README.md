@@ -24,12 +24,34 @@ uv run genelab play GeneLab-Franka-Pick-And-Place-v0 \
 The first run downloads the Franka MJCF and Genesis kernel cache; subsequent runs
 start instantly. Add `--vis` to either command to open the viewer.
 
+## Action variants
+
+The task ships with two action surfaces. Both share the same scene, observations,
+reward shaping, and PPO runner config — only the policy's action vector changes.
+
+| Task ID                                        | Action dim | Action term composition                                  | Notes                                                              |
+| ---------------------------------------------- | ---------- | -------------------------------------------------------- | ------------------------------------------------------------------ |
+| `GeneLab-Franka-Pick-And-Place-v0`             | 9          | `JointPositionAction` (arm `joint1..7` + `finger_joint1..2`) | Raw joint-position control. Policy must discover arm coordination. |
+| `GeneLab-Franka-Pick-And-Place-Cartesian-v0`   | 4          | `DifferentialIKAction(body_name="hand")` + `BinaryGripperAction` | Panda-gym `PandaPickAndPlace` parity: `(dx, dy, dz, gripper)`.     |
+
+The Cartesian variant solves a damped-least-squares IK step per control tick to
+turn `(dx, dy, dz)` into arm joint targets, and snaps the fingers to
+`{closed=0.0, open=0.04}` on the sign of the gripper scalar. It enables
+`requires_jac_and_ik` on the Franka morph so Genesis allocates the Jacobian tape.
+
+Pick the joint-position variant for ablations against raw joint control, and the
+Cartesian variant when the goal is sample-efficient comparison against panda-gym
+baselines.
+
+Smoke run for the Cartesian variant:
+
+```bash
+uv run genelab train GeneLab-Franka-Pick-And-Place-Cartesian-v0 \
+    --num-envs 16 --max-iterations 2
+```
+
 ## Notes
 
-- Action space is 9-dim joint position (arm `joint1..7` + `finger_joint1..2`). GeneLab
-  ships no EE-delta + IK action term today, so this task uses raw joint-position
-  control. panda-gym uses an EE-delta IK action with `action_dim=4`; expect different
-  sample-efficiency characteristics.
 - The scene has no table — the cube rests on the ground plane. Robot base is at
   `(0, 0, 0)`; panda-gym uses `(-0.6, 0, 0)` with a table.
 - Goal `z` is sampled uniformly in `[0, 0.2]` with probability `0.7`, otherwise forced
