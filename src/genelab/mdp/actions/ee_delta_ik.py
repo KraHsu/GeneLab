@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from genelab.managers.action_manager import ActionTerm, ActionTermCfg
+from genelab.utils.math import axis_angle_from_quat, quat_inv, quat_mul
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
@@ -40,9 +41,17 @@ class DifferentialIKActionCfg(ActionTermCfg):
     matching ``action_dim`` (3 or 6).
 
     ``use_orientation=False`` ships the position-only 3-DoF variant — the
-    minimum useful version called out in #73 and a direct match for the
-    panda-gym ``PandaPickAndPlace`` action surface. Setting it ``True`` opts in
-    to 6-DoF axis-angle control.
+    minimum useful version called out in #73. Setting it ``True`` opts in to
+    6-DoF axis-angle control where the policy also drives orientation.
+
+    ``lock_orientation`` keeps the 3-DoF position action surface but, instead of
+    leaving the redundant arm joints free to let the EE tumble, regulates the
+    orientation toward a fixed target via the angular Jacobian rows. This is the
+    direct match for panda-gym ``PandaPickAndPlace``, which re-solves IK to a
+    constant downward gripper orientation every step. ``fixed_orientation`` is
+    the wxyz target quaternion; left ``None`` it is captured from the EE pose on
+    the first step (i.e. the orientation the arm resets into).
+    ``lock_orientation`` and ``use_orientation`` are mutually exclusive.
 
     .. note::
        The robot's :class:`ArticulationCfg` must set
@@ -56,11 +65,20 @@ class DifferentialIKActionCfg(ActionTermCfg):
     scale: float | tuple[float, ...] = 0.05
     clip: tuple[float, float] | None = (-1.0, 1.0)
     use_orientation: bool = False
+    lock_orientation: bool = False
+    fixed_orientation: tuple[float, float, float, float] | None = None
+    orientation_gain: float = 1.0
     damping: float = 0.05
     max_delta_joint: float = 0.2
     class_type: type[ActionTerm] | None = None
 
     def __post_init__(self) -> None:
+        if self.use_orientation and self.lock_orientation:
+            raise ValueError(
+                "DifferentialIKActionCfg: use_orientation and lock_orientation are "
+                "mutually exclusive — the former lets the policy drive orientation, "
+                "the latter holds it at a fixed target."
+            )
         if self.class_type is None:
             self.class_type = DifferentialIKAction
 
@@ -107,17 +125,34 @@ class DifferentialIKAction(ActionTerm):
             0, self._joint_indices
         )
 
-        self._dim = 6 if cfg.use_orientation else 3
+        # ``_action_dim`` is the policy action width; ``_solve_dim`` is the
+        # number of Jacobian rows the DLS solve uses. They differ in lock mode:
+        # the policy still emits 3 (position) while orientation is regulated via
+        # the 3 angular rows toward a fixed target.
+        self._action_dim = 6 if cfg.use_orientation else 3
+        self._lock_orientation = cfg.lock_orientation and not cfg.use_orientation
+        self._solve_dim = 6 if (cfg.use_orientation or self._lock_orientation) else 3
+        self._orientation_gain = float(cfg.orientation_gain)
+
         scale = cfg.scale
         if isinstance(scale, (tuple, list)):
-            if len(scale) != self._dim:
+            if len(scale) != self._action_dim:
                 raise ValueError(
                     f"DifferentialIKActionCfg.scale length {len(scale)} does not match "
-                    f"action_dim {self._dim}"
+                    f"action_dim {self._action_dim}"
                 )
             self._scale = torch.tensor(scale, dtype=torch.float, device=self.device)
         else:
-            self._scale = torch.full((self._dim,), float(scale), device=self.device)
+            self._scale = torch.full((self._action_dim,), float(scale), device=self.device)
+
+        # Fixed EE orientation target for lock mode. ``None`` defers capture to
+        # the first ``process_actions`` call — locking to the reset pose.
+        if cfg.fixed_orientation is not None:
+            self._fixed_quat: torch.Tensor | None = torch.tensor(
+                cfg.fixed_orientation, dtype=torch.float, device=self.device
+            ).reshape(1, 4)
+        else:
+            self._fixed_quat = None
 
         if cfg.damping <= 0:
             raise ValueError(f"DifferentialIKActionCfg.damping must be > 0 (got {cfg.damping})")
@@ -125,10 +160,10 @@ class DifferentialIKAction(ActionTerm):
         # cost stays a single ``mat + scalar * I`` add.
         self._damping_sq = float(cfg.damping) ** 2
 
-        self._raw = torch.zeros(self.num_envs, self._dim, device=self.device)
+        self._raw = torch.zeros(self.num_envs, self._action_dim, device=self.device)
         self._target_q = torch.zeros(self.num_envs, len(matched), device=self.device)
         # Pre-build identity for the DLS regularizer so it never re-allocates.
-        self._eye_rows = torch.eye(self._dim, device=self.device)
+        self._eye_rows = torch.eye(self._solve_dim, device=self.device)
 
         # Cache joint-pos limits for the controlled joints. ``±inf`` rows are
         # silently treated as no-op by ``torch.clamp``, so wide-open limits
@@ -160,7 +195,7 @@ class DifferentialIKAction(ActionTerm):
 
     @property
     def action_dim(self) -> int:
-        return self._dim
+        return self._action_dim
 
     @property
     def raw_actions(self) -> torch.Tensor:
@@ -174,7 +209,21 @@ class DifferentialIKAction(ActionTerm):
 
         # Desired spatial delta ``Δx`` in world frame (pos rows in metres,
         # orientation rows in radians as axis-angle).
-        delta_x = actions * self._scale.unsqueeze(0)  # (B, dim)
+        delta_x = actions * self._scale.unsqueeze(0)  # (B, action_dim)
+
+        if self._lock_orientation:
+            # Append 3 angular rows that drive the EE back toward a fixed
+            # orientation target — panda-gym re-solves IK to a constant gripper
+            # orientation every step; this is the differential equivalent.
+            cur_quat = self._env.robot_state.link_quat_w[:, self._ee_link_idx, :]
+            if self._fixed_quat is None:
+                self._fixed_quat = cur_quat.detach().clone()
+            target_quat = self._fixed_quat
+            if target_quat.shape[0] != cur_quat.shape[0]:
+                target_quat = target_quat.expand(cur_quat.shape[0], -1)
+            # Rotation taking the current EE frame onto the target (world frame).
+            ori_error = axis_angle_from_quat(quat_mul(target_quat, quat_inv(cur_quat)))
+            delta_x = torch.cat((delta_x, ori_error * self._orientation_gain), dim=-1)
 
         # Full ``(B, 6, n_full_dofs)`` Jacobian from Genesis; slice rows for the
         # active position/orientation dims and columns for the controlled joints.
@@ -183,7 +232,7 @@ class DifferentialIKAction(ActionTerm):
             # Single-env Genesis builds drop the leading batch axis; broadcast
             # back so the algebra below stays batched.
             jac_full = jac_full.unsqueeze(0).expand(self.num_envs, -1, -1)
-        jac = jac_full[:, : self._dim, :].index_select(-1, self._dof_columns)
+        jac = jac_full[:, : self._solve_dim, :].index_select(-1, self._dof_columns)
 
         # DLS: Δq = Jᵀ (J Jᵀ + λ² I)⁻¹ Δx. ``torch.linalg.solve`` operates on the
         # batched square system, avoiding an explicit inverse.
