@@ -11,9 +11,16 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Ensure PR head is dev
+      - name: Ensure PR head is dev or dev/*
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          if [ "${{ github.head_ref }}" != "dev" ]; then
-            echo "::error::Only the 'dev' branch may be merged into main. PR head was '${{ github.head_ref }}'."
-            exit 1
-          fi
+          case "$HEAD_REF" in
+            dev|dev/*)
+              echo "OK: PR head '$HEAD_REF' is allowed to target main."
+              ;;
+            *)
+              echo "::error::Only 'dev' or 'dev/*' branches may be merged into main. PR head was '$HEAD_REF'."
+              exit 1
+              ;;
+          esac
