@@ -5,9 +5,10 @@ Two action surfaces are exposed:
 * :func:`franka_pick_and_place_env_cfg` — original 9-DoF joint-position control
   (arm 7 + fingers 2) used by ``GeneLab-Franka-Pick-And-Place-v0``.
 * :func:`franka_pick_and_place_cartesian_env_cfg` — 4-DoF Cartesian control
-  ``(dx, dy, dz, gripper)`` via :class:`DifferentialIKAction` +
-  :class:`BinaryGripperAction`, the panda-gym ``PandaPickAndPlace`` action
-  space, used by ``GeneLab-Franka-Pick-And-Place-Cartesian-v0``.
+  ``(dx, dy, dz, gripper)`` via :class:`DifferentialIKAction` (orientation
+  locked) + :class:`ContinuousGripperAction`, the panda-gym
+  ``PandaPickAndPlace`` action space, used by
+  ``GeneLab-Franka-Pick-And-Place-Cartesian-v0``.
 """
 
 from genelab import mdp
@@ -22,7 +23,7 @@ from genelab.managers import (
     RewardTermCfg,
     TerminationTermCfg,
 )
-from genelab.mdp.actions.binary_gripper import BinaryGripperActionCfg
+from genelab.mdp.actions.continuous_gripper import ContinuousGripperActionCfg
 from genelab.mdp.actions.ee_delta_ik import DifferentialIKActionCfg
 from genelab.mdp.actions.joint_position import JointPositionActionCfg
 from genelab.mdp.noise import Unoise
@@ -37,7 +38,10 @@ from genelab_franka_pick_and_place.constants import (
     EE_LINK,
     FINGER_JOINTS_REGEX,
 )
-from genelab_franka_pick_and_place.robot import get_franka_pick_and_place_robot_cfg
+from genelab_franka_pick_and_place.robot import (
+    PANDA_GYM_NEUTRAL_POSE,
+    get_franka_pick_and_place_robot_cfg,
+)
 
 
 def _obs_terms() -> dict[str, ObservationTermCfg]:
@@ -70,11 +74,13 @@ def _build_env_cfg(
     actions_cfg: dict[str, ActionTermCfg],
     requires_jac_and_ik: bool,
     play: bool,
+    default_joint_pos: dict[str, float] | None = None,
 ) -> ManagerBasedRlEnvCfg:
-    """Shared body for the joint-position and Cartesian variants — only the
-    ``actions_cfg`` dict and the morph's IK flag differ between them."""
+    """Shared body for the joint-position and Cartesian variants — the
+    ``actions_cfg`` dict, the morph's IK flag, and the reset pose differ."""
     robot_entity_cfg = get_franka_pick_and_place_robot_cfg(
         requires_jac_and_ik=requires_jac_and_ik,
+        default_joint_pos=default_joint_pos,
     ).to_entity_cfg()
 
     cube_cfg = RigidObjectCfg(
@@ -151,7 +157,9 @@ def franka_pick_and_place_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
 def franka_pick_and_place_cartesian_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Build the Cartesian env config (4-DoF, panda-gym parity):
-    ``DifferentialIKAction`` on the arm + ``BinaryGripperAction`` on the fingers."""
+    ``DifferentialIKAction`` (orientation locked) on the arm +
+    ``ContinuousGripperAction`` on the fingers, resetting into the panda-gym
+    neutral pose."""
     return _build_env_cfg(
         actions_cfg={
             "arm": DifferentialIKActionCfg(
@@ -159,15 +167,20 @@ def franka_pick_and_place_cartesian_env_cfg(play: bool = False) -> ManagerBasedR
                 body_name=EE_LINK,
                 joint_names=(ARM_JOINTS_REGEX,),
                 use_orientation=False,
+                # Hold the gripper at its reset (downward) orientation — panda-gym
+                # re-solves IK to a constant orientation every step.
+                lock_orientation=True,
                 scale=0.05,
             ),
-            "gripper": BinaryGripperActionCfg(
+            "gripper": ContinuousGripperActionCfg(
                 asset_name="robot",
                 joint_names=(FINGER_JOINTS_REGEX,),
                 open_pos=0.04,
                 closed_pos=0.0,
+                speed=0.1,
             ),
         },
         requires_jac_and_ik=True,
         play=play,
+        default_joint_pos=PANDA_GYM_NEUTRAL_POSE,
     )
