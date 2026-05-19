@@ -94,13 +94,20 @@ def _build_env_cfg(
     play: bool,
     default_joint_pos: dict[str, float] | None = None,
     goal_obs: bool = False,
+    sparse_reward: bool = False,
 ) -> ManagerBasedRlEnvCfg:
     """Shared body for the joint-position and Cartesian variants — the
     ``actions_cfg`` dict, the morph's IK flag, and the reset pose differ.
 
     ``goal_obs`` adds ``achieved_goal`` / ``desired_goal`` observation groups for
     HER; the existing ``policy`` / ``critic`` groups are unchanged, so non-HER
-    backends (RSL-RL, skrl) that select groups by name simply ignore them."""
+    backends (RSL-RL, skrl) that select groups by name simply ignore them.
+
+    ``sparse_reward=True`` swaps the dense panda-gym shaping for a single sparse
+    term that matches ``franka_pick_and_place_her_compute_reward`` exactly. HER
+    relabels transitions through that callback, so the in-buffer reward must
+    have the same shape as the relabeled reward — otherwise the Q network
+    receives two incompatible reward scales and fails to converge."""
     robot_entity_cfg = get_franka_pick_and_place_robot_cfg(
         requires_jac_and_ik=requires_jac_and_ik,
         default_joint_pos=default_joint_pos,
@@ -129,6 +136,10 @@ def _build_env_cfg(
         decimation=5,  # 100 Hz physics / 5 = 20 Hz control (panda-gym parity).
         episode_length_s=5.0,
         device="cuda",
+        # HER's ``compute_reward`` returns the per-step reward at unit scale (no
+        # dt multiplier), so the in-buffer reward must match — otherwise online
+        # transitions hit {-dt, 0} while relabeled ones hit {-1, 0}.
+        scale_rewards_by_dt=not sparse_reward,
         robot=robot_entity_cfg,
         actions_cfg=actions_cfg,
         observations_cfg={
@@ -136,12 +147,18 @@ def _build_env_cfg(
             "critic": ObservationGroupCfg(enable_corruption=False, terms=_obs_terms()),
             **(_goal_obs_groups() if goal_obs else {}),
         },
-        rewards_cfg={
-            "ee_to_cube": RewardTermCfg(func=fpp_mdp.ee_to_cube_distance, weight=-1.0),
-            "cube_to_goal": RewardTermCfg(func=fpp_mdp.cube_to_goal_distance, weight=-1.0),
-            "success": RewardTermCfg(func=fpp_mdp.success_bonus, weight=5.0),
-            "action_rate": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.005),
-        },
+        rewards_cfg=(
+            {
+                "sparse_goal": RewardTermCfg(func=fpp_mdp.sparse_goal_reward, weight=1.0),
+            }
+            if sparse_reward
+            else {
+                "ee_to_cube": RewardTermCfg(func=fpp_mdp.ee_to_cube_distance, weight=-1.0),
+                "cube_to_goal": RewardTermCfg(func=fpp_mdp.cube_to_goal_distance, weight=-1.0),
+                "success": RewardTermCfg(func=fpp_mdp.success_bonus, weight=5.0),
+                "action_rate": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.005),
+            }
+        ),
         terminations_cfg={
             "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
             "cube_dropped": TerminationTermCfg(func=fpp_mdp.cube_dropped),
@@ -183,7 +200,8 @@ def franka_pick_and_place_her_env_cfg(play: bool = False) -> ManagerBasedRlEnvCf
     """Joint-position env config (9-DoF) with goal-conditioned observation groups
     for HER — used by the SB3 ``HerReplayBuffer`` task. Identical to
     :func:`franka_pick_and_place_env_cfg` apart from the extra ``achieved_goal`` /
-    ``desired_goal`` groups."""
+    ``desired_goal`` groups and the sparse reward (matches the HER relabelling
+    callback)."""
     return _build_env_cfg(
         actions_cfg={
             "arm_and_hand": JointPositionActionCfg(
@@ -195,6 +213,7 @@ def franka_pick_and_place_her_env_cfg(play: bool = False) -> ManagerBasedRlEnvCf
         requires_jac_and_ik=False,
         play=play,
         goal_obs=True,
+        sparse_reward=True,
     )
 
 

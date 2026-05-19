@@ -113,6 +113,17 @@ def success_bonus(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return (d < DISTANCE_THRESHOLD).to(d.dtype)
 
 
+def sparse_goal_reward(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    """panda-gym sparse reward: ``-1`` while the cube is farther than
+    ``DISTANCE_THRESHOLD`` from the goal, ``0`` once it is within threshold.
+
+    Mirrors :func:`genelab_franka_pick_and_place.sb3_cfg.franka_pick_and_place_her_compute_reward`
+    bit-for-bit so HER's online and relabelled transitions share one reward
+    shape — applied with weight ``+1.0``."""
+    d = cube_to_goal_distance(env)
+    return -(d > DISTANCE_THRESHOLD).to(d.dtype)
+
+
 # ----------------------------------------------------------------- terminations
 
 
