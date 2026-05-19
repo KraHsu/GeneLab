@@ -11,6 +11,7 @@
 |---|---|---|
 | `RslRlOnPolicyRunnerCfg` | `rsl_rl`（默认） | PPO |
 | `SkrlAgentCfg` | `skrl` | PPO、A2C、SAC、TD3、DDPG |
+| `Sb3AgentCfg` | `sb3` | PPO、A2C、SAC、TD3、DDPG（含 HER） |
 
 后端位于 `genelab.rl.backends`，按配置类型自行注册，`select_backend(agent_cfg)` 负责解析。
 接入另一个库只需新增一个 `Backend`（`train` / `play`）及其 agent 配置 dataclass——分发器和
@@ -24,11 +25,12 @@ TASKS.get(task_id)
     └── ManagerBasedRlEnv
         └── select_backend(agent_cfg).train(TrainContext)
             ├── rsl_rl:  RslRlVecEnvWrapper  → OnPolicyRunner.learn()
-            └── skrl:    GenelabSkrlWrapper  → SequentialTrainer.train()
+            ├── skrl:    GenelabSkrlWrapper  → SequentialTrainer.train()
+            └── sb3:     GenelabSb3VecEnv    → model.learn()
 ```
 
 main process 写入 `params/env.json`、`params/agent.json`、TensorBoard event、profiler trace 和
-checkpoint。RSL-RL 写到 `logs/rsl_rl/`，skrl 写到 `logs/skrl/`。
+checkpoint。RSL-RL 写到 `logs/rsl_rl/`，skrl 写到 `logs/skrl/`，SB3 写到 `logs/sb3/`。
 
 ## 回放流程
 

@@ -40,8 +40,9 @@ def register_backend(backend: Backend) -> None:
 def _ensure_loaded() -> None:
     """Import the bundled backend modules once, triggering their registration.
 
-    Both modules are safe to import without their RL library installed: rsl_rl's
-    wrapper degrades gracefully, and the skrl backend guards every skrl import.
+    Every module is safe to import without its RL library installed: rsl_rl's
+    wrapper degrades gracefully, and the skrl / sb3 backends guard every
+    library-specific import behind a function-local import.
     """
     global _loaded
     if _loaded:
@@ -49,7 +50,7 @@ def _ensure_loaded() -> None:
     _loaded = True
     import importlib
 
-    for name in ("rsl_rl", "skrl"):
+    for name in ("rsl_rl", "skrl", "sb3"):
         importlib.import_module(f"genelab.rl.backends.{name}")
 
 

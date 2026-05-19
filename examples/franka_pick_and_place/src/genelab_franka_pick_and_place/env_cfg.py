@@ -69,15 +69,38 @@ def _obs_terms() -> dict[str, ObservationTermCfg]:
     }
 
 
+def _goal_obs_groups() -> dict[str, ObservationGroupCfg]:
+    """Goal-conditioned observation groups for HER (SB3 ``HerReplayBuffer``).
+
+    ``achieved_goal`` is the cube position, ``desired_goal`` the target position
+    — both clean (no corruption), so goal relabelling sees exact positions.
+    """
+    return {
+        "achieved_goal": ObservationGroupCfg(
+            enable_corruption=False,
+            terms={"cube_pos": ObservationTermCfg(func=fpp_mdp.cube_pos_obs)},
+        ),
+        "desired_goal": ObservationGroupCfg(
+            enable_corruption=False,
+            terms={"goal_pos": ObservationTermCfg(func=fpp_mdp.goal_pos_obs)},
+        ),
+    }
+
+
 def _build_env_cfg(
     *,
     actions_cfg: dict[str, ActionTermCfg],
     requires_jac_and_ik: bool,
     play: bool,
     default_joint_pos: dict[str, float] | None = None,
+    goal_obs: bool = False,
 ) -> ManagerBasedRlEnvCfg:
     """Shared body for the joint-position and Cartesian variants — the
-    ``actions_cfg`` dict, the morph's IK flag, and the reset pose differ."""
+    ``actions_cfg`` dict, the morph's IK flag, and the reset pose differ.
+
+    ``goal_obs`` adds ``achieved_goal`` / ``desired_goal`` observation groups for
+    HER; the existing ``policy`` / ``critic`` groups are unchanged, so non-HER
+    backends (RSL-RL, skrl) that select groups by name simply ignore them."""
     robot_entity_cfg = get_franka_pick_and_place_robot_cfg(
         requires_jac_and_ik=requires_jac_and_ik,
         default_joint_pos=default_joint_pos,
@@ -111,6 +134,7 @@ def _build_env_cfg(
         observations_cfg={
             "policy": ObservationGroupCfg(enable_corruption=True, terms=_obs_terms()),
             "critic": ObservationGroupCfg(enable_corruption=False, terms=_obs_terms()),
+            **(_goal_obs_groups() if goal_obs else {}),
         },
         rewards_cfg={
             "ee_to_cube": RewardTermCfg(func=fpp_mdp.ee_to_cube_distance, weight=-1.0),
@@ -152,6 +176,25 @@ def franka_pick_and_place_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         },
         requires_jac_and_ik=False,
         play=play,
+    )
+
+
+def franka_pick_and_place_her_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """Joint-position env config (9-DoF) with goal-conditioned observation groups
+    for HER — used by the SB3 ``HerReplayBuffer`` task. Identical to
+    :func:`franka_pick_and_place_env_cfg` apart from the extra ``achieved_goal`` /
+    ``desired_goal`` groups."""
+    return _build_env_cfg(
+        actions_cfg={
+            "arm_and_hand": JointPositionActionCfg(
+                asset_name="robot",
+                joint_names=(ARM_JOINTS_REGEX, FINGER_JOINTS_REGEX),
+                use_default_offset=True,
+            ),
+        },
+        requires_jac_and_ik=False,
+        play=play,
+        goal_obs=True,
     )
 
 

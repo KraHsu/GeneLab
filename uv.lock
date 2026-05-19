@@ -2,30 +2,102 @@ version = 1
 revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
-    "python_full_version < '3.13' and platform_machine != 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
-    "python_full_version >= '3.13' and platform_machine == 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
-    "python_full_version < '3.13' and platform_machine == 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
-    "python_full_version >= '3.13' and platform_machine != 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version < '3.13' and platform_machine != 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version >= '3.13' and platform_machine == 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version < '3.13' and platform_machine == 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version >= '3.13' and platform_machine != 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version < '3.13' and platform_machine != 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version >= '3.13' and platform_machine == 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version < '3.13' and platform_machine == 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'win32' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'win32' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'win32' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'win32' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'win32' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'win32' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
     "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
     "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version >= '3.13' and platform_machine != 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version < '3.13' and platform_machine != 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version >= '3.13' and platform_machine == 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
-    "python_full_version < '3.13' and platform_machine == 's390x' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'emscripten' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130'",
 ]
 conflicts = [[
     { package = "genelab", extra = "torch-cpu" },
@@ -346,10 +418,12 @@ name = "cuda-bindings"
 version = "12.9.6"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "cuda-pathfinder", marker = "extra == 'extra-7-genelab-torch-cu126' or extra == 'extra-7-genelab-torch-cu128' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -377,10 +451,12 @@ name = "cuda-bindings"
 version = "13.2.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "cuda-pathfinder", marker = "extra == 'extra-7-genelab-torch-cu130' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128')" },
@@ -413,10 +489,12 @@ name = "cuda-toolkit"
 version = "12.6.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ad/88/2dbc37975fffb874418b14380418a1b99cb36f2101fd1d08c54e06ee8c95/cuda_toolkit-12.6.3-py2.py3-none-any.whl", hash = "sha256:79d8605baeb6c2f695761e0efb54bc62dbc3c9e32eb0742df7669c07befaa8f7", size = 2288, upload-time = "2025-08-13T02:03:05.283Z" },
@@ -462,10 +540,12 @@ name = "cuda-toolkit"
 version = "12.8.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d4/c8/7dce3a0b15b42a3b58e7d96eb22a687d3bf2c44e01d149a6874629cd9938/cuda_toolkit-12.8.1-py2.py3-none-any.whl", hash = "sha256:adc7906af4ecbf9a352f9dca5734eceb21daec281ccfcf5675e1d2f724fc2cba", size = 2283, upload-time = "2025-08-13T02:03:07.842Z" },
@@ -511,10 +591,12 @@ name = "cuda-toolkit"
 version = "13.0.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/57/b2/453099f5f3b698d7d0eab38916aac44c7f76229f451709e2eb9db6615dcd/cuda_toolkit-13.0.2-py2.py3-none-any.whl", hash = "sha256:b198824cf2f54003f50d64ada3a0f184b42ca0846c1c94192fa269ecd97a66eb", size = 2364, upload-time = "2025-12-19T23:24:07.328Z" },
@@ -810,6 +892,10 @@ rl = [
     { name = "tensorboard" },
     { name = "tensordict" },
 ]
+sb3 = [
+    { name = "gymnasium" },
+    { name = "stable-baselines3" },
+]
 skrl = [
     { name = "skrl" },
 ]
@@ -855,6 +941,10 @@ rl = [
     { name = "tensorboard" },
     { name = "tensordict" },
 ]
+sb3 = [
+    { name = "gymnasium" },
+    { name = "stable-baselines3" },
+]
 skrl = [
     { name = "skrl" },
 ]
@@ -867,6 +957,7 @@ requires-dist = [
     { name = "dearpygui", marker = "extra == 'teleop'", specifier = ">=1.10" },
     { name = "genesis-world", specifier = ">=0.4.7" },
     { name = "gymnasium", marker = "extra == 'rl'", specifier = ">=1.0" },
+    { name = "gymnasium", marker = "extra == 'sb3'", specifier = ">=1.0" },
     { name = "matplotlib", marker = "extra == 'recording'", specifier = ">=3.8" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6" },
     { name = "mkdocs-include-markdown-plugin", marker = "extra == 'docs'", specifier = ">=7" },
@@ -880,6 +971,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13" },
     { name = "rsl-rl-lib", marker = "extra == 'rl'", specifier = ">=5.2.0" },
     { name = "skrl", marker = "extra == 'skrl'", specifier = ">=1.4.0,<2" },
+    { name = "stable-baselines3", marker = "extra == 'sb3'", specifier = ">=2.0.0" },
     { name = "tensorboard", marker = "extra == 'rl'", specifier = ">=2.20.0" },
     { name = "tensordict", marker = "extra == 'rl'" },
     { name = "torch", marker = "extra == 'torch-cpu'", specifier = ">=2.8.0", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "genelab", extra = "torch-cpu" } },
@@ -888,7 +980,7 @@ requires-dist = [
     { name = "torch", marker = "extra == 'torch-cu130'", specifier = ">=2.8.0", index = "https://download.pytorch.org/whl/cu130", conflict = { package = "genelab", extra = "torch-cu130" } },
     { name = "typer", specifier = ">=0.12" },
 ]
-provides-extras = ["torch-cpu", "torch-cu126", "torch-cu128", "torch-cu130", "rl", "skrl", "recording", "teleop", "docs"]
+provides-extras = ["torch-cpu", "torch-cu126", "torch-cu128", "torch-cu130", "rl", "skrl", "sb3", "recording", "teleop", "docs"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -914,6 +1006,10 @@ rl = [
     { name = "rsl-rl-lib", specifier = ">=5.2.0" },
     { name = "tensorboard", specifier = ">=2.20.0" },
     { name = "tensordict" },
+]
+sb3 = [
+    { name = "gymnasium", specifier = ">=1.0" },
+    { name = "stable-baselines3", specifier = ">=2.0.0" },
 ]
 skrl = [{ name = "skrl", specifier = ">=1.4.0,<2" }]
 teleop = [{ name = "dearpygui", specifier = ">=1.10" }]
@@ -1088,7 +1184,7 @@ wheels = [
 
 [[package]]
 name = "gymnasium"
-version = "1.3.0"
+version = "1.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cloudpickle" },
@@ -1096,9 +1192,9 @@ dependencies = [
     { name = "numpy" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4d/ff/14b6880d703dfaca204490979d3254ccd280c99550798993319902873658/gymnasium-1.3.0.tar.gz", hash = "sha256:6939e86e835d6b71b6ba6bfd360487420876deafc79bfb7bacba83a7c446bcf3", size = 830646, upload-time = "2026-04-22T13:47:14.155Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/76/59/653a9417d98ed3e29ef9734ba52c3495f6c6823b8d5c0c75369f25111708/gymnasium-1.2.3.tar.gz", hash = "sha256:2b2cb5b5fbbbdf3afb9f38ca952cc48aa6aa3e26561400d940747fda3ad42509", size = 829230, upload-time = "2025-12-18T16:51:10.234Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e9/73/fda6a25f3beeb5e49d74330b44092b9e5a547395ccd478d1103ddcbff1fc/gymnasium-1.3.0-py3-none-any.whl", hash = "sha256:6b8c159a8540dcbcb221722d7efda24d78ebbcbc3bd2ea1c2611aa2a34471fc2", size = 953904, upload-time = "2026-04-22T13:47:12.13Z" },
+    { url = "https://files.pythonhosted.org/packages/56/d3/ea5f088e3638dbab12e5c20d6559d5b3bdaeaa1f2af74e526e6815836285/gymnasium-1.2.3-py3-none-any.whl", hash = "sha256:e6314bba8f549c7fdcc8677f7cd786b64908af6e79b57ddaa5ce1825bffb5373", size = 952113, upload-time = "2025-12-18T16:51:08.445Z" },
 ]
 
 [[package]]
@@ -1845,10 +1941,12 @@ name = "nvidia-cublas-cu12"
 version = "12.6.4.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/af/eb/ff4b8c503fa1f1796679dce648854d58751982426e4e4b37d6fce49d259c/nvidia_cublas_cu12-12.6.4.1-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:08ed2686e9875d01b58e3cb379c6896df8e76c75e0d4a7f7dace3d7b6d9ef8eb", size = 393138322, upload-time = "2024-11-20T17:40:25.65Z" },
@@ -1861,10 +1959,12 @@ name = "nvidia-cublas-cu12"
 version = "12.8.4.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/29/99/db44d685f0e257ff0e213ade1964fc459b4a690a73293220e98feb3307cf/nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:b86f6dd8935884615a0683b663891d43781b819ac4f2ba2b0c9604676af346d0", size = 590537124, upload-time = "2025-03-07T01:43:53.556Z" },
@@ -1887,10 +1987,12 @@ name = "nvidia-cuda-cupti-cu12"
 version = "12.6.80"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e6/8b/2f6230cb715646c3a9425636e513227ce5c93c4d65823a734f4bb86d43c3/nvidia_cuda_cupti_cu12-12.6.80-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:166ee35a3ff1587f2490364f90eeeb8da06cd867bd5b701bf7f9a02b78bc63fc", size = 8236764, upload-time = "2024-11-20T17:35:41.03Z" },
@@ -1905,10 +2007,12 @@ name = "nvidia-cuda-cupti-cu12"
 version = "12.8.90"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d5/1f/b3bd73445e5cb342727fd24fe1f7b748f690b460acadc27ea22f904502c8/nvidia_cuda_cupti_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:4412396548808ddfed3f17a467b104ba7751e6b58678a4b840675c56d21cf7ed", size = 9533318, upload-time = "2025-03-07T01:40:10.421Z" },
@@ -1931,10 +2035,12 @@ name = "nvidia-cuda-nvrtc-cu12"
 version = "12.6.85"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f5/31/ffb400c5ae99daf09687aa6c42831c5d824f71c4851363ed2a4a1ac52bab/nvidia_cuda_nvrtc_cu12-12.6.85-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:800927308ccc5dd6246d3f61f7fcef2ed7ec4e59e199090d360d3293f78bd5a2", size = 23649944, upload-time = "2024-11-20T17:38:06.511Z" },
@@ -1947,10 +2053,12 @@ name = "nvidia-cuda-nvrtc-cu12"
 version = "12.8.93"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/05/6b/32f747947df2da6994e999492ab306a903659555dddc0fbdeb9d71f75e52/nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:a7756528852ef889772a84c6cd89d41dfa74667e24cca16bb31f8f061e3e9994", size = 88040029, upload-time = "2025-03-07T01:42:13.562Z" },
@@ -1973,10 +2081,12 @@ name = "nvidia-cuda-runtime-cu12"
 version = "12.6.77"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8f/ea/590b2ac00d772a8abd1c387a92b46486d2679ca6622fd25c18ff76265663/nvidia_cuda_runtime_cu12-12.6.77-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:6116fad3e049e04791c0256a9778c16237837c08b27ed8c8401e2e45de8d60cd", size = 908052, upload-time = "2024-11-20T17:35:19.905Z" },
@@ -1991,10 +2101,12 @@ name = "nvidia-cuda-runtime-cu12"
 version = "12.8.90"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7c/75/f865a3b236e4647605ea34cc450900854ba123834a5f1598e160b9530c3a/nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:52bf7bbee900262ffefe5e9d5a2a69a30d97e2bc5bb6cc866688caa976966e3d", size = 965265, upload-time = "2025-03-07T01:39:43.533Z" },
@@ -2007,10 +2119,12 @@ name = "nvidia-cudnn-cu12"
 version = "9.10.2.21"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "nvidia-cublas-cu12", version = "12.6.4.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-7-genelab-torch-cu126' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -2026,10 +2140,12 @@ name = "nvidia-cudnn-cu12"
 version = "9.19.0.56"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "nvidia-cublas-cu12", version = "12.8.4.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-7-genelab-torch-cu128' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -2071,10 +2187,12 @@ name = "nvidia-cufft-cu12"
 version = "11.3.0.4"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-7-genelab-torch-cu126' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -2092,10 +2210,12 @@ name = "nvidia-cufft-cu12"
 version = "11.3.3.83"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "nvidia-nvjitlink-cu12", version = "12.8.93", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-7-genelab-torch-cu128' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -2120,10 +2240,12 @@ name = "nvidia-cufile-cu12"
 version = "1.11.1.6"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b2/66/cc9876340ac68ae71b15c743ddb13f8b30d5244af344ec8322b449e35426/nvidia_cufile_cu12-1.11.1.6-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:cc23469d1c7e52ce6c1d55253273d32c565dd22068647f3aa59b3c6b005bf159", size = 1142103, upload-time = "2024-11-20T17:42:11.83Z" },
@@ -2135,10 +2257,12 @@ name = "nvidia-cufile-cu12"
 version = "1.13.1.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bb/fe/1bcba1dfbfb8d01be8d93f07bfc502c93fa23afa6fd5ab3fc7c1df71038a/nvidia_cufile_cu12-1.13.1.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:1d069003be650e131b21c932ec3d8969c1715379251f8d23a1860554b1cb24fc", size = 1197834, upload-time = "2025-03-07T01:45:50.723Z" },
@@ -2160,10 +2284,12 @@ name = "nvidia-curand-cu12"
 version = "10.3.7.77"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/42/ac/36543605358a355632f1a6faa3e2d5dfb91eab1e4bc7d552040e0383c335/nvidia_curand_cu12-10.3.7.77-py3-none-manylinux2014_aarch64.whl", hash = "sha256:6e82df077060ea28e37f48a3ec442a8f47690c7499bff392a5938614b56c98d8", size = 56289881, upload-time = "2024-10-01T17:04:18.981Z" },
@@ -2178,10 +2304,12 @@ name = "nvidia-curand-cu12"
 version = "10.3.9.90"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/45/5e/92aa15eca622a388b80fbf8375d4760738df6285b1e92c43d37390a33a9a/nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:dfab99248034673b779bc6decafdc3404a8a6f502462201f2f31f11354204acd", size = 63625754, upload-time = "2025-03-07T01:46:10.735Z" },
@@ -2209,10 +2337,12 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.1.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "nvidia-cublas-cu12", version = "12.6.4.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-7-genelab-torch-cu126' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -2232,10 +2362,12 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.3.90"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "nvidia-cublas-cu12", version = "12.8.4.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-7-genelab-torch-cu128' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -2266,10 +2398,12 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.4.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-7-genelab-torch-cu126' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -2287,10 +2421,12 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.8.93"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "nvidia-nvjitlink-cu12", version = "12.8.93", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-7-genelab-torch-cu128' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -2354,10 +2490,12 @@ name = "nvidia-nvjitlink-cu12"
 version = "12.6.85"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9d/d7/c5383e47c7e9bf1c99d5bd2a8c935af2b6d705ad831a7ec5c97db4d82f4f/nvidia_nvjitlink_cu12-12.6.85-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:eedc36df9e88b682efe4309aa16b5b4e78c2407eac59e8c10a6a47535164369a", size = 19744971, upload-time = "2024-11-20T17:46:53.366Z" },
@@ -2370,10 +2508,12 @@ name = "nvidia-nvjitlink-cu12"
 version = "12.8.93"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f6/74/86a07f1d0f42998ca31312f998bd3b9a7eff7f52378f4f270c8679c77fb9/nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:81ff63371a7ebd6e6451970684f916be2eab07321b73c9d244dc2b4da7f73b88", size = 39254836, upload-time = "2025-03-07T01:49:55.661Z" },
@@ -2414,10 +2554,12 @@ name = "nvidia-nvtx-cu12"
 version = "12.6.77"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b9/93/80f8a520375af9d7ee44571a6544653a176e53c2b8ccce85b97b83c2491b/nvidia_nvtx_cu12-12.6.77-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:f44f8d86bb7d5629988d61c8d3ae61dddb2015dee142740536bc7481b022fe4b", size = 90549, upload-time = "2024-11-20T17:38:17.387Z" },
@@ -2432,10 +2574,12 @@ name = "nvidia-nvtx-cu12"
 version = "12.8.90"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/10/c0/1b303feea90d296f6176f32a2a70b5ef230f9bdeb3a72bddb0dc922dc137/nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:d7ad891da111ebafbf7e015d34879f7112832fc239ff0d7d776b6cb685274615", size = 91161, upload-time = "2025-03-07T01:42:23.922Z" },
@@ -2620,6 +2764,58 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ec/46/68dde5b6bc00c1296ec6466ab27dddede6aec9af1b99090e1107091b3b84/paginate-0.5.7.tar.gz", hash = "sha256:22bd083ab41e1a8b4f3690544afb2c60c25e5c9a63a30fa2f483f6c60c8e5945", size = 19252, upload-time = "2024-08-25T14:17:24.139Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/90/96/04b8e52da071d28f5e21a805b19cb9390aa17a47462ac87f5e2696b9566d/paginate-0.5.7-py2.py3-none-any.whl", hash = "sha256:b885e2af73abcf01d9559fd5216b57ef722f8c42affbb63942377668e35c7591", size = 13746, upload-time = "2024-08-25T14:17:22.55Z" },
+]
+
+[[package]]
+name = "pandas"
+version = "3.0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "python-dateutil" },
+    { name = "tzdata", marker = "sys_platform == 'emscripten' or sys_platform == 'win32' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f8/87/4341c6252d1c47b08768c3d25ac487362bf403f0313ddae4a2a26c9b1b4c/pandas-3.0.3.tar.gz", hash = "sha256:696a4a00a2a2a35d4e5deb3fc946641b96c944f02230e4f76137fe35d806c4fc", size = 4651414, upload-time = "2026-05-11T18:54:29.21Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/24/f1/392f8c5bfc16f66a0d2d41561c01627c228fe7ed2a0d056ef11315042570/pandas-3.0.3-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:fed2ff7fd9779120e388e285fc029bd5cf9490cdd2e4166a9ee22c0e49a9ab09", size = 10357846, upload-time = "2026-05-11T18:52:36.143Z" },
+    { url = "https://files.pythonhosted.org/packages/cf/3d/b16412745651e855f357e5e66930248688378853a6e2698a214e331fba1f/pandas-3.0.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:b168fc218fd80a6cbdbdbc1a97ddc7889ed057d7eb45f50d866ceab5f39904c4", size = 9899550, upload-time = "2026-05-11T18:52:38.976Z" },
+    { url = "https://files.pythonhosted.org/packages/31/a8/fa2535168fffcedf67f4f6de28d2dd903a747ca7c8ea6989451aaeb3a92f/pandas-3.0.3-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:0383c72c75cdcca61a9e116e611143902dbfd08bff356829c2f6d1cf40a9ca8c", size = 10412965, upload-time = "2026-05-11T18:52:41.915Z" },
+    { url = "https://files.pythonhosted.org/packages/65/b6/09b01cdbc15224e2850365192d17b7bdebb8bdbd8780ed221fcdf0d9a515/pandas-3.0.3-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6dc0b3fd2169c9157deed50b4d519553a3655c8c6a96027136d654592be973a9", size = 10894600, upload-time = "2026-05-11T18:52:45.02Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/a4/2eb28f2fccb4ced4a2c79ab2a5dee9ade1ebf44922ebad6fea158c9f95d4/pandas-3.0.3-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:7e65d5407dc0b394f509699650e4a2ec01c0514f21850f453fa60f3be79a5dbf", size = 11422824, upload-time = "2026-05-11T18:52:48.058Z" },
+    { url = "https://files.pythonhosted.org/packages/f8/45/830bb57f533a4604b355e07edcb8ea18cf88b5f94e5fca92f27052d7c597/pandas-3.0.3-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:f8894dc474d648fe7b6ff0ca9b0bd73950d19952bc1a6534540762c5d79d305c", size = 11950889, upload-time = "2026-05-11T18:52:50.905Z" },
+    { url = "https://files.pythonhosted.org/packages/b9/c5/fc1b368f303087d20e8c9bf3d6ceb186263cfac0ade735cd938538bea839/pandas-3.0.3-cp312-cp312-win_amd64.whl", hash = "sha256:c7be265b62cef88e253a941e4698604973736dcfe242fdb5198f0f7bc473cdcc", size = 9755463, upload-time = "2026-05-11T18:52:53.386Z" },
+    { url = "https://files.pythonhosted.org/packages/86/bd/fda8f9705b1b09c6ebe14bfc0fa0e4ec8584d54ea673628f157ff55131af/pandas-3.0.3-cp312-cp312-win_arm64.whl", hash = "sha256:557409bc4178e70ee8d9ddb494798e51ebf6ea59330f6be22c51bab2a7db6c49", size = 9066158, upload-time = "2026-05-11T18:52:56.038Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/90/62d8302883c44308c477e222c3daf7c813a34c8e96985882fbd53d964352/pandas-3.0.3-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:67b3b64c11910cfa29f4e94a14d3bff9ee693b6fc76055e7cad549cee0aec5fa", size = 10331071, upload-time = "2026-05-11T18:52:58.838Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/ae/6a6493c783a101f165e4356953ba3c74d6f77f0042fa7d753da9dfbb640c/pandas-3.0.3-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:39436b377d56d2a2e52d0395bdbee171f01068e99af5250509aceeb929f765c7", size = 9875690, upload-time = "2026-05-11T18:53:01.431Z" },
+    { url = "https://files.pythonhosted.org/packages/62/7c/5df8e9f56c69a2769fbe9382a5ef8f2658c007e376434e1e2cbb57ad895f/pandas-3.0.3-cp313-cp313-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d4be06d68f9ddcfc645b87534911da79a8fbffc7573c80e0edcf42a5020624d8", size = 10381634, upload-time = "2026-05-11T18:53:04.393Z" },
+    { url = "https://files.pythonhosted.org/packages/99/68/1237369725aa617bb358263d535803e3053fdbc593513ec5ed9c9896b5b6/pandas-3.0.3-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a4eeb6830daf35a71cc09649bd823e2b542dac246cdee9614c6e4bd65028cd6a", size = 10891243, upload-time = "2026-05-11T18:53:07.643Z" },
+    { url = "https://files.pythonhosted.org/packages/25/93/77d108e8af7222b4a503ebde0e30215b1c2e4f8e53a526431890f22d5586/pandas-3.0.3-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:1928e07221f82db493cd4af1e23c1bfca524a19a4699887975bff68f49a72bfb", size = 11388659, upload-time = "2026-05-11T18:53:10.634Z" },
+    { url = "https://files.pythonhosted.org/packages/d0/bd/eff5b4399f332ac386c853f6cd2bd3fa2ca0061b9f36ecd9c4d7c4265649/pandas-3.0.3-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:51b1fe551acb77dac643c6fda86084d8d446c10fe64b06a9cc29c4cc8540e7f2", size = 11942880, upload-time = "2026-05-11T18:53:13.536Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/20/559ace4200982c3887d0b86bfd0d856a2143ef8ddab63cc07934951a964c/pandas-3.0.3-cp313-cp313-win_amd64.whl", hash = "sha256:a82d532a3351d435432cd913edbccaf8b8e01d4dd0e5ced5a8d2e8ecd94c7e44", size = 9757091, upload-time = "2026-05-11T18:53:16.306Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/66/69055a09fe200f29f922a3eeec4804611900b95f52d932ece3393c3c0c19/pandas-3.0.3-cp313-cp313-win_arm64.whl", hash = "sha256:275c14e0fce14a2ec20eee474aecd305478ea3c1e6f6a9d8fe219a165542717e", size = 9057282, upload-time = "2026-05-11T18:53:18.768Z" },
+    { url = "https://files.pythonhosted.org/packages/57/0e/efe801b0e6811e8e650cd21b7f2608e30f08a7067e2bf6e8752b0d56ee3c/pandas-3.0.3-cp313-cp313t-macosx_10_13_x86_64.whl", hash = "sha256:46997386d528eb40376ecd6b033cf4a8a1e5282580f68f43de875b78cba2199d", size = 10767016, upload-time = "2026-05-11T18:53:21.227Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/dc/eb55135a1d5f0f0519f28da1f609a206d2cad1f9c35c32d51e38dd7261ae/pandas-3.0.3-cp313-cp313t-macosx_11_0_arm64.whl", hash = "sha256:261e308dfb22448384b7580cf719d2f998fe2966c92893c3e77d14008af1f066", size = 10420210, upload-time = "2026-05-11T18:53:23.982Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/3e/b1d5d955ce33ffecb407465a60bc32769d74fcf68224b7ae67ae11d4dea4/pandas-3.0.3-cp313-cp313t-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:dd1a5d1def6a46002e964510bdc67c368aa0951df5d1d9f8365336f5a1f490cd", size = 10336126, upload-time = "2026-05-11T18:53:26.731Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/76/a01261711ab60a22d71b862f0de20e4c504bf80457270ad8cb42110f6abc/pandas-3.0.3-cp313-cp313t-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d72828c20c6d6e83e1e22a6a3b47b326b71664112fa9705dcbccfd7a39b62085", size = 10728051, upload-time = "2026-05-11T18:53:29.125Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/21/ea191195e587b18cf682e97f433f81b2d0fbe341380e80a3e0d6e4403c8e/pandas-3.0.3-cp313-cp313t-musllinux_1_2_aarch64.whl", hash = "sha256:d26cbe1fcfc12e8fd900e2454163e466b2d3af84f7c75481df7683ffc073d870", size = 11350796, upload-time = "2026-05-11T18:53:32.056Z" },
+    { url = "https://files.pythonhosted.org/packages/64/69/f0eaaf54939f0e8c6768fd06be9af2cef9b36048b96dfb9e1b2c685a807e/pandas-3.0.3-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:3e91cec1879ada0624fc3dc9953c5cbd60208e59c0db28f540c5d6d47502422f", size = 11799741, upload-time = "2026-05-11T18:53:34.985Z" },
+    { url = "https://files.pythonhosted.org/packages/45/a4/865e0e510cae5fc2194de4db28be638952de942571ba9125934fd9c01d47/pandas-3.0.3-cp313-cp313t-win_amd64.whl", hash = "sha256:08d789b41f87e0905880e293cedf6197ce71fe67cc081358b1e148a491b9bd13", size = 10499958, upload-time = "2026-05-11T18:53:37.857Z" },
+    { url = "https://files.pythonhosted.org/packages/86/54/effdcc3c0ff7a08037889200e148ebe94c16c4f653be078c7b3675955df1/pandas-3.0.3-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:3650109c0f22879df8bd6179ab9ee3d7f1d1d4e7e0094a3f0032d9f51e2e64ac", size = 10336065, upload-time = "2026-05-11T18:53:41.099Z" },
+    { url = "https://files.pythonhosted.org/packages/68/10/bf2d6738d72748b961a3751ab89522d58c54efc36a8e1a12161216cd45cf/pandas-3.0.3-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:bab900348131a7db1f69a7309ef141fd5680f1487094193bcbbb61791573bf8f", size = 9926101, upload-time = "2026-05-11T18:53:43.515Z" },
+    { url = "https://files.pythonhosted.org/packages/ae/e9/e35cf11c8a136e757b956f5f0efdcaa50aecde85ea055f1898dfc68262f3/pandas-3.0.3-cp314-cp314-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ba7e08b9ac1d54569cd1e256e3668975ed624d6826f7b68df0342b012007bddb", size = 10457553, upload-time = "2026-05-11T18:53:46.394Z" },
+    { url = "https://files.pythonhosted.org/packages/58/3b/1cdec6772bdbaf7b25dab360c59f03cadf05492dd724c6540af905389b07/pandas-3.0.3-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9d71c63ae4ebdbf70209742096f1fc46a83a0613c99d4b23766cced9ff8cd62a", size = 10914065, upload-time = "2026-05-11T18:53:49.134Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/c2/1ef644445fcd72e3627bceec77e3560636f87ddce4ed841afe76b83b5bf9/pandas-3.0.3-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:e3a2ec42c98ffa2565a67e08e218d06d72576d758d90facb7c00805194d8f360", size = 11459188, upload-time = "2026-05-11T18:53:52.527Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/49/4d8d4f42cbc9c4adc7a1870f269c02cbd6cd40d059622c06fb298addcbad/pandas-3.0.3-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:335f62418ed562cfc3c49e9e196375c28b729dcef8543abf4f9438e381bf3c76", size = 11982966, upload-time = "2026-05-11T18:53:55.043Z" },
+    { url = "https://files.pythonhosted.org/packages/38/55/792619469bab9882d8bbd5865d45a72f6478762d04a9af4bf0d08c503e95/pandas-3.0.3-cp314-cp314-win_amd64.whl", hash = "sha256:3c20a521bbb85902f79f7270c80a59e1b5452d96d170c034f207181870f97ac5", size = 9876755, upload-time = "2026-05-11T18:53:58.067Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/af/33c469653b0ba03b50c3a98192d4c07f0c75c66b263ceb097fce0ee97d31/pandas-3.0.3-cp314-cp314-win_arm64.whl", hash = "sha256:a2d2dff8a04f3917b55ab3910c32990f8ddf7eceba114947838cefa976a68977", size = 9198658, upload-time = "2026-05-11T18:54:00.733Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/fa/b8c257bd76b8bd060c3a9151c1fca05e9b9c5e3af5d0f549c0356f6d143d/pandas-3.0.3-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:0d589105b3c14645af1738ff279b2995102d8f7a03b0a66dc8d95550eb513e04", size = 10787242, upload-time = "2026-05-11T18:54:03.564Z" },
+    { url = "https://files.pythonhosted.org/packages/54/eb/f19206ffb0bf1919002969aa448b4702c6594845156a6f8050674855aac3/pandas-3.0.3-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:13fc1e853d9e04743d11ba75a985ccbc2a317fe07d8af61e445a6fd24dacd6a6", size = 10436369, upload-time = "2026-05-11T18:54:06.311Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/24/c7c39fb4fe22b71a0c2d78bf0c585c600092d85f94f086d2b3b2f6ca27e2/pandas-3.0.3-cp314-cp314t-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:819959dab7bbd0049c15623fbac4e29a191b9528160a61fb1032242d8ced2d9c", size = 10358306, upload-time = "2026-05-11T18:54:09.085Z" },
+    { url = "https://files.pythonhosted.org/packages/16/ec/dd2a9eb7fa1204df88c0864164e35b228ac581062ac612ba0a67fd812e4c/pandas-3.0.3-cp314-cp314t-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:60ae316d3fd75d1858d450d0db0103ea2be3e7d4a95ec2f064f7e2ae63f7b028", size = 10758394, upload-time = "2026-05-11T18:54:11.956Z" },
+    { url = "https://files.pythonhosted.org/packages/95/6e/00c61ea8e85b4f6d8d35e11852a1a4998fc7fafc91c6a602d1cc9c972d64/pandas-3.0.3-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:bd3a518890b400d32f9023722dc9a9a5c969f00b415419a3c06c043f09bb5d7d", size = 11375717, upload-time = "2026-05-11T18:54:14.539Z" },
+    { url = "https://files.pythonhosted.org/packages/31/89/8fc1c268969fac43688d65fd92e67df24bd128d53cb4d2eee534cd307399/pandas-3.0.3-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:9c39be2d709d01fa972a0cabc522389fceca4f3969332ba25a7d6c5802cf976a", size = 11828897, upload-time = "2026-05-11T18:54:17.146Z" },
+    { url = "https://files.pythonhosted.org/packages/56/3b/e7d20dea247a3e6dc0bd8a6953854afbedc03951def4e7371e05e7263e25/pandas-3.0.3-cp314-cp314t-win_amd64.whl", hash = "sha256:4db8c527972a821cf5286b40ccc57642a39bc62e62022b42f99f8a67fca8c3a1", size = 10900855, upload-time = "2026-05-11T18:54:19.72Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/54/68a0978d1ef8502b8492099beaa6e7a0c1b32e3b5d4f677f5810cb08711c/pandas-3.0.3-cp314-cp314t-win_arm64.whl", hash = "sha256:b2c95f8bfc1ee412bf482605d7bfd30c12d1d26bd59fdd91efeef1d4718decb1", size = 9466464, upload-time = "2026-05-11T18:54:22.754Z" },
 ]
 
 [[package]]
@@ -3514,6 +3710,28 @@ wheels = [
 ]
 
 [[package]]
+name = "stable-baselines3"
+version = "2.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cloudpickle" },
+    { name = "gymnasium" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "torch", version = "2.11.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 's390x' and sys_platform == 'darwin' and extra == 'extra-7-genelab-torch-cpu') or (platform_machine == 's390x' and extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (platform_machine == 's390x' and extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (platform_machine == 's390x' and extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130') or (extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
+    { name = "torch", version = "2.11.0", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130') or (extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130')" },
+    { name = "torch", version = "2.11.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 's390x' and extra == 'extra-7-genelab-torch-cpu') or (platform_machine != 's390x' and extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (platform_machine != 's390x' and extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (platform_machine != 's390x' and extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (platform_machine != 's390x' and extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (platform_machine != 's390x' and extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (platform_machine != 's390x' and extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130') or (sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cpu') or (sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (sys_platform != 'darwin' and extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130') or (extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (extra != 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
+    { name = "torch", version = "2.11.0+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "extra == 'extra-7-genelab-torch-cu126' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
+    { name = "torch", version = "2.11.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-7-genelab-torch-cu128' or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
+    { name = "torch", version = "2.11.0+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "(extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (extra != 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130') or (extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e2/07/01a2aa6a6a58f911085981dad1af2f1877d04886768c0df33930945fb98c/stable_baselines3-2.8.0.tar.gz", hash = "sha256:fe976d102b596c8001ca619638901721bcf97e8934a397e235b2d277fa9216c2", size = 220224, upload-time = "2026-04-01T10:49:29.738Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/85/1b/8046baf1e7756006eab991cd3260c4342c515dd6b536bc2d03df4b6f35aa/stable_baselines3-2.8.0-py3-none-any.whl", hash = "sha256:8c19d960b534a909f46dac5227662fc2d6be380e5c66cb04e1ad23edb23dc5a2", size = 187458, upload-time = "2026-04-01T10:49:28.132Z" },
+]
+
+[[package]]
 name = "sympy"
 version = "1.14.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3638,7 +3856,8 @@ name = "torch"
 version = "2.11.0"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'darwin'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'darwin'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'darwin'",
     "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'darwin'",
 ]
 dependencies = [
@@ -3663,10 +3882,24 @@ name = "torch"
 version = "2.11.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "cuda-bindings", version = "13.2.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'linux' and extra != 'extra-7-genelab-torch-cpu' and extra != 'extra-7-genelab-torch-cu126' and extra != 'extra-7-genelab-torch-cu128' and extra != 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -3712,11 +3945,26 @@ name = "torch"
 version = "2.11.0+cpu"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform != 'darwin'",
-    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform != 'darwin'",
-    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'darwin'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'darwin'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'darwin'",
     "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'darwin'",
 ]
 dependencies = [
@@ -3756,10 +4004,24 @@ name = "torch"
 version = "2.11.0+cu126"
 source = { registry = "https://download.pytorch.org/whl/cu126" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "cuda-bindings", version = "12.9.6", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'linux' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -3800,10 +4062,24 @@ name = "torch"
 version = "2.11.0+cu128"
 source = { registry = "https://download.pytorch.org/whl/cu128" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "cuda-bindings", version = "12.9.6", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'linux' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -3844,10 +4120,24 @@ name = "torch"
 version = "2.11.0+cu130"
 source = { registry = "https://download.pytorch.org/whl/cu130" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform == 'emscripten'",
+    "python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform == 'emscripten'",
+    "python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "cuda-bindings", version = "13.2.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'linux' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu128' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu126') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cpu' and extra == 'extra-7-genelab-torch-cu130') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu128') or (extra == 'extra-7-genelab-torch-cu126' and extra == 'extra-7-genelab-torch-cu130')" },
@@ -4008,6 +4298,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/55/e3/70399cb7dd41c10ac53367ae42139cf4b1ca5f36bb3dc6c9d33acdb43655/typing_inspection-0.4.2.tar.gz", hash = "sha256:ba561c48a67c5958007083d386c3295464928b01faa735ab8547c5692e87f464", size = 75949, upload-time = "2025-10-01T02:14:41.687Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/dc/9b/47798a6c91d8bdb567fe2698fe81e0c6b7cb7ef4d13da4114b41d239f65d/typing_inspection-0.4.2-py3-none-any.whl", hash = "sha256:4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7", size = 14611, upload-time = "2025-10-01T02:14:40.154Z" },
+]
+
+[[package]]
+name = "tzdata"
+version = "2026.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ba/19/1b9b0e29f30c6d35cb345486df41110984ea67ae69dddbc0e8a100999493/tzdata-2026.2.tar.gz", hash = "sha256:9173fde7d80d9018e02a662e168e5a2d04f87c41ea174b139fbef642eda62d10", size = 198254, upload-time = "2026-04-24T15:22:08.651Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/e4/dccd7f47c4b64213ac01ef921a1337ee6e30e8c6466046018326977efd95/tzdata-2026.2-py2.py3-none-any.whl", hash = "sha256:bbe9af844f658da81a5f95019480da3a89415801f6cc966806612cc7169bffe7", size = 349321, upload-time = "2026-04-24T15:22:05.876Z" },
 ]
 
 [[package]]
