@@ -123,6 +123,7 @@ plugins:
             Examples: 示例
             Inverted Pendulum: 倒立摆
             Unitree G1: Unitree G1
+            Franka Pick-and-Place: Franka 抓取放置
             Showcase: 可视化 showcase
             "Rubik's Cube": 魔方
             Wuji Hand: 五指手
@@ -212,6 +213,7 @@ nav:
       - Overview: examples/overview.md
       - Inverted Pendulum: examples/inverted-pendulum.md
       - Unitree G1: examples/unitree-g1.md
+      - Franka Pick-and-Place: examples/franka-pick-and-place.md
       - Showcase: examples/showcase.md
       - "Rubik's Cube": examples/rubiks-cube.md
       - Wuji Hand: examples/wuji-hand.md
