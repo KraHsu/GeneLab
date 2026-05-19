@@ -9,3 +9,10 @@ def test_franka_pick_and_place_extension_registers() -> None:
     assert "GeneLab-Franka-Pick-And-Place-v0" in TASKS.names()
     assert "franka-pick-and-place" in ROBOTS.names()
     assert "franka-pick-and-place-env" in ENVS.names()
+
+
+def test_franka_pick_and_place_cartesian_extension_registers() -> None:
+    load_extension_module("genelab_franka_pick_and_place.tasks")
+
+    assert "GeneLab-Franka-Pick-And-Place-Cartesian-v0" in TASKS.names()
+    assert "franka-pick-and-place-cartesian-env" in ENVS.names()
