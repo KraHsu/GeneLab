@@ -69,8 +69,9 @@ class FrankaPickAndPlaceTask:
 
 class FrankaPickAndPlaceCartesianTask:
     """Cartesian (panda-gym 4-DoF) variant of :class:`FrankaPickAndPlaceTask` —
-    swaps the action surface for ``DifferentialIKAction`` + ``BinaryGripperAction``
-    while reusing the same scene, reward shaping, and PPO runner config."""
+    swaps the action surface for ``DifferentialIKAction`` (orientation locked) +
+    ``ContinuousGripperAction`` while reusing the same scene, reward shaping, and
+    PPO runner config."""
 
     def __init__(self) -> None:
         self.cfg = TaskCfg(
@@ -140,7 +141,7 @@ def register() -> None:
             FrankaPickAndPlaceCartesianTask,
             description=(
                 "PPO Franka Panda pick-and-place with 4-DoF Cartesian (EE-delta IK + "
-                "binary gripper) action space — panda-gym ``PandaPickAndPlace`` parity."
+                "continuous gripper) action space — panda-gym ``PandaPickAndPlace`` parity."
             ),
             cfg_type=TaskCfg,
             examples=[
