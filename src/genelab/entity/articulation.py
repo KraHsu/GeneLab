@@ -36,6 +36,11 @@ class ArticulationCfg:
     default_joint_pos: dict[str, float] = field(default_factory=dict)
     actuators: dict[str, ActuatorBaseCfg] = field(default_factory=dict)
     foot_link_names: tuple[str, ...] = ()
+    # Opt-in flag for the Genesis morph's Jacobian / IK kinematic tape. Default
+    # ``False`` because allocating those buffers has a cost and most tasks
+    # control the arm via joint targets. Set ``True`` whenever an action term
+    # such as ``DifferentialIKAction`` needs ``RigidEntity.get_jacobian``.
+    requires_jac_and_ik: bool = False
 
 
 class RobotState:
@@ -108,11 +113,14 @@ class Articulation:
         """Pre-build: attach the MJCF morph to a Genesis scene."""
         import genesis as gs  # type: ignore[import-not-found]
 
-        morph = gs.morphs.MJCF(
+        morph_kwargs: dict[str, Any] = dict(
             file=str(self.cfg.mjcf_path),
             pos=tuple(self.cfg.init_pos),
             quat=tuple(self.cfg.init_quat),
         )
+        if self.cfg.requires_jac_and_ik:
+            morph_kwargs["requires_jac_and_IK"] = True
+        morph = gs.morphs.MJCF(**morph_kwargs)
         self._gs_handle = gs_scene.add_entity(morph)
 
     def bind(self, num_envs: int, device: str) -> None:
