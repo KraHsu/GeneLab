@@ -113,7 +113,9 @@ def quat_apply_inverse(quat: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
     return (v - q[:, 0:1] * t + torch.cross(xyz, t, dim=-1)).view(shape)
 
 
-def _axis_angle_from_quat(quat: torch.Tensor, eps: float = 1.0e-6) -> torch.Tensor:
+def axis_angle_from_quat(quat: torch.Tensor, eps: float = 1.0e-6) -> torch.Tensor:
+    """Axis-angle 3-vector (rotation axis scaled by angle in radians) from a wxyz
+    quaternion. The sign is canonicalised so the scalar part is non-negative."""
     quat = quat * (1.0 - 2.0 * (quat[..., 0:1] < 0.0))
     mag = torch.linalg.norm(quat[..., 1:], dim=-1)
     half_angle = torch.atan2(mag, quat[..., 0])
@@ -127,7 +129,7 @@ def _axis_angle_from_quat(quat: torch.Tensor, eps: float = 1.0e-6) -> torch.Tens
 def quat_error_magnitude(q1: torch.Tensor, q2: torch.Tensor) -> torch.Tensor:
     """Geodesic angle (radians) between two wxyz quaternions. Returns a scalar per row."""
     diff = quat_mul(q1, quat_conjugate(q2))
-    return torch.norm(_axis_angle_from_quat(diff), dim=-1)
+    return torch.norm(axis_angle_from_quat(diff), dim=-1)
 
 
 def subtract_frame_transforms(
@@ -162,6 +164,7 @@ def sample_uniform(
 
 
 __all__ = [
+    "axis_angle_from_quat",
     "matrix_from_quat",
     "normalize",
     "quat_apply",

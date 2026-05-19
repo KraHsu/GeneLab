@@ -16,6 +16,10 @@ from genelab.mdp.actions.binary_gripper import (
     BinaryGripperAction,
     BinaryGripperActionCfg,
 )
+from genelab.mdp.actions.continuous_gripper import (
+    ContinuousGripperAction,
+    ContinuousGripperActionCfg,
+)
 from genelab.mdp.actions.ee_delta_ik import (
     DifferentialIKAction,
     DifferentialIKActionCfg,
@@ -89,16 +93,22 @@ class _FakeArticulation:
 
 
 class _FakeRobotState:
-    def __init__(self, joint_pos: torch.Tensor) -> None:
+    def __init__(self, joint_pos: torch.Tensor, link_quat_w: torch.Tensor | None = None) -> None:
         self.joint_pos = joint_pos
+        self.link_quat_w = link_quat_w
 
 
 class _FakeEnv:
-    def __init__(self, articulation: _FakeArticulation, joint_pos: torch.Tensor) -> None:
+    def __init__(
+        self,
+        articulation: _FakeArticulation,
+        joint_pos: torch.Tensor,
+        link_quat_w: torch.Tensor | None = None,
+    ) -> None:
         self.num_envs = joint_pos.shape[0]
         self.device = str(joint_pos.device)
         self.articulation = articulation
-        self.robot_state = _FakeRobotState(joint_pos)
+        self.robot_state = _FakeRobotState(joint_pos, link_quat_w)
 
     @property
     def joint_names(self) -> list[str]:
@@ -112,6 +122,7 @@ def _franka_like_fake_env(
     requires_jac_and_ik: bool = True,
     current_q: torch.Tensor | None = None,
     joint_pos_limits: torch.Tensor | None = None,
+    ee_quat: torch.Tensor | None = None,
 ) -> tuple[_FakeEnv, torch.Tensor]:
     """Build a Franka-shaped fake env. Returns ``(env, jacobian_arm_columns)``.
 
@@ -147,7 +158,14 @@ def _franka_like_fake_env(
 
     if current_q is None:
         current_q = torch.zeros(num_envs, len(joint_names))
-    env = _FakeEnv(articulation, current_q)
+
+    # Identity world quats for every link; the "hand" link can be overridden so
+    # orientation-lock tests exercise a non-trivial error rotation.
+    link_quat_w = torch.zeros(num_envs, len(link_names), 4)
+    link_quat_w[..., 0] = 1.0
+    if ee_quat is not None:
+        link_quat_w[:, link_names.index("hand"), :] = ee_quat
+    env = _FakeEnv(articulation, current_q, link_quat_w)
 
     j_arm = jacobian[:, :, :7]
     return env, j_arm
@@ -312,3 +330,95 @@ def test_binary_gripper_action_dim_is_one() -> None:
     cfg = BinaryGripperActionCfg(joint_names=(r"^finger_joint.*$",))
     term = BinaryGripperAction(cfg, env)  # type: ignore[arg-type]
     assert term.action_dim == 1
+
+
+# ----------------------------------------------------------------- ContinuousGripperAction
+
+
+def test_continuous_gripper_action_dim_is_one() -> None:
+    env, _ = _franka_like_fake_env()
+    cfg = ContinuousGripperActionCfg(joint_names=(r"^finger_joint.*$",))
+    term = ContinuousGripperAction(cfg, env)  # type: ignore[arg-type]
+    assert term.action_dim == 1
+
+
+def test_continuous_gripper_integrates_on_sensed_width() -> None:
+    """The target is ``sensed_width + action·speed`` — panda-gym's incremental
+    gripper control, not an absolute mapping."""
+    current_q = torch.zeros(1, 9)
+    current_q[:, 7:9] = 0.02  # both fingers sensed half-open
+    env, _ = _franka_like_fake_env(current_q=current_q)
+    cfg = ContinuousGripperActionCfg(joint_names=(r"^finger_joint.*$",), speed=0.1)
+    term = ContinuousGripperAction(cfg, env)  # type: ignore[arg-type]
+    term.process_actions(torch.tensor([[-0.1]]))  # 0.02 + (-0.1)·0.1 = 0.01
+    assert torch.allclose(term._target, torch.full((1, 2), 0.01), atol=1e-6)  # noqa: SLF001
+
+
+def test_continuous_gripper_clamps_to_range() -> None:
+    current_q = torch.zeros(1, 9)
+    current_q[:, 7:9] = 0.02
+    env, _ = _franka_like_fake_env(current_q=current_q)
+    cfg = ContinuousGripperActionCfg(joint_names=(r"^finger_joint.*$",), speed=0.1)
+    term = ContinuousGripperAction(cfg, env)  # type: ignore[arg-type]
+    term.process_actions(torch.tensor([[5.0]]))  # clipped to 1.0 → 0.12 → clamp 0.04
+    assert torch.allclose(term._target, torch.full((1, 2), 0.04), atol=1e-6)  # noqa: SLF001
+    term.process_actions(torch.tensor([[-5.0]]))  # clipped to -1.0 → -0.08 → clamp 0.0
+    assert torch.allclose(term._target, torch.zeros(1, 2), atol=1e-6)  # noqa: SLF001
+
+
+# --------------------------------------------------- DifferentialIKAction: lock_orientation
+
+
+def test_differential_ik_lock_orientation_keeps_action_dim_three() -> None:
+    env, _ = _franka_like_fake_env()
+    cfg = DifferentialIKActionCfg(
+        body_name="hand",
+        joint_names=(r"^joint[1-7]$",),
+        lock_orientation=True,
+    )
+    term = DifferentialIKAction(cfg, env)  # type: ignore[arg-type]
+    assert term.action_dim == 3  # policy still emits position only
+    assert term._solve_dim == 6  # but the DLS solve uses all 6 Jacobian rows  # noqa: SLF001
+
+
+def test_differential_ik_lock_and_use_orientation_conflict() -> None:
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        DifferentialIKActionCfg(
+            body_name="hand",
+            joint_names=(r"^joint[1-7]$",),
+            use_orientation=True,
+            lock_orientation=True,
+        )
+
+
+def test_differential_ik_lock_orientation_captures_reset_quat() -> None:
+    """With no explicit ``fixed_orientation`` the target is captured from the EE
+    pose on the first ``process_actions`` call."""
+    ee_quat = torch.tensor([0.9239, 0.0, 0.3827, 0.0])  # 45° about world-y
+    env, _ = _franka_like_fake_env(ee_quat=ee_quat)
+    cfg = DifferentialIKActionCfg(
+        body_name="hand",
+        joint_names=(r"^joint[1-7]$",),
+        lock_orientation=True,
+    )
+    term = DifferentialIKAction(cfg, env)  # type: ignore[arg-type]
+    assert term._fixed_quat is None  # noqa: SLF001
+    term.process_actions(torch.zeros(1, 3))
+    assert term._fixed_quat is not None  # noqa: SLF001
+    assert torch.allclose(term._fixed_quat, ee_quat.reshape(1, 4), atol=1e-6)  # noqa: SLF001
+
+
+def test_differential_ik_lock_orientation_zero_step_when_aligned() -> None:
+    """EE already at the fixed target orientation + a zero position action ⇒
+    zero spatial delta ⇒ ``target_q`` equals ``current_q``."""
+    env, _ = _franka_like_fake_env(seed=11)  # identity EE quat
+    cfg = DifferentialIKActionCfg(
+        body_name="hand",
+        joint_names=(r"^joint[1-7]$",),
+        lock_orientation=True,
+        fixed_orientation=(1.0, 0.0, 0.0, 0.0),
+    )
+    term = DifferentialIKAction(cfg, env)  # type: ignore[arg-type]
+    term.process_actions(torch.zeros(1, 3))
+    current_q = env.robot_state.joint_pos.index_select(1, term._joint_indices)  # noqa: SLF001
+    assert torch.allclose(term._target_q, current_q, atol=1e-6)  # noqa: SLF001

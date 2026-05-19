@@ -7,6 +7,7 @@ __all__ = [
     "AssetDownloadError",
     "AssetSpec",
     "ProgressCallback",
+    "axis_angle_from_quat",
     "fetch_asset",
     "matrix_from_quat",
     "normalize",
@@ -32,6 +33,7 @@ if TYPE_CHECKING:
         fetch_asset,
     )
     from genelab.utils.math import (
+        axis_angle_from_quat,
         matrix_from_quat,
         normalize,
         quat_apply,
@@ -52,6 +54,7 @@ if TYPE_CHECKING:
 # ``genelab.utils.__init__``. First access resolves the real attribute and caches it.
 _LAZY_MATH_EXPORTS = frozenset(
     {
+        "axis_angle_from_quat",
         "matrix_from_quat",
         "normalize",
         "quat_apply",
