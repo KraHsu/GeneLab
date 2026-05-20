@@ -118,6 +118,15 @@ def _build_env_cfg(
         requires_jac_and_ik=requires_jac_and_ik,
         default_joint_pos=default_joint_pos,
     ).to_entity_cfg()
+    if goal_obs:
+        # HER-specific: the Genesis defaults on ``panda_hand`` cap closure at
+        # ~0.1 rad/s, so the gripper can't shut on a cube fast enough; bump the
+        # effort and velocity ceilings so a single -1 gripper action closes the
+        # fingers in roughly one env step. Scoped to the HER variant; the
+        # joint-position and Cartesian-only variants keep Isaac Lab defaults.
+        hand_actuator = robot_entity_cfg.actuators["panda_hand"]
+        hand_actuator.effort_limit = 100.0
+        hand_actuator.velocity_limit = 1.0
 
     cube_cfg = RigidObjectCfg(
         morph="box",
@@ -125,6 +134,10 @@ def _build_env_cfg(
         init_pos=(CUBE_NOMINAL_XY[0], CUBE_NOMINAL_XY[1], CUBE_HALF),
         init_quat=(1.0, 0.0, 0.0, 0.0),
         fixed=False,
+        # Genesis's built-in rigid friction is too low to keep the cube between
+        # parallel fingers; ``1.0`` matches the panda-gym mujoco cube and is what
+        # makes the gripper actually carry the cube on lift-off.
+        friction=1.0 if goal_obs else None,
     )
 
     return ManagerBasedRlEnvCfg(
