@@ -119,11 +119,20 @@ def _build_env_cfg(
         default_joint_pos=default_joint_pos,
     ).to_entity_cfg()
     if goal_obs:
-        # HER-specific: the Genesis defaults on ``panda_hand`` cap closure at
-        # ~0.1 rad/s, so the gripper can't shut on a cube fast enough; bump the
-        # effort and velocity ceilings so a single -1 gripper action closes the
-        # fingers in roughly one env step. Scoped to the HER variant; the
-        # joint-position and Cartesian-only variants keep Isaac Lab defaults.
+        # HER-specific actuator overrides scoped to the goal-conditioned variant;
+        # the joint-position and Cartesian-only variants keep Isaac Lab defaults.
+        # * panda_arm stiffness 400 -> 2000: Isaac Lab gains assume the arm
+        #   tracks the IK target unloaded; once the gripper is carrying the
+        #   ~50 g cube, the stock PD sags below the table and the saturated +z
+        #   action can't lift back. Stiffer PD holds the arm against the
+        #   combined gravity + cube load. Damping is bumped to keep ~critical.
+        # * panda_hand effort 20 -> 100, velocity 0.2 -> 1.0: Genesis defaults
+        #   close the fingers at ~0.1 rad/s, slower than the cube takes to
+        #   drop out of the gripper opening; new limits shut the fingers in
+        #   roughly one env step.
+        arm_actuator = robot_entity_cfg.actuators["panda_arm"]
+        arm_actuator.stiffness = 2000.0
+        arm_actuator.damping = 200.0
         hand_actuator = robot_entity_cfg.actuators["panda_hand"]
         hand_actuator.effort_limit = 100.0
         hand_actuator.velocity_limit = 1.0
