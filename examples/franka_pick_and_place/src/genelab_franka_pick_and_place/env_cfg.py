@@ -197,21 +197,33 @@ def franka_pick_and_place_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
 
 def franka_pick_and_place_her_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
-    """Joint-position env config (9-DoF) with goal-conditioned observation groups
-    for HER — used by the SB3 ``HerReplayBuffer`` task. Identical to
-    :func:`franka_pick_and_place_env_cfg` apart from the extra ``achieved_goal`` /
-    ``desired_goal`` groups and the sparse reward (matches the HER relabelling
-    callback)."""
+    """Cartesian env config (4-DoF, panda-gym parity) with goal-conditioned
+    observation groups for HER — the setup used in panda-gym's classic SAC+HER
+    benchmark. ``DifferentialIKAction`` (orientation locked) on the arm +
+    ``ContinuousGripperAction`` on the fingers makes the action ↦ achieved-goal
+    map near-linear, which is what HER's "future" relabelling needs to
+    bootstrap. Sparse reward matches the relabelling callback."""
     return _build_env_cfg(
         actions_cfg={
-            "arm_and_hand": JointPositionActionCfg(
+            "arm": DifferentialIKActionCfg(
                 asset_name="robot",
-                joint_names=(ARM_JOINTS_REGEX, FINGER_JOINTS_REGEX),
-                use_default_offset=True,
+                body_name=EE_LINK,
+                joint_names=(ARM_JOINTS_REGEX,),
+                use_orientation=False,
+                lock_orientation=True,
+                scale=0.05,
+            ),
+            "gripper": ContinuousGripperActionCfg(
+                asset_name="robot",
+                joint_names=(FINGER_JOINTS_REGEX,),
+                open_pos=0.04,
+                closed_pos=0.0,
+                speed=0.1,
             ),
         },
-        requires_jac_and_ik=False,
+        requires_jac_and_ik=True,
         play=play,
+        default_joint_pos=PANDA_GYM_NEUTRAL_POSE,
         goal_obs=True,
         sparse_reward=True,
     )
