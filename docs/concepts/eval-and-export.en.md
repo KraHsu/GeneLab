@@ -94,31 +94,36 @@ they do **not** need `rsl_rl` / `skrl` / `stable_baselines3` at inference time.
 
 ```bash
 # TorchScript
-genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
+genelab export Genelab-Velocity-Flat-Unitree-G1-v0 logs/.../model_30000.pt \
     --format torchscript --out policy.ts
 
 # ONNX (opset 17 by default)
-genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
+genelab export Genelab-Velocity-Flat-Unitree-G1-v0 logs/.../model_30000.pt \
     --format onnx --out policy.onnx --opset 17
 ```
+
+> **Note**: `GeneLab-Franka-Pick-And-Place-v0` is currently SAC+HER with a
+> goal-conditioned `Dict` observation, which is on the limitations list
+> below — try `genelab export` against it and you'll get a clear error.
+> Locomotion tasks (cartpole, G1) use flat-tensor obs and export cleanly.
 
 The exporter writes a sibling `<output>.metadata.json` describing the obs
 schema:
 
 ```json
 {
-  "task": "GeneLab-Franka-Pick-And-Place-v0",
-  "checkpoint": "logs/.../model_500.pt",
+  "task": "Genelab-Velocity-Flat-Unitree-G1-v0",
+  "checkpoint": "logs/.../model_30000.pt",
   "obs_groups": {
     "policy": {
-      "dim": 23,
+      "dim": 48,
       "terms": [
-        {"name": "joint_pos", "dim": 7, "start": 0, "scale": 1.0, "clip": null},
-        {"name": "joint_vel", "dim": 7, "start": 7, "scale": 0.1, "clip": [-2, 2]}
+        {"name": "joint_pos", "dim": 23, "start": 0, "scale": 1.0, "clip": null},
+        {"name": "joint_vel", "dim": 23, "start": 23, "scale": 0.1, "clip": [-2, 2]}
       ]
     }
   },
-  "action_dim": 7,
+  "action_dim": 23,
   "action_range": [-1.0, 1.0],
   "normalization_baked": true,
   "format": "torchscript",

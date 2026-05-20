@@ -12,20 +12,38 @@ configuration.
 > done on a stable Genesis pin. If you have run these yourself, attach the
 > numbers and curves to the GitHub issue tracking M1.7.
 
+## Reference tasks
+
+The five tasks tracked here cover GeneLab's bundled locomotion +
+manipulation lines:
+
+| Task ID | Backend (default agent) | Budget | Notes |
+|---|---|---|---|
+| `GeneLab-Inverted-Pendulum-v0` | rsl_rl PPO | 150 iter × 4096 envs | Tiny cartpole; sanity smoke target. |
+| `GeneLab-Double-Inverted-Pendulum-v0` | rsl_rl PPO | 300 iter × 4096 envs | Harder cartpole. |
+| `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 velocity tracking on flat ground. |
+| `Genelab-Tracking-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 motion-tracking on flat ground. |
+| `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 2048 envs | Goal-conditioned manipulation; needs offline demo prefill (see protocol below). |
+
+> **Note**: dev pruned the example to a single SAC+HER setup. The earlier
+> `Cartesian-v0` / `skrl-v0` / `sb3-v0` / `sb3-her-v0` Franka variants no
+> longer register and are intentionally not part of this set.
+
 ## Reproduction protocol
 
-Every reference run uses GeneLab's `--seeds` fan-out and the deterministic
-`genelab eval` for the final numbers:
+### Common path (4 of 5 tasks)
+
+Cartpole + G1 tasks are rsl_rl PPO; their reference runs use the multi-seed
+CLI directly:
 
 ```bash
-# 1. Train three seeds in parallel (one Python process per seed; parallel=3
-#    will saturate one machine if num_envs is moderate).
+# 1. Train three seeds (parallel=3 only for cartpole-sized tasks; G1 needs
+#    parallel=1 on a single GPU to avoid OOM).
 genelab train <TASK> \
-    --num_envs <N> --max_iterations <ITERS> \
-    --seeds 1,2,3 --parallel 3 \
+    --seeds 1,2,3 --parallel <P> \
     --log_dir logs/reference/<TASK>/<DATE>
 
-# 2. Evaluate each seed's final checkpoint deterministically.
+# 2. Deterministic eval against each seed's final checkpoint.
 for s in 1 2 3; do
   genelab eval <TASK> \
     "logs/reference/<TASK>/<DATE>/seed_${s}/model_final.pt" \
@@ -34,23 +52,44 @@ for s in 1 2 3; do
 done
 ```
 
-The `eval.json` files are the source of truth for the numbers in the tables.
+`eval.json` files are the source of truth for the table numbers.
 
-Hardware: one CUDA GPU (≥ 12 GB VRAM) for training. CPU-only eval works for
-the deterministic rollout step but is much slower than GPU-vectorized.
+### Franka SAC+HER path
 
-## Reference tasks
+`GeneLab-Franka-Pick-And-Place-v0` is goal-conditioned SAC+HER and needs an
+offline demo prefill before training, otherwise the cold-start replay
+buffer never sees a successful trajectory:
 
-The five tasks tracked here cover GeneLab's bundled locomotion +
-manipulation lines:
+```bash
+# 1. Collect demos via the scripted FSM (one-shot, seed-independent).
+uv run python -m genelab_franka_pick_and_place.collect_demos \
+    --num-envs 32 --steps 6400 \
+    --out logs/reference/franka-pp/demos.npz
 
-| Task ID | Backend (default agent) | Notes |
-|---|---|---|
-| `GeneLab-Inverted-Pendulum-v0` | rsl_rl PPO | Tiny cartpole; ~5 min on 64 envs. Useful as a smoke target. |
-| `GeneLab-Double-Inverted-Pendulum-v0` | rsl_rl PPO | Harder cartpole; ~15 min on 64 envs. |
-| `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | Unitree G1 velocity tracking on flat ground; ~30k iter × 4096 envs. |
-| `GeneLab-Franka-Pick-And-Place-v0` | rsl_rl PPO (joint-space) | Manipulation joint-space variant; ~1 h. |
-| `GeneLab-Franka-Pick-And-Place-Cartesian-v0` | rsl_rl PPO (Cartesian IK) | Same task via DifferentialIK; converges faster. |
+# 2. Train three seeds — each child reads the demo file via
+#    GENELAB_SB3_DEMO_PATH (or set agent.demo_path in cfg).
+GENELAB_SB3_DEMO_PATH=logs/reference/franka-pp/demos.npz \
+  genelab train GeneLab-Franka-Pick-And-Place-v0 \
+    --seeds 1,2,3 --parallel 1 \
+    --log_dir logs/reference/franka-pp/<DATE>
+
+# 3. Eval each seed's saved model.zip (SB3's native format).
+for s in 1 2 3; do
+  genelab eval GeneLab-Franka-Pick-And-Place-v0 \
+    "logs/reference/franka-pp/<DATE>/seed_${s}/model.zip" \
+    --num-envs 64 --episodes 100 --seed 0 \
+    --out "logs/reference/franka-pp/<DATE>/seed_${s}/eval.json"
+done
+```
+
+The Franka task **cannot** currently be exported via `genelab export` —
+HER's `Dict` observation is on the M1.3 limitations list. Removing that
+limitation is tracked as a future M-series follow-up.
+
+### Hardware
+
+One CUDA GPU (≥ 12 GB VRAM) for training. CPU-only eval works for the
+deterministic rollout step but is much slower than GPU-vectorized.
 
 ## Reference numbers
 
@@ -78,17 +117,17 @@ manipulation lines:
 | 2 | TBD | TBD | TBD | TBD | TBD |
 | 3 | TBD | TBD | TBD | TBD | TBD |
 
-### `GeneLab-Franka-Pick-And-Place-v0`
+### `Genelab-Tracking-Flat-Unitree-G1-v0`
 
-| Seed | Final `return_mean` | `return_std` | `success_rate` | Convergence iter | Train wall-clock |
+| Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
 | 1 | TBD | TBD | TBD | TBD | TBD |
 | 2 | TBD | TBD | TBD | TBD | TBD |
 | 3 | TBD | TBD | TBD | TBD | TBD |
 
-### `GeneLab-Franka-Pick-And-Place-Cartesian-v0`
+### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER, demo-prefilled)
 
-| Seed | Final `return_mean` | `return_std` | `success_rate` | Convergence iter | Train wall-clock |
+| Seed | Final `return_mean` | `return_std` | `success_rate` | Convergence timestep | Train wall-clock |
 |---|---|---|---|---|---|
 | 1 | TBD | TBD | TBD | TBD | TBD |
 | 2 | TBD | TBD | TBD | TBD | TBD |

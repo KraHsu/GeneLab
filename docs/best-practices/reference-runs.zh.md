@@ -9,17 +9,32 @@
 > 上跑完后再单独提 PR 填进来。你自己跑过的话，把数字 + 曲线挂到 M1.7 跟踪
 > issue 上即可。
 
+## Reference 任务
+
+这五个任务覆盖 GeneLab 内置的 locomotion + manipulation 两条线：
+
+| Task ID | Backend (默认 agent) | 预算 | 备注 |
+|---|---|---|---|
+| `GeneLab-Inverted-Pendulum-v0` | rsl_rl PPO | 150 iter × 4096 envs | 小 cartpole；当 smoke target 用。 |
+| `GeneLab-Double-Inverted-Pendulum-v0` | rsl_rl PPO | 300 iter × 4096 envs | 难一些的 cartpole。 |
+| `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 平地速度跟踪。 |
+| `Genelab-Tracking-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 平地动作跟踪。 |
+| `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 2048 envs | 目标条件抓取；需要离线 demo 预填（见下方协议）。 |
+
+> **注**：dev 把 Franka example 收敛到唯一 SAC+HER 配置。早先的
+> `Cartesian-v0` / `skrl-v0` / `sb3-v0` / `sb3-her-v0` 变体已经不再注册，
+> 故意不收在这套里。
+
 ## 复现协议
 
-每条 reference run 都走 GeneLab 的 `--seeds` 扇出 + `genelab eval` 出最终数
-字：
+### 通用路径（4 / 5 任务）
+
+Cartpole + G1 都是 rsl_rl PPO，复现就用 multi-seed CLI 直接来：
 
 ```bash
-# 1. 三个 seed 并行训练（一个 Python 进程一个 seed；num_envs 不太大时
-#    parallel=3 能饱和一台机器）。
+# 1. 三个 seed 训练（cartpole 大小可以 parallel=3；G1 单卡用 parallel=1 防 OOM）。
 genelab train <TASK> \
-    --num_envs <N> --max_iterations <ITERS> \
-    --seeds 1,2,3 --parallel 3 \
+    --seeds 1,2,3 --parallel <P> \
     --log_dir logs/reference/<TASK>/<DATE>
 
 # 2. 对每个 seed 的最终 checkpoint 做 deterministic eval。
@@ -31,22 +46,42 @@ for s in 1 2 3; do
 done
 ```
 
-下面表里的数字直接读 `eval.json`。
+下表数字读 `eval.json`。
 
-硬件：训练用一块 CUDA GPU（≥ 12 GB VRAM）。Deterministic eval 用 CPU 能跑
-但比 GPU vectorized 慢很多。
+### Franka SAC+HER 路径
 
-## Reference 任务
+`GeneLab-Franka-Pick-And-Place-v0` 是 goal-conditioned SAC+HER，训练前必须
+离线 demo 预填，否则 cold-start replay buffer 永远见不到成功轨迹：
 
-这五个任务覆盖 GeneLab 内置的 locomotion + manipulation 两条线：
+```bash
+# 1. 用脚本化 FSM 收 demo（一次性，与 seed 无关）。
+uv run python -m genelab_franka_pick_and_place.collect_demos \
+    --num-envs 32 --steps 6400 \
+    --out logs/reference/franka-pp/demos.npz
 
-| Task ID | Backend (默认 agent) | 备注 |
-|---|---|---|
-| `GeneLab-Inverted-Pendulum-v0` | rsl_rl PPO | 小 cartpole；64 envs ~5 分钟。当 smoke target 用。 |
-| `GeneLab-Double-Inverted-Pendulum-v0` | rsl_rl PPO | 难一些的 cartpole；64 envs ~15 分钟。 |
-| `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | Unitree G1 平地速度跟踪；~30k iter × 4096 envs。 |
-| `GeneLab-Franka-Pick-And-Place-v0` | rsl_rl PPO (joint-space) | 操作任务 joint-space 版；~1 小时。 |
-| `GeneLab-Franka-Pick-And-Place-Cartesian-v0` | rsl_rl PPO (Cartesian IK) | 同任务走 DifferentialIK；收敛更快。 |
+# 2. 三个 seed 训练 — 每个子进程通过 GENELAB_SB3_DEMO_PATH 读 demo 文件
+#    （或在 cfg 里设 agent.demo_path）。
+GENELAB_SB3_DEMO_PATH=logs/reference/franka-pp/demos.npz \
+  genelab train GeneLab-Franka-Pick-And-Place-v0 \
+    --seeds 1,2,3 --parallel 1 \
+    --log_dir logs/reference/franka-pp/<DATE>
+
+# 3. 对每个 seed 保存的 model.zip（SB3 原生格式）做 eval。
+for s in 1 2 3; do
+  genelab eval GeneLab-Franka-Pick-And-Place-v0 \
+    "logs/reference/franka-pp/<DATE>/seed_${s}/model.zip" \
+    --num-envs 64 --episodes 100 --seed 0 \
+    --out "logs/reference/franka-pp/<DATE>/seed_${s}/eval.json"
+done
+```
+
+Franka 任务**目前无法**通过 `genelab export` 导出 —— HER 的 `Dict` 观测在
+M1.3 限制清单里。去掉这个限制是后续 M 系列 follow-up。
+
+### 硬件
+
+训练用一块 CUDA GPU（≥ 12 GB VRAM）。Deterministic eval 用 CPU 能跑但比
+GPU vectorized 慢很多。
 
 ## Reference 数字
 
@@ -74,17 +109,17 @@ done
 | 2 | TBD | TBD | TBD | TBD | TBD |
 | 3 | TBD | TBD | TBD | TBD | TBD |
 
-### `GeneLab-Franka-Pick-And-Place-v0`
+### `Genelab-Tracking-Flat-Unitree-G1-v0`
 
-| Seed | 最终 `return_mean` | `return_std` | `success_rate` | 收敛 iter | 训练 wall-clock |
+| Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
 | 1 | TBD | TBD | TBD | TBD | TBD |
 | 2 | TBD | TBD | TBD | TBD | TBD |
 | 3 | TBD | TBD | TBD | TBD | TBD |
 
-### `GeneLab-Franka-Pick-And-Place-Cartesian-v0`
+### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER，demo 预填)
 
-| Seed | 最终 `return_mean` | `return_std` | `success_rate` | 收敛 iter | 训练 wall-clock |
+| Seed | 最终 `return_mean` | `return_std` | `success_rate` | 收敛 timestep | 训练 wall-clock |
 |---|---|---|---|---|---|
 | 1 | TBD | TBD | TBD | TBD | TBD |
 | 2 | TBD | TBD | TBD | TBD | TBD |
