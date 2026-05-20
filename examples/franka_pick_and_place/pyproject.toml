@@ -1,7 +1,7 @@
 [project]
 name = "genelab-franka-pick-and-place"
 version = "0.1.0"
-description = "Franka Panda pick-and-place PPO task for GeneLab."
+description = "Franka Panda pick-and-place SAC+HER task for GeneLab (lift_bonus + FSM demo prefill)."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["genelab[rl]"]
