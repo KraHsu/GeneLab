@@ -70,7 +70,7 @@ def main() -> None:
 
     ensure_project_cache()
     load_extension_module("genelab_franka_pick_and_place.tasks")
-    task = TASKS.get("GeneLab-Franka-Pick-And-Place-sb3-her-v0")
+    task = TASKS.get("GeneLab-Franka-Pick-And-Place-v0")
     env_cfg = task.cfg.env
     env_cfg.simulation.num_envs = int(args.num_envs)
     env_cfg.simulation.vis = False
