@@ -86,20 +86,24 @@ genelab train GeneLab-Inverted-Pendulum-v0 \
 
 ```bash
 # TorchScript
-genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
+genelab export Genelab-Velocity-Flat-Unitree-G1-v0 logs/.../model_30000.pt \
     --format torchscript --out policy.ts
 
 # ONNX（默认 opset 17）
-genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
+genelab export Genelab-Velocity-Flat-Unitree-G1-v0 logs/.../model_30000.pt \
     --format onnx --out policy.onnx --opset 17
 ```
+
+> **注**：`GeneLab-Franka-Pick-And-Place-v0` 现在是 SAC+HER + goal-conditioned
+> `Dict` 观测，命中下方的 limitations —— 对它跑 `genelab export` 会报清晰
+> 错误。Locomotion 任务（cartpole / G1）走 flat-tensor obs，导出干净。
 
 导出器会在旁边写一份 `<output>.metadata.json`，描述 obs schema：
 
 ```json
 {
-  "task": "GeneLab-Franka-Pick-And-Place-v0",
-  "checkpoint": "logs/.../model_500.pt",
+  "task": "Genelab-Velocity-Flat-Unitree-G1-v0",
+  "checkpoint": "logs/.../model_30000.pt",
   "obs_groups": {
     "policy": {
       "dim": 23,
