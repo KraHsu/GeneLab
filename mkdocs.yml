@@ -202,6 +202,7 @@ nav:
       - Managers and MDP terms: concepts/managers.md
       - MDP terms reference: concepts/mdp.md
       - RL runner: concepts/rl-runner.md
+      - Eval and export: concepts/eval-and-export.md
       - Scene and entities: concepts/scene.md
       - Actuators: concepts/actuators.md
       - Sensors: concepts/sensors.md

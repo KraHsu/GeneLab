@@ -11,9 +11,11 @@ the chosen backend, so library-specific code lives entirely inside the backend.
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Callable, Literal, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    import torch.nn as nn
+
     from genelab.bridges.base import Bridge
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
@@ -70,6 +72,8 @@ class TrainContext:
     log_root: Path | None = None
     resume_from: Path | None = None
     profile: ProfileArgs = field(default_factory=ProfileArgs)
+    # Periodic in-training eval (M1.2). Driven by runner.train_task, not by the backend.
+    eval_callback: Any = None  # genelab.rl.eval_callback.EvalCallbackCfg | None
 
 
 @dataclass
@@ -93,6 +97,38 @@ class PlayContext:
     profile: ProfileArgs = field(default_factory=ProfileArgs)
 
 
+@dataclass
+class InferenceSetup:
+    """Bundle of pieces ``run_play_loop`` / ``run_evaluation`` / ``export_policy`` consume.
+
+    Built by ``Backend.make_inference_setup`` so eval / play / export share one
+    code path that already knows how to (a) wrap the env, (b) load a checkpoint, and
+    (c) hand back the actor as a bare ``nn.Module`` for export.
+
+    Fields:
+
+    * ``wrapper`` — the backend-specific env wrapper (``RslRlVecEnvWrapper`` /
+      ``GenelabSkrlWrapper`` / ``GenelabSb3VecEnv``). Holds ``.device``, ``.num_envs``,
+      ``.num_actions``, etc.
+    * ``adapter`` — a ``run_play_loop`` / ``run_evaluation`` compatible env-like object
+      whose ``reset`` returns ``(obs, info)`` and ``step`` returns ``(obs, reward,
+      terminated, truncated, info)``. The info dict carries ``extras["is_success"]``
+      when the task exposes it.
+    * ``policy`` — ``policy(obs) -> action_tensor`` callable for the rollout loop.
+    * ``actor_module`` — bare ``nn.Module`` taking a single flat policy-obs tensor
+      and emitting an action tensor. ``None`` when the backend cannot extract it
+      (e.g. zero / random play paths). Required for ``genelab export``.
+    * ``actor_input_dim`` — flat dim of the policy obs tensor the actor expects.
+      Used to build dummy inputs for tracing / ONNX export.
+    """
+
+    wrapper: Any
+    adapter: Any
+    policy: Callable[[Any], Any]
+    actor_module: "nn.Module | None" = None
+    actor_input_dim: int | None = None
+
+
 @runtime_checkable
 class Backend(Protocol):
     """One RL library. Implementations register themselves via ``register_backend``."""
@@ -106,4 +142,12 @@ class Backend(Protocol):
 
     def play(self, ctx: PlayContext) -> None:
         """Replay a policy for the task in ``ctx``."""
+        ...
+
+    def make_inference_setup(self, ctx: PlayContext) -> InferenceSetup:
+        """Load ``ctx.checkpoint`` and return a play / eval / export-ready bundle.
+
+        Always assumes ``ctx.kind == "trained"`` — zero / random play do not need an
+        ``InferenceSetup`` because they have no checkpoint to load.
+        """
         ...

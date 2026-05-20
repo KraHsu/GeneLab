@@ -6,6 +6,58 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ## [Unreleased]
 
+### Added
+
+- `genelab eval TASK CHECKPOINT` — deterministic rollout that writes a JSON
+  summary (`return_mean`/`return_std`, `length_mean`, optional `success_rate`,
+  `wall_clock_seconds`) in the ROADMAP §M1.1 schema. Backend-agnostic: routes
+  through the new `Backend.make_inference_setup` method so `rsl_rl` / `skrl` /
+  `sb3` all share the same `run_evaluation` rollout core. Tasks opt into
+  `success_rate` by publishing `extras["is_success"]` per-env from their
+  `ManagerBasedRlEnv.step` (gymnasium convention); absent → JSON `null`.
+- `genelab train --eval-every K` — periodic in-training eval and best-model
+  selection. Each chunk of `K` iters ends with a deterministic eval on the
+  newest checkpoint; the eval payload is written to
+  `<log_dir>/best_model_meta.json` and the checkpoint is copied to
+  `<log_dir>/best_model.<ext>` (`.pt` for `rsl_rl`/`skrl`, `.zip` for `sb3`)
+  whenever `return_mean` improves. New flags: `--eval-every`,
+  `--eval-episodes`, `--eval-num-envs`, `--eval-seed`.
+- `genelab export TASK CHECKPOINT --format {torchscript,onnx}` — backend-agnostic
+  policy export. The actor sub-network is wrapped in `ExportedPolicy`, which
+  bakes per-term obs `scale` / `clip` into a single `forward(raw_obs) ->
+  actions` pass; deployment requires only `torch` (TorchScript) or an ONNX
+  runtime, with no `rsl_rl` / `skrl` / `stable_baselines3` import at inference.
+  A sibling `<output>.metadata.json` records obs group dims, term-level
+  normalization, action dim/range, and provenance.
+- `InferenceSetup` (in `genelab.rl.backends.base`) and
+  `Backend.make_inference_setup(ctx)` — shared abstraction the eval / export /
+  play paths now use to load a checkpoint and hand back the actor module,
+  policy callable, and eval-friendly env adapter as one bundle.
+- `docs/concepts/eval-and-export.{en,zh}.md` — bilingual concept page covering
+  the new CLIs, the success-rate convention, off-policy caveats, deployment-
+  side load + forward snippets, and known limitations (no dict-obs export, no
+  recurrent policies yet).
+- `ROADMAP.md` — tracking document for the next 2–3 release cycles. Defines
+  GeneLab's positioning (Genesis-backed manager-based RL scaffold, Isaac Lab
+  API shape, multi-backend), seven design principles, three milestones (M1
+  research reproducibility, M2 sim2real hardening, M3 platform breadth), and
+  a contributor on-ramp.
+
+### Changed
+
+- `joint_acc_l2` (in `genelab.mdp.rewards`) now emits a one-shot
+  `warnings.warn` announcing that it returns 0 — the function name implies
+  joint-acceleration tracking, but a proper implementation needs prior-step
+  `joint_vel` history (tracked under ROADMAP M2). Closes the §3 P4 violation
+  flagged in the ROADMAP audit (M1.6).
+
+### Removed
+
+- `RslRlBaseRunnerCfg.resume`, `.load_run`, and `.load_checkpoint` — all three
+  fields were dead code (the actual resume path comes from `--checkpoint` /
+  `TrainContext.resume_from`). Closes the §3 P3 violation flagged in the
+  ROADMAP audit (M1.5).
+
 ### Fixed
 
 - Slow-motion playback during `genelab play` with non-trivial `decimation`: the

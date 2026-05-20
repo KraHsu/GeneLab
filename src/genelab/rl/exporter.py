@@ -1,0 +1,220 @@
+"""``genelab export`` — TorchScript / ONNX export of a trained policy.
+
+Wraps the backend's actor ``nn.Module`` in :class:`ExportedPolicy`, which bakes
+per-term obs ``scale`` / ``clip`` into a single ``forward(raw_obs) -> actions`` pass.
+Deployment environments only need ``torch`` (TorchScript) or an ONNX runtime; no
+``rsl_rl`` / ``skrl`` / ``stable_baselines3`` import is required at inference time.
+
+The exported file is accompanied by ``<output>.metadata.json`` recording the obs
+schema (term names, dims, scale/clip), action dim/range, and provenance fields,
+so deployers know which raw-obs layout to feed.
+"""
+
+import datetime as dt
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, cast
+
+if TYPE_CHECKING:
+    import torch.nn as nn
+
+
+@dataclass
+class ExportConfig:
+    format: Literal["torchscript", "onnx"]
+    output: Path
+    opset: int = 17  # ONNX-only; ignored for torchscript
+
+
+@dataclass
+class _TermSpec:
+    name: str
+    start: int
+    end: int
+    scale: float | None
+    clip: tuple[float, float] | None
+
+
+_BIG = 1.0e30  # finite stand-in for ±inf in TorchScript / ONNX-friendly clamps
+
+
+def _resolve_policy_group_specs(env: Any, group_name: str) -> tuple[list[_TermSpec], int]:
+    """Return ``([term_spec, ...], total_obs_dim)`` for ``group_name``.
+
+    Probes the env once to read each term's tensor width — the observation manager
+    only materializes shapes during ``compute``, so we go through it instead of
+    introspecting cfg.
+    """
+    obs_dict = env.observation_manager.compute()
+    if group_name not in obs_dict:
+        raise SystemExit(
+            f"obs group {group_name!r} not produced by env; available: {sorted(obs_dict)}"
+        )
+    group_cfg = env.observation_manager.cfg[group_name]
+    specs: list[_TermSpec] = []
+    cursor = 0
+    for term_name, term_cfg in group_cfg.terms.items():
+        value = term_cfg.func(env, **term_cfg.params)
+        width = int(value.shape[-1]) if value.dim() > 1 else 1
+        specs.append(
+            _TermSpec(
+                name=term_name,
+                start=cursor,
+                end=cursor + width,
+                scale=term_cfg.scale,
+                clip=term_cfg.clip,
+            )
+        )
+        cursor += width
+    return specs, cursor
+
+
+def _build_exported_module(actor: "nn.Module", specs: list[_TermSpec], obs_dim: int) -> Any:
+    """Return an ``nn.Module`` that bakes per-term scale/clip in front of ``actor``."""
+    import torch
+    import torch.nn as nn
+
+    scale_vec = torch.ones(obs_dim, dtype=torch.float32)
+    lo_vec = torch.full((obs_dim,), -_BIG, dtype=torch.float32)
+    hi_vec = torch.full((obs_dim,), _BIG, dtype=torch.float32)
+    for spec in specs:
+        if spec.scale is not None:
+            scale_vec[spec.start : spec.end] = float(spec.scale)
+        if spec.clip is not None:
+            lo_vec[spec.start : spec.end] = float(spec.clip[0])
+            hi_vec[spec.start : spec.end] = float(spec.clip[1])
+
+    class _ExportedPolicy(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.actor = actor
+            self.register_buffer("_obs_scale", scale_vec)
+            self.register_buffer("_obs_clip_lo", lo_vec)
+            self.register_buffer("_obs_clip_hi", hi_vec)
+
+        def forward(self, obs: torch.Tensor) -> torch.Tensor:
+            # ``register_buffer`` declares ``Tensor | Module``; the assignment above
+            # is always a tensor so the cast is safe and keeps pyright quiet.
+            scale = cast(torch.Tensor, self._obs_scale)
+            clip_lo = cast(torch.Tensor, self._obs_clip_lo)
+            clip_hi = cast(torch.Tensor, self._obs_clip_hi)
+            x = obs * scale
+            x = torch.maximum(x, clip_lo)
+            x = torch.minimum(x, clip_hi)
+            return self.actor(x)
+
+    return _ExportedPolicy()
+
+
+def _metadata(
+    task_id: str,
+    checkpoint: Path,
+    group_name: str,
+    specs: list[_TermSpec],
+    obs_dim: int,
+    action_dim: int,
+    cfg: ExportConfig,
+) -> dict[str, Any]:
+    import torch
+
+    return {
+        "task": task_id,
+        "checkpoint": str(checkpoint),
+        "obs_groups": {
+            group_name: {
+                "dim": obs_dim,
+                "terms": [
+                    {
+                        "name": s.name,
+                        "dim": s.end - s.start,
+                        "start": s.start,
+                        "scale": s.scale,
+                        "clip": list(s.clip) if s.clip is not None else None,
+                    }
+                    for s in specs
+                ],
+            }
+        },
+        "action_dim": action_dim,
+        "action_range": [-1.0, 1.0],
+        "normalization_baked": True,
+        "format": cfg.format,
+        "opset": cfg.opset if cfg.format == "onnx" else None,
+        "exported_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "torch_version": torch.__version__,
+    }
+
+
+def export_policy(
+    *,
+    task_id: str,
+    env: Any,
+    checkpoint: Path,
+    actor: "nn.Module",
+    actor_input_dim: int,
+    action_dim: int,
+    policy_group: str,
+    cfg: ExportConfig,
+) -> Path:
+    """Serialize ``actor`` (with baked per-term obs normalization) to ``cfg.output``.
+
+    Writes a sibling ``<output>.metadata.json`` describing the obs schema. Returns
+    the path to the serialized model file.
+    """
+    import torch
+
+    specs, obs_dim = _resolve_policy_group_specs(env, policy_group)
+    if actor_input_dim and obs_dim != actor_input_dim:
+        # Don't hard-fail — the backend may have a deeper preprocessing layer; just
+        # warn so the user can compare shapes against the metadata.
+        import warnings
+
+        warnings.warn(
+            f"obs dim mismatch: env produces {obs_dim}, actor expects {actor_input_dim}. "
+            "Exported obs schema reflects the env; deployment-side shapes may need "
+            "adjustment.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    actor.eval()
+    module = _build_exported_module(actor, specs, obs_dim)
+    module.eval()
+
+    dummy = torch.zeros(1, obs_dim, dtype=torch.float32)
+    output = Path(cfg.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    if cfg.format == "torchscript":
+        with torch.inference_mode():
+            scripted = torch.jit.trace(module, dummy, check_trace=False)
+        # ``torch.jit.trace`` returns a ``ScriptModule`` at runtime; pyright's stub
+        # over-narrows the return so we go through the module-level ``save``.
+        torch.jit.save(scripted, str(output))  # type: ignore[arg-type]
+    elif cfg.format == "onnx":
+        with torch.inference_mode():
+            torch.onnx.export(
+                module,
+                (dummy,),
+                str(output),
+                input_names=["obs"],
+                output_names=["actions"],
+                dynamic_axes={"obs": {0: "batch"}, "actions": {0: "batch"}},
+                opset_version=cfg.opset,
+            )
+    else:
+        raise SystemExit(f"unknown export format {cfg.format!r}; use torchscript or onnx")
+
+    meta = _metadata(
+        task_id=task_id,
+        checkpoint=checkpoint,
+        group_name=policy_group,
+        specs=specs,
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        cfg=cfg,
+    )
+    meta_path = output.with_suffix(output.suffix + ".metadata.json")
+    meta_path.write_text(json.dumps(meta, indent=2))
+    return output
