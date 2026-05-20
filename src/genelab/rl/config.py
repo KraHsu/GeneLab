@@ -51,9 +51,6 @@ class RslRlBaseRunnerCfg:
     logger: Literal["wandb", "tensorboard"] = "tensorboard"
     wandb_project: str = "genelab"
     wandb_tags: tuple[str, ...] = ()
-    resume: bool = False
-    load_run: str = ".*"
-    load_checkpoint: str = "model_.*.pt"
     clip_actions: float | None = None
     upload_model: bool = False
 
