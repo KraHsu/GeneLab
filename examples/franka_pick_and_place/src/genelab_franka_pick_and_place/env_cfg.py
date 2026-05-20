@@ -182,6 +182,7 @@ def _build_env_cfg(
         rewards_cfg=(
             {
                 "sparse_goal": RewardTermCfg(func=fpp_mdp.sparse_goal_reward, weight=1.0),
+                "lift_bonus": RewardTermCfg(func=fpp_mdp.lift_bonus, weight=0.2),
             }
             if sparse_reward
             else {

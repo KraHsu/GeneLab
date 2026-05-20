@@ -14,19 +14,27 @@ import numpy as np
 
 from genelab.rl import Sb3AgentCfg, Sb3ExperimentCfg, Sb3HerCfg, Sb3PolicyCfg
 
-from genelab_franka_pick_and_place.constants import DISTANCE_THRESHOLD
+from genelab_franka_pick_and_place.constants import CUBE_HALF, DISTANCE_THRESHOLD
 
 
 def franka_pick_and_place_her_compute_reward(
     achieved_goal: np.ndarray, desired_goal: np.ndarray, info: object
 ) -> np.ndarray:
-    """panda-gym-style **sparse** goal reward for HER goal relabelling.
+    """Sparse goal reward + lift bonus for HER goal relabelling.
 
     ``-1`` while the cube is farther than ``DISTANCE_THRESHOLD`` from the goal,
-    ``0`` once it is within threshold. Vectorized over a batch of goal pairs
+    ``0`` once within threshold, **plus** a per-step lift bonus that ramps from
+    ``0`` (cube on table) to ``+0.2`` (cube 10 cm above table). The lift term
+    mirrors :func:`genelab_franka_pick_and_place.mdp.lift_bonus` exactly so the
+    online env reward and HER's relabelled reward share one shape — HER
+    relabels ``desired_goal`` only, so the cube-z component of ``achieved_goal``
+    is identical in both branches. Vectorized over a batch of goal pairs
     (``HerReplayBuffer`` passes ``(batch, 3)`` numpy arrays)."""
     distance = np.linalg.norm(np.asarray(achieved_goal) - np.asarray(desired_goal), axis=-1)
-    return -(distance > DISTANCE_THRESHOLD).astype(np.float32)
+    sparse = -(distance > DISTANCE_THRESHOLD).astype(np.float32)
+    cube_z = np.asarray(achieved_goal)[..., 2]
+    lift = np.clip(cube_z - CUBE_HALF, 0.0, 0.10) / 0.10
+    return sparse + np.float32(0.2) * lift.astype(np.float32)
 
 
 def franka_pick_and_place_sb3_cfg() -> Sb3AgentCfg:
