@@ -1,9 +1,10 @@
-"""MDP terms specific to the Franka pick-and-place task.
+"""MDP terms for the Franka pick-and-place SAC+HER task.
 
-The terms here read or write the cube's pose through ``env.scene.rigid_objects["cube"]``
-and store/sample a per-env goal buffer cached on the env instance. The pattern mirrors
-``genelab.mdp.events.reset_root_state_uniform`` — call the Genesis batched API first and
-fall back to the non-batched signature on older builds.
+Observation terms (cube pose, EE pose, goal pose, the cube→goal vector, and a
+TimeFeature for the value head), the sparse goal reward + lift bonus pair, the
+cube-fell-off-the-table termination, and the cube / goal reset events. All
+custom terms read or write through ``env.scene.rigid_objects["cube"]`` and a
+per-env goal buffer cached on the env instance.
 """
 
 from typing import TYPE_CHECKING
@@ -94,23 +95,45 @@ def cube_to_goal_vec_obs(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return _ensure_goal_buffer(env) - _cube_pos(env)
 
 
+def time_feature_obs(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    """Fraction of episode remaining, per env, shaped ``(num_envs, 1)``.
+
+    Mirrors ``sb3_contrib.common.wrappers.TimeFeatureWrapper`` — the standard
+    panda-gym SAC+HER setup feeds this in so the policy can resolve the
+    non-Markovian time-out termination, which HER relabelling otherwise hides
+    from the value network."""
+    remaining = 1.0 - env.episode_length_buf.to(torch.float32) / float(env.max_episode_length)
+    return remaining.unsqueeze(-1)
+
+
 # ----------------------------------------------------------------- rewards
 
 
-def ee_to_cube_distance(env: "ManagerBasedRlEnv") -> torch.Tensor:
-    """L2 distance from EE to cube. Apply with a NEGATIVE weight (panda-gym dense form)."""
-    return torch.linalg.vector_norm(_ee_pos(env) - _cube_pos(env), dim=-1)
+def sparse_goal_reward(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    """panda-gym sparse goal reward: ``-1`` while the cube is farther than
+    ``DISTANCE_THRESHOLD`` from the goal, ``0`` once it is within threshold.
+
+    Mirrors :func:`genelab_franka_pick_and_place.sb3_cfg.franka_pick_and_place_compute_reward`
+    bit-for-bit so HER's online and relabelled transitions share one reward
+    shape — applied with weight ``+1.0``."""
+    d = torch.linalg.vector_norm(_cube_pos(env) - _ensure_goal_buffer(env), dim=-1)
+    return -(d > DISTANCE_THRESHOLD).to(d.dtype)
 
 
-def cube_to_goal_distance(env: "ManagerBasedRlEnv") -> torch.Tensor:
-    """L2 distance from cube to goal. Apply with a NEGATIVE weight."""
-    return torch.linalg.vector_norm(_cube_pos(env) - _ensure_goal_buffer(env), dim=-1)
+def lift_bonus(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    """Per-step ramp that rewards lifting the cube off the table.
 
-
-def success_bonus(env: "ManagerBasedRlEnv") -> torch.Tensor:
-    """``1.0`` while ``d(cube, goal) < DISTANCE_THRESHOLD`` (sparse top-up)."""
-    d = cube_to_goal_distance(env)
-    return (d < DISTANCE_THRESHOLD).to(d.dtype)
+    Returns ``0`` while the cube sits on the table, ramps linearly to ``1.0``
+    once the cube center is ``0.10 m`` above its on-table z, then saturates.
+    Sparse goal reward + HER alone leaves a dead zone between the
+    ground-scoot strategy and any air goal: HER can only relabel into
+    regions the achieved goal actually visits, so until the policy randomly
+    lifts the cube, the upper half of the goal space gets no learning
+    signal. This bonus injects an explicit lift gradient so cube_z escapes
+    that local optimum. Must be mirrored in the HER ``compute_reward``
+    callback so online and relabelled transitions share one reward shape."""
+    cube_z = _cube_pos(env)[:, 2]
+    return (cube_z - CUBE_HALF).clamp(min=0.0, max=0.10) / 0.10
 
 
 # ----------------------------------------------------------------- terminations

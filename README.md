@@ -112,3 +112,28 @@ After syncing one of the `torch-*` extras, verify the selected PyTorch build:
 ```bash
 uv run python -c "import torch; print(torch.__version__, torch.version.cuda)"
 ```
+
+## Troubleshooting
+
+### Hopper GPUs (H100 / H200, SM 90)
+
+Genesis ships precompiled Quadrants kernel fatbins that do not include SM 90 for
+the `graph_do_while` graph dispatch path. Launching any task on an H100 or H200
+aborts during scene build with:
+
+```
+RuntimeError: Failed to load graph_do_while condition kernel fatbin (CUDA error 200).
+This SM (90) may not be included in the fatbin
+```
+
+Disable the graph dispatch with `QD_GRAPH=0`:
+
+```bash
+QD_GRAPH=0 uv run genelab train ...
+```
+
+Or export it for the session:
+
+```bash
+export QD_GRAPH=0
+```
