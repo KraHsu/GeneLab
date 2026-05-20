@@ -48,7 +48,7 @@ manipulation lines:
 |---|---|---|
 | `GeneLab-Inverted-Pendulum-v0` | rsl_rl PPO | Tiny cartpole; ~5 min on 64 envs. Useful as a smoke target. |
 | `GeneLab-Double-Inverted-Pendulum-v0` | rsl_rl PPO | Harder cartpole; ~15 min on 64 envs. |
-| `GeneLab-G1-Velocity-v0` | rsl_rl PPO | Unitree G1 velocity tracking; ~2 h on 4096 envs. |
+| `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | Unitree G1 velocity tracking on flat ground; ~30k iter × 4096 envs. |
 | `GeneLab-Franka-Pick-And-Place-v0` | rsl_rl PPO (joint-space) | Manipulation joint-space variant; ~1 h. |
 | `GeneLab-Franka-Pick-And-Place-Cartesian-v0` | rsl_rl PPO (Cartesian IK) | Same task via DifferentialIK; converges faster. |
 
@@ -70,7 +70,7 @@ manipulation lines:
 | 2 | TBD | TBD | TBD | TBD | TBD |
 | 3 | TBD | TBD | TBD | TBD | TBD |
 
-### `GeneLab-G1-Velocity-v0`
+### `Genelab-Velocity-Flat-Unitree-G1-v0`
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|

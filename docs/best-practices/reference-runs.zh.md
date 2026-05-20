@@ -44,7 +44,7 @@ done
 |---|---|---|
 | `GeneLab-Inverted-Pendulum-v0` | rsl_rl PPO | 小 cartpole；64 envs ~5 分钟。当 smoke target 用。 |
 | `GeneLab-Double-Inverted-Pendulum-v0` | rsl_rl PPO | 难一些的 cartpole；64 envs ~15 分钟。 |
-| `GeneLab-G1-Velocity-v0` | rsl_rl PPO | Unitree G1 速度跟踪；4096 envs ~2 小时。 |
+| `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | Unitree G1 平地速度跟踪；~30k iter × 4096 envs。 |
 | `GeneLab-Franka-Pick-And-Place-v0` | rsl_rl PPO (joint-space) | 操作任务 joint-space 版；~1 小时。 |
 | `GeneLab-Franka-Pick-And-Place-Cartesian-v0` | rsl_rl PPO (Cartesian IK) | 同任务走 DifferentialIK；收敛更快。 |
 
@@ -66,7 +66,7 @@ done
 | 2 | TBD | TBD | TBD | TBD | TBD |
 | 3 | TBD | TBD | TBD | TBD | TBD |
 
-### `GeneLab-G1-Velocity-v0`
+### `Genelab-Velocity-Flat-Unitree-G1-v0`
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
