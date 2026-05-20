@@ -6,11 +6,12 @@ convergence step count, and the wall-clock budget — the numbers you should
 expect to land on when you `clone → train → eval` against the same
 configuration.
 
-> **Status — 2026-05-20**: the **reproduction protocol is final**; the
-> **reference numbers are TBD** and tracked under ROADMAP M1.7. Treat the
-> tables below as a schema; the populated PR will follow once the runs are
-> done on a stable Genesis pin. If you have run these yourself, attach the
-> numbers and curves to the GitHub issue tracking M1.7.
+> **Status — 2026-05-21**: cartpole and Franka tables are populated from
+> the M1.7 reference batch (8×H200, Genesis 0.4.7, `QD_GRAPH=0`); the two
+> G1 tables are still **running** (3 seeds × 30 k iter each, ETA ≈ 15–17 h
+> from this commit) and will be filled in the follow-up commit. The
+> Franka numbers are recorded as-is with a known anomaly — see the
+> **Franka status note** under its table.
 
 ## Reference tasks
 
@@ -97,41 +98,65 @@ deterministic rollout step but is much slower than GPU-vectorized.
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD | TBD | TBD |
+| 1 | 39.944 | 0.026 | 150 | ~21 min | 10.3 s |
+| 2 | 39.978 | 0.002 | 150 | ~20 min | 10.1 s |
+| 3 | 39.991 | 0.001 | 150 | ~19 min | 10.1 s |
+
+Eval `length_mean = 1000.0` for all seeds (episode hits the time-limit cap
+without falling), so the policy is solved at the budget cap. `success_rate`
+is `null` (task does not publish `extras["is_success"]`).
 
 ### `GeneLab-Double-Inverted-Pendulum-v0`
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD | TBD | TBD |
+| 1 | 59.980 | 0.007 | 300 | ~85 min | 12.2 s |
+| 2 | 59.986 | 0.003 | 300 | ~88 min | 14.2 s |
+| 3 | 59.987 | 0.002 | 300 | ~85 min | 12.6 s |
+
+Eval `length_mean = 1200.0` for all seeds. `success_rate` is `null` (same
+reason as IP).
 
 ### `Genelab-Velocity-Flat-Unitree-G1-v0`
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD | TBD | TBD |
+| 1 | _running_ | — | — | — | — |
+| 2 | _running_ | — | — | — | — |
+| 3 | _running_ | — | — | — | — |
 
 ### `Genelab-Tracking-Flat-Unitree-G1-v0`
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD | TBD | TBD |
+| 1 | _running_ | — | — | — | — |
+| 2 | _running_ | — | — | — | — |
+| 3 | _running_ | — | — | — | — |
 
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER, demo-prefilled)
 
 | Seed | Final `return_mean` | `return_std` | `success_rate` | Convergence timestep | Train wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD | TBD | TBD |
+| 1 | −95.996 | 19.595 | 0.11 | 1,843,200 (budget cap) | 56 s |
+| 2 | −97.998 | 14.000 | 0.04 | 1,843,200 (budget cap) | 56 s |
+| 3 | −92.199 | 26.519 | 0.11 | 1,843,200 (budget cap) | 57 s |
+
+Eval `length_mean = 100.0` (fixed episode length).
+
+> **Franka status note — anomalous, not converged**:
+> The 2 M-timestep budget is consumed in **≈ 56 seconds wall-clock** on
+> a single H200, after which `model.learn()` returns and the success
+> rate sits in **0.04–0.11**, i.e. essentially the demo-prefill
+> baseline. The interaction we have not yet root-caused is between
+> SB3's `HerReplayBuffer` auto-scaling, the demo prefill, and the
+> `learning_starts` threshold: the gradient-step loop appears to exit
+> well before `total_timesteps` of useful exploration is consumed.
+>
+> These rows are recorded **as-is** so the table is reproducible from
+> the current `feat/m1-multi-seed-refs` branch + Genesis 0.4.7 +
+> `QD_GRAPH=0`. Fixing the SAC/HER interaction is **deferred to M2**;
+> the numbers will be revisited there. Do not treat the Franka row as
+> a converged reference — treat it as the lower-bound smoke baseline.
 
 ## Training curves
 

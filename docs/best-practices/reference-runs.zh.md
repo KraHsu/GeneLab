@@ -4,10 +4,11 @@
 收敛步数、wall-clock 预算 — 用同一份 config 跑 `clone → train → eval`，应该
 落到的数。
 
-> **状态 — 2026-05-20**：**复现协议已定稿**；**reference 数字 TBD**，跟在
-> ROADMAP M1.7 下。下表当作 schema 看；等真正的 run 在一个固定 Genesis pin
-> 上跑完后再单独提 PR 填进来。你自己跑过的话，把数字 + 曲线挂到 M1.7 跟踪
-> issue 上即可。
+> **状态 — 2026-05-21**：cartpole / Franka 两组表已用 M1.7 reference batch
+> 的真实数据填好（8×H200、Genesis 0.4.7、`QD_GRAPH=0`）；两组 G1 表仍在
+> **跑**（3 seed × 30 k iter，距本次 commit ETA ≈ 15–17 h），会在 follow-up
+> commit 里补上。Franka 那组数据按"已知异常"如实记录 —— 见 Franka 表下的
+> **Franka 状态备注**。
 
 ## Reference 任务
 
@@ -89,41 +90,61 @@ GPU vectorized 慢很多。
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD | TBD | TBD |
+| 1 | 39.944 | 0.026 | 150 | ~21 min | 10.3 s |
+| 2 | 39.978 | 0.002 | 150 | ~20 min | 10.1 s |
+| 3 | 39.991 | 0.001 | 150 | ~19 min | 10.1 s |
+
+三个 seed 的 eval `length_mean = 1000.0`（episode 跑满时间上限不倒），策略
+在预算上限解掉。`success_rate` 为 `null`（任务未 publish
+`extras["is_success"]`）。
 
 ### `GeneLab-Double-Inverted-Pendulum-v0`
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD | TBD | TBD |
+| 1 | 59.980 | 0.007 | 300 | ~85 min | 12.2 s |
+| 2 | 59.986 | 0.003 | 300 | ~88 min | 14.2 s |
+| 3 | 59.987 | 0.002 | 300 | ~85 min | 12.6 s |
+
+三个 seed 的 eval `length_mean = 1200.0`。`success_rate` 为 `null`（同 IP）。
 
 ### `Genelab-Velocity-Flat-Unitree-G1-v0`
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD | TBD | TBD |
+| 1 | _跑中_ | — | — | — | — |
+| 2 | _跑中_ | — | — | — | — |
+| 3 | _跑中_ | — | — | — | — |
 
 ### `Genelab-Tracking-Flat-Unitree-G1-v0`
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD | TBD | TBD |
+| 1 | _跑中_ | — | — | — | — |
+| 2 | _跑中_ | — | — | — | — |
+| 3 | _跑中_ | — | — | — | — |
 
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER，demo 预填)
 
 | Seed | 最终 `return_mean` | `return_std` | `success_rate` | 收敛 timestep | 训练 wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD | TBD | TBD |
+| 1 | −95.996 | 19.595 | 0.11 | 1,843,200（预算上限）| 56 s |
+| 2 | −97.998 | 14.000 | 0.04 | 1,843,200（预算上限）| 56 s |
+| 3 | −92.199 | 26.519 | 0.11 | 1,843,200（预算上限）| 57 s |
+
+三个 seed 的 eval `length_mean = 100.0`（固定 episode length）。
+
+> **Franka 状态备注 —— 异常，未收敛**：
+> 2 M-timestep 的预算在单卡 H200 上 **≈ 56 秒 wall-clock** 就被消耗掉，
+> `model.learn()` 之后即返回；最终 success_rate 落在 **0.04–0.11**，基本
+> 等于 demo 预填的 baseline。我们尚未根因定位的是 SB3 `HerReplayBuffer`
+> auto-scaling、demo 预填、`learning_starts` 三者之间的交互 —— 梯度更新
+> 循环在 `total_timesteps` 还远没真正用满有效探索时就退出了。
+>
+> 这几行**如实**记录，保证表格能从当前 `feat/m1-multi-seed-refs` 分支 +
+> Genesis 0.4.7 + `QD_GRAPH=0` 直接复现。修这个 SAC/HER 交互**留给 M2**
+> 处理；数字到 M2 阶段再回头修订。Franka 这行不要当作收敛 reference，
+> 当作 **lower-bound 的 smoke baseline** 看就行。
 
 ## 训练曲线
 
