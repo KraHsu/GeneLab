@@ -71,7 +71,12 @@ def franka_pick_and_place_sb3_her_cfg() -> Sb3AgentCfg:
         tau=0.05,
         learning_starts=4000,
         train_freq=1,
-        policy=Sb3PolicyCfg(net_arch=(256, 256, 256), activation="relu"),
+        # SAC's default auto-tuned alpha collapsed to ~1e-4 within the first 10%
+        # of training in the 2026-05-20 run, killing exploration; pin alpha to
+        # the panda-gym-tested fixed value instead. (Sb3AgentCfg.ent_coef is
+        # consumed by PPO/A2C only; SAC accepts this through extra_kwargs.)
+        extra_kwargs={"ent_coef": 0.1},
+        policy=Sb3PolicyCfg(net_arch=(512, 512, 512), activation="relu"),
         experiment=Sb3ExperimentCfg(
             experiment_name="franka_pick_and_place_sb3_her",
             logger="tensorboard",
