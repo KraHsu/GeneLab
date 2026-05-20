@@ -51,6 +51,33 @@ def franka_pick_and_place_sb3_cfg() -> Sb3AgentCfg:
     )
 
 
+def franka_pick_and_place_sb3_sac_dense_cfg() -> Sb3AgentCfg:
+    """SAC + dense reward control for the HER env — identical hyperparameters
+    to :func:`franka_pick_and_place_sb3_her_cfg` except ``her.enabled=False``,
+    so the only training-time variable changed vs HER is the reward shaping
+    (dense in the paired env) + relabelling on/off. Used to confirm whether
+    the HER plateau is sparse-exploration or something deeper."""
+    return Sb3AgentCfg(
+        algorithm="SAC",
+        seed=42,
+        total_timesteps=1_000_000,
+        learning_rate=1.0e-3,
+        discount_factor=0.95,
+        batch_size=2048,
+        buffer_size=1_000_000,
+        tau=0.05,
+        learning_starts=4000,
+        train_freq=1,
+        extra_kwargs={"ent_coef": 0.1},
+        policy=Sb3PolicyCfg(net_arch=(512, 512, 512), activation="relu"),
+        experiment=Sb3ExperimentCfg(
+            experiment_name="franka_pick_and_place_sb3_sac_dense",
+            logger="tensorboard",
+        ),
+        her=Sb3HerCfg(enabled=False),
+    )
+
+
 def franka_pick_and_place_sb3_her_cfg() -> Sb3AgentCfg:
     """SB3 SAC + HER config — goal-conditioned pick-and-place (panda-gym style).
 
