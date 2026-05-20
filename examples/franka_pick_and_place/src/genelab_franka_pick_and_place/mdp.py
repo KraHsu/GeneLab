@@ -124,6 +124,22 @@ def success_bonus(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return (d < DISTANCE_THRESHOLD).to(d.dtype)
 
 
+def lift_bonus(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    """Per-step ramp that rewards lifting the cube off the table.
+
+    Returns ``0`` while the cube sits on the table, ramps linearly to ``1.0``
+    once the cube center is ``0.10 m`` above its on-table z, then saturates.
+    Sparse goal reward + HER alone leaves a dead zone between the
+    ground-scoot strategy and any air goal: HER can only relabel into
+    regions the achieved goal actually visits, so until the policy randomly
+    lifts the cube, the upper half of the goal space gets no learning
+    signal. This bonus injects an explicit lift gradient so cube_z escapes
+    that local optimum. Must be mirrored in HER's ``compute_reward`` callback
+    so online and relabelled transitions share one reward shape."""
+    cube_z = _cube_pos(env)[:, 2]
+    return (cube_z - CUBE_HALF).clamp(min=0.0, max=0.10) / 0.10
+
+
 def sparse_goal_reward(env: "ManagerBasedRlEnv") -> torch.Tensor:
     """panda-gym sparse reward: ``-1`` while the cube is farther than
     ``DISTANCE_THRESHOLD`` from the goal, ``0`` once it is within threshold.
