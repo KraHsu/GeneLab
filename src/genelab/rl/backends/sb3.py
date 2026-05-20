@@ -170,6 +170,91 @@ def _make_vec_env(env: Any, agent_cfg: Sb3AgentCfg) -> Any:
     return GenelabSb3VecEnv(env, obs_group=agent_cfg.obs_group, her_cfg=her_cfg)
 
 
+def _resolve_demo_path(agent_cfg: Sb3AgentCfg) -> str | None:
+    """Pick up ``demo_path`` from the cfg field or fall back to the env var."""
+    import os
+
+    if agent_cfg.demo_path:
+        return agent_cfg.demo_path
+    env_path = os.environ.get("GENELAB_SB3_DEMO_PATH")
+    return env_path if env_path else None
+
+
+def _maybe_prefill_demos(model: Any, agent_cfg: Sb3AgentCfg, vec_env: Any) -> None:
+    """Replay an ``.npz`` of offline transitions into ``model.replay_buffer``.
+
+    The file layout matches what ``genelab_franka_pick_and_place.collect_demos``
+    writes: time-major arrays shaped ``(T, num_envs, ...)`` for ``obs_*``,
+    ``next_obs_*``, ``actions``, ``rewards``, ``dones``, ``truncateds``. The
+    function walks the time axis and calls ``replay_buffer.add(...)`` once per
+    step with the per-env batch; ``HerReplayBuffer`` then tracks episode
+    boundaries from the ``done`` flag and stores transitions whole-episode."""
+    import numpy as np
+
+    path = _resolve_demo_path(agent_cfg)
+    if path is None:
+        return
+    if agent_cfg.is_on_policy:
+        _logger.warning(
+            "demo_path=%r ignored: only off-policy algorithms (SAC/TD3/DDPG) have a "
+            "replay buffer to pre-fill.",
+            path,
+        )
+        return
+    if not hasattr(model, "replay_buffer") or model.replay_buffer is None:
+        _logger.warning("demo_path=%r ignored: model has no replay_buffer.", path)
+        return
+
+    data = np.load(path)
+    actions = data["actions"]
+    rewards = data["rewards"]
+    dones = data["dones"]
+    truncateds = data["truncateds"] if "truncateds" in data.files else np.zeros_like(dones)
+    n_steps, n_envs_demo = rewards.shape
+    if n_envs_demo != vec_env.num_envs:
+        raise ValueError(
+            f"demo file num_envs={n_envs_demo} does not match training num_envs="
+            f"{vec_env.num_envs}; collect demos with --num-envs={vec_env.num_envs}."
+        )
+
+    her_enabled = agent_cfg.her.enabled
+    if her_enabled:
+        obs_keys = ("observation", "achieved_goal", "desired_goal")
+        obs = {k: data[f"obs_{k}"] for k in obs_keys}
+        next_obs = {k: data[f"next_obs_{k}"] for k in obs_keys}
+    else:
+        obs = {"_": data["obs_observation"]}
+        next_obs = {"_": data["next_obs_observation"]}
+
+    _logger.info(
+        "pre-filling replay buffer with %d steps x %d envs = %d transitions from %s",
+        n_steps,
+        n_envs_demo,
+        n_steps * n_envs_demo,
+        path,
+    )
+
+    for t in range(n_steps):
+        obs_t = {k: v[t] for k, v in obs.items()} if her_enabled else obs["_"][t]
+        next_obs_t = {k: v[t] for k, v in next_obs.items()} if her_enabled else next_obs["_"][t]
+        # SB3 expects info dicts to carry ``TimeLimit.truncated`` so the replay
+        # buffer can distinguish termination from truncation when bootstrapping.
+        # Episode-end metadata (``episode`` / ``is_success``) isn't read by add,
+        # so the minimal dict is enough.
+        infos = [
+            {"TimeLimit.truncated": bool(truncateds[t, i] and not dones[t, i])}
+            for i in range(n_envs_demo)
+        ]
+        model.replay_buffer.add(
+            obs_t,
+            next_obs_t,
+            actions[t],
+            rewards[t],
+            dones[t],
+            infos,
+        )
+
+
 class _PlayAdapter:
     """Presents a ``GenelabSb3VecEnv`` to ``runner.run_play_loop`` as a 4-tuple env.
 
@@ -224,6 +309,9 @@ class Sb3Backend:
             model = algo_cls.load(str(ctx.resume_from), env=vec_env, device=device)
         else:
             model = algo_cls(**_model_kwargs(agent_cfg, vec_env, device, tb_log))
+
+        if ctx.resume_from is None:
+            _maybe_prefill_demos(model, agent_cfg, vec_env)
 
         callback: Any = None
         if agent_cfg.experiment.checkpoint_interval > 0:
