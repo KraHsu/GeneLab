@@ -14,6 +14,7 @@ from genelab_franka_pick_and_place.env_cfg import (
     franka_pick_and_place_cartesian_env_cfg,
     franka_pick_and_place_env_cfg,
     franka_pick_and_place_her_env_cfg,
+    franka_pick_and_place_her_env_cfg_dense,
 )
 from genelab_franka_pick_and_place.ppo_cfg import franka_pick_and_place_ppo_runner_cfg
 from genelab_franka_pick_and_place.robot import (
@@ -23,6 +24,7 @@ from genelab_franka_pick_and_place.robot import (
 from genelab_franka_pick_and_place.sb3_cfg import (
     franka_pick_and_place_sb3_cfg,
     franka_pick_and_place_sb3_her_cfg,
+    franka_pick_and_place_sb3_sac_dense_cfg,
 )
 from genelab_franka_pick_and_place.skrl_cfg import franka_pick_and_place_skrl_cfg
 
@@ -31,6 +33,7 @@ CARTESIAN_TASK_ID = "GeneLab-Franka-Pick-And-Place-Cartesian-v0"
 SKRL_TASK_ID = "GeneLab-Franka-Pick-And-Place-skrl-v0"
 SB3_TASK_ID = "GeneLab-Franka-Pick-And-Place-sb3-v0"
 SB3_HER_TASK_ID = "GeneLab-Franka-Pick-And-Place-sb3-her-v0"
+SB3_SAC_DENSE_TASK_ID = "GeneLab-Franka-Pick-And-Place-sb3-sac-dense-v0"
 ROBOT_NAME = "franka-pick-and-place"
 ENV_NAME = "franka-pick-and-place-env"
 CARTESIAN_ENV_NAME = "franka-pick-and-place-cartesian-env"
@@ -189,6 +192,34 @@ class FrankaPickAndPlaceSb3HerTask:
         train_task(self.cfg.name, self.cfg.agent)
 
 
+class FrankaPickAndPlaceSb3SacDenseTask:
+    """SAC + dense reward control of :class:`FrankaPickAndPlaceSb3HerTask` —
+    same physics overrides, same obs (TimeFeature + goal groups), same SAC
+    hyperparameters; only the reward shaping and HER on/off differ. Used to
+    isolate whether the HER plateau is sparse-exploration or something else."""
+
+    def __init__(self) -> None:
+        self.cfg = TaskCfg(
+            name=SB3_SAC_DENSE_TASK_ID,
+            env_name=ENV_NAME,
+            robot_name=ROBOT_NAME,
+            env=franka_pick_and_place_her_env_cfg_dense(play=False),
+            play_env=franka_pick_and_place_her_env_cfg_dense(play=True),
+            agent=franka_pick_and_place_sb3_sac_dense_cfg(),
+            trainable=True,
+        )
+
+    def play(self) -> None:
+        from genelab.rl import play_task
+
+        play_task(self.cfg.name, checkpoint=None)
+
+    def train(self) -> None:
+        from genelab.rl import train_task
+
+        train_task(self.cfg.name, self.cfg.agent)
+
+
 def register() -> None:
     if ROBOT_NAME not in ROBOTS:
         register_robot(
@@ -269,6 +300,21 @@ def register() -> None:
                 f"genelab play {SB3_TASK_ID} --vis",
                 f"genelab train {SB3_TASK_ID} --num-envs 16 --max-iterations 2000",
                 f"genelab train {SB3_TASK_ID} --num-envs 2048 --max-iterations 500000",
+            ],
+        )
+    if SB3_SAC_DENSE_TASK_ID not in TASKS:
+        register_task(
+            SB3_SAC_DENSE_TASK_ID,
+            FrankaPickAndPlaceSb3SacDenseTask,
+            description=(
+                "Stable-Baselines3 SAC + dense reward control of the HER env — "
+                "same physics overrides and obs as the HER variant; only reward "
+                "shaping + HER on/off differ. Used to isolate the sparse-reward "
+                "exploration bottleneck."
+            ),
+            cfg_type=TaskCfg,
+            examples=[
+                f"genelab train {SB3_SAC_DENSE_TASK_ID} --gpu --num-envs 32 --max-iterations 1000000",
             ],
         )
     if SB3_HER_TASK_ID not in TASKS:

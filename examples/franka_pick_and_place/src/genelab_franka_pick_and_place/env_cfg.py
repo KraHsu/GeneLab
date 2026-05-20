@@ -261,6 +261,40 @@ def franka_pick_and_place_her_env_cfg(play: bool = False) -> ManagerBasedRlEnvCf
     )
 
 
+def franka_pick_and_place_her_env_cfg_dense(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """Dense-reward control of the HER env — same physics overrides, same obs
+    (TimeFeature + the achieved/desired goal groups, even though dense SAC
+    ignores the latter), same 4-DoF Cartesian action surface. Only reward
+    shaping differs: the panda-gym dense terms (negative EE-to-cube + cube-to-
+    goal distances, plus a success bonus) replace the sparse goal reward, so
+    SAC sees a continuous gradient toward the cube and the goal even when no
+    relabelling is in play."""
+    return _build_env_cfg(
+        actions_cfg={
+            "arm": DifferentialIKActionCfg(
+                asset_name="robot",
+                body_name=EE_LINK,
+                joint_names=(ARM_JOINTS_REGEX,),
+                use_orientation=False,
+                lock_orientation=True,
+                scale=0.05,
+            ),
+            "gripper": ContinuousGripperActionCfg(
+                asset_name="robot",
+                joint_names=(FINGER_JOINTS_REGEX,),
+                open_pos=0.04,
+                closed_pos=0.0,
+                speed=0.1,
+            ),
+        },
+        requires_jac_and_ik=True,
+        play=play,
+        default_joint_pos=PANDA_GYM_NEUTRAL_POSE,
+        goal_obs=True,
+        sparse_reward=False,
+    )
+
+
 def franka_pick_and_place_cartesian_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Build the Cartesian env config (4-DoF, panda-gym parity):
     ``DifferentialIKAction`` (orientation locked) on the arm +
