@@ -65,6 +65,10 @@ def eval_task(
     env_cfg = resolve_env_cfg(task_id, play=True)
     env_cfg.simulation.num_envs = int(num_envs)
     env_cfg.seed = int(seed)
+    # Eval is always headless (no human-in-the-loop) — force ``vis=False`` so
+    # tasks whose ``play_env`` was configured for viewer playback still run on
+    # CI / remote servers without a display.
+    env_cfg.simulation.vis = False
     env = build_env(env_cfg)
 
     backend = select_backend(agent_cfg)
