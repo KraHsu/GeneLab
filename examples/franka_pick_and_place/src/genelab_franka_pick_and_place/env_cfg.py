@@ -44,8 +44,8 @@ from genelab_franka_pick_and_place.robot import (
 )
 
 
-def _obs_terms() -> dict[str, ObservationTermCfg]:
-    return {
+def _obs_terms(*, with_time_feature: bool = False) -> dict[str, ObservationTermCfg]:
+    terms: dict[str, ObservationTermCfg] = {
         "joint_pos": ObservationTermCfg(
             func=mdp.joint_pos_rel,
             noise=Unoise(-0.005, 0.005),
@@ -67,6 +67,12 @@ def _obs_terms() -> dict[str, ObservationTermCfg]:
         "cube_to_goal": ObservationTermCfg(func=fpp_mdp.cube_to_goal_vec_obs),
         "actions": ObservationTermCfg(func=mdp.last_action),
     }
+    if with_time_feature:
+        # Panda-gym SAC+HER baseline runs through TimeFeatureWrapper; with a
+        # fixed-length episode + HER relabelling, hiding the remaining time
+        # makes the env non-Markov for the value head.
+        terms["time_feature"] = ObservationTermCfg(func=fpp_mdp.time_feature_obs)
+    return terms
 
 
 def _goal_obs_groups() -> dict[str, ObservationGroupCfg]:
@@ -143,8 +149,12 @@ def _build_env_cfg(
         robot=robot_entity_cfg,
         actions_cfg=actions_cfg,
         observations_cfg={
-            "policy": ObservationGroupCfg(enable_corruption=True, terms=_obs_terms()),
-            "critic": ObservationGroupCfg(enable_corruption=False, terms=_obs_terms()),
+            "policy": ObservationGroupCfg(
+                enable_corruption=True, terms=_obs_terms(with_time_feature=goal_obs)
+            ),
+            "critic": ObservationGroupCfg(
+                enable_corruption=False, terms=_obs_terms(with_time_feature=goal_obs)
+            ),
             **(_goal_obs_groups() if goal_obs else {}),
         },
         rewards_cfg=(

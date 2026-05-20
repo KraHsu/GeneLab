@@ -94,6 +94,17 @@ def cube_to_goal_vec_obs(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return _ensure_goal_buffer(env) - _cube_pos(env)
 
 
+def time_feature_obs(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    """Fraction of episode remaining, per env, shaped ``(num_envs, 1)``.
+
+    Mirrors ``sb3_contrib.common.wrappers.TimeFeatureWrapper`` — the standard
+    panda-gym SAC+HER setup feeds this in so the policy can resolve the
+    non-Markovian time-out termination, which HER relabelling otherwise hides
+    from the value network."""
+    remaining = 1.0 - env.episode_length_buf.to(torch.float32) / float(env.max_episode_length)
+    return remaining.unsqueeze(-1)
+
+
 # ----------------------------------------------------------------- rewards
 
 
