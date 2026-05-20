@@ -8,6 +8,19 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `genelab train TASK --seeds 1,2,3 --parallel N` — fan-out multi-seed
+  training. Each comma-separated seed is launched as an independent
+  `genelab train` subprocess (concurrency capped by `--parallel`), with a
+  per-child `--seed S` and `--log_dir <parent>/seed_S` so all seeds of one
+  launch land under a shared parent directory. The parent defaults to
+  `logs/multi-seed/<task_id>/<timestamp>/` and can be overridden with
+  `--log_dir`. Independent from `--gpus N` (distributed within one run);
+  the two are orthogonal axes.
+- `docs/best-practices/reference-runs.{en,zh}.md` — bilingual
+  reproduction protocol for the 5 bundled tasks × 3 seeds. The protocol is
+  final (commands, log layout, methodology); the reference numbers
+  themselves are TBD and tracked under ROADMAP M1.7. Populated PRs land
+  the numbers + TensorBoard curves once a stable Genesis pin is chosen.
 - `genelab eval TASK CHECKPOINT` — deterministic rollout that writes a JSON
   summary (`return_mean`/`return_std`, `length_mean`, optional `success_rate`,
   `wall_clock_seconds`) in the ROADMAP §M1.1 schema. Backend-agnostic: routes
