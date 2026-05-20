@@ -675,8 +675,15 @@ def _dispatch_play(
     task_id = getattr(task_cfg, "name", None)
     if not isinstance(task_id, str):
         raise SystemExit("task config is missing 'name'; cannot route through RL play helper")
+    # Pass the CLI's already-overridden cfg (play_env when configured): TASKS.get
+    # returns a fresh task each call, so the runner re-resolving would discard the
+    # --vis / --gpu / --a.env.* overrides applied above.
+    play_env_cfg = getattr(task_cfg, "play_env", None)
+    if play_env_cfg is None:
+        play_env_cfg = getattr(task_cfg, "env", None)
     play_task(
         task_id,
+        env_cfg=play_env_cfg,
         checkpoint=Path(checkpoint_raw) if checkpoint_raw is not None else None,
         num_envs=num_envs_per_rank,
         agent=cast("AgentKind | None", agent_raw),
@@ -853,6 +860,9 @@ def _dispatch_train(
     train_task(
         task_id,
         agent_cfg,
+        # Pass the CLI's already-overridden cfg: TASKS.get returns a fresh task
+        # each call, so the runner re-resolving would discard --gpu / --a.env.* .
+        env_cfg=getattr(task_cfg, "env", None),
         num_envs=num_envs_per_rank,
         max_iterations=int(max_iter_raw) if max_iter_raw is not None else None,
         seed=int(seed_raw) if seed_raw is not None else None,

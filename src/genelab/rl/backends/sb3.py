@@ -9,6 +9,7 @@ the skrl backend there is no hand-written model factory.
 """
 
 import copy
+import logging
 from pathlib import Path
 from typing import Any, cast
 
@@ -27,6 +28,8 @@ from genelab.rl.runner import (
 from genelab.rl.sb3_config import Sb3AgentCfg
 
 _ACTIVATIONS = ("elu", "relu", "tanh", "gelu", "selu", "leaky_relu")
+
+_logger = logging.getLogger(__name__)
 
 
 def _algo_class(algorithm: str) -> Any:
@@ -127,6 +130,34 @@ def _model_kwargs(
                 "n_sampled_goal": agent_cfg.her.n_sampled_goal,
                 "goal_selection_strategy": agent_cfg.her.goal_selection_strategy,
             }
+            # HerReplayBuffer works in whole episodes, and buffer_size is split
+            # per env as buffer_size // num_envs. Two floors, both scaling with
+            # num_envs (which the static cfg cannot know):
+            #   * learning_starts >= one episode per env, so the first episode
+            #     completes before training samples;
+            #   * buffer_size >= several episodes per env. A near-one-episode
+            #     slice fills and wraps immediately, and HER's wrap bookkeeping
+            #     clears the just-finished episode before training can sample it
+            #     -- so the buffer must comfortably hold multiple episodes.
+            # warning, not info: configured values are being overridden and the
+            # CLI does not surface info-level logs.
+            max_ep_len = int(getattr(vec_env, "max_episode_length", 0) or 0)
+            if max_ep_len:
+                unit = vec_env.num_envs * (max_ep_len + 1)
+                floors = {"learning_starts": unit, "buffer_size": 8 * unit}
+                for key, floor in floors.items():
+                    if kwargs[key] < floor:
+                        _logger.warning(
+                            "HER: raising %s %d -> %d (num_envs=%d, "
+                            "episode_length=%d); HER stores whole episodes -- "
+                            "prefer a modest --num-envs.",
+                            key,
+                            kwargs[key],
+                            floor,
+                            vec_env.num_envs,
+                            max_ep_len,
+                        )
+                        kwargs[key] = floor
     kwargs.update(copy.deepcopy(agent_cfg.extra_kwargs))
     return kwargs
 
@@ -137,6 +168,91 @@ def _make_vec_env(env: Any, agent_cfg: Sb3AgentCfg) -> Any:
 
     her_cfg = agent_cfg.her if agent_cfg.her.enabled else None
     return GenelabSb3VecEnv(env, obs_group=agent_cfg.obs_group, her_cfg=her_cfg)
+
+
+def _resolve_demo_path(agent_cfg: Sb3AgentCfg) -> str | None:
+    """Pick up ``demo_path`` from the cfg field or fall back to the env var."""
+    import os
+
+    if agent_cfg.demo_path:
+        return agent_cfg.demo_path
+    env_path = os.environ.get("GENELAB_SB3_DEMO_PATH")
+    return env_path if env_path else None
+
+
+def _maybe_prefill_demos(model: Any, agent_cfg: Sb3AgentCfg, vec_env: Any) -> None:
+    """Replay an ``.npz`` of offline transitions into ``model.replay_buffer``.
+
+    The file layout matches what ``genelab_franka_pick_and_place.collect_demos``
+    writes: time-major arrays shaped ``(T, num_envs, ...)`` for ``obs_*``,
+    ``next_obs_*``, ``actions``, ``rewards``, ``dones``, ``truncateds``. The
+    function walks the time axis and calls ``replay_buffer.add(...)`` once per
+    step with the per-env batch; ``HerReplayBuffer`` then tracks episode
+    boundaries from the ``done`` flag and stores transitions whole-episode."""
+    import numpy as np
+
+    path = _resolve_demo_path(agent_cfg)
+    if path is None:
+        return
+    if agent_cfg.is_on_policy:
+        _logger.warning(
+            "demo_path=%r ignored: only off-policy algorithms (SAC/TD3/DDPG) have a "
+            "replay buffer to pre-fill.",
+            path,
+        )
+        return
+    if not hasattr(model, "replay_buffer") or model.replay_buffer is None:
+        _logger.warning("demo_path=%r ignored: model has no replay_buffer.", path)
+        return
+
+    data = np.load(path)
+    actions = data["actions"]
+    rewards = data["rewards"]
+    dones = data["dones"]
+    truncateds = data["truncateds"] if "truncateds" in data.files else np.zeros_like(dones)
+    n_steps, n_envs_demo = rewards.shape
+    if n_envs_demo != vec_env.num_envs:
+        raise ValueError(
+            f"demo file num_envs={n_envs_demo} does not match training num_envs="
+            f"{vec_env.num_envs}; collect demos with --num-envs={vec_env.num_envs}."
+        )
+
+    her_enabled = agent_cfg.her.enabled
+    if her_enabled:
+        obs_keys = ("observation", "achieved_goal", "desired_goal")
+        obs = {k: data[f"obs_{k}"] for k in obs_keys}
+        next_obs = {k: data[f"next_obs_{k}"] for k in obs_keys}
+    else:
+        obs = {"_": data["obs_observation"]}
+        next_obs = {"_": data["next_obs_observation"]}
+
+    _logger.info(
+        "pre-filling replay buffer with %d steps x %d envs = %d transitions from %s",
+        n_steps,
+        n_envs_demo,
+        n_steps * n_envs_demo,
+        path,
+    )
+
+    for t in range(n_steps):
+        obs_t = {k: v[t] for k, v in obs.items()} if her_enabled else obs["_"][t]
+        next_obs_t = {k: v[t] for k, v in next_obs.items()} if her_enabled else next_obs["_"][t]
+        # SB3 expects info dicts to carry ``TimeLimit.truncated`` so the replay
+        # buffer can distinguish termination from truncation when bootstrapping.
+        # Episode-end metadata (``episode`` / ``is_success``) isn't read by add,
+        # so the minimal dict is enough.
+        infos = [
+            {"TimeLimit.truncated": bool(truncateds[t, i] and not dones[t, i])}
+            for i in range(n_envs_demo)
+        ]
+        model.replay_buffer.add(
+            obs_t,
+            next_obs_t,
+            actions[t],
+            rewards[t],
+            dones[t],
+            infos,
+        )
 
 
 class _PlayAdapter:
@@ -214,6 +330,9 @@ class Sb3Backend:
             model = algo_cls.load(str(ctx.resume_from), env=vec_env, device=device)
         else:
             model = algo_cls(**_model_kwargs(agent_cfg, vec_env, device, tb_log))
+
+        if ctx.resume_from is None:
+            _maybe_prefill_demos(model, agent_cfg, vec_env)
 
         callback: Any = None
         if agent_cfg.experiment.checkpoint_interval > 0:
