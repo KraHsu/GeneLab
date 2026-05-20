@@ -32,6 +32,8 @@ RUNNER_KEYS: Final[frozenset[str]] = frozenset(
         "eval_episodes",
         "eval_num_envs",
         "eval_seed",
+        "seeds",
+        "parallel",
     }
 )
 
