@@ -66,12 +66,11 @@ wrapper 每步都会把观测拷贝到主机内存——这是 SB3 与 GeneLab G
 它暴露目标条件化观测并经由 SB3 的 `HerReplayBuffer` 训练。
 
 ```bash
-# 注册为 SkrlAgentCfg 的 task 会走 skrl 后端。
-uv run genelab train GeneLab-Franka-Pick-And-Place-skrl-v0 --num_envs 2048 --max_iterations 12000
-
-# 注册为 Sb3AgentCfg 的 task 会走 SB3 后端（PPO，或 SAC + HER）。
-uv run genelab train GeneLab-Franka-Pick-And-Place-sb3-v0 --num_envs 2048 --max_iterations 500000
-uv run genelab train GeneLab-Franka-Pick-And-Place-sb3-her-v0 --num_envs 2048 --max_iterations 500000
+# 注册为 Sb3AgentCfg 的 task 会走 SB3 后端；Franka 抓取放置示例使用
+# SAC + HER + lift bonus + FSM demo prefill 组合（详见示例页面）。
+GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
+  uv run genelab train GeneLab-Franka-Pick-And-Place-v0 \
+  --gpu --num-envs 32 --max-iterations 2000000
 ```
 
 ## 配置 override

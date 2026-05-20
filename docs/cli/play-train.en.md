@@ -70,12 +70,11 @@ available for the off-policy algorithms via `Sb3AgentCfg.her`, which exposes a
 goal-conditioned observation and trains through SB3's `HerReplayBuffer`.
 
 ```bash
-# A task registered with a SkrlAgentCfg routes through the skrl backend.
-uv run genelab train GeneLab-Franka-Pick-And-Place-skrl-v0 --num_envs 2048 --max_iterations 12000
-
-# An Sb3AgentCfg routes through the SB3 backend (PPO, or SAC + HER).
-uv run genelab train GeneLab-Franka-Pick-And-Place-sb3-v0 --num_envs 2048 --max_iterations 500000
-uv run genelab train GeneLab-Franka-Pick-And-Place-sb3-her-v0 --num_envs 2048 --max_iterations 500000
+# An Sb3AgentCfg routes through the SB3 backend; the Franka pick-and-place task
+# is SAC + HER + lift bonus + FSM demo prefill (see its example page).
+GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
+  uv run genelab train GeneLab-Franka-Pick-And-Place-v0 \
+  --gpu --num-envs 32 --max-iterations 2000000
 ```
 
 ## Config overrides
