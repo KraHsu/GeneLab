@@ -162,11 +162,6 @@ class DifferentialIKAction(ActionTerm):
 
         self._raw = torch.zeros(self.num_envs, self._action_dim, device=self.device)
         self._target_q = torch.zeros(self.num_envs, len(matched), device=self.device)
-        # Per-env "next ``process_actions`` should re-sync ``_target_q`` to the
-        # measured joint state" flag. Seeded ``True`` so the very first action
-        # integrates from the actual reset pose, then ``reset()`` flips it back
-        # ``True`` for env IDs that auto-reset mid-rollout.
-        self._resync_target = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
         # Pre-build identity for the DLS regularizer so it never re-allocates.
         self._eye_rows = torch.eye(self._solve_dim, device=self.device)
 
@@ -251,18 +246,8 @@ class DifferentialIKAction(ActionTerm):
         bound = float(self.cfg.max_delta_joint)
         delta_q = delta_q.clamp(min=-bound, max=bound)
 
-        # Re-sync the integrated reference to the measured pose for any env
-        # that just reset (or on the very first call), so the first delta after
-        # reset doesn't carry over stale targets. Then integrate on the *target*
-        # rather than the measured joint pos — otherwise the PD's per-step
-        # tracking lag silently subtracts from every commanded delta and the
-        # arm can't reliably follow the policy under gravity loading.
-        if self._resync_target.any():
-            current_q = self._env.robot_state.joint_pos.index_select(1, self._joint_indices)
-            mask = self._resync_target.unsqueeze(-1)
-            self._target_q = torch.where(mask, current_q, self._target_q)
-            self._resync_target.fill_(False)
-        target_q = self._target_q + delta_q
+        current_q = self._env.robot_state.joint_pos.index_select(1, self._joint_indices)
+        target_q = current_q + delta_q
         if self._joint_pos_lower is not None and self._joint_pos_upper is not None:
             target_q = torch.maximum(target_q, self._joint_pos_lower.unsqueeze(0))
             target_q = torch.minimum(target_q, self._joint_pos_upper.unsqueeze(0))
@@ -270,9 +255,3 @@ class DifferentialIKAction(ActionTerm):
 
     def apply_actions(self) -> None:
         self._env.articulation.write_joint_targets_partial(self._joint_indices, self._target_q)
-
-    def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
-        if env_ids is None:
-            self._resync_target.fill_(True)
-        else:
-            self._resync_target[env_ids] = True
