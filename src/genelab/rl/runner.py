@@ -33,7 +33,14 @@ from genelab.rl.backends import (
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
-__all__ = ["AgentKind", "play_task", "resolve_log_dir", "train_task"]
+__all__ = [
+    "AgentKind",
+    "build_env",
+    "play_task",
+    "resolve_env_cfg",
+    "resolve_log_dir",
+    "train_task",
+]
 
 _logger = logging.getLogger(__name__)
 
@@ -127,7 +134,7 @@ def make_random_policy(num_envs: int, num_actions: int, device: Any) -> Any:
     return _random_policy
 
 
-def _resolve_env_cfg(task_id: str, play: bool) -> Any:
+def resolve_env_cfg(task_id: str, play: bool) -> Any:
     """Pull the train or play env cfg off a registered task."""
     task = TASKS.get(task_id)
     task_cfg = getattr(task, "cfg", None)
@@ -139,7 +146,7 @@ def _resolve_env_cfg(task_id: str, play: bool) -> Any:
     return env_cfg
 
 
-def _build_env(env_cfg: Any) -> "ManagerBasedRlEnv":
+def build_env(env_cfg: Any) -> "ManagerBasedRlEnv":
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
     return ManagerBasedRlEnv(env_cfg)
@@ -205,6 +212,7 @@ def train_task(
     log_root: Path | None = None,
     log_dir: Path | None = None,
     resume_from: Path | None = None,
+    eval_callback: Any = None,
     prof: bool | None = None,
     prof_out: Path | None = None,
     prof_wait: int | None = None,
@@ -228,35 +236,89 @@ def train_task(
     see ``genelab.rl.profiler.maybe_profile`` for the semantics.
     """
     ensure_project_cache()
-    env_cfg = _resolve_env_cfg(task_id, play=False)
+    env_cfg = resolve_env_cfg(task_id, play=False)
     if num_envs is not None:
         env_cfg.simulation.num_envs = int(num_envs)
     if seed is not None:
         env_cfg.seed = int(seed)
 
-    env = _build_env(env_cfg)
-    ctx = TrainContext(
-        task_id=task_id,
-        env=env,
-        env_cfg=env_cfg,
-        agent_cfg=agent_cfg,
-        max_iterations=max_iterations,
-        seed=seed,
-        log_dir=log_dir,
-        log_root=log_root,
-        resume_from=resume_from,
-        profile=_profile_args(
-            prof,
-            prof_out,
-            prof_wait,
-            prof_warmup,
-            prof_active,
-            prof_repeat,
-            prof_record_shapes,
-            prof_with_stack,
-        ),
+    profile = _profile_args(
+        prof,
+        prof_out,
+        prof_wait,
+        prof_warmup,
+        prof_active,
+        prof_repeat,
+        prof_record_shapes,
+        prof_with_stack,
     )
-    return select_backend(agent_cfg).train(ctx)
+    backend = select_backend(agent_cfg)
+
+    eval_enabled = bool(getattr(eval_callback, "enabled", False))
+    if not eval_enabled or max_iterations is None:
+        env = build_env(env_cfg)
+        ctx = TrainContext(
+            task_id=task_id,
+            env=env,
+            env_cfg=env_cfg,
+            agent_cfg=agent_cfg,
+            max_iterations=max_iterations,
+            seed=seed,
+            log_dir=log_dir,
+            log_root=log_root,
+            resume_from=resume_from,
+            profile=profile,
+            eval_callback=eval_callback,
+        )
+        return backend.train(ctx)
+
+    # Eval-callback path: drive ``backend.train`` in chunks of
+    # ``eval_callback.eval_every_iters`` so we can stop, eval the latest checkpoint,
+    # and promote ``best_model`` between chunks. Each chunk rebuilds the Genesis env
+    # because backends close it in their own ``finally``; tune ``--eval-every`` to
+    # amortize that cost.
+    from genelab.rl.eval_callback import run_with_eval_callback
+
+    if log_dir is None:
+        # Pre-resolve the log dir up-front so every chunk lands in the same place
+        # (otherwise each chunk gets a fresh timestamped directory).
+        experiment_name = getattr(agent_cfg, "experiment_name", None) or getattr(
+            getattr(agent_cfg, "experiment", None), "experiment_name", "exp1"
+        )
+        run_name = getattr(agent_cfg, "run_name", None) or getattr(
+            getattr(agent_cfg, "experiment", None), "run_name", ""
+        )
+        root = log_root or (Path("logs") / backend.name)
+        log_dir = resolve_log_dir(root, experiment_name, run_name)
+
+    train_num_envs = int(env_cfg.simulation.num_envs)
+
+    def _train_chunk(chunk_iters: int, resume_from_path: Any) -> None:
+        chunk_env = build_env(env_cfg)
+        chunk_ctx = TrainContext(
+            task_id=task_id,
+            env=chunk_env,
+            env_cfg=env_cfg,
+            agent_cfg=agent_cfg,
+            max_iterations=chunk_iters,
+            seed=seed,
+            log_dir=log_dir,
+            log_root=log_root,
+            resume_from=resume_from_path,
+            profile=profile,
+            eval_callback=None,  # avoid re-entry inside chunk
+        )
+        backend.train(chunk_ctx)
+
+    return run_with_eval_callback(
+        task_id=task_id,
+        train_chunk=_train_chunk,
+        eval_cfg=eval_callback,
+        total_iterations=int(max_iterations),
+        log_dir=log_dir,
+        backend_name=backend.name,
+        train_num_envs=train_num_envs,
+    )
 
 
 def play_task(
@@ -292,10 +354,10 @@ def play_task(
     )
     if kind == "trained" and checkpoint is None:
         raise SystemExit("agent='trained' requires a --checkpoint path")
-    env_cfg = _resolve_env_cfg(task_id, play=True)
+    env_cfg = resolve_env_cfg(task_id, play=True)
     if num_envs is not None:
         env_cfg.simulation.num_envs = int(num_envs)
-    env = _build_env(env_cfg)
+    env = build_env(env_cfg)
     bridges = build_bridges(env_cfg)
     for bridge in bridges:
         bridge.on_build(env)
