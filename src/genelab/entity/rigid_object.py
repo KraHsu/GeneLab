@@ -18,6 +18,11 @@ class RigidObjectCfg:
     ``morph`` selects which Genesis primitive backs the object. ``file`` is required for
     ``"mesh"`` / ``"mjcf"`` morphs. ``size`` is interpreted per-morph: a 3-tuple for boxes,
     a 1-tuple radius for spheres.
+
+    ``friction`` and ``density`` map onto ``gs.materials.Rigid(friction=..., rho=...)``;
+    ``None`` keeps Genesis's defaults. Manipulation tasks usually need a non-default
+    friction on the object being grasped — the Genesis fallback is too low to hold a
+    cube between parallel fingers.
     """
 
     morph: Literal["plane", "box", "sphere", "mesh", "mjcf"] = "plane"
@@ -26,6 +31,8 @@ class RigidObjectCfg:
     init_pos: tuple[float, float, float] = (0.0, 0.0, 0.0)
     init_quat: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
     fixed: bool = True
+    friction: float | None = None
+    density: float | None = None
 
 
 class RigidObject:
@@ -83,7 +90,25 @@ class RigidObject:
             )
         else:  # pragma: no cover - exhaustive Literal
             raise ValueError(f"unknown rigid-object morph: {morph_kind!r}")
-        self._gs_handle = gs_scene.add_entity(morph)
+        material = self._material_or_default(gs)
+        self._gs_handle = (
+            gs_scene.add_entity(morph, material=material)
+            if material is not None
+            else gs_scene.add_entity(morph)
+        )
+
+    def _material_or_default(self, gs: Any) -> Any:
+        """Build a ``gs.materials.Rigid`` only if the cfg overrides a default —
+        otherwise return ``None`` so ``add_entity`` falls back to its built-in
+        material and behavior stays unchanged for callers that don't opt in."""
+        if self.cfg.friction is None and self.cfg.density is None:
+            return None
+        kwargs: dict[str, Any] = {}
+        if self.cfg.friction is not None:
+            kwargs["friction"] = float(self.cfg.friction)
+        if self.cfg.density is not None:
+            kwargs["rho"] = float(self.cfg.density)
+        return gs.materials.Rigid(**kwargs)
 
     @property
     def gs_handle(self) -> Any:
