@@ -4,11 +4,12 @@
 收敛步数、wall-clock 预算 — 用同一份 config 跑 `clone → train → eval`，应该
 落到的数。
 
-> **状态 — 2026-05-21**：cartpole / Franka 两组表已用 M1.7 reference batch
-> 的真实数据填好（8×H200、Genesis 0.4.7、`QD_GRAPH=0`）；两组 G1 表仍在
-> **跑**（3 seed × 30 k iter，距本次 commit ETA ≈ 15–17 h），会在 follow-up
-> commit 里补上。Franka 那组数据按"已知异常"如实记录 —— 见 Franka 表下的
-> **Franka 状态备注**。
+> **状态 — 2026-05-21**：五张表全部用 M1.7 reference batch 真实数据填好
+> （8×H200、Genesis 0.4.7、`QD_GRAPH=0`）。G1 eval 必须 `QT_QPA_PLATFORM=
+> offscreen` 才能跑（launcher 自己的 eval 一开始死在 Genesis init — cv2/Qt
+> + tracking play_env 的 `episode_length_s = 1e9` 死循环，commit `a561ba0`
+> 已 clamp 到 30 s 修掉）。Franka 那组按"已知异常"如实记录 —— 见 Franka 表
+> 下的 **Franka 状态备注**。
 
 ## Reference 任务
 
@@ -112,17 +113,26 @@ GPU vectorized 慢很多。
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | _跑中_ | — | — | — | — |
-| 2 | _跑中_ | — | — | — | — |
-| 3 | _跑中_ | — | — | — | — |
+| 1 | 112.419 | 4.647 | 30 000 | ~18.7 h | 143.0 s |
+| 2 | 93.417 | 3.921 | 30 000 | ~20.6 h | 161.0 s |
+| 3 | 92.028 | 4.162 | 30 000 | ~19.8 h | 156.9 s |
+
+三个 seed 的 eval `length_mean = 1000.0`（play_env `episode_length_s =
+20 s` × 50 Hz）。`success_rate` 为 `null`。
 
 ### `Genelab-Tracking-Flat-Unitree-G1-v0`
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | _跑中_ | — | — | — | — |
-| 2 | _跑中_ | — | — | — | — |
-| 3 | _跑中_ | — | — | — | — |
+| 1 | 137.800 | 0.005 | 30 000 | ~20.8 h | 212.8 s |
+| 2 | 138.047 | 0.004 | 30 000 | ~20.6 h | 216.8 s |
+| 3 | 138.122 | 0.007 | 30 000 | ~20.9 h | 216.0 s |
+
+Eval `length_mean = 1500.0`。Tracking play_env 默认 `episode_length_s =
+1e9` 是为 viewer 无限 playback 设的；`genelab eval` 把它 clamp 到 30 s（commit
+`a561ba0`），所以 30 s × 50 Hz = 1500 步/ep，全部撞 cap 不 terminate。
+三 seed 之间标准差非常紧 —— 收敛策略在 30 s 窗口内稳定跟随 motion clip。
+`success_rate` 为 `null`。
 
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER，demo 预填)
 

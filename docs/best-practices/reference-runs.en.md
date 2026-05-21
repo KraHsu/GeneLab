@@ -6,12 +6,13 @@ convergence step count, and the wall-clock budget — the numbers you should
 expect to land on when you `clone → train → eval` against the same
 configuration.
 
-> **Status — 2026-05-21**: cartpole and Franka tables are populated from
-> the M1.7 reference batch (8×H200, Genesis 0.4.7, `QD_GRAPH=0`); the two
-> G1 tables are still **running** (3 seeds × 30 k iter each, ETA ≈ 15–17 h
-> from this commit) and will be filled in the follow-up commit. The
-> Franka numbers are recorded as-is with a known anomaly — see the
-> **Franka status note** under its table.
+> **Status — 2026-05-21**: all five task tables are populated from the
+> M1.7 reference batch (8×H200, Genesis 0.4.7, `QD_GRAPH=0`). G1 eval
+> ran with `QT_QPA_PLATFORM=offscreen` after the launcher's first eval
+> hung in Genesis init (cv2/Qt + `episode_length_s = 1e9` in tracking's
+> play_env — fix `a561ba0` clamps to 30 s). The Franka numbers are
+> recorded as-is with a known anomaly — see the **Franka status note**
+> under its table.
 
 ## Reference tasks
 
@@ -121,17 +122,27 @@ reason as IP).
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | _running_ | — | — | — | — |
-| 2 | _running_ | — | — | — | — |
-| 3 | _running_ | — | — | — | — |
+| 1 | 112.419 | 4.647 | 30 000 | ~18.7 h | 143.0 s |
+| 2 | 93.417 | 3.921 | 30 000 | ~20.6 h | 161.0 s |
+| 3 | 92.028 | 4.162 | 30 000 | ~19.8 h | 156.9 s |
+
+Eval `length_mean = 1000.0` for all seeds (play_env `episode_length_s =
+20 s` × 50 Hz). `success_rate` is `null`.
 
 ### `Genelab-Tracking-Flat-Unitree-G1-v0`
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | _running_ | — | — | — | — |
-| 2 | _running_ | — | — | — | — |
-| 3 | _running_ | — | — | — | — |
+| 1 | 137.800 | 0.005 | 30 000 | ~20.8 h | 212.8 s |
+| 2 | 138.047 | 0.004 | 30 000 | ~20.6 h | 216.8 s |
+| 3 | 138.122 | 0.007 | 30 000 | ~20.9 h | 216.0 s |
+
+Eval `length_mean = 1500.0`. The tracking play_env normally sets
+`episode_length_s = 1e9` for infinite viewer playback; `genelab eval`
+clamps that to 30 s (see commit `a561ba0`) so 30 s × 50 Hz = 1500 steps
+per episode, all hitting the cap without termination. Very tight std
+across seeds — the converged policy follows the motion clip on track
+under the 30 s window. `success_rate` is `null`.
 
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER, demo-prefilled)
 
