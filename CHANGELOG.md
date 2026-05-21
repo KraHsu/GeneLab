@@ -8,6 +8,19 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal dedup** (no public API change): the shared PD-gain-write
+  body of `IdealPDActuator.initialize` and `ImplicitPDActuator.initialize`
+  (jaccard 0.969 — only the kp/kv tensor source varied: `zeros` for
+  ideal, `self._stiffness`/`self._damping` for implicit) moves into a
+  new `ActuatorBase._write_pd_gains(gs_handle, *, kp_values, kv_values)`
+  helper, alongside the existing `_write_force_range` / `_write_armature`
+  / `_write_friction` helpers. Each subclass `initialize` shrinks to
+  `super().initialize(gs_handle)` + one helper call (5 lines for ideal,
+  4 for implicit). `DCMotorActuator` continues to inherit
+  `IdealPDActuator.initialize` unchanged. ADR-0003 names this
+  `_initialize_pd_common` but `_write_pd_gains` was chosen for naming
+  consistency with the sibling `_write_*` helpers on the base class.
+  Lands as ROADMAP §9 PR R2.4 (fourth of five sub-slices in ADR-0003).
 - **Internal dedup** (no public API change): the regex joint-name →
   indices code in `BinaryGripperAction.__init__` and
   `ContinuousGripperAction.__init__` (jaccard 1.000 between the two
