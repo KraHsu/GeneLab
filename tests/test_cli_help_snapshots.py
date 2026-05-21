@@ -11,15 +11,22 @@ regenerate the snapshots::
     UPDATE_SNAPSHOTS=1 pytest tests/test_cli_help_snapshots.py
 
 The test invokes the CLI in a fresh subprocess through a small wrapper
-that pins ``typer.rich_utils.MAX_WIDTH`` to 100 *before* importing
-``genelab.cli``.  Pinning Typer's MAX_WIDTH constant makes Typer create
-its Rich console with an explicit ``width=100``, which bypasses every
-auto-detection branch (``TERM=dumb`` 80×25 clamp, ``shutil.get_terminal_size``
-``COLUMNS`` env reading, TTY ioctl probes).  Without this pin, the
-output width drifts between hosts: locally Rich's ``shutil``-based
-detection honours ``COLUMNS=100``; on the CI runner the Rich version's
-``is_dumb_terminal`` short-circuit returns 80 first and the snapshot
-diff is purely cosmetic-width drift.
+that pins two ``typer.rich_utils`` module constants before importing
+``genelab.cli``:
+
+- ``MAX_WIDTH = 100``: makes Typer construct its Rich console with an
+  explicit width, bypassing every auto-detection branch.  Without this
+  the width drifts between hosts because Rich's
+  ``shutil.get_terminal_size()`` / ``is_dumb_terminal`` / TTY ioctl
+  probes pick different fallbacks depending on environment.
+- ``FORCE_TERMINAL = False``: forces Rich into non-terminal mode so it
+  never emits ANSI style escapes (bold / dim / colour).  ``NO_COLOR=1``
+  alone is insufficient because some CI environments (GitHub Actions
+  among them) set ``FORCE_COLOR=1`` which Rich honours over
+  ``NO_COLOR``.
+
+Together these pins make the captured snapshot byte-identical across
+local workstations, headless CI runners, and any future host.
 """
 
 from __future__ import annotations
@@ -59,13 +66,14 @@ HELP_COMMANDS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 
 # Wrapper executed by the subprocess: pin Typer's Rich-console width
-# constant, set ``sys.argv`` to the desired ``genelab <cmd> --help``
-# invocation, then hand off to ``genelab.cli.main`` exactly the way the
-# console-script does.
+# and force non-terminal mode (no ANSI styles), set ``sys.argv`` to the
+# desired ``genelab <cmd> --help`` invocation, then hand off to
+# ``genelab.cli.main`` exactly the way the console-script does.
 _WRAPPER = (
     "import sys\n"
     "import typer.rich_utils as _r\n"
     "_r.MAX_WIDTH = {width}\n"
+    "_r.FORCE_TERMINAL = False\n"
     "sys.argv = {argv!r}\n"
     "from genelab.cli import main\n"
     "main()\n"
