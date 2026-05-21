@@ -57,8 +57,10 @@ done
 
 ```bash
 # 1. 用脚本化 FSM 收 demo（一次性，与 seed 无关）。
+#    --num-envs 必须和任务 train num_envs 一致（当前 64）；prefill loader
+#    会断言 shape 对齐。
 uv run python -m genelab_franka_pick_and_place.collect_demos \
-    --num-envs 32 --steps 6400 \
+    --num-envs 64 --steps 1000 \
     --out logs/reference/franka-pp/demos.npz
 
 # 2. 三个 seed 训练 — 每个子进程通过 GENELAB_SB3_DEMO_PATH 读 demo 文件

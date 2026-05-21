@@ -116,7 +116,12 @@ def franka_pick_and_place_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
     return ManagerBasedRlEnvCfg(
         simulation=SimulationCfg(
-            num_envs=2048 if not play else 1,
+            # HER + SAC does not benefit from massive parallelism — the
+            # replay buffer holds whole episodes, and with thousands of envs
+            # each env contributes barely one episode before SAC's
+            # gradient_steps=1 default leaves the data under-trained. See the
+            # cfg comment in :func:`franka_pick_and_place_sb3_cfg`.
+            num_envs=64 if not play else 1,
             dt=0.01,
             substeps=2,
             vis=play,
