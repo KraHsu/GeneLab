@@ -36,18 +36,7 @@ class ImplicitPDActuator(ActuatorBase):
     def initialize(self, gs_handle: Any) -> None:
         """Write ``kp`` / ``kv`` / ``force_range`` / ``armature`` / ``friction`` to Genesis."""
         super().initialize(gs_handle)
-        set_kp = getattr(gs_handle, "set_dofs_kp", None)
-        set_kv = getattr(gs_handle, "set_dofs_kv", None)
-        if set_kp is not None and self._stiffness.numel() > 0:
-            try:
-                set_kp(self._stiffness, self._dof_ids)
-            except TypeError:
-                set_kp(self._stiffness, dofs_idx_local=self._dof_ids)
-        if set_kv is not None and self._damping.numel() > 0:
-            try:
-                set_kv(self._damping, self._dof_ids)
-            except TypeError:
-                set_kv(self._damping, dofs_idx_local=self._dof_ids)
+        self._write_pd_gains(gs_handle, kp_values=self._stiffness, kv_values=self._damping)
 
     def compute(
         self,

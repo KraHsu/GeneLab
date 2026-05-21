@@ -33,18 +33,7 @@ class IdealPDActuator(ActuatorBase):
         """Zero the simulator-side PD gains, then publish the static actuator parameters."""
         super().initialize(gs_handle)
         zeros = torch.zeros_like(self._stiffness)
-        set_kp = getattr(gs_handle, "set_dofs_kp", None)
-        set_kv = getattr(gs_handle, "set_dofs_kv", None)
-        if set_kp is not None and self._stiffness.numel() > 0:
-            try:
-                set_kp(zeros, self._dof_ids)
-            except TypeError:
-                set_kp(zeros, dofs_idx_local=self._dof_ids)
-        if set_kv is not None and self._damping.numel() > 0:
-            try:
-                set_kv(zeros, self._dof_ids)
-            except TypeError:
-                set_kv(zeros, dofs_idx_local=self._dof_ids)
+        self._write_pd_gains(gs_handle, kp_values=zeros, kv_values=zeros)
 
     def compute(
         self,
