@@ -16,7 +16,11 @@ zeroed for the same ids, so each env yields a continuous stream of
 Run from the repo root::
 
     uv run python -m genelab_franka_pick_and_place.collect_demos \\
-        --num-envs 32 --steps 6400 --out /tmp/franka_pp_demos.npz
+        --num-envs 64 --steps 1000 --out /tmp/franka_pp_demos.npz
+
+``--num-envs`` must match the SB3 backend's ``vec_env.num_envs`` (default
+64 for this task — see :func:`unitree_g1_velocity_env_cfg`-style cap in
+``env_cfg.py``); the prefill code asserts the shapes match.
 """
 
 import argparse
@@ -54,11 +58,11 @@ def _her_obs(obs_dict: dict[str, "torch.Tensor"]) -> dict[str, np.ndarray]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--num-envs", type=int, default=32)
+    parser.add_argument("--num-envs", type=int, default=64)
     parser.add_argument(
         "--steps",
         type=int,
-        default=6400,
+        default=1000,
         help="Total env steps to collect (per env, so total transitions = steps x num_envs).",
     )
     parser.add_argument("--episode-length-s", type=float, default=5.0)
@@ -70,7 +74,7 @@ def main() -> None:
 
     ensure_project_cache()
     load_extension_module("genelab_franka_pick_and_place.tasks")
-    task = TASKS.get("GeneLab-Franka-Pick-And-Place-sb3-her-v0")
+    task = TASKS.get("GeneLab-Franka-Pick-And-Place-v0")
     env_cfg = task.cfg.env
     env_cfg.simulation.num_envs = int(args.num_envs)
     env_cfg.simulation.vis = False

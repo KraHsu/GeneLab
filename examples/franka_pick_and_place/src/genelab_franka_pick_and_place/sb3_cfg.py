@@ -47,6 +47,14 @@ def franka_pick_and_place_sb3_cfg() -> Sb3AgentCfg:
     dataclass field on ``Sb3AgentCfg`` is consumed by PPO/A2C only). The
     panda-gym default ``"auto"`` collapsed α to ~1e-4 inside the first 10% of
     training in earlier runs, killing exploration.
+
+    ``gradient_steps`` is pinned at 8 — SB3 SAC's default is 1, which with
+    ``train_freq=1`` and ``num_envs=64`` would land at ~31 k gradient updates
+    over the 2 M-step budget (1 update per 64 transitions). HER on Franka
+    needs ~100 k+ updates to climb past the demo-prefill plateau; 8 updates
+    per rollout brings the ratio to one update per 8 transitions and the
+    total to ~250 k gradient steps, which converges to high success rate
+    on a single H200 in under an hour.
     """
     return Sb3AgentCfg(
         algorithm="SAC",
@@ -59,7 +67,7 @@ def franka_pick_and_place_sb3_cfg() -> Sb3AgentCfg:
         tau=0.05,
         learning_starts=4000,
         train_freq=1,
-        extra_kwargs={"ent_coef": 0.1},
+        extra_kwargs={"ent_coef": 0.1, "gradient_steps": 8},
         policy=Sb3PolicyCfg(net_arch=(512, 512, 512), activation="relu"),
         experiment=Sb3ExperimentCfg(
             experiment_name="franka_pick_and_place",

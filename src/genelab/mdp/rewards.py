@@ -1,6 +1,7 @@
 """Reusable reward term functions for locomotion tasks."""
 
 import re
+import warnings
 from typing import TYPE_CHECKING, cast
 
 import torch
@@ -58,10 +59,22 @@ def action_rate_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return torch.sum((env.action_manager.action - env.action_manager.prev_action) ** 2, dim=-1)
 
 
+_joint_acc_l2_warned = False
+
+
 def joint_acc_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
-    # Approximate joint acceleration as joint_vel change per step (best-effort).
-    vel = env.robot_state.joint_vel
-    return torch.sum(vel**2, dim=-1) * 0.0  # placeholder — proper accel would need history
+    # Stub: proper joint acceleration needs a prev-step joint_vel buffer; not yet wired.
+    # Returns zero so it's safe to include in reward weights without affecting gradients.
+    global _joint_acc_l2_warned
+    if not _joint_acc_l2_warned:
+        warnings.warn(
+            "joint_acc_l2 is a stub: returns 0. A real implementation needs prior-step "
+            "joint_vel history (tracked under ROADMAP M2 actuator/DR work).",
+            UserWarning,
+            stacklevel=2,
+        )
+        _joint_acc_l2_warned = True
+    return torch.zeros(env.robot_state.joint_vel.shape[0], device=env.robot_state.joint_vel.device)
 
 
 def flat_orientation_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:

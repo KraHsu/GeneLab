@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from genelab.rl.backends import register_backend
-from genelab.rl.backends.base import PlayContext, TrainContext
+from genelab.rl.backends.base import InferenceSetup, PlayContext, TrainContext
 from genelab.rl.distributed import is_main_process, shutdown_process_group
 from genelab.rl.profiler import maybe_profile
 from genelab.rl.runner import (
@@ -259,17 +259,38 @@ class _PlayAdapter:
     """Presents a ``GenelabSb3VecEnv`` to ``runner.run_play_loop`` as a 4-tuple env.
 
     ``run_play_loop`` expects ``reset() -> (obs, info)`` and ``step() -> (obs, ...)``;
-    SB3's ``VecEnv.reset`` returns only ``obs`` and ``step`` returns a 4-tuple.
+    SB3's ``VecEnv.reset`` returns only ``obs`` and ``step`` returns a 4-tuple. When
+    ``with_info=True`` (eval path), ``step`` returns ``(obs, reward_tensor,
+    dones_tensor, consolidated_info)`` — ``info`` is collapsed from SB3's per-env
+    list of dicts into a single dict, with ``is_success`` aggregated as a bool
+    tensor of shape ``(num_envs,)`` when every entry exposes it.
     """
 
-    def __init__(self, vec_env: Any) -> None:
+    def __init__(self, vec_env: Any, *, with_info: bool = False) -> None:
         self._vec_env = vec_env
+        self._with_info = with_info
 
     def reset(self) -> tuple[Any, dict[str, Any]]:
         return self._vec_env.reset(), {}
 
-    def step(self, actions: Any) -> tuple[Any, Any, Any, Any]:
-        return self._vec_env.step(actions)
+    def step(self, actions: Any) -> tuple[Any, ...]:
+        obs, rewards, dones, infos = self._vec_env.step(actions)
+        if not self._with_info:
+            return obs, rewards, dones, infos
+        import numpy as np
+        import torch
+
+        device = self._vec_env.device
+        reward_t = torch.as_tensor(np.asarray(rewards), dtype=torch.float32, device=device).view(-1)
+        dones_t = torch.as_tensor(np.asarray(dones), dtype=torch.bool, device=device).view(-1)
+        info: dict[str, Any] = {}
+        if isinstance(infos, list) and infos and all("is_success" in i for i in infos):
+            info["is_success"] = torch.as_tensor(
+                np.asarray([bool(i["is_success"]) for i in infos]),
+                dtype=torch.bool,
+                device=device,
+            )
+        return obs, reward_t, dones_t, info
 
 
 class Sb3Backend:
@@ -343,40 +364,55 @@ class Sb3Backend:
             shutdown_process_group()
         return log_dir
 
+    def make_inference_setup(self, ctx: PlayContext) -> InferenceSetup:
+        if ctx.checkpoint is None:
+            raise SystemExit("Sb3Backend.make_inference_setup requires ctx.checkpoint")
+        agent_cfg = ctx.agent_cfg
+        if not isinstance(agent_cfg, Sb3AgentCfg):
+            raise ValueError(
+                f"task {ctx.task_id!r} did not register an SB3 agent cfg; pass agent_cfg explicitly"
+            )
+        vec_env = _make_vec_env(ctx.env, agent_cfg)
+        device = str(vec_env.device)
+        model = _algo_class(agent_cfg.algorithm).load(
+            str(ctx.checkpoint), env=vec_env, device=device
+        )
+        deterministic = ctx.deterministic
+
+        def _policy(obs: Any) -> Any:
+            actions, _ = model.predict(obs, deterministic=deterministic)
+            return actions
+
+        actor_module, actor_input_dim = _extract_sb3_actor(model)
+        adapter = _PlayAdapter(vec_env, with_info=True)
+        return InferenceSetup(
+            wrapper=vec_env,
+            adapter=adapter,
+            policy=_policy,
+            actor_module=actor_module,
+            actor_input_dim=actor_input_dim,
+        )
+
     def play(self, ctx: PlayContext) -> None:
         env = ctx.env
         agent_cfg = ctx.agent_cfg
-        cfg = agent_cfg if isinstance(agent_cfg, Sb3AgentCfg) else Sb3AgentCfg()
-        vec_env = _make_vec_env(env, cfg)
-        device = str(vec_env.device)
-        num_actions = env.action_manager.total_action_dim
 
-        policy: Any
-        if ctx.kind == "zero":
-            policy = make_zero_policy(env.num_envs, num_actions, vec_env.device)
-        elif ctx.kind == "random":
-            policy = make_random_policy(env.num_envs, num_actions, vec_env.device)
+        if ctx.kind == "trained":
+            setup = self.make_inference_setup(ctx)
+            vec_env = setup.wrapper
+            adapter = _PlayAdapter(vec_env, with_info=False)
+            policy = setup.policy
         else:
-            assert ctx.kind == "trained"
-            if ctx.checkpoint is None:
-                raise SystemExit("agent='trained' requires a --checkpoint path")
-            if not isinstance(agent_cfg, Sb3AgentCfg):
-                raise ValueError(
-                    f"task {ctx.task_id!r} did not register an SB3 agent cfg; "
-                    "pass agent_cfg explicitly"
-                )
-            model = _algo_class(agent_cfg.algorithm).load(
-                str(ctx.checkpoint), env=vec_env, device=device
-            )
-            deterministic = ctx.deterministic
+            cfg = agent_cfg if isinstance(agent_cfg, Sb3AgentCfg) else Sb3AgentCfg()
+            vec_env = _make_vec_env(env, cfg)
+            num_actions = env.action_manager.total_action_dim
+            if ctx.kind == "zero":
+                policy = make_zero_policy(env.num_envs, num_actions, vec_env.device)
+            else:
+                assert ctx.kind == "random"
+                policy = make_random_policy(env.num_envs, num_actions, vec_env.device)
+            adapter = _PlayAdapter(vec_env, with_info=False)
 
-            def _policy(obs: Any) -> Any:
-                actions, _ = model.predict(obs, deterministic=deterministic)
-                return actions
-
-            policy = _policy
-
-        adapter = _PlayAdapter(vec_env)
         try:
             with maybe_profile(**ctx.profile.as_maybe_profile_kwargs()) as prof_step:
                 run_play_loop(
@@ -390,6 +426,36 @@ class Sb3Backend:
         finally:
             close_bridges(ctx.bridges, env)
             env.close()
+
+
+def _extract_sb3_actor(model: Any) -> tuple[Any, int]:
+    """Return ``(nn.Module, in_dim)`` for the deterministic actor of a loaded SB3 model.
+
+    SB3's ``policy._predict(obs, deterministic=True)`` is the canonical deterministic
+    forward for both on-policy (PPO/A2C) and off-policy (SAC/TD3/DDPG) algorithms.
+    Wraps it in a small ``nn.Module`` so TorchScript / ONNX see a single
+    ``forward(obs) -> actions`` shape.
+    """
+    import torch.nn as nn
+
+    policy = getattr(model, "policy", None)
+    if policy is None:
+        return None, 0  # type: ignore[return-value]
+
+    obs_space = getattr(model, "observation_space", None)
+    in_dim = 0
+    if obs_space is not None and hasattr(obs_space, "shape") and obs_space.shape:
+        in_dim = int(obs_space.shape[-1])
+
+    class _Sb3Actor(nn.Module):
+        def __init__(self, sb3_policy: Any) -> None:
+            super().__init__()
+            self.sb3_policy = sb3_policy
+
+        def forward(self, obs: Any) -> Any:
+            return self.sb3_policy._predict(obs, deterministic=True)
+
+    return _Sb3Actor(policy), in_dim
 
 
 register_backend(Sb3Backend())
