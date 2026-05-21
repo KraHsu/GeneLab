@@ -69,6 +69,13 @@ def eval_task(
     # tasks whose ``play_env`` was configured for viewer playback still run on
     # CI / remote servers without a display.
     env_cfg.simulation.vis = False
+    # Some tasks set ``episode_length_s = 1e9`` in their play_env for infinite
+    # viewer playback. Eval can't run with that — episodes never truncate and
+    # the rollout never collects ``episodes`` complete trajectories. Clamp to
+    # a defensive 30 s cap so eval makes progress; if a task legitimately
+    # needs longer episodes, set its play_env to a finite value.
+    if env_cfg.episode_length_s > 30.0:
+        env_cfg.episode_length_s = 30.0
     env = build_env(env_cfg)
 
     backend = select_backend(agent_cfg)
