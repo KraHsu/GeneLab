@@ -10,10 +10,16 @@ regenerate the snapshots::
 
     UPDATE_SNAPSHOTS=1 pytest tests/test_cli_help_snapshots.py
 
-The test invokes the CLI as ``python -m genelab.cli`` in a fresh
-subprocess under a pinned environment so Rich's auto-detected terminal
-width and colour mode cannot leak host-specific state into the
-snapshots.
+The test invokes the CLI in a fresh subprocess through a small wrapper
+that pins ``typer.rich_utils.MAX_WIDTH`` to 100 *before* importing
+``genelab.cli``.  Pinning Typer's MAX_WIDTH constant makes Typer create
+its Rich console with an explicit ``width=100``, which bypasses every
+auto-detection branch (``TERM=dumb`` 80×25 clamp, ``shutil.get_terminal_size``
+``COLUMNS`` env reading, TTY ioctl probes).  Without this pin, the
+output width drifts between hosts: locally Rich's ``shutil``-based
+detection honours ``COLUMNS=100``; on the CI runner the Rich version's
+``is_dumb_terminal`` short-circuit returns 80 first and the snapshot
+diff is purely cosmetic-width drift.
 """
 
 from __future__ import annotations
@@ -27,6 +33,11 @@ import pytest
 
 SNAPSHOT_DIR = Path(__file__).parent / "snapshots"
 UPDATE_SNAPSHOTS = os.environ.get("UPDATE_SNAPSHOTS") == "1"
+
+# Width to pin Typer's Rich help console at.  100 cols renders without
+# wrapping most option descriptions; any value works as long as it is
+# the same here and in CI.
+HELP_WIDTH = 100
 
 # (snapshot_name, argv_after_module). Mirrors ``genelab <cmd> --help``
 # end-user invocations. Order matches the Typer panels rendered by the
@@ -47,36 +58,38 @@ HELP_COMMANDS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
+# Wrapper executed by the subprocess: pin Typer's Rich-console width
+# constant, set ``sys.argv`` to the desired ``genelab <cmd> --help``
+# invocation, then hand off to ``genelab.cli.main`` exactly the way the
+# console-script does.
+_WRAPPER = (
+    "import sys\n"
+    "import typer.rich_utils as _r\n"
+    "_r.MAX_WIDTH = {width}\n"
+    "sys.argv = {argv!r}\n"
+    "from genelab.cli import main\n"
+    "main()\n"
+)
+
+
 def _run_help(args: tuple[str, ...]) -> str:
-    """Run ``python -m genelab.cli <args>`` with a deterministic env.
-
-    The pinned env is what makes the snapshots reproducible:
-
-    - ``NO_COLOR=1`` disables ANSI colour escape codes.
-    - ``TERM=dumb`` keeps Rich's terminal detection off the
-      colour/styling code path.
-    - ``COLUMNS=100`` pins Rich's panel width so wrapping is identical
-      on every host.
-    - ``PYTHONDONTWRITEBYTECODE=1`` avoids ``__pycache__`` churn in the
-      working tree under repeated CI runs.
-    """
+    """Run ``genelab <args>`` with a width-pinned Rich help console."""
+    wrapper = _WRAPPER.format(width=HELP_WIDTH, argv=["genelab", *args])
     env = {
         **os.environ,
         "NO_COLOR": "1",
-        "TERM": "dumb",
-        "COLUMNS": "100",
         "PYTHONDONTWRITEBYTECODE": "1",
     }
     proc = subprocess.run(
-        [sys.executable, "-m", "genelab.cli", *args],
+        [sys.executable, "-c", wrapper],
         env=env,
         capture_output=True,
         text=True,
         check=False,
     )
     assert proc.returncode == 0, (
-        f"`python -m genelab.cli {' '.join(args)}` exited "
-        f"{proc.returncode}\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+        f"`genelab {' '.join(args)}` exited {proc.returncode}\n"
+        f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
     )
     return proc.stdout
 
