@@ -1,0 +1,36 @@
+                                                                                                    
+ Usage: genelab [OPTIONS] COMMAND [ARGS]...                                                         
+                                                                                                    
+ GeneLab — Genesis robot lab CLI.                                                                   
+                                                                                                    
+ Run `genelab` with no arguments for a landing page with quickstart commands and a count of         
+ registered robots, envs, and tasks.                                                                
+                                                                                                    
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
+│ --version                           Show version and exit.                                       │
+│ --import                    MODULE  Import an extension module before dispatch (repeatable).     │
+│ --no-entry-points                   Skip installed entry points from the genelab.extensions      │
+│                                     group.                                                       │
+│ --install-completion                Install completion for the current shell.                    │
+│ --show-completion                   Show completion for the current shell, to copy it or         │
+│                                     customize the installation.                                  │
+│ --help                              Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Utilities ──────────────────────────────────────────────────────────────────────────────────────╮
+│ cache    Create project-local simulation cache directories.                                      │
+│ prof     Inspect and open torch.profiler traces.                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Registry ───────────────────────────────────────────────────────────────────────────────────────╮
+│ list     List registered robots, envs, or tasks.                                                 │
+│ info     Show detail for one registered task, env, or robot.                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Runtime ────────────────────────────────────────────────────────────────────────────────────────╮
+│ play     Run a registered task.                                                                  │
+│ eval     Run a deterministic rollout of TASK against CHECKPOINT and write eval.json.             │
+│ export   Export TASK's policy at CHECKPOINT to TorchScript or ONNX.                              │
+│ train    Train a registered task when a runner exists.                                           │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Project ────────────────────────────────────────────────────────────────────────────────────────╮
+│ project  Create and manage GeneLab extension projects.                                           │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+
