@@ -35,6 +35,7 @@ htmlcov/
 .aider*
 CLAUDE.md
 AGENTS.md
+.serena
 
 # tmp
 /tmp
