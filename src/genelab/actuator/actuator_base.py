@@ -96,8 +96,8 @@ class ActuatorBase:
         """Push static actuator parameters (kp / kv / force_range / armature / friction) to Genesis.
 
         Subclasses override to choose whether to write the PD gains to the sim or to zero
-        them out (force channel). Common helpers ``_write_force_range``, ``_write_armature``,
-        ``_write_friction`` are reusable.
+        them out (force channel). Common helpers ``_write_pd_gains``, ``_write_force_range``,
+        ``_write_armature``, ``_write_friction`` are reusable.
         """
         self._write_force_range(gs_handle)
         self._write_armature(gs_handle)
@@ -184,6 +184,37 @@ class ActuatorBase:
                 setter(values, dofs_idx_local=self._dof_ids)
             except TypeError:
                 pass
+
+    def _write_pd_gains(
+        self,
+        gs_handle: Any,
+        *,
+        kp_values: torch.Tensor,
+        kv_values: torch.Tensor,
+    ) -> None:
+        """Push ``kp`` / ``kv`` tensors to Genesis via ``set_dofs_kp`` / ``set_dofs_kv``.
+
+        Wraps each call in a ``TypeError``-fallback because some Genesis versions accept
+        ``(values, dof_ids)`` positionally while others require ``dofs_idx_local=…``.
+        Skipped per-channel when the matching gain tensor is empty.
+
+        Used by :class:`~genelab.actuator.ideal_pd.IdealPDActuator` (``kp = kv = zeros`` to
+        disable the simulator-side PD so Python-side ``compute`` drives ``control_dofs_force``)
+        and :class:`~genelab.actuator.implicit_pd.ImplicitPDActuator` (``kp = self._stiffness``,
+        ``kv = self._damping`` so Genesis's internal PD runs natively). Per ADR-0003 / R2.4.
+        """
+        set_kp = getattr(gs_handle, "set_dofs_kp", None)
+        set_kv = getattr(gs_handle, "set_dofs_kv", None)
+        if set_kp is not None and self._stiffness.numel() > 0:
+            try:
+                set_kp(kp_values, self._dof_ids)
+            except TypeError:
+                set_kp(kp_values, dofs_idx_local=self._dof_ids)
+        if set_kv is not None and self._damping.numel() > 0:
+            try:
+                set_kv(kv_values, self._dof_ids)
+            except TypeError:
+                set_kv(kv_values, dofs_idx_local=self._dof_ids)
 
     # ------------------------------------------------------------------ properties
 
