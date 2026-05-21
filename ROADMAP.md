@@ -323,18 +323,18 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 > *structural hygiene* that those features rest on. R-phases are
 > independent of M1–M3 sequencing — most can interleave with feature work.
 >
-> Last reviewed: 2026-05-21 · against `dev` @ `1c80b41`.
+> Last reviewed: 2026-05-21 · against `dev` @ `c3d851e`.
 
 ### 9.0 Status / 当前状态
 
-**Phase:** Planning complete · Implementation not started.
+**Phase:** R0 in progress · R0.1 merged · R0.2 + R0.3 pending.
 
 | What | Status | Artifact |
 |---|---|---|
 | Architecture assessment | ✅ written | [`plans/architecture/architecture-assessment.md`](plans/architecture/architecture-assessment.md) |
 | Target architecture | ✅ written | [`plans/architecture/target-architecture.md`](plans/architecture/target-architecture.md) |
 | ADRs 0001–0010 | ✅ drafted (all Status: Proposed) | [`plans/adr/`](plans/adr/) |
-| Phase R0 — baseline & tooling | ⬜ not started | — |
+| Phase R0 — baseline & tooling | 🟡 R0.1 ✅ merged · R0.2 + R0.3 pending | PR #81 (`c3d851e`) |
 | Phase R1 — break rl.runner ↔ rl.backends cycle | ⬜ not started | gated on ADR-0001 acceptance |
 | Phase R2 — small abstractions | ⬜ not started | gated on ADR-0002, ADR-0003 |
 | Phase R3 — domain-owned parsing | ⬜ not started | gated on ADR-0005 |
@@ -344,38 +344,51 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 | Phase R7 — extensions API + importlinter blocking | ⬜ not started | gated on R0–R6 landing + ADR-0008, ADR-0009 |
 | Phase deferred — entity/articulation split | ⏸ deferred (criteria recorded) | [ADR-0010](plans/adr/0010-defer-articulation-split.md) |
 
-**Completed in this planning round.**
+**Completed.**
 
-- New: [`plans/architecture/architecture-assessment.md`](plans/architecture/architecture-assessment.md), [`plans/architecture/target-architecture.md`](plans/architecture/target-architecture.md), [`plans/adr/0001-…0010`](plans/adr/), [`plans/adr/README.md`](plans/adr/README.md), [`CLAUDE.md`](CLAUDE.md).
-- Modified: this `ROADMAP.md` (§9 added — refactor phases).
-- **Not modified:** any file under `src/genelab/`, `tests/`, `examples/`, `docs/`. Production code has not been touched as part of the refactor.
+- Planning round (commits `0b4474f` and prior):
+  - New: [`plans/architecture/architecture-assessment.md`](plans/architecture/architecture-assessment.md), [`plans/architecture/target-architecture.md`](plans/architecture/target-architecture.md), [`plans/adr/0001-…0010`](plans/adr/), [`plans/adr/README.md`](plans/adr/README.md), [`CLAUDE.md`](CLAUDE.md).
+  - Modified: this `ROADMAP.md` (§9 added — refactor phases).
+- **PR R0.1 — CLI `--help` snapshot baseline** (PR #81, merged `c3d851e`, 3 commits `c00d8c1` → `7dc47f8` → `c6c7ba1`):
+  - New: `tests/test_cli_help_snapshots.py` (123 LoC), `tests/snapshots/help-{root,cache,prof,list,info,play,eval,export,train,project,project_new}.txt` (11 files / 277 lines).
+  - Modified: `CHANGELOG.md` (+11 lines under `[Unreleased] · Added`).
+  - **Not modified:** any file under `src/genelab/`. R0.1 is test scaffolding only.
 
-**Tests run.** None — the refactor has not begun, so there is no refactor diff to validate. The pre-refactor M1 feature work that landed earlier on `dev` (eval / export / backends — see commits `99389d3..1c80b41`) was tested in its own PRs; those results stand and are not affected by this planning round.
+**Tests run.**
 
-**Changes to the dependency graph.** None. Re-running `mcp__codebase-memory-mcp__index_repository` produces the same 3,829-node / 11,427-edge graph that was indexed at the start of the planning round. The hotspots and duplications flagged in the assessment are still present.
+- Pre-R0.1: none. The pre-refactor M1 feature work that landed earlier on `dev` (eval / export / backends — see commits `99389d3..1c80b41`) was tested in its own PRs; those results stand.
+- R0.1: 11 `--help` snapshot tests green locally (×3 byte-deterministic runs), green under `TERM=dumb COLUMNS=80` (CI-equivalent), green under `FORCE_COLOR=1 CI=true` (reproduces the run-2 ANSI failure mode), green under `env -u COLUMNS -u TERM -u FORCE_COLOR -u NO_COLOR` (stripped env). Final CI run `26228761027`: **test PASS / lint PASS / typecheck PASS**.
+
+**Changes to the dependency graph.** `mcp__codebase-memory-mcp__index_status` reports **3,851 nodes / 11,454 edges** post-merge (was 3,842 / 11,441 immediately before R0.1). Delta +9 nodes / +13 edges comes from indexing `tests/test_cli_help_snapshots.py` — pure test surface, no production-code edges. The hotspots and duplications flagged in the assessment are still present.
 
 **Risks identified (aggregate view).** Detailed per-ADR; the highest-attention items:
 
 - **R1 (ADR-0001)** — quiescent `rl.runner ↔ rl.backends` cycle held together by lazy `importlib`. Any contributor "cleaning up" backend imports would break the package; R1 fixes this permanently.
 - **R2.5 (ADR-0002)** — `BaseTermManager._post_init` ordering must preserve current buffer-allocation timing in `RewardManager` / `TerminationManager`. Mitigation: pre-R2.5 assertion test gates the refactor.
-- **R4 (ADR-0004)** — CLI decomposition has large test surface (`test_cli.py` is 1,414 LoC). Mitigation: R0 `--help` snapshots gate every PR.
+- **R4 (ADR-0004)** — CLI decomposition has large test surface (`test_cli.py` is 1,414 LoC). Mitigation: R0.1 `--help` snapshots are now in place and gate every PR.
 - **R5.2 (ADR-0006)** — parameterizing motion-tracking rewards risks numerical drift. Mitigation: bit-equivalence test ships in the same PR.
 - **R7 (ADR-0009)** — flipping importlinter from lint-only to blocking may surface latent layering violations not caught in R0. Mitigation: R0 is lint-only for the entire R1–R6 window; baseline must be clean before R7 flips.
+
+**Risks discovered during R0.1 (new, not in the original list).**
+
+- **Rich/Typer help output is not deterministic under env-var pinning.** `TERM=dumb` / `COLUMNS=N` / `NO_COLOR=1` are honoured differently across Rich versions and CI runners. GitHub Actions sets `FORCE_COLOR=1` which Rich honours *over* `NO_COLOR=1`. The portable mechanism is pinning Typer's module-level constants in a `python -c` wrapper before import: `typer.rich_utils.MAX_WIDTH = 100`, `typer.rich_utils.FORCE_TERMINAL = False`. Any future test that diff-checks Rich-rendered output must follow this pattern. Captured in `tests/test_cli_help_snapshots.py`'s module docstring.
+- **Doc drift: ROADMAP §9.0 originally enumerated 9 CLI commands; the real surface has 11** (`prof` and the `project` subapp's own `--help` were missed). The R0.1 snapshot baseline covers all 11; this document has been updated. New CLI commands or subapps must be added to both `tests/test_cli_help_snapshots.py:HELP_COMMANDS` *and* the §9.0 list.
 
 **Next steps.**
 
 1. Maintainer review of ADRs 0001–0010. Approve / request-changes per ADR.
 2. Move accepted ADRs to `Status: Accepted` (one-line edit per file).
-3. Land **PR R0.1** — the suggested next slice (see below). R0.1 is the smallest possible starting move, unblocks R3 and R4, and changes no production code.
-4. After R0 lands, fan out: R1 / R5 / R6 can run in parallel; R3 → R4 serial.
+3. Land **PR R0.2** — optional-dep subprocess test (see below). Independent of R0.3; can run in parallel with R0.3 if reviewer bandwidth allows.
+4. Land **PR R0.3** — importlinter lint-only config + CI step.
+5. After R0 fully completes, fan out: R1 / R5 / R6 can run in parallel; R3 → R4 serial.
 
-**Suggested next slice: PR R0.1 — CLI `--help` snapshot baseline.**
+**Suggested next slice: PR R0.2 — Optional-dep subprocess test.**
 
-- **Scope.** Add `tests/snapshots/help-*.txt` (one per CLI command — root, `cache`, `list`, `info`, `play`, `eval`, `export`, `train`, `project_new`) + `tests/test_cli_help_snapshots.py` that captures `python -m genelab <cmd> --help` and asserts byte-equality against the snapshots.
-- **Why first.** ADR-0004 (CLI decomposition) and ADR-0005 (domain-owned parsing) both depend on having a frozen `--help` baseline. Without R0.1, regressions in those phases are invisible.
+- **Scope.** Add `tests/test_optional_deps.py` (one new test file). For each of `genelab.rl` and `genelab.rl.backends.{rsl_rl,skrl,sb3}`, spawn a subprocess with `rsl_rl` / `skrl` / `stable_baselines3` / `tensordict` poisoned in `sys.modules` (set to a `ModuleType` that raises `ImportError` on attribute access) and assert the import succeeds. Validates invariant #1 from [`CLAUDE.md`](CLAUDE.md) — that `import genelab.rl` does not transitively pull any optional RL library at module-load time.
+- **Why next.** R0.2 catches the optional-dep boundary regression that R7's importlinter contract will codify. Catching it now (runtime test) complements R0.3 (static lint) and gives the team months of lead time to fix any baseline violations before R7 flips importlinter to blocking.
 - **Production change.** None.
-- **Risk.** Low. The snapshots capture what Typer prints today; if a later PR changes the output, the diff is the signal.
-- **Reviewer effort.** Small — one new test file, nine snapshot files.
+- **Risk.** Low. If the test fails on `dev` today, it has surfaced a real invariant-#1 violation that R1 / R2 must fix.
+- **Reviewer effort.** Small — one new test file, ~40–80 LoC.
 
 ### 9.1 Cross-phase rules
 
@@ -421,30 +434,39 @@ before R4 (smaller CLI seam). R7 is the closer.
    importlinter in lint-only mode) before touching production code.
    Nothing in `src/genelab/` changes.
 2. **Scope.**
-   - CLI `--help` snapshot tests for every command (`tests/snapshots/help-*.txt`,
-     `tests/test_cli_help_snapshots.py`).
-   - Optional-dep subprocess test (`tests/test_optional_deps.py`) — boots
-     `import genelab.rl` and each `genelab.rl.backends.<lib>` with
-     `rsl_rl` / `skrl` / `stable_baselines3` / `tensordict` poisoned in
-     `sys.modules`.
-   - Layering contract scaffold (`pyproject.toml` `[tool.importlinter]`)
-     in **lint-only** mode — runs in CI but does not fail the build yet.
+   - **R0.1 ✅ merged** — CLI `--help` snapshot tests for all 11 commands
+     (root, `cache`, `prof`, `list`, `info`, `play`, `eval`, `export`,
+     `train`, `project`, `project new`). Test invokes the CLI via a
+     `python -c` wrapper that pins `typer.rich_utils.MAX_WIDTH = 100`
+     and `typer.rich_utils.FORCE_TERMINAL = False` before importing
+     `genelab.cli`, bypassing every host-dependent Rich auto-detection
+     branch. Regeneration: `UPDATE_SNAPSHOTS=1 pytest tests/test_cli_help_snapshots.py`.
+   - **R0.2 ⬜ pending** — Optional-dep subprocess test
+     (`tests/test_optional_deps.py`) that boots `import genelab.rl` and
+     each `genelab.rl.backends.<lib>` with `rsl_rl` / `skrl` /
+     `stable_baselines3` / `tensordict` poisoned in `sys.modules`.
+   - **R0.3 ⬜ pending** — Layering contract scaffold (`pyproject.toml`
+     `[tool.importlinter]`) in **lint-only** mode — runs in CI but does
+     not fail the build yet.
 3. **Non-goals.** No production code change. No new public APIs. No
    importlinter rule is yet blocking.
 4. **Affected modules.** `tests/`, `pyproject.toml`,
    `.github/workflows/ci.yml`. **No file under `src/genelab/` is touched.**
-5. **Dependency changes.** Add `import-linter` to dev-deps.
+5. **Dependency changes.** Add `import-linter` to dev-deps (in R0.3).
 6. **PR slices.**
-   - PR0.1: snapshot baseline (`tests/snapshots/` + reader test).
-   - PR0.2: optional-dep test scaffold.
-   - PR0.3: importlinter config (lint-only) + CI step (non-blocking).
+   - PR0.1: snapshot baseline (`tests/snapshots/` + reader test). ✅ **Merged in PR #81 (`c3d851e`).** Final test file 123 LoC; 11 snapshots (277 lines). CHANGELOG `[Unreleased] · Added` entry included.
+   - PR0.2: optional-dep test scaffold. ⬜ Pending.
+   - PR0.3: importlinter config (lint-only) + CI step (non-blocking). ⬜ Pending.
 7. **Test strategy.** New tests must run green on the current `dev` —
    they are pure observations, not assertions about a target state.
+   R0.1's snapshot test was verified green under four envs (clean,
+   `TERM=dumb COLUMNS=80`, `FORCE_COLOR=1 CI=true`, stripped) before
+   merge.
 8. **Risk level.** Low.
 9. **Rollback.** `git revert <merge-sha>` per PR. No source code is
    affected, so revert is trivial.
 10. **Completion criteria.**
-    - 3 PRs merged.
+    - 3 PRs merged. **Progress: 1 / 3** (R0.1 ✅; R0.2, R0.3 pending).
     - CI shows green snapshot diff and a non-blocking importlinter step.
     - `tests/test_optional_deps.py` passes on the matrix `{rsl_rl, skrl, sb3, tensordict} × {present, absent}`.
 
