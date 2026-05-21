@@ -315,6 +315,472 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 
 ---
 
+## 9. Architectural Refactor Roadmap / 架构重构路线图
+
+> **Scope of this section.** Internal architectural cleanup derived from
+> [`plans/architecture/target-architecture.md`](plans/architecture/target-architecture.md).
+> The M1–M3 milestones above ship *features*; the R-phases below ship
+> *structural hygiene* that those features rest on. R-phases are
+> independent of M1–M3 sequencing — most can interleave with feature work.
+>
+> Last reviewed: 2026-05-21 · against `dev` @ `1c80b41`.
+
+### 9.0 Status / 当前状态
+
+**Phase:** Planning complete · Implementation not started.
+
+| What | Status | Artifact |
+|---|---|---|
+| Architecture assessment | ✅ written | [`plans/architecture/architecture-assessment.md`](plans/architecture/architecture-assessment.md) |
+| Target architecture | ✅ written | [`plans/architecture/target-architecture.md`](plans/architecture/target-architecture.md) |
+| ADRs 0001–0010 | ✅ drafted (all Status: Proposed) | [`plans/adr/`](plans/adr/) |
+| Phase R0 — baseline & tooling | ⬜ not started | — |
+| Phase R1 — break rl.runner ↔ rl.backends cycle | ⬜ not started | gated on ADR-0001 acceptance |
+| Phase R2 — small abstractions | ⬜ not started | gated on ADR-0002, ADR-0003 |
+| Phase R3 — domain-owned parsing | ⬜ not started | gated on ADR-0005 |
+| Phase R4 — CLI decomposition | ⬜ not started | gated on R3 landing + ADR-0004 |
+| Phase R5 — task-specific rewards split | ⬜ not started | gated on ADR-0006 |
+| Phase R6 — vecenv rename | ⬜ not started | gated on ADR-0007 |
+| Phase R7 — extensions API + importlinter blocking | ⬜ not started | gated on R0–R6 landing + ADR-0008, ADR-0009 |
+| Phase deferred — entity/articulation split | ⏸ deferred (criteria recorded) | [ADR-0010](plans/adr/0010-defer-articulation-split.md) |
+
+**Completed in this planning round.**
+
+- New: [`plans/architecture/architecture-assessment.md`](plans/architecture/architecture-assessment.md), [`plans/architecture/target-architecture.md`](plans/architecture/target-architecture.md), [`plans/adr/0001-…0010`](plans/adr/), [`plans/adr/README.md`](plans/adr/README.md), [`CLAUDE.md`](CLAUDE.md).
+- Modified: this `ROADMAP.md` (§9 added — refactor phases).
+- **Not modified:** any file under `src/genelab/`, `tests/`, `examples/`, `docs/`. Production code has not been touched as part of the refactor.
+
+**Tests run.** None — the refactor has not begun, so there is no refactor diff to validate. The pre-refactor M1 feature work that landed earlier on `dev` (eval / export / backends — see commits `99389d3..1c80b41`) was tested in its own PRs; those results stand and are not affected by this planning round.
+
+**Changes to the dependency graph.** None. Re-running `mcp__codebase-memory-mcp__index_repository` produces the same 3,829-node / 11,427-edge graph that was indexed at the start of the planning round. The hotspots and duplications flagged in the assessment are still present.
+
+**Risks identified (aggregate view).** Detailed per-ADR; the highest-attention items:
+
+- **R1 (ADR-0001)** — quiescent `rl.runner ↔ rl.backends` cycle held together by lazy `importlib`. Any contributor "cleaning up" backend imports would break the package; R1 fixes this permanently.
+- **R2.5 (ADR-0002)** — `BaseTermManager._post_init` ordering must preserve current buffer-allocation timing in `RewardManager` / `TerminationManager`. Mitigation: pre-R2.5 assertion test gates the refactor.
+- **R4 (ADR-0004)** — CLI decomposition has large test surface (`test_cli.py` is 1,414 LoC). Mitigation: R0 `--help` snapshots gate every PR.
+- **R5.2 (ADR-0006)** — parameterizing motion-tracking rewards risks numerical drift. Mitigation: bit-equivalence test ships in the same PR.
+- **R7 (ADR-0009)** — flipping importlinter from lint-only to blocking may surface latent layering violations not caught in R0. Mitigation: R0 is lint-only for the entire R1–R6 window; baseline must be clean before R7 flips.
+
+**Next steps.**
+
+1. Maintainer review of ADRs 0001–0010. Approve / request-changes per ADR.
+2. Move accepted ADRs to `Status: Accepted` (one-line edit per file).
+3. Land **PR R0.1** — the suggested next slice (see below). R0.1 is the smallest possible starting move, unblocks R3 and R4, and changes no production code.
+4. After R0 lands, fan out: R1 / R5 / R6 can run in parallel; R3 → R4 serial.
+
+**Suggested next slice: PR R0.1 — CLI `--help` snapshot baseline.**
+
+- **Scope.** Add `tests/snapshots/help-*.txt` (one per CLI command — root, `cache`, `list`, `info`, `play`, `eval`, `export`, `train`, `project_new`) + `tests/test_cli_help_snapshots.py` that captures `python -m genelab <cmd> --help` and asserts byte-equality against the snapshots.
+- **Why first.** ADR-0004 (CLI decomposition) and ADR-0005 (domain-owned parsing) both depend on having a frozen `--help` baseline. Without R0.1, regressions in those phases are invisible.
+- **Production change.** None.
+- **Risk.** Low. The snapshots capture what Typer prints today; if a later PR changes the output, the diff is the signal.
+- **Reviewer effort.** Small — one new test file, nine snapshot files.
+
+### 9.1 Cross-phase rules
+
+These rules (§9.1) apply to **every** R-phase below. The status panel
+in §9.0 records progress against them.
+
+1. **Verify references before removing or relocating code.** Use
+   `mcp__serena__find_referencing_symbols` + `mcp__codebase-memory-mcp__search_graph`
+   to enumerate every caller of the symbol(s) the PR touches. Paste the
+   reference list into the PR description. Do not delete a legacy path
+   until its forwarding shim (if any) has been in `main` for one release.
+2. **No behavior change unless explicitly called out.** Every PR's first
+   reviewer task is to confirm the diff is a structural move, not a
+   functional edit. Snapshot tests (R0) catch regressions early.
+3. **Boundaries before logic.** A phase that *introduces a seam* (R0
+   guardrails, R3 domain-config parsers) must land before the phase that
+   *moves logic across that seam* (R4 CLI split, R7 importlinter blocking).
+4. **One concept per PR.** A PR may move multiple files but must address
+   a single architectural concept. Mixing the cycle-break with the
+   rewards-split, for instance, is forbidden.
+5. **Each PR ships with**: tests green, snapshot diff empty (where
+   applicable), CHANGELOG entry, and — for moves — a `find_referencing_symbols`
+   audit pasted into the description.
+
+### 9.2 Phase sequencing
+
+```
+R0 ──┬──► R1 ─────────────────────────────────────────► R7
+     ├──► R2 (R2.1–R2.5 parallel) ────────────────────► R7
+     ├──► R3 ──► R4 ─────────────────────────────────► R7
+     ├──► R5 ─────────────────────────────────────────► R7
+     └──► R6 ─────────────────────────────────────────► R7
+```
+
+R0 is the gate. R1 / R2 / R5 / R6 fan out in parallel. R3 must land
+before R4 (smaller CLI seam). R7 is the closer.
+
+---
+
+### Phase R0 — Baseline & Tooling / 基线与工具
+
+1. **Goal.** Establish the safety net (snapshot tests, optional-dep test,
+   importlinter in lint-only mode) before touching production code.
+   Nothing in `src/genelab/` changes.
+2. **Scope.**
+   - CLI `--help` snapshot tests for every command (`tests/snapshots/help-*.txt`,
+     `tests/test_cli_help_snapshots.py`).
+   - Optional-dep subprocess test (`tests/test_optional_deps.py`) — boots
+     `import genelab.rl` and each `genelab.rl.backends.<lib>` with
+     `rsl_rl` / `skrl` / `stable_baselines3` / `tensordict` poisoned in
+     `sys.modules`.
+   - Layering contract scaffold (`pyproject.toml` `[tool.importlinter]`)
+     in **lint-only** mode — runs in CI but does not fail the build yet.
+3. **Non-goals.** No production code change. No new public APIs. No
+   importlinter rule is yet blocking.
+4. **Affected modules.** `tests/`, `pyproject.toml`,
+   `.github/workflows/ci.yml`. **No file under `src/genelab/` is touched.**
+5. **Dependency changes.** Add `import-linter` to dev-deps.
+6. **PR slices.**
+   - PR0.1: snapshot baseline (`tests/snapshots/` + reader test).
+   - PR0.2: optional-dep test scaffold.
+   - PR0.3: importlinter config (lint-only) + CI step (non-blocking).
+7. **Test strategy.** New tests must run green on the current `dev` —
+   they are pure observations, not assertions about a target state.
+8. **Risk level.** Low.
+9. **Rollback.** `git revert <merge-sha>` per PR. No source code is
+   affected, so revert is trivial.
+10. **Completion criteria.**
+    - 3 PRs merged.
+    - CI shows green snapshot diff and a non-blocking importlinter step.
+    - `tests/test_optional_deps.py` passes on the matrix `{rsl_rl, skrl, sb3, tensordict} × {present, absent}`.
+
+---
+
+### Phase R1 — Break `rl.runner` ↔ `rl.backends` cycle / 解开 RL 循环依赖
+
+1. **Goal.** Eliminate the static-import cycle currently held together
+   by `rl/backends/__init__.py._ensure_loaded` lazy `importlib`. Decision
+   recorded in ADR-0001.
+2. **Scope.** Extract 9 helpers from `rl/runner.py` into a new
+   `rl/_helpers.py`: `build_bridges`, `build_env`, `close_bridges`,
+   `make_random_policy`, `make_zero_policy`, `resolve_env_cfg`,
+   `resolve_log_dir`, `run_play_loop`, `save_run_params`. Backends switch
+   their imports. `runner.py` re-exports the helpers for one release.
+3. **Non-goals.** No logic edits in any helper. `train_task` / `play_task`
+   bodies are untouched. No file rename.
+4. **Affected modules.** `rl/runner.py` (shrinks), `rl/_helpers.py` (new),
+   `rl/backends/{rsl_rl,skrl,sb3}.py` (imports flip).
+5. **Dependency changes.** New importlinter rule: `rl.backends.* ⊬ rl.runner`
+   (added in lint-only mode here; flipped to blocking in R7).
+6. **PR slices.** 1 PR. Mechanical move (helper bodies verified in
+   `target-architecture.md` Appendix A).
+7. **Test strategy.**
+   - `test_rl_pipeline.py` + `test_sb3_pipeline.py` + `test_skrl_pipeline.py` green.
+   - New `tests/test_no_static_cycle.py`: imports `genelab.rl.backends.sb3`
+     in a subprocess and asserts `genelab.rl.runner` is *not* in
+     `sys.modules` afterwards (cycle stays broken under future changes).
+8. **Risk level.** Low.
+9. **Rollback.** `git revert`. Legacy re-export in `rl/runner.py` means
+   any external caller is unaffected during the deprecation window;
+   revert simply restores the original file layout.
+10. **Completion criteria.**
+    - `test_no_static_cycle.py` passes.
+    - The three pipeline tests pass.
+    - importlinter lint-only output shows zero new violations.
+
+---
+
+### Phase R2 — Small abstractions / 抽取重复抽象
+
+1. **Goal.** Collapse five high-jaccard duplicates flagged in the
+   assessment (§9 rows 1–6) into shared helpers. Decisions recorded in
+   ADR-0002 (BaseTermManager) and ADR-0003 (the other four).
+2. **Scope.**
+   - **R2.1** `rl/_algorithm_taxonomy.py` — centralize `ON_POLICY_ALGORITHMS`
+     / `OFF_POLICY_ALGORITHMS`; both configs re-export.
+   - **R2.2** `rl/vecenvs/_attach_base.attach_optional_base` — collapse
+     the three `_attach_{sb3,skrl,rsl_rl}_base` helpers (jaccard 0.984–1.000).
+   - **R2.3** `mdp/actions/_joint_match.match_joints` — extract regex
+     joint-name → indices code from `BinaryGripperAction.__init__` and
+     `ContinuousGripperAction.__init__` (jaccard 1.000).
+   - **R2.4** `actuator/actuator_base._initialize_pd_common` — pull
+     `IdealPDActuator.initialize` / `ImplicitPDActuator.initialize`
+     shared body up to the base (jaccard 0.969).
+   - **R2.5** `managers/_base.BaseTermManager` — pull `RewardManager.__init__`
+     / `TerminationManager.__init__` registration loop into the base
+     (jaccard 0.953). Subclasses override `_post_init` for buffer
+     allocation.
+3. **Non-goals.** No file relocation (that's R6). No public API change
+   (subclass constructors keep their signatures).
+4. **Affected modules.** Per item:
+   - R2.1: `rl/_algorithm_taxonomy.py` (new), `rl/sb3_config.py`,
+     `rl/skrl_config.py`.
+   - R2.2: `rl/vecenvs/_attach_base.py` (new), 3 existing wrappers.
+   - R2.3: `mdp/actions/_joint_match.py` (new), `binary_gripper.py`,
+     `continuous_gripper.py`.
+   - R2.4: `actuator/actuator_base.py`, `ideal_pd.py`, `implicit_pd.py`.
+   - R2.5: `managers/_base.py`, `reward_manager.py`,
+     `termination_manager.py`.
+5. **Dependency changes.** None external.
+6. **PR slices.** 5 PRs (one per sub-item). Each PR independently revertable.
+   Each PR's description includes a `find_referencing_symbols` audit
+   for the symbol(s) being relocated.
+7. **Test strategy.**
+   - R2.1: `tests/test_rl_pipeline.py`, `tests/test_sb3_pipeline.py`,
+     `tests/test_skrl_pipeline.py`.
+   - R2.2: optional-dep test (R0) covers the attach-base degradation paths.
+   - R2.3: `tests/test_franka_pick_and_place_examples.py`, `test_ee_delta_ik.py`.
+   - R2.4: `tests/test_actuator.py`, `test_articulation_refresh.py`.
+   - R2.5: `tests/test_rewards.py`, `test_managers.py`. **Pre-R2.5 gate:**
+     add `tests/test_manager_init_order.py` asserting that
+     `RewardManager(cfg, env)._episode_sums` and `TerminationManager(cfg,
+     env)._term_dones` are populated after construction; landed *before*
+     the R2.5 refactor PR.
+8. **Risk level.**
+   - R2.1 / R2.2 / R2.3 / R2.4: low (mechanical).
+   - R2.5: medium — `_post_init` ordering must preserve current
+     buffer-allocation timing (target-arch risk R2).
+9. **Rollback.** Per-PR `git revert`. Each abstraction is independent;
+   reverting one does not affect the others.
+10. **Completion criteria.**
+    - All 5 PRs merged.
+    - Re-running `mcp__codebase-memory-mcp__search_graph` (relation
+      `SIMILAR_TO`) on the original symbols shows no jaccard ≥ 0.9
+      edges between the now-consolidated pairs.
+    - Existing tests green; the new manager-init-order test green.
+
+---
+
+### Phase R3 — Domain owns its parsing / 解析逻辑下沉到 domain
+
+1. **Goal.** Move runner-arg parsing out of `cli/__init__.py` into
+   classmethods on the relevant domain configs. Sets the principle for
+   future runner args. Decision recorded in ADR-0005.
+2. **Scope.**
+   - `EvalCallbackCfg.from_args(runner_args: dict[str, str]) → EvalCallbackCfg | None`
+     replaces `cli/__init__.py:_build_eval_callback`.
+   - `SimulationCfg.play_retargeted_keys() → tuple[str, ...]` replaces
+     `cli/__init__.py:_PLAY_RETARGETED_KEYS`.
+3. **Non-goals.** No CLI flag changes. No `--help` text changes (R0
+   snapshot must match). No structural CLI decomposition (that's R4).
+4. **Affected modules.** `rl/eval_callback.py`, `configs.py`,
+   `cli/__init__.py`.
+5. **Dependency changes.** None.
+6. **PR slices.** 2 PRs:
+   - PR3.1: `EvalCallbackCfg.from_args`; CLI delegates.
+   - PR3.2: `SimulationCfg.play_retargeted_keys()`; CLI delegates.
+7. **Test strategy.**
+   - R0 snapshot tests must produce empty diffs.
+   - New `tests/test_eval_callback_from_args.py` covering the matrix
+     `{--eval-every set / unset} × {--eval-episodes set / unset} × …`.
+   - New focused test in `tests/test_configs.py` for
+     `play_retargeted_keys`.
+8. **Risk level.** Low.
+9. **Rollback.** Per-PR revert. CLI keeps the original inline parsing
+   commented out during the first deprecation window (so revert is a
+   no-op uncomment, not a full body re-paste).
+10. **Completion criteria.**
+    - `cli/__init__.py` shrinks by ≥ 35 LoC.
+    - New classmethods tested.
+    - Snapshot diff empty.
+
+---
+
+### Phase R4 — CLI dispatcher decomposition / CLI 拆解
+
+1. **Goal.** Carve `cli/__init__.py` (1,051 LoC, 40 symbols) into three
+   focused submodules. Decision recorded in ADR-0004.
+2. **Scope.**
+   - `cli/_dispatch.py` ← `_dispatch_play`, `_dispatch_train`.
+   - `cli/_multi_seed.py` ← `_dispatch_multi_seed_train`,
+     `_parse_seed_list`, `_resolve_multi_seed_parent`,
+     `_strip_multi_seed_flags`.
+   - `cli/_distributed.py` ← `_relaunch_under_torchrun`,
+     `_strip_distributed_flags`, `_resolve_per_rank_num_envs`,
+     `_extract_log_dir_flag`, `_has_log_dir_flag`,
+     `_strip_flag_value_pairs`.
+   - `cli/__init__.py` becomes ≤ 400 LoC of Typer wiring.
+3. **Non-goals.** No behavioral change. No flag renames. No command
+   reordering. No new helper logic. No public-API changes (CLI
+   surface is the only public API here, and it must stay byte-identical).
+4. **Affected modules.** `cli/__init__.py` (shrinks), three new
+   `cli/_*.py` files.
+5. **Dependency changes.** None.
+6. **PR slices.** 3 PRs, in order:
+   - PR4.1: `cli/_distributed.py` (smallest blast radius; pure plumbing).
+   - PR4.2: `cli/_multi_seed.py` (depends on `_distributed` only via
+     argv-strip helpers, which are now imported).
+   - PR4.3: `cli/_dispatch.py` (depends on `_distributed` and `_multi_seed`).
+7. **Test strategy.**
+   - Full `tests/test_cli.py` (1,414 LoC) and `tests/test_multi_seed_cli.py`
+     per PR.
+   - R0 snapshots: `--help` diff must be empty.
+   - Per PR, paste a `find_referencing_symbols` audit for each moved
+     function showing only intra-file callers were touched.
+8. **Risk level.** Medium — large file, large test surface, but the test
+   net is dense and R0 snapshots are baselined.
+9. **Rollback.** Per-PR revert. The moved files become orphans on
+   revert; their content moves back inline.
+10. **Completion criteria.**
+    - `cli/__init__.py` ≤ 400 LoC.
+    - 3 new files created.
+    - `tests/test_cli.py` and `tests/test_multi_seed_cli.py` green.
+    - `--help` snapshot diff empty for all 8 commands.
+
+---
+
+### Phase R5 — Task-specific rewards out of `mdp/rewards.py` / 拆出任务专属奖励
+
+1. **Goal.** Separate motion-tracking rewards from the generic reward
+   library; parameterize the three near-identical motion variants.
+   Decision recorded in ADR-0006.
+2. **Scope.**
+   - Create `mdp/motion_tracking.py`.
+   - Move `motion_relative_body_position_error_exp`,
+     `motion_global_body_linear_velocity_error_exp`,
+     `motion_global_body_angular_velocity_error_exp` verbatim.
+   - Add `motion_body_error_exp(quantity, frame, *, std, …)` factory.
+   - Keep the three named functions as thin wrappers for back-compat
+     (`from genelab.mdp.rewards import motion_*` keeps working via a
+     re-export block).
+3. **Non-goals.** No new reward families. No behavioral change to the
+   three motion-tracking rewards (verified numerically — see test
+   strategy).
+4. **Affected modules.** `mdp/rewards.py`, `mdp/motion_tracking.py`
+   (new), `examples/unitree/` (no change, just verified).
+5. **Dependency changes.** None.
+6. **PR slices.** 2 PRs:
+   - PR5.1: relocate the three functions verbatim; re-export from
+     `rewards.py`. Pure file move.
+   - PR5.2: parameterize via `motion_body_error_exp`; the three names
+     become wrappers.
+7. **Test strategy.**
+   - `tests/test_rewards.py` green per PR.
+   - PR5.2 adds `tests/test_motion_tracking_equivalence.py` — for each
+     of the three reward names, builds a small batch of fake states and
+     asserts the wrapper output equals the original implementation
+     bit-for-bit (within float tolerance).
+   - Run `examples/unitree/g1` training for one chunk per PR; reward
+     curves must match the reference run from `docs/best-practices/reference-runs.md`.
+8. **Risk level.**
+   - PR5.1: low (file move).
+   - PR5.2: medium (parameterization — target-arch risk R9).
+9. **Rollback.** Per-PR revert. `mdp/rewards.py` re-export block keeps
+   import paths stable in both directions.
+10. **Completion criteria.**
+    - 3 functions live in `mdp/motion_tracking.py`.
+    - Re-running `search_graph(relation='SIMILAR_TO')` shows
+      jaccard < 0.9 for those names.
+    - Equivalence test green.
+    - Unitree G1 reference run reproduces existing numbers.
+
+---
+
+### Phase R6 — VecEnv rename and colocation / VecEnv 重命名
+
+1. **Goal.** Disambiguate "wrapper" (env adapter) from "backend"
+   (trainer) by relocating env adapters under `rl/vecenvs/`. Decision
+   recorded in ADR-0007.
+2. **Scope.**
+   - Create `rl/vecenvs/{rsl_rl,sb3,skrl}.py` containing the bodies of
+     the current `rl/{rsl_rl,sb3,skrl}_wrapper.py`.
+   - Replace the old paths with 3-line deprecation shims that re-export
+     from the new paths and emit `DeprecationWarning`.
+   - Update `rl/backends/{rsl_rl,sb3,skrl}.py` to import from the new
+     path.
+   - Remove `RslRlVecEnvWrapper` from `rl/__init__.py:__all__`; keep it
+     importable via a module-level `__getattr__` shim that emits
+     `DeprecationWarning` for one release.
+3. **Non-goals.** No class renames (`RslRlVecEnvWrapper`,
+   `GenelabSb3VecEnv`, `GenelabSkrlWrapper` keep their names). No
+   behavioral change.
+4. **Affected modules.** 3 files moved, 3 shim files left at the old
+   paths, `rl/__init__.py`, `rl/backends/*`.
+5. **Dependency changes.** None.
+6. **PR slices.** 1 PR (mechanical rename + shims). Possibly split
+   per-library if review bandwidth is tight.
+7. **Test strategy.**
+   - Pipeline tests (`test_rl_pipeline.py`, `test_sb3_pipeline.py`,
+     `test_skrl_pipeline.py`) green.
+   - New `tests/test_deprecated_imports.py` asserts that
+     `from genelab.rl.sb3_wrapper import GenelabSb3VecEnv` works and
+     emits a `DeprecationWarning`.
+   - Optional-dep test (R0) still green for the new paths.
+8. **Risk level.** Low. Independent of R1–R5; can land any time after R0.
+9. **Rollback.** `git revert`. Shim files revert to their original
+   full content; new `rl/vecenvs/` directory becomes orphaned (delete in
+   the revert).
+10. **Completion criteria.**
+    - `rl/vecenvs/{rsl_rl,sb3,skrl}.py` populated.
+    - 3 shim files emit `DeprecationWarning`.
+    - All pipeline tests green.
+
+---
+
+### Phase R7 — Public extension API + importlinter blocking / 公开扩展接口 + CI 强制分层
+
+1. **Goal.** Codify the third-party extension contract and flip the
+   layering contract from lint-only to a required CI check. Decisions
+   recorded in ADR-0008 and ADR-0009.
+2. **Scope.**
+   - Create `src/genelab/extensions.py` re-exporting `ROBOTS`, `ENVS`,
+     `TASKS`, `register_robot`, `register_env`, `register_task`,
+     `register_backend`, `Backend`, `Runnable`.
+   - Promote `cli/__init__.py:_RunnableTask` (private Protocol) →
+     `registry.Runnable` (public Protocol). Old name kept as alias for
+     one release.
+   - Add `docs/concepts/extensions.{en,zh}.md` documenting the
+     contract.
+   - Flip the importlinter contract introduced in R0 from non-blocking
+     to required.
+3. **Non-goals.** No new extension types (no new registry kinds beyond
+   the four already present). No new backend implementations. No
+   behavioral change to the registry itself.
+4. **Affected modules.** `extensions.py` (new), `registry.py`
+   (`Runnable`), `cli/__init__.py` (alias), `docs/concepts/`,
+   `pyproject.toml` (importlinter blocking), `.github/workflows/ci.yml`.
+5. **Dependency changes.** importlinter contract becomes a required
+   CI gate.
+6. **PR slices.** 3 PRs:
+   - PR7.1: `extensions.py` + `registry.Runnable` + `cli/__init__.py`
+     alias.
+   - PR7.2: `docs/concepts/extensions.{en,zh}.md`.
+   - PR7.3: flip importlinter to blocking; add explicit ignores for any
+     legitimate exception with a TODO + issue link.
+7. **Test strategy.**
+   - PR7.1: `tests/test_extensions_api.py` — round-trip register/lookup
+     for each of robot/env/task/backend via the new public path.
+   - PR7.3: re-run the full test suite under importlinter in blocking
+     mode; CI green.
+8. **Risk level.**
+   - PR7.1 / PR7.2: low (purely additive).
+   - PR7.3: medium — stale branches may break on rebase if they
+     violate the now-blocking contract.
+9. **Rollback.** Per-PR revert.
+   - PR7.1 / PR7.2 are additive; revert is safe but rarely needed.
+   - PR7.3 can be reverted independently; importlinter falls back to
+     lint-only mode.
+10. **Completion criteria.**
+    - `from genelab.extensions import register_backend, Backend`
+      works as documented.
+    - Docs page live.
+    - CI shows importlinter as a required check on `main`.
+    - ADR-0001 through ADR-0010 all merged.
+
+---
+
+### 9.3 Interleaving with M1–M3
+
+R-phases are independent of M1–M3 feature work in most places. Specific
+hand-offs:
+
+| Feature work | Recommended R-phase already landed |
+|---|---|
+| M1.3 `genelab export` follow-ups touching `rl/exporter.py` | R1 (no longer pulls `rl.runner` in transitively from `rl.backends.*`) |
+| M2.5 `MlpResidualActuator` | R2.4 (`_initialize_pd_common` is the natural base for the new actuator) |
+| M3.6 multi-robot API RFC | R3 + R4 (CLI no longer makes hard assumptions about single-robot env layout) |
+| Any new RL backend (CleanRL / Tianshou per §5) | R7 (extension API documented) |
+| Any new MDP term family (e.g. dexterous-manipulation rewards) | R5 (precedent for task-specific reward modules) |
+
+The R-phase chain does **not** need to fully complete before M1 / M2 /
+M3 features ship. The two roadmaps progress in parallel.
+
+---
+
 ## 附录 A · 当前命名约定速查
 
 | 类别 | 命名模式 | 例 |

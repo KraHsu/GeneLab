@@ -36,6 +36,7 @@ htmlcov/
 CLAUDE.md
 AGENTS.md
 .serena
+plans/
 
 # tmp
 /tmp
