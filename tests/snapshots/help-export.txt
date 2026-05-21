@@ -1,0 +1,20 @@
+                                                                                                    
+ Usage: genelab export [OPTIONS] TASK CHECKPOINT                                                    
+                                                                                                    
+ Export TASK's policy at CHECKPOINT to TorchScript or ONNX.                                         
+                                                                                                    
+ The exported model takes raw obs in and emits actions; per-term scale/clip are baked in            
+ (deployment side feeds raw, training-shape obs). A sibling <OUTPUT>.metadata.json records the obs  
+ schema.                                                                                            
+                                                                                                    
+╭─ Arguments ──────────────────────────────────────────────────────────────────────────────────────╮
+│ *    task_id         TASK  Registered task id. [required]                                        │
+│ *    checkpoint      PATH  Trained checkpoint path (rsl_rl/skrl: .pt; sb3: .zip). [required]     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
+│ --format  -f      TEXT     Output format. One of ('torchscript', 'onnx'). [default: torchscript] │
+│ --out             PATH     Output file path. [default: policy.ts]                                │
+│ --opset           INTEGER  ONNX opset version (ignored for torchscript). [default: 17]           │
+│ --help                     Show this message and exit.                                           │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+

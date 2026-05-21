@@ -1,0 +1,27 @@
+                                                                                                    
+ Usage: genelab eval [OPTIONS] TASK CHECKPOINT                                                      
+                                                                                                    
+ Run a deterministic rollout of TASK against CHECKPOINT and write eval.json.                        
+                                                                                                    
+ Reads ``extras['is_success']`` per-env when the task publishes it; otherwise ``success_rate`` in   
+ the output is ``null``.                                                                            
+                                                                                                    
+╭─ Arguments ──────────────────────────────────────────────────────────────────────────────────────╮
+│ *    task_id         TASK  Registered task id. [required]                                        │
+│ *    checkpoint      PATH  Trained checkpoint path (rsl_rl/skrl: .pt; sb3: .zip). [required]     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
+│ --num-envs,--num_envs                    INTEGER  Parallel envs for the rollout. [default: 64]   │
+│ --episodes                               INTEGER  Minimum complete episodes to collect.          │
+│                                                   [default: 100]                                 │
+│ --seed                                   INTEGER  RNG seed (env-level only; policy is            │
+│                                                   deterministic).                                │
+│                                                   [default: 0]                                   │
+│ --deterministic          --stochastic             Use deterministic policy (default) or sample   │
+│                                                   from the distribution.                         │
+│                                                   [default: deterministic]                       │
+│ --out                                    PATH     Output JSON path. [default: eval.json]         │
+│ --max-steps                              INTEGER  Safety cap on rollout steps.                   │
+│ --help                                            Show this message and exit.                    │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+
