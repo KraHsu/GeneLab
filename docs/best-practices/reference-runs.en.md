@@ -10,9 +10,10 @@ configuration.
 > M1.7 reference batch (8×H200, Genesis 0.4.7, `QD_GRAPH=0`). G1 eval
 > ran with `QT_QPA_PLATFORM=offscreen` after the launcher's first eval
 > hung in Genesis init (cv2/Qt + `episode_length_s = 1e9` in tracking's
-> play_env — fix `a561ba0` clamps to 30 s). The Franka numbers are
-> recorded as-is with a known anomaly — see the **Franka status note**
-> under its table.
+> play_env — fix `a561ba0` clamps to 30 s). Franka was re-run with the
+> fix in commit `40a6194` (env `num_envs` 2048 → 64, SAC
+> `gradient_steps = 8`); success rate climbed from 0.04–0.11 (no real
+> training) to 0.89–1.00 (converged).
 
 ## Reference tasks
 
@@ -64,8 +65,10 @@ buffer never sees a successful trajectory:
 
 ```bash
 # 1. Collect demos via the scripted FSM (one-shot, seed-independent).
+#    --num-envs must match the task's train num_envs (currently 64); the
+#    prefill loader asserts the shapes match.
 uv run python -m genelab_franka_pick_and_place.collect_demos \
-    --num-envs 32 --steps 6400 \
+    --num-envs 64 --steps 1000 \
     --out logs/reference/franka-pp/demos.npz
 
 # 2. Train three seeds — each child reads the demo file via
@@ -146,28 +149,27 @@ under the 30 s window. `success_rate` is `null`.
 
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER, demo-prefilled)
 
-| Seed | Final `return_mean` | `return_std` | `success_rate` | Convergence timestep | Train wall-clock |
-|---|---|---|---|---|---|
-| 1 | −95.996 | 19.595 | 0.11 | 1,843,200 (budget cap) | 56 s |
-| 2 | −97.998 | 14.000 | 0.04 | 1,843,200 (budget cap) | 56 s |
-| 3 | −92.199 | 26.519 | 0.11 | 1,843,200 (budget cap) | 57 s |
+| Seed | Final `return_mean` | `return_std` | `success_rate` | Convergence timestep | Train wall-clock | Eval wall-clock |
+|---|---|---|---|---|---|---|
+| 1 | −19.264 | 33.334 | 0.89 | 2 000 000 (budget cap) | ~68 min | 15.3 s |
+| 2 |  −4.626 |  8.297 | 1.00 | 2 000 000 (budget cap) | ~63 min | 14.3 s |
+| 3 |  −4.102 |  7.644 | 1.00 | 2 000 000 (budget cap) | ~64 min | 18.7 s |
 
-Eval `length_mean = 100.0` (fixed episode length).
+Eval `length_mean = 100.0` (fixed episode length). Mean
+`success_rate ≈ 0.963 ± 0.052` across the three seeds; the two perfect
+seeds reflect a fully solved policy, the 0.89 seed still misses ~11 %
+of episodes from end-effector orientation drift on harder goal poses.
 
-> **Franka status note — anomalous, not converged**:
-> The 2 M-timestep budget is consumed in **≈ 56 seconds wall-clock** on
-> a single H200, after which `model.learn()` returns and the success
-> rate sits in **0.04–0.11**, i.e. essentially the demo-prefill
-> baseline. The interaction we have not yet root-caused is between
-> SB3's `HerReplayBuffer` auto-scaling, the demo prefill, and the
-> `learning_starts` threshold: the gradient-step loop appears to exit
-> well before `total_timesteps` of useful exploration is consumed.
->
-> These rows are recorded **as-is** so the table is reproducible from
-> the current `feat/m1-multi-seed-refs` branch + Genesis 0.4.7 +
-> `QD_GRAPH=0`. Fixing the SAC/HER interaction is **deferred to M2**;
-> the numbers will be revisited there. Do not treat the Franka row as
-> a converged reference — treat it as the lower-bound smoke baseline.
+These rows replace the earlier "anomalous, not converged" callout from
+the first M1.7 batch. The root cause turned out to be a configuration
+mismatch in this example, not an SB3 internal bug: the env had
+`num_envs = 2048` but SAC defaulted to `gradient_steps = 1`, so the 2 M
+timestep budget produced fewer than 1 000 SGD updates total. Commit
+`40a6194` drops `num_envs` to 64 (HER replay buffer holds whole
+episodes; massive parallelism wastes buffer capacity) and pins
+`gradient_steps = 8` so each rollout actually trains the policy. See
+the cfg docstring on `franka_pick_and_place_sb3_cfg` for the longer
+write-up.
 
 ## Training curves
 
