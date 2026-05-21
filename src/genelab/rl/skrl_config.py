@@ -12,12 +12,12 @@ importable without skrl installed.
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-SkrlAlgorithm = Literal["PPO", "A2C", "SAC", "TD3", "DDPG"]
+from genelab.rl._algorithm_taxonomy import (
+    OFF_POLICY_ALGORITHMS as OFF_POLICY_ALGORITHMS,  # explicit re-export
+    ON_POLICY_ALGORITHMS,
+)
 
-#: Algorithms that learn from a rollout buffer (use ``rollouts`` as memory size).
-ON_POLICY_ALGORITHMS: frozenset[str] = frozenset({"PPO", "A2C"})
-#: Algorithms that learn from a replay buffer (use ``replay_buffer_size``).
-OFF_POLICY_ALGORITHMS: frozenset[str] = frozenset({"SAC", "TD3", "DDPG"})
+SkrlAlgorithm = Literal["PPO", "A2C", "SAC", "TD3", "DDPG"]
 
 
 @dataclass

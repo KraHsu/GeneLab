@@ -8,6 +8,15 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal dedup** (no public API change): the `ON_POLICY_ALGORITHMS`
+  and `OFF_POLICY_ALGORITHMS` frozensets — previously defined verbatim
+  in both `genelab.rl.sb3_config` and `genelab.rl.skrl_config` — moved
+  to a new shared module `genelab.rl._algorithm_taxonomy`. Both configs
+  re-export the constants so any existing
+  `from genelab.rl.sb3_config import ON_POLICY_ALGORITHMS` (or the skrl
+  equivalent) keeps working unchanged. Adding a new on/off-policy
+  algorithm symbol now means editing exactly one file. Lands as ROADMAP
+  §9 PR R2.1, the first of five small-abstraction sub-slices in ADR-0003.
 - **Internal restructuring** (no public API change): the nine helpers
   shared by every RL backend (`build_bridges`, `build_env`,
   `close_bridges`, `make_random_policy`, `make_zero_policy`,
