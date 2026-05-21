@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from genelab.rl.backends import register_backend
-from genelab.rl.backends.base import PlayContext, TrainContext
+from genelab.rl.backends.base import InferenceSetup, PlayContext, TrainContext
 from genelab.rl.distributed import is_main_process, shutdown_process_group
 from genelab.rl.profiler import maybe_profile
 from genelab.rl.runner import (
@@ -148,17 +148,23 @@ class _PlayAdapter:
     """Presents a ``GenelabSkrlWrapper`` to ``runner._run_play_loop`` as a 4-tuple env.
 
     skrl's wrapper ``step`` returns a 5-tuple ``(obs, reward, terminated, truncated,
-    info)``; the shared play loop expects ``(obs, _, _, _)``.
+    info)``; the shared play loop expects ``(obs, _, _, _)`` while the eval loop needs
+    ``(obs, reward, dones, info)`` so it can read ``info["is_success"]``.
     """
 
-    def __init__(self, wrapper: Any) -> None:
+    def __init__(self, wrapper: Any, *, with_info: bool = False) -> None:
         self._wrapper = wrapper
+        self._with_info = with_info
 
     def reset(self) -> Any:
-        return self._wrapper.reset()
+        obs, info = self._wrapper.reset()
+        return (obs, info) if self._with_info else (obs, info)
 
-    def step(self, actions: Any) -> tuple[Any, Any, Any, Any]:
-        obs, reward, terminated, truncated, _info = self._wrapper.step(actions)
+    def step(self, actions: Any) -> tuple[Any, ...]:
+        obs, reward, terminated, truncated, info = self._wrapper.step(actions)
+        if self._with_info:
+            dones = (terminated.bool() | truncated.bool()).view(-1)
+            return obs, reward.view(-1), dones, info
         return obs, reward, terminated, truncated
 
 
@@ -227,38 +233,61 @@ class SkrlBackend:
             shutdown_process_group()
         return log_dir
 
+    def make_inference_setup(self, ctx: PlayContext) -> InferenceSetup:
+        from genelab.rl.skrl_wrapper import GenelabSkrlWrapper
+
+        if ctx.checkpoint is None:
+            raise SystemExit("SkrlBackend.make_inference_setup requires ctx.checkpoint")
+        agent_cfg = ctx.agent_cfg
+        if not isinstance(agent_cfg, SkrlAgentCfg):
+            raise ValueError(
+                f"task {ctx.task_id!r} did not register a skrl agent cfg; pass agent_cfg explicitly"
+            )
+        wrapper = GenelabSkrlWrapper(
+            ctx.env, obs_group=agent_cfg.obs_group, state_group=agent_cfg.state_group
+        )
+        device = wrapper.device
+        agent = _build_agent(agent_cfg, wrapper, device, log_dir=None)
+        agent.init(trainer_cfg={"timesteps": 1, "headless": True})
+        agent.load(str(ctx.checkpoint))
+        agent.set_running_mode("eval")
+        policy = _make_skrl_policy(agent, deterministic=ctx.deterministic)
+        actor_module, actor_input_dim = _extract_skrl_actor(
+            agent, int(wrapper.observation_space.shape[-1])
+        )
+        adapter = _PlayAdapter(wrapper, with_info=True)
+        return InferenceSetup(
+            wrapper=wrapper,
+            adapter=adapter,
+            policy=policy,
+            actor_module=actor_module,
+            actor_input_dim=actor_input_dim,
+        )
+
     def play(self, ctx: PlayContext) -> None:
         from genelab.rl.skrl_wrapper import GenelabSkrlWrapper
 
         env = ctx.env
         agent_cfg = ctx.agent_cfg
-        obs_group = agent_cfg.obs_group if isinstance(agent_cfg, SkrlAgentCfg) else "policy"
-        state_group = agent_cfg.state_group if isinstance(agent_cfg, SkrlAgentCfg) else "critic"
-        wrapper = GenelabSkrlWrapper(env, obs_group=obs_group, state_group=state_group)
-        device = wrapper.device
-        num_actions = env.action_manager.total_action_dim
 
-        policy: Any
-        if ctx.kind == "zero":
-            policy = make_zero_policy(env.num_envs, num_actions, device)
-        elif ctx.kind == "random":
-            policy = make_random_policy(env.num_envs, num_actions, device)
+        if ctx.kind == "trained":
+            setup = self.make_inference_setup(ctx)
+            wrapper = setup.wrapper
+            adapter = _PlayAdapter(wrapper, with_info=False)
+            policy = setup.policy
         else:
-            assert ctx.kind == "trained"
-            if ctx.checkpoint is None:
-                raise SystemExit("agent='trained' requires a --checkpoint path")
-            if not isinstance(agent_cfg, SkrlAgentCfg):
-                raise ValueError(
-                    f"task {ctx.task_id!r} did not register a skrl agent cfg; "
-                    "pass agent_cfg explicitly"
-                )
-            agent = _build_agent(agent_cfg, wrapper, device, log_dir=None)
-            agent.init(trainer_cfg={"timesteps": 1, "headless": True})
-            agent.load(str(ctx.checkpoint))
-            agent.set_running_mode("eval")
-            policy = _make_skrl_policy(agent, deterministic=ctx.deterministic)
+            obs_group = agent_cfg.obs_group if isinstance(agent_cfg, SkrlAgentCfg) else "policy"
+            state_group = agent_cfg.state_group if isinstance(agent_cfg, SkrlAgentCfg) else "critic"
+            wrapper = GenelabSkrlWrapper(env, obs_group=obs_group, state_group=state_group)
+            device = wrapper.device
+            num_actions = env.action_manager.total_action_dim
+            if ctx.kind == "zero":
+                policy = make_zero_policy(env.num_envs, num_actions, device)
+            else:
+                assert ctx.kind == "random"
+                policy = make_random_policy(env.num_envs, num_actions, device)
+            adapter = _PlayAdapter(wrapper, with_info=False)
 
-        adapter = _PlayAdapter(wrapper)
         try:
             with maybe_profile(**ctx.profile.as_maybe_profile_kwargs()) as prof_step:
                 run_play_loop(
@@ -272,6 +301,35 @@ class SkrlBackend:
         finally:
             close_bridges(ctx.bridges, env)
             env.close()
+
+
+def _extract_skrl_actor(agent: Any, num_obs: int) -> tuple[Any, int]:
+    """Return ``(nn.Module, in_dim)`` extracting the deterministic policy network from a loaded skrl agent.
+
+    Wraps ``agent.policy.act`` in a small ``nn.Module`` that always returns the
+    deterministic mean (``info["mean_actions"]`` for stochastic policies) so export
+    sees a single ``forward(obs) -> actions`` shape.
+    """
+    import torch.nn as nn
+
+    policy = getattr(agent, "policy", None)
+    if policy is None:
+        return None, num_obs  # type: ignore[return-value]
+
+    class _SkrlActor(nn.Module):
+        def __init__(self, policy_model: Any) -> None:
+            super().__init__()
+            self.policy_model = policy_model
+
+        def forward(self, obs: Any) -> Any:
+            actions, _, info = self.policy_model.act({"states": obs}, role="policy")
+            if isinstance(info, dict):
+                mean = info.get("mean_actions")
+                if mean is not None:
+                    return mean
+            return actions
+
+    return _SkrlActor(policy), num_obs
 
 
 register_backend(SkrlBackend())

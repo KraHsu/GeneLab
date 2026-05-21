@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from genelab.rl.backends import register_backend
-from genelab.rl.backends.base import PlayContext, TrainContext
+from genelab.rl.backends.base import InferenceSetup, PlayContext, TrainContext
 from genelab.rl.config import RslRlOnPolicyRunnerCfg
 from genelab.rl.distributed import is_main_process, shutdown_process_group
 from genelab.rl.profiler import maybe_profile
@@ -97,36 +97,52 @@ class RslRlBackend:
             shutdown_process_group()
         return log_dir
 
+    def make_inference_setup(self, ctx: PlayContext) -> InferenceSetup:
+        if ctx.checkpoint is None:
+            raise SystemExit("RslRlBackend.make_inference_setup requires ctx.checkpoint")
+        agent_cfg = ctx.agent_cfg
+        if not isinstance(agent_cfg, RslRlOnPolicyRunnerCfg):
+            raise ValueError(
+                f"task {ctx.task_id!r} did not register an RSL-RL agent cfg; "
+                "pass agent_cfg explicitly"
+            )
+        wrapped = RslRlVecEnvWrapper(ctx.env, clip_actions=None)
+
+        from rsl_rl.runners import OnPolicyRunner
+
+        runner = OnPolicyRunner(
+            cast(Any, wrapped),
+            _runner_cfg_to_dict(agent_cfg),
+            log_dir=None,
+            device=str(wrapped.device),
+        )
+        runner.load(str(ctx.checkpoint))
+        policy = runner.get_inference_policy(device=str(wrapped.device))
+        actor_module, actor_input_dim = _extract_rsl_rl_actor(runner, wrapped.num_obs)
+        return InferenceSetup(
+            wrapper=wrapped,
+            adapter=wrapped,
+            policy=policy,
+            actor_module=actor_module,
+            actor_input_dim=actor_input_dim,
+        )
+
     def play(self, ctx: PlayContext) -> None:
         env = ctx.env
-        wrapped = RslRlVecEnvWrapper(env, clip_actions=None)
         device = env.device
 
         policy: Any
-        if ctx.kind == "zero":
-            policy = make_zero_policy(env.num_envs, wrapped.num_actions, device)
-        elif ctx.kind == "random":
-            policy = make_random_policy(env.num_envs, wrapped.num_actions, device)
+        if ctx.kind == "trained":
+            setup = self.make_inference_setup(ctx)
+            wrapped = setup.wrapper
+            policy = setup.policy
         else:
-            assert ctx.kind == "trained"
-            if ctx.checkpoint is None:
-                raise SystemExit("agent='trained' requires a --checkpoint path")
-            agent_cfg = ctx.agent_cfg
-            if not isinstance(agent_cfg, RslRlOnPolicyRunnerCfg):
-                raise ValueError(
-                    f"task {ctx.task_id!r} did not register an RSL-RL agent cfg; "
-                    "pass agent_cfg explicitly"
-                )
-            from rsl_rl.runners import OnPolicyRunner
-
-            runner = OnPolicyRunner(
-                cast(Any, wrapped),
-                _runner_cfg_to_dict(agent_cfg),
-                log_dir=None,
-                device=str(wrapped.device),
-            )
-            runner.load(str(ctx.checkpoint))
-            policy = runner.get_inference_policy(device=str(wrapped.device))
+            wrapped = RslRlVecEnvWrapper(env, clip_actions=None)
+            if ctx.kind == "zero":
+                policy = make_zero_policy(env.num_envs, wrapped.num_actions, device)
+            else:
+                assert ctx.kind == "random"
+                policy = make_random_policy(env.num_envs, wrapped.num_actions, device)
 
         try:
             with maybe_profile(**ctx.profile.as_maybe_profile_kwargs()) as prof_step:
@@ -141,6 +157,36 @@ class RslRlBackend:
         finally:
             close_bridges(ctx.bridges, env)
             env.close()
+
+
+def _extract_rsl_rl_actor(runner: Any, num_obs: int) -> tuple[Any, int]:
+    """Return ``(nn.Module, in_dim)`` extracting the deterministic actor from a loaded runner.
+
+    Prefers ``runner.alg.actor_critic.actor`` if it is a pure ``nn.Module`` (the common
+    MLP case). Otherwise wraps ``actor_critic.act_inference`` in a small ``nn.Module``
+    adapter so TorchScript / ONNX still see a single ``forward(obs) -> actions`` shape.
+    """
+    import torch.nn as nn
+
+    ac = getattr(getattr(runner, "alg", None), "actor_critic", None)
+    if ac is None:
+        return None, num_obs  # type: ignore[return-value]
+    actor = getattr(ac, "actor", None)
+    if isinstance(actor, nn.Module):
+        for m in actor.modules():
+            if isinstance(m, nn.Linear):
+                return actor, m.in_features
+        return actor, num_obs
+
+    class _RslRlActor(nn.Module):
+        def __init__(self, actor_critic: Any) -> None:
+            super().__init__()
+            self.actor_critic = actor_critic
+
+        def forward(self, obs: Any) -> Any:
+            return self.actor_critic.act_inference(obs)
+
+    return _RslRlActor(ac), num_obs
 
 
 register_backend(RslRlBackend())

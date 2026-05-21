@@ -28,6 +28,12 @@ RUNNER_KEYS: Final[frozenset[str]] = frozenset(
         "log_dir",
         "agent",
         "gpus",
+        "eval_every",
+        "eval_episodes",
+        "eval_num_envs",
+        "eval_seed",
+        "seeds",
+        "parallel",
     }
 )
 
