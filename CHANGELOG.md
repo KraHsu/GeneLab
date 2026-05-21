@@ -8,6 +8,17 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `tests/test_cli_help_snapshots.py` + `tests/snapshots/help-*.txt` —
+  frozen baseline of every Typer command's `--help` output (root, cache,
+  prof, list, info, play, eval, export, train, project, project new). The
+  test runs the CLI in a deterministic subprocess (`NO_COLOR=1`,
+  `TERM=dumb`, `COLUMNS=100`) and asserts byte-equality against the
+  captured snapshot so the upcoming CLI decomposition (ROADMAP §9 Phase
+  R4) and domain-owned-parsing refactor (Phase R3) can prove they are
+  structural moves rather than behavioural edits. Intentional `--help`
+  changes regenerate via `UPDATE_SNAPSHOTS=1 pytest
+  tests/test_cli_help_snapshots.py`. Lands as ROADMAP §9 PR R0.1 — the
+  smallest gate of the refactor chain.
 - `genelab train TASK --seeds 1,2,3 --parallel N` — fan-out multi-seed
   training. Each comma-separated seed is launched as an independent
   `genelab train` subprocess (concurrency capped by `--parallel`), with a
