@@ -17,12 +17,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-Sb3Algorithm = Literal["PPO", "A2C", "SAC", "TD3", "DDPG"]
+from genelab.rl._algorithm_taxonomy import (
+    OFF_POLICY_ALGORITHMS as OFF_POLICY_ALGORITHMS,  # explicit re-export
+    ON_POLICY_ALGORITHMS,
+)
 
-#: Algorithms that learn from a rollout buffer (use ``n_steps`` as the buffer size).
-ON_POLICY_ALGORITHMS: frozenset[str] = frozenset({"PPO", "A2C"})
-#: Algorithms that learn from a replay buffer — the ones HER can wrap.
-OFF_POLICY_ALGORITHMS: frozenset[str] = frozenset({"SAC", "TD3", "DDPG"})
+Sb3Algorithm = Literal["PPO", "A2C", "SAC", "TD3", "DDPG"]
 
 
 @dataclass
