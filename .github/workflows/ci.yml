@@ -25,6 +25,12 @@ jobs:
       - run: uv sync --extra torch-cpu
       - run: uv run ruff check
       - run: uv run ruff format --check
+      # Layering contracts (ROADMAP §9 PR R0.3 / ADR-0009). Non-blocking
+      # until R7 flips to required — the baseline contains known violations
+      # that R1–R6 will trim. See pyproject.toml [tool.importlinter].
+      - name: Architecture lint (import-linter)
+        run: uv run lint-imports
+        continue-on-error: true
 
   typecheck:
     runs-on: ubuntu-latest
