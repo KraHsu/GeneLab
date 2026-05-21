@@ -8,6 +8,17 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal dedup** (no public API change): the regex joint-name →
+  indices code in `BinaryGripperAction.__init__` and
+  `ContinuousGripperAction.__init__` (jaccard 1.000 between the two
+  bodies — only the error-message class name differed) moves to a new
+  private helper `genelab.mdp.actions._joint_match.match_joints`. Each
+  gripper now calls `match_joints(cfg.joint_names, env.joint_names)` and
+  raises its own term-specific `ValueError` when zero joints match.
+  Helper accepts `Sequence[str]` so both the cfg's `tuple[str, ...]`
+  and `list[str]` callers work. Tested via the gripper-using paths in
+  `tests/test_franka_pick_and_place_examples.py` and `test_ee_delta_ik.py`.
+  Lands as ROADMAP §9 PR R2.3 (third of five sub-slices in ADR-0003).
 - **Internal dedup** (no public API change): the three
   `_attach_{rsl_rl,skrl,sb3}_base` helpers at the bottom of
   `genelab.rl.{rsl_rl,skrl,sb3}_wrapper` — verbatim copies of each
