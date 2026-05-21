@@ -6,13 +6,13 @@ Companions :class:`DifferentialIKAction` to reproduce panda-gym's 4-DoF
 solver with the gripper degree of freedom.
 """
 
-import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import torch
 
 from genelab.managers.action_manager import ActionTerm, ActionTermCfg
+from genelab.mdp.actions._joint_match import match_joints
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
@@ -45,16 +45,7 @@ class BinaryGripperAction(ActionTerm):
 
     def __init__(self, cfg: BinaryGripperActionCfg, env: "ManagerBasedRlEnv") -> None:
         super().__init__(cfg, env)
-        joint_names = env.joint_names
-        matched: list[int] = []
-        for pat in cfg.joint_names:
-            try:
-                regex = re.compile(pat)
-            except re.error:
-                regex = re.compile(re.escape(pat))
-            for i, name in enumerate(joint_names):
-                if (regex.fullmatch(name) or regex.search(name)) and i not in matched:
-                    matched.append(i)
+        matched = match_joints(cfg.joint_names, env.joint_names)
         if not matched:
             raise ValueError(
                 f"BinaryGripperAction matched zero joints from patterns {cfg.joint_names!r}"
