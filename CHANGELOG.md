@@ -6,6 +6,28 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ## [Unreleased]
 
+### Changed
+
+- **Internal restructuring** (no public API change): the nine helpers
+  shared by every RL backend (`build_bridges`, `build_env`,
+  `close_bridges`, `make_random_policy`, `make_zero_policy`,
+  `resolve_env_cfg`, `resolve_log_dir`, `run_play_loop`,
+  `save_run_params`) moved from `genelab.rl.runner` into a new private
+  module `genelab.rl._helpers`. `rl/runner.py` re-exports the same
+  names so external callers using
+  `from genelab.rl.runner import build_env, resolve_env_cfg, …` are
+  unaffected. The motivation is breaking the static import cycle
+  documented in ADR-0001: each concrete backend
+  (`rl.backends.{rsl_rl, skrl, sb3}`) used to import the helpers back
+  from `rl.runner`, forming a cycle that was held together only by
+  the lazy `_ensure_loaded` workaround in `rl/backends/__init__.py`.
+  After R1, backends import directly from `rl._helpers`, the cycle is
+  gone, and the new `tests/test_no_static_cycle.py` (via `grimp`)
+  prevents regression. The R0.3 `import-linter` baseline's
+  `rl.backends does not import rl.runner` contract flips from broken
+  to kept (3 violations removed; 21 of the original 24 remain).
+  Lands as ROADMAP §9 PR R1.
+
 ### Added
 
 - `[tool.importlinter]` in `pyproject.toml` + non-blocking
