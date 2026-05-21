@@ -8,8 +8,9 @@
 > （8×H200、Genesis 0.4.7、`QD_GRAPH=0`）。G1 eval 必须 `QT_QPA_PLATFORM=
 > offscreen` 才能跑（launcher 自己的 eval 一开始死在 Genesis init — cv2/Qt
 > + tracking play_env 的 `episode_length_s = 1e9` 死循环，commit `a561ba0`
-> 已 clamp 到 30 s 修掉）。Franka 那组按"已知异常"如实记录 —— 见 Franka 表
-> 下的 **Franka 状态备注**。
+> 已 clamp 到 30 s 修掉）。Franka 在 commit `40a6194` 的 fix 下重跑（env
+> `num_envs` 2048 → 64、SAC `gradient_steps = 8`），success_rate 从
+> 0.04–0.11（没真训）涨到 0.89–1.00（收敛）。
 
 ## Reference 任务
 
@@ -57,8 +58,10 @@ done
 
 ```bash
 # 1. 用脚本化 FSM 收 demo（一次性，与 seed 无关）。
+#    --num-envs 必须和任务 train num_envs 一致（当前 64）；prefill loader
+#    会断言 shape 对齐。
 uv run python -m genelab_franka_pick_and_place.collect_demos \
-    --num-envs 32 --steps 6400 \
+    --num-envs 64 --steps 1000 \
     --out logs/reference/franka-pp/demos.npz
 
 # 2. 三个 seed 训练 — 每个子进程通过 GENELAB_SB3_DEMO_PATH 读 demo 文件
@@ -136,25 +139,23 @@ Eval `length_mean = 1500.0`。Tracking play_env 默认 `episode_length_s =
 
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER，demo 预填)
 
-| Seed | 最终 `return_mean` | `return_std` | `success_rate` | 收敛 timestep | 训练 wall-clock |
-|---|---|---|---|---|---|
-| 1 | −95.996 | 19.595 | 0.11 | 1,843,200（预算上限）| 56 s |
-| 2 | −97.998 | 14.000 | 0.04 | 1,843,200（预算上限）| 56 s |
-| 3 | −92.199 | 26.519 | 0.11 | 1,843,200（预算上限）| 57 s |
+| Seed | 最终 `return_mean` | `return_std` | `success_rate` | 收敛 timestep | 训练 wall-clock | Eval wall-clock |
+|---|---|---|---|---|---|---|
+| 1 | −19.264 | 33.334 | 0.89 | 2 000 000（预算上限）| ~68 min | 15.3 s |
+| 2 |  −4.626 |  8.297 | 1.00 | 2 000 000（预算上限）| ~63 min | 14.3 s |
+| 3 |  −4.102 |  7.644 | 1.00 | 2 000 000（预算上限）| ~64 min | 18.7 s |
 
-三个 seed 的 eval `length_mean = 100.0`（固定 episode length）。
+Eval `length_mean = 100.0`（固定 episode length）。三 seed 平均
+`success_rate ≈ 0.963 ± 0.052`；两个完美 seed 表示策略完全收敛，0.89 那个
+seed 在比较难的 goal pose 上还会差 ~11 % episode（末端朝向 drift）。
 
-> **Franka 状态备注 —— 异常，未收敛**：
-> 2 M-timestep 的预算在单卡 H200 上 **≈ 56 秒 wall-clock** 就被消耗掉，
-> `model.learn()` 之后即返回；最终 success_rate 落在 **0.04–0.11**，基本
-> 等于 demo 预填的 baseline。我们尚未根因定位的是 SB3 `HerReplayBuffer`
-> auto-scaling、demo 预填、`learning_starts` 三者之间的交互 —— 梯度更新
-> 循环在 `total_timesteps` 还远没真正用满有效探索时就退出了。
->
-> 这几行**如实**记录，保证表格能从当前 `feat/m1-multi-seed-refs` 分支 +
-> Genesis 0.4.7 + `QD_GRAPH=0` 直接复现。修这个 SAC/HER 交互**留给 M2**
-> 处理；数字到 M2 阶段再回头修订。Franka 这行不要当作收敛 reference，
-> 当作 **lower-bound 的 smoke baseline** 看就行。
+这几行覆盖了首批 M1.7 时的"异常未收敛"标注。根因不是 SB3 内部 bug，而是这个
+example 自己的配置错配：env 设 `num_envs = 2048`，但 SAC 默认
+`gradient_steps = 1`，2 M timestep 预算总共只跑了不到 1 000 次 SGD 更新。
+commit `40a6194` 把 `num_envs` 降到 64（HER 的 replay buffer 是按整 episode
+存的，巨量并行只会浪费 buffer 容量），并 pin `gradient_steps = 8`，每个
+rollout 都真正训到 policy。更长的写明放在 `franka_pick_and_place_sb3_cfg`
+的 cfg docstring 里。
 
 ## 训练曲线
 
