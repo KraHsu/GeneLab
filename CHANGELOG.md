@@ -8,6 +8,23 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `[tool.importlinter]` in `pyproject.toml` + non-blocking
+  `Architecture lint (import-linter)` step in `.github/workflows/ci.yml`
+  (lint job). Four layering contracts derived from ADR-0009:
+  (1) domain modules are below `cli` / `rl` / `utils.download`,
+  (2) `rl.backends` does not import `rl.runner` (will be fixed by R1 / ADR-0001),
+  (3) top-down layering `cli > rl > domain > utils`,
+  (4) the three RL backends are independent of each other.
+  `exclude_type_checking_imports = true` filters out the deliberate
+  `if TYPE_CHECKING: from envs.manager_based_rl_env import ManagerBasedRlEnv`
+  type-hint pattern used across `mdp/` / `managers/` / `sensor/` — this is
+  the manager-based MDP API contract, not a layering violation. Baseline
+  on `dev`: 1 contract kept, 3 broken (24 distinct cross-layer imports
+  in 122 files / 266 dependencies). The CI step runs with
+  `continue-on-error: true` so the broken baseline does not block merges;
+  R7 (ADR-0009 §"R7 — flip to blocking") will convert it to a required
+  check once R1–R6 have trimmed the violation list. Lands as ROADMAP §9
+  PR R0.3 — completes Phase R0.
 - `tests/test_optional_deps.py` — runtime guard for invariant #1
   (`import genelab.rl` must succeed without `rsl_rl` / `skrl` /
   `stable_baselines3` / `tensordict` installed). Each of the four
