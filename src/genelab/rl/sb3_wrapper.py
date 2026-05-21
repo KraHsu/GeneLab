@@ -25,6 +25,8 @@ import gymnasium
 import numpy as np
 import torch
 
+from genelab.rl._attach_base import attach_optional_base
+
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
     from genelab.rl.sb3_config import Sb3HerCfg
@@ -290,20 +292,9 @@ class GenelabSb3VecEnv:
         return list(indices)
 
 
-def _attach_sb3_base() -> None:
-    """Make ``GenelabSb3VecEnv`` subclass SB3's ``VecEnv`` when SB3 is installed."""
-    try:
-        from stable_baselines3.common.vec_env import VecEnv as _Sb3VecEnv
-    except ImportError:
-        return
-    global GenelabSb3VecEnv
-
-    class _GenelabSb3VecEnv(GenelabSb3VecEnv, _Sb3VecEnv):  # type: ignore[misc,valid-type]
-        pass
-
-    _GenelabSb3VecEnv.__name__ = "GenelabSb3VecEnv"
-    _GenelabSb3VecEnv.__qualname__ = "GenelabSb3VecEnv"
-    GenelabSb3VecEnv = _GenelabSb3VecEnv  # type: ignore[misc]
-
-
-_attach_sb3_base()
+attach_optional_base(
+    base_module="stable_baselines3.common.vec_env",
+    base_attr="VecEnv",
+    wrapper_name="GenelabSb3VecEnv",
+    caller_globals=globals(),
+)

@@ -8,6 +8,24 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal dedup** (no public API change): the three
+  `_attach_{rsl_rl,skrl,sb3}_base` helpers at the bottom of
+  `genelab.rl.{rsl_rl,skrl,sb3}_wrapper` — verbatim copies of each
+  other (jaccard 0.984–1.000) that conditionally re-base each wrapper
+  on the matching upstream library's vec-env class — collapse into a
+  single `genelab.rl._attach_base.attach_optional_base` helper. Each
+  wrapper now calls it once with `base_module` / `base_attr` /
+  `wrapper_name` / `caller_globals` parameters. The wrappers still
+  subclass their optional bases at module load (`RslRlVecEnvWrapper`
+  → `rsl_rl.env.VecEnv`, `GenelabSkrlWrapper` →
+  `skrl.envs.wrappers.torch.Wrapper`, `GenelabSb3VecEnv` →
+  `stable_baselines3.common.vec_env.VecEnv`) when those libraries are
+  installed, and degrade to bare object subclasses otherwise; verified
+  by `tests/test_optional_deps.py`. Net code reduction: −27 lines.
+  Lands as ROADMAP §9 PR R2.2 (second of five sub-slices in ADR-0003).
+  Note: ADR-0003 names the new module `rl/vecenvs/_attach_base`; for
+  now it lives flat at `rl/_attach_base` because `rl/vecenvs/` is
+  created in R6 (ADR-0007). R6 will relocate it.
 - **Internal dedup** (no public API change): the `ON_POLICY_ALGORITHMS`
   and `OFF_POLICY_ALGORITHMS` frozensets — previously defined verbatim
   in both `genelab.rl.sb3_config` and `genelab.rl.skrl_config` — moved

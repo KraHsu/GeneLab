@@ -16,6 +16,8 @@ import gymnasium
 import numpy as np
 import torch
 
+from genelab.rl._attach_base import attach_optional_base
+
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
@@ -113,20 +115,9 @@ class GenelabSkrlWrapper:
         self._env.close()
 
 
-def _attach_skrl_base() -> None:
-    """Make ``GenelabSkrlWrapper`` subclass skrl's ``Wrapper`` when skrl is installed."""
-    try:
-        from skrl.envs.wrappers.torch import Wrapper as _SkrlWrapper
-    except ImportError:
-        return
-    global GenelabSkrlWrapper
-
-    class _GenelabSkrlWrapper(GenelabSkrlWrapper, _SkrlWrapper):  # type: ignore[misc]
-        pass
-
-    _GenelabSkrlWrapper.__name__ = "GenelabSkrlWrapper"
-    _GenelabSkrlWrapper.__qualname__ = "GenelabSkrlWrapper"
-    GenelabSkrlWrapper = _GenelabSkrlWrapper  # type: ignore[misc]
-
-
-_attach_skrl_base()
+attach_optional_base(
+    base_module="skrl.envs.wrappers.torch",
+    base_attr="Wrapper",
+    wrapper_name="GenelabSkrlWrapper",
+    caller_globals=globals(),
+)
