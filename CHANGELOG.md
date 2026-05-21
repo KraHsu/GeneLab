@@ -8,6 +8,16 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- `tests/test_optional_deps.py` — runtime guard for invariant #1
+  (`import genelab.rl` must succeed without `rsl_rl` / `skrl` /
+  `stable_baselines3` / `tensordict` installed). Each of the four
+  load-bearing entry points (`genelab.rl`, `genelab.rl.backends.rsl_rl`,
+  `genelab.rl.backends.skrl`, `genelab.rl.backends.sb3`) is imported
+  in a fresh subprocess with the four optional libs poisoned via
+  `sys.modules[name] = None`; a non-zero exit code surfaces any
+  top-level import that should have been function-local. Pairs with
+  the R7 importlinter contract (ADR-0009) which catches the same class
+  of regression statically. Lands as ROADMAP §9 PR R0.2.
 - `tests/test_cli_help_snapshots.py` + `tests/snapshots/help-*.txt` —
   frozen baseline of every Typer command's `--help` output (root, cache,
   prof, list, info, play, eval, export, train, project, project new). The
