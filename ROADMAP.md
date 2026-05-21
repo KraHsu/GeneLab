@@ -323,20 +323,20 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 > *structural hygiene* that those features rest on. R-phases are
 > independent of M1–M3 sequencing — most can interleave with feature work.
 >
-> Last reviewed: 2026-05-21 · against `dev` @ `04509d9`.
+> Last reviewed: 2026-05-21 · against `dev` @ `0367462`.
 
 ### 9.0 Status / 当前状态
 
-**Phase:** **R0 complete + R1 merged** · R2–R7 not started.
+**Phase:** **R0 complete + R1 merged · R2 in progress (3 / 5 sub-slices merged)** · R3–R7 not started.
 
 | What | Status | Artifact |
 |---|---|---|
 | Architecture assessment | ✅ written | [`plans/architecture/architecture-assessment.md`](plans/architecture/architecture-assessment.md) |
 | Target architecture | ✅ written | [`plans/architecture/target-architecture.md`](plans/architecture/target-architecture.md) |
-| ADRs 0001–0010 | ✅ drafted (all Status: Proposed) | [`plans/adr/`](plans/adr/) |
+| ADRs 0001–0010 | ✅ drafted (all Status: Proposed; ADR-0001 + ADR-0003 ready for `Accepted` flip) | [`plans/adr/`](plans/adr/) |
 | Phase R0 — baseline & tooling | ✅ **complete** (3 / 3 PRs merged) | PR #81 (`c3d851e`), #82 (`b8df293`), #83 (`d7a702e`) |
 | Phase R1 — break rl.runner ↔ rl.backends cycle | ✅ **merged** | PR #84 (`04509d9`) — implements ADR-0001 |
-| Phase R2 — small abstractions | ⬜ **next recommended** (multiple sub-slices parallelizable) | gated on ADR-0002, ADR-0003 |
+| Phase R2 — small abstractions | 🟡 **3 / 5 merged** (R2.1, R2.2, R2.3) · R2.4 + R2.5 pending | PRs #85 (`74b2e30`), #86 (`039e502`), #87 (`0367462`) — implement ADR-0003 |
 | Phase R3 — domain-owned parsing | ⬜ not started | gated on ADR-0005 |
 | Phase R4 — CLI decomposition | ⬜ not started | gated on R3 landing + ADR-0004 |
 | Phase R5 — task-specific rewards split | ⬜ not started | gated on ADR-0006 |
@@ -369,6 +369,20 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
   - Modified: `src/genelab/rl/backends/{rsl_rl,sb3,skrl}.py` (×3, +1/-1 each line). Flip `from genelab.rl.runner import (…)` → `from genelab.rl._helpers import (…)`.
   - Modified: `CHANGELOG.md` (+18 lines under `[Unreleased] · Changed`).
   - **First production-code change of the R-chain.** No public API change — re-export shim covers all CLI callers (`cli/_eval.py`, `cli/_export.py`, `cli/__init__.py:_relaunch_under_torchrun`).
+- **PR R2.1 — `rl/_algorithm_taxonomy.py` extraction** (PR #85, merged `74b2e30`, 1 commit `dc43dcc`) — implements ADR-0003 sub-slice 1:
+  - New: `src/genelab/rl/_algorithm_taxonomy.py` (27 LoC). Holds the two frozensets (`ON_POLICY_ALGORITHMS` = `{"PPO", "A2C"}`, `OFF_POLICY_ALGORITHMS` = `{"SAC", "TD3", "DDPG"}`) previously declared verbatim in both `rl/sb3_config.py` and `rl/skrl_config.py` (jaccard 1.000).
+  - Modified: `src/genelab/rl/sb3_config.py`, `src/genelab/rl/skrl_config.py` (−5 / +5 each). Replace inline definitions with `from genelab.rl._algorithm_taxonomy import OFF_POLICY_ALGORITHMS as OFF_POLICY_ALGORITHMS, ON_POLICY_ALGORITHMS` — PEP 484 explicit re-export form.
+  - Modified: `CHANGELOG.md` (+11 lines under `[Unreleased] · Changed`).
+- **PR R2.2 — `rl/_attach_base.attach_optional_base` collapse** (PR #86, merged `039e502`, 1 commit `f240309`) — implements ADR-0003 sub-slice 2:
+  - New: `src/genelab/rl/_attach_base.py` (65 LoC). Single `attach_optional_base` helper takes `base_module` / `base_attr` / `wrapper_name` / `caller_globals` parameters; defers the optional library import via `importlib.import_module` so the helper stays importable when no optional RL libraries are installed.
+  - Modified: `src/genelab/rl/{rsl_rl,skrl,sb3}_wrapper.py` (×3, −10 / +5 each). Each drops its `def _attach_*_base()` + bottom call (16 lines) and replaces it with a top-level `from genelab.rl._attach_base import attach_optional_base` plus a 5-line `attach_optional_base(...)` call at module bottom.
+  - Modified: `CHANGELOG.md` (+17 lines under `[Unreleased] · Changed`).
+  - Net: −27 lines of duplication across the three wrappers; +65 LoC new helper. Verified `RslRlBase in RslRlVecEnvWrapper.__mro__` and the matching checks for skrl + sb3 stay True; class `__name__`s preserved.
+  - **Location note:** ADR-0003 names the new module `rl/vecenvs/_attach_base.py`, but `rl/vecenvs/` is created in R6 (ADR-0007). The helper lives flat at `rl/_attach_base.py` until R6 relocates it.
+- **PR R2.3 — `mdp/actions/_joint_match.match_joints` extraction** (PR #87, merged `0367462`, 1 commit `77aeb99`) — implements ADR-0003 sub-slice 3:
+  - New: `src/genelab/mdp/actions/_joint_match.py` (36 LoC). `match_joints(patterns: Sequence[str], joint_names: Sequence[str]) -> list[int]` — extracts the regex-with-re.escape-fallback joint-matching code shared verbatim (jaccard 1.000) between `BinaryGripperAction.__init__` and `ContinuousGripperAction.__init__`.
+  - Modified: `src/genelab/mdp/actions/{binary_gripper,continuous_gripper}.py` (×2, −13 / +4 each). Each calls `match_joints(...)` and raises its own term-specific `ValueError` on zero-match so error strings preserve the correct class name. Both also drop their now-unused `import re`.
+  - Modified: `CHANGELOG.md` (+12 lines under `[Unreleased] · Changed`).
 
 **Tests run.**
 
@@ -377,8 +391,11 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 - R0.2: 4 parametrized subprocess tests green locally (×2 deterministic runs, ~3.25s each). Negative control confirmed: importing `genelab.rl.skrl_models` under poison correctly fails (verifies the mechanism catches real leaks). Final CI run `26229819224`: **test PASS / lint PASS / typecheck PASS** (after one ruff-format fix in commit `a0997d3`).
 - R0.3: `ruff format --check` ✓, `ruff check` ✓, `pyright` 0/0/0, prior R0.1 + R0.2 tests (15 total) green in 4.70s, `lint-imports` surfaces 1 kept / 3 broken contracts as expected (non-blocking via `continue-on-error: true`). Final CI run `26230480745`: **test PASS / lint PASS / typecheck PASS**.
 - R1: `ruff check` + `ruff format --check` ✓, `pyright` 0/0/0, full test suite **384 passed in 23.54s** (was 381 pre-R1; +3 from `test_no_static_cycle.py`). `lint-imports` baseline shrunk: contract 2 (`rl.backends does not import rl.runner`) flipped from BROKEN to KEPT. Final CI run `26233596787`: **test PASS / lint PASS / typecheck PASS** (CI's `lint-imports` confirmed `Contracts: 2 kept, 2 broken`).
+- R2.1: ruff ✓, pyright 0/0/0 (after switching `# noqa: F401` to `from foo import bar as bar` PEP-484 explicit re-export form — see lessons below), 384 tests pass, `lint-imports` baseline unchanged at 2 kept / 2 broken (intra-`rl/` dedup). Final CI run `26235360172`: **all three jobs PASS**.
+- R2.2: ruff ✓ (after moving `from genelab.rl._attach_base import attach_optional_base` to file top to silence E402 — see lessons below), pyright 0/0/0, 384 tests pass, `tests/test_optional_deps.py` 4/4 (invariant #1 preserved by deferred `importlib.import_module`), `lint-imports` baseline unchanged at 2 kept / 2 broken. Final CI run `26236013353`: **all three jobs PASS**.
+- R2.3: ruff ✓, pyright 0/0/0 (after widening helper params from `list[str]` to `Sequence[str]` — `cfg.joint_names` is `tuple[str, ...]`), 384 tests pass, `lint-imports` baseline unchanged at 2 kept / 2 broken. `match_joints` smoke-tested directly with 5 cases (basic match, glob, `re.error` fallback, substring search, dedup). Final CI run `26236564576`: **all three jobs PASS**.
 
-**Changes to the dependency graph.** `mcp__codebase-memory-mcp__index_status` reports **3,869 nodes / 11,365 edges** post-R1 (was 3,829 / 11,427 at the start of the planning round). Net deltas: +40 nodes (three new test files plus `rl/_helpers.py` and its 9 functions / private logger) and −62 edges (re-resolution after R0.3's `exclude_type_checking_imports = true` — R1's mechanical move did not change the edge count, confirming the move was structurally equivalent). The hotspots and duplications flagged in the assessment are still present except for the now-broken `rl.backends ↔ rl.runner` cycle.
+**Changes to the dependency graph.** `mcp__codebase-memory-mcp__index_status` reports **3,875 nodes / 10,990 edges** post-R2.3 (was 3,829 / 11,427 at the start of the planning round). Net deltas across all merged work: +46 nodes (new test files plus `_helpers.py` / `_algorithm_taxonomy.py` / `_attach_base.py` / `_joint_match.py` modules and their public functions) and −437 edges. The large edge reduction is structural: the codebase-memory indexer re-resolves the graph after R0.3's `exclude_type_checking_imports = true` flag and after each new private helper module appears (collapsing duplicate caller edges into a single canonical helper-import edge). The hotspots flagged in the assessment are being trimmed slice-by-slice; the cycle (R1) and four cluster duplications (R2.1–R2.3) are gone.
 
 **Risks identified (aggregate view).** Detailed per-ADR; the highest-attention items:
 
@@ -402,29 +419,33 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
   - ~8 imports: `envs.manager_based_rl_env → {bridges, entity, managers, scene, sensor}` — integration-point realities; some may stay, some can move behind interfaces during R3/R4.
   - Remaining imports (`scene.interactive_scene → {entity, recording, sensor, terrains}`, `entity.articulation → actuator`, `configs → {sensor, entity, recording, terrains}`, `utils.download → cache`) — each needs per-file audit during the relevant R-phase or a dedicated PR.
 - **R7 (importlinter blocking flip) is gated on the remaining 21 violations being cleaned up or explicitly waived.** Each R-phase PR should record which baseline violations it eliminates. Status: 3 / 24 resolved by R1.
-- **ADR-0001 §Migration plan's test spec was flawed** (R1). It said *"imports `genelab.rl.backends.sb3` in a subprocess and asserts `genelab.rl.runner` is not in `sys.modules` afterwards."* That spec assumed `rl/__init__.py` does not import `runner` — but it does (for the public `play_task` / `train_task` re-exports), so any submodule import of `genelab.rl` unavoidably pulls `runner` into `sys.modules` via parent-package init. The `sys.modules` check can never detect the actual cycle for `rl.backends.*` modules. PR #84 used a `grimp`-based static-graph test instead, which asserts no `rl.backends.<lib>` directly imports `rl.runner` — the real invariant. ADR-0001 §Migration plan has been amended to reflect this (see commit on `dev` after this refresh). Future "static cycle" tests should use the grimp pattern, not the sys.modules pattern.
+- **ADR-0001 §Migration plan's test spec was flawed** (R1). It said *"imports `genelab.rl.backends.sb3` in a subprocess and asserts `genelab.rl.runner` is not in `sys.modules` afterwards."* That spec assumed `rl/__init__.py` does not import `runner` — but it does (for the public `play_task` / `train_task` re-exports), so any submodule import of `genelab.rl` unavoidably pulls `runner` into `sys.modules` via parent-package init. The `sys.modules` check can never detect the actual cycle for `rl.backends.*` modules. PR #84 used a `grimp`-based static-graph test instead, which asserts no `rl.backends.<lib>` directly imports `rl.runner` — the real invariant. ADR-0001 §Migration plan has been amended to reflect this. Future "static cycle" tests should use the grimp pattern, not the sys.modules pattern.
+- **`# noqa: F401` does not silence pyright's `reportUnusedImport`** (R2.1). For re-export shims, use the PEP-484 explicit-re-export idiom `from foo import bar as bar` — recognized by both ruff and pyright (and mypy). No `__all__` maintenance required. Future R-phases that introduce re-export shims should follow this pattern; `noqa` comments alone will fail CI's typecheck job.
+- **Ruff E402 "module level import not at top of file" fires even when the call site is the bottom of the file** (R2.2). Pattern: import the helper at the top with the other imports; place the *call* wherever execution requires it (e.g. at module bottom for "register at module load" patterns). Future R-phases that wire bottom-of-file registration calls should put the imports up top.
+- **Match cfg field types when extracting helpers** (R2.3). Dataclass fields often default to `tuple[str, ...]` (immutable) rather than `list[str]`. Helpers that accept inputs originating from cfg should type their parameters as `Sequence[str]` (or `Iterable[str]`) so both `tuple` and `list` callers work without conversion. Pyright catches the mismatch — worth checking dataclass field types before drafting helper signatures.
+- **ADR-0003 R2.2 names the new module `rl/vecenvs/_attach_base.py`, but `rl/vecenvs/` is created in R6** (ADR-0007). PR #86 placed the helper flat at `rl/_attach_base.py` and noted the deferred relocation in both the PR description and CHANGELOG. R6 will move it. Same care should be taken for any future R-phase slice that targets a directory the upstream ADR assumes already exists.
 
 **Next steps.**
 
-1. Maintainer review of ADRs 0001–0010. Approve / request-changes per ADR.
-2. Move accepted ADRs to `Status: Accepted` (one-line edit per file). ADR-0001 now has shipped reality; flipping it to Accepted is well-supported.
-3. Start **Phase R2** — any of the 5 small-abstraction sub-slices (see below). They are independent and parallelizable.
-4. Other parallel candidates: R5.1 (relocate motion-tracking rewards), R6 (vecenv rename), R3 (CLI domain-owned parsing — also resolves 1 more R7-blocker violation).
-5. R7 (importlinter blocking flip) remains gated on the 21 remaining R0.3-baseline cross-layer imports being cleaned up or waived.
+1. Maintainer review of ADRs 0001–0010. ADR-0001 (cycle break, R1 shipped) and ADR-0003 (small dedup, 3 of 5 sub-slices shipped) are strong candidates to flip from `Proposed` to `Accepted`.
+2. Move accepted ADRs to `Status: Accepted` (one-line edit per file).
+3. Finish **Phase R2** — R2.4 (PD actuator dedup, low risk) and R2.5 (BaseTermManager, medium risk; gated on a pre-PR init-order assertion test). Both ship as independent PRs.
+4. Parallel candidates: **R3** (CLI domain-owned parsing — also resolves 1 more R7-blocker violation: `rl.eval_callback → cli._eval`), **R5.1** (relocate motion-tracking rewards verbatim), **R6** (vecenv rename + colocation — would also relocate the `rl/_attach_base.py` deferred home).
+5. R7 (importlinter blocking flip) remains gated on the 21 remaining R0.3-baseline cross-layer imports being cleaned up or waived. R2.1–R2.3 did not change the cross-layer baseline (intra-`rl/` and intra-`mdp/` dedup only).
 
-**Suggested next slice: R2 — small abstractions (ADR-0002 + ADR-0003), starting with R2.1 or R2.2.**
+**Suggested next slice: R2.4 — `actuator/actuator_base._initialize_pd_common` (ADR-0003 sub-slice 4).**
 
-R2 has 5 independent sub-slices that can ship in any order. The two highest-confidence starters:
+- **Scope.** `IdealPDActuator.initialize` and `ImplicitPDActuator.initialize` in `src/genelab/actuator/` have jaccard 0.969 bodies. Pull the shared PD-init code up to `ActuatorBase` (or a free helper `_initialize_pd_common`) and have both subclasses call it. Matches the R2.1 → R2.3 mechanical-dedup pattern.
+- **Why next.** Lowest-risk R2 remainder. R2.5 (BaseTermManager) is medium-risk and gated on a pre-PR assertion test; R2.4 is the natural finisher for the low-risk sub-slices.
+- **Production change.** Yes — move the shared `initialize` body to a common path. Helper bodies copied verbatim.
+- **Risk.** Low.
+- **Reviewer effort.** Small. One new helper, two `initialize` rewrites, one CHANGELOG entry. ADR-0003 §Test strategy lists `tests/test_actuator.py` + `test_articulation_refresh.py` as the relevant coverage.
 
-- **R2.1 — `rl/_algorithm_taxonomy.py` consolidation** (ADR-0003). Centralizes `ON_POLICY_ALGORITHMS` / `OFF_POLICY_ALGORITHMS` constants currently duplicated in `rl/sb3_config.py` and `rl/skrl_config.py` (jaccard ≈ 1.000 between the two definitions). Pure dedup; the new module is a leaf below both configs; both configs re-export the constants for back-compat.
-- **R2.2 — `rl/vecenvs/_attach_base.py` collapse** (ADR-0003). The three `_attach_{sb3,skrl,rsl_rl}_base` helpers in `rl/{sb3,skrl,rsl_rl}_wrapper.py` have jaccard 0.984–1.000; pull the shared body into a single `attach_optional_base` helper. Smallest blast radius after R2.1.
+**Alternative next slices** (all unlocked and parallel-safe):
 
-After R2.1 and R2.2 land, R2.3 (joint-name regex extraction), R2.4 (`_initialize_pd_common` actuator dedup), and R2.5 (`BaseTermManager` — medium risk, gated on a pre-PR init-order test) are the remaining R2 sub-slices.
-
-- **Why next.** R2 is the smallest-risk progress in the R-chain after R1. Each sub-slice is independently revertible. R5 / R6 / R3 are valid alternatives and can ride in parallel (the §9.2 phase graph allows fan-out now that R0 + R1 are done).
-- **Production change.** Yes — mechanical relocations and consolidation. Each sub-slice is one PR with bodies moved verbatim and `find_referencing_symbols` audit pasted into the description.
-- **Risk.** Low for R2.1 / R2.2 / R2.3 / R2.4. Medium for R2.5 (init-order ordering preservation).
-- **Reviewer effort.** Small per sub-slice. 5 PRs total for full R2 completion.
+- **R3 (ADR-0005)** — CLI domain-owned parsing. Resolves 1 more R7-blocker violation. Larger blast radius than R2.x but valuable for R4 (CLI decomposition) which depends on it.
+- **R5.1 (ADR-0006 PR1 of 2)** — relocate motion-tracking rewards verbatim. Pure file move.
+- **R6 (ADR-0007)** — vecenv rename + colocation. Independent of everything; would also relocate the `rl/_attach_base.py` deferred home.
 
 ### 9.1 Cross-phase rules
 
