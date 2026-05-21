@@ -64,8 +64,10 @@ buffer never sees a successful trajectory:
 
 ```bash
 # 1. Collect demos via the scripted FSM (one-shot, seed-independent).
+#    --num-envs must match the task's train num_envs (currently 64); the
+#    prefill loader asserts the shapes match.
 uv run python -m genelab_franka_pick_and_place.collect_demos \
-    --num-envs 32 --steps 6400 \
+    --num-envs 64 --steps 1000 \
     --out logs/reference/franka-pp/demos.npz
 
 # 2. Train three seeds — each child reads the demo file via
