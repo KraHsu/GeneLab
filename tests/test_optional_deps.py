@@ -54,12 +54,12 @@ TARGETS: tuple[str, ...] = (
     "genelab.rl.backends.sb3",
 )
 
-_WRAPPER = (
-    "import sys\n"
-    "for _lib in {libs!r}:\n"
-    "    sys.modules[_lib] = None\n"
-    "import {target}\n"
-)
+_WRAPPER = """\
+import sys
+for _lib in {libs!r}:
+    sys.modules[_lib] = None
+import {target}
+"""
 
 
 @pytest.mark.parametrize("target", TARGETS)
