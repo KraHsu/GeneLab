@@ -10,7 +10,11 @@ from genelab.mdp.events import reset_joints_by_offset
 class _FakeArticulation:
     """Captures the most recent ``write_joint_state`` call so tests can inspect it."""
 
-    def __init__(self, joint_pos_limits: torch.Tensor | None = None) -> None:
+    def __init__(
+        self,
+        joint_pos_limits: torch.Tensor | None = None,
+        default_joint_pos: torch.Tensor | None = None,
+    ) -> None:
         self.last_pos: torch.Tensor | None = None
         self.last_vel: torch.Tensor | None = None
         self.last_env_ids: torch.Tensor | None = None
@@ -18,6 +22,11 @@ class _FakeArticulation:
         # Articulation's stub state before bind, and disables the clamp.
         self.joint_pos_limits = (
             joint_pos_limits if joint_pos_limits is not None else torch.empty(0, 2)
+        )
+        # M3.6 S3b: event terms read default_joint_pos via the articulation (asset-routed),
+        # mirroring the real env where env.default_joint_pos delegates to articulation.
+        self.default_joint_pos = (
+            default_joint_pos if default_joint_pos is not None else torch.zeros(0)
         )
 
     def write_joint_state(
@@ -36,9 +45,10 @@ class _FakeEnv:
 
 
 def _make_env(n_joints: int = 4) -> _FakeEnv:
+    default = torch.arange(n_joints, dtype=torch.float)
     return _FakeEnv(
-        default_joint_pos=torch.arange(n_joints, dtype=torch.float),
-        articulation=_FakeArticulation(),
+        default_joint_pos=default,
+        articulation=_FakeArticulation(default_joint_pos=default),
     )
 
 
@@ -98,7 +108,7 @@ def test_reset_joints_by_offset_clamps_to_joint_limits() -> None:
     limits = torch.tensor([[-0.05, 0.05], [-0.1, 0.1]])
     env = _FakeEnv(
         default_joint_pos=torch.zeros(2),
-        articulation=_FakeArticulation(joint_pos_limits=limits),
+        articulation=_FakeArticulation(joint_pos_limits=limits, default_joint_pos=torch.zeros(2)),
     )
     env_ids = torch.arange(32)
     # Sample range much wider than limits → every value should saturate within.
