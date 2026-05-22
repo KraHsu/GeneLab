@@ -27,32 +27,37 @@ GeneLab 的差异化价值：
 
 ---
 
-## 2. 当前状态快照（dev @ 26c2da5）
+## 2. 当前状态快照（dev @ 88ad2aa）
+
+> 上一版快照写于 `26c2da5`（M1 之前）。本版反映 **M1 全部完成 + M2.2–M2.5 完成**
+> 以及 R0–R7 架构重构（§9）全部落地后的真实状态。
 
 ✅ **已具备**
 - 三 RL 后端 + 后端抽象层（`src/genelab/rl/backends/`）
 - Action 项：JointPosition / DifferentialIK / Binary & ContinuousGripper
 - 任务示例：Inverted Pendulum、G1 Velocity、Franka Pick-And-Place × 5 变种（含 SAC+HER）
-- DR 4 项（COM offset / mass offset / friction / encoder bias）
+- **可复现性闭环（M1 完成）**：`genelab eval`（`eval.json`）+ 训练期 `EvalCallback` + best-model；
+  `genelab export`（TorchScript / ONNX，纯 `nn.Module`）；多 seed CLI（`--seeds`/`--parallel`）；
+  reference-runs 文档；死代码（`resume`/`load_run`/`load_checkpoint`）已清理；`joint_acc_l2` 占位已明示
+- **Sim2Real 硬约束（M2.3 / M2.4 完成）**：termination `joint_pos/vel_out_of_limit`、`contact_force_limit`；
+  reward `lin_vel_z_l2` / `base_height_l2` / `alive_bonus` / `applied_torque_l2` / `joint_vel_limits`
+- **学习型 actuator（M2.5 完成）**：`MlpResidualActuator`（DCMotor base + TorchScript MLP 残差）
+- DR：COM offset / mass offset / friction / encoder bias + **interval-mode（M2.2 完成）**；
+  plumbing：`RobotState.applied_torque`、`ArticulationCfg.joint_vel_limit`
 - Curriculum：terrain levels + velocity range
 - 传感器：IMU / Contact / FrameTransformer / RayCast(3 模式) / Camera(RGB+depth) / TerrainHeight
-- Recording：NPZ / CSV / video / 实时 PyQt & MPL plots
-- Teleop bridges：keyboard / DearPyGui
+- Recording：NPZ / CSV / video / 实时 PyQt & MPL plots；Teleop bridges：keyboard / DearPyGui
 - torchrun 多卡训练
+- **架构**：`lint-imports` 必过 CI 分层门禁（6/0）；pyright 在 `src/` 上 0 错误（不再几乎全关）
 
 ⚠️ **关键缺口**（按 ROI 排序详见 §4）
-- 独立 eval CLI 与 best-model selection
-- Policy 导出（TorchScript / ONNX）
-- 训练 / 测试基线数字（reference numbers）
-- DR 项稀薄、无 interval mode
-- Termination 缺关节越界保护，reward 缺 alive_bonus / lin_vel_z / torque_l2
-- `config.resume / load_run / load_checkpoint` 三字段是死代码
-- `joint_acc_l2` 是 return-0 占位
-- pyright 几乎全关，多后端接入后 silent unknown 在扩大
-- 多机器人 API 缺位（`articulations["robot"]` 硬编码）
-- `sim/` 层是空壳，SimulationCfg 字段过少
-- Camera 无 segmentation；无 LIDAR/F-T/tactile
-- Terrain curriculum flag 未生效，sub-terrain 仅 5 种
+- **M2.1**：DR 项仍稀薄——缺 `randomize_joint_stiffness_damping` / `restitution` / `push_robot` /
+  `imu_bias` / `gravity` / `actuator_deadzone`
+- **M2.6**：observation noise 仅 `Unoise`/`Gnoise`，缺 `ScaledNoise`/`CorrelatedNoise`/`BiasDrift`
+- **M2.7**：sim2real deployment recipe 文档未写
+- **M3 平台广度（基本未启动）**：多机器人 API 缺位（`articulations["robot"]` 硬编码，M3.6）；
+  `SimulationCfg` 字段过少（M3.7）；Camera 无 segmentation、无 F-T/tactile（M3.4/M3.5）；
+  Terrain curriculum flag 未生效、sub-terrain 仅 5 种（M3.2/M3.3）；资产仅 5 个（M3.1）；benchmark suite（M3.8）
 
 ---
 
@@ -110,17 +115,19 @@ cfg 字段必须被读取，否则误导用户。当前 `RslRlOnPolicyRunnerCfg.
 
 > **One-liner**: 让任何人 `clone → train → eval → export` 都能拿到与 README 一致的数字。
 
+**状态：✅ 全部完成。**
+
 **目标产物**
 
 | # | 交付 | 说明 |
 |---|---|---|
-| M1.1 | `genelab eval <task> <ckpt>` CLI | deterministic rollout × N episodes，输出 `eval.json`（return mean/std、length mean、success rate、wall-clock） |
-| M1.2 | `EvalCallback` 训练期内嵌评估 | 三后端通用，每 K iter 跑一次 eval，更新 `best_model.pt` |
-| M1.3 | `genelab export <task> <ckpt> --format {torchscript,onnx}` | 输出无 rsl_rl/skrl/sb3 依赖的纯 `nn.Module` |
-| M1.4 | 多 seed CLI | `genelab train ... --seeds 1,2,3 --parallel 3` |
-| M1.5 | 死代码清理 | 删除 / 实现 `RslRlOnPolicyRunnerCfg.resume / load_run / load_checkpoint` |
-| M1.6 | Stub 标记 | `rewards.py:joint_acc_l2` 等占位项明示 |
-| M1.7 | Reference runs 文档 | `docs/best-practices/reference-runs.md` 列出 5 个 registered 任务的 seed 1/2/3 训练曲线、最终 return、收敛步数 |
+| ✅ M1.1 | `genelab eval <task> <ckpt>` CLI | deterministic rollout × N episodes，输出 `eval.json`（return mean/std、length mean、success rate、wall-clock） |
+| ✅ M1.2 | `EvalCallback` 训练期内嵌评估 | 三后端通用，每 K iter 跑一次 eval，更新 `best_model.pt` |
+| ✅ M1.3 | `genelab export <task> <ckpt> --format {torchscript,onnx}` | 输出无 rsl_rl/skrl/sb3 依赖的纯 `nn.Module` |
+| ✅ M1.4 | 多 seed CLI | `genelab train ... --seeds 1,2,3 --parallel 3` |
+| ✅ M1.5 | 死代码清理 | 删除 / 实现 `RslRlOnPolicyRunnerCfg.resume / load_run / load_checkpoint`（已删除） |
+| ✅ M1.6 | Stub 标记 | `rewards.py:joint_acc_l2` 等占位项明示（`UserWarning`） |
+| ✅ M1.7 | Reference runs 文档 | `docs/best-practices/reference-runs.md` 列出 5 个 registered 任务的 seed 1/2/3 训练曲线、最终 return、收敛步数 |
 
 **API 草案 — `genelab eval`**
 
@@ -180,17 +187,19 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 
 > **One-liner**: 让用 GeneLab 训出来的 policy 部署到真机时尽量不掉链子。
 
+**状态：进行中 — M2.2 / M2.3 / M2.4 / M2.5 ✅ 完成；M2.1（DR 扩展）/ M2.6（noise）/ M2.7（文档）待做。**
+
 **目标产物**
 
 | # | 交付 | 说明 |
 |---|---|---|
-| M2.1 | DR 项扩展 | 补 `randomize_joint_stiffness_damping` / `randomize_restitution` / `push_robot`（脉冲外力）/ `randomize_imu_bias` / `randomize_gravity` / `randomize_actuator_deadzone` |
-| M2.2 | Interval-mode DR | EventManager 支持 `mode="interval"`，让某些 DR 在 episode 中途触发 |
-| M2.3 | Termination 越界保护 | `joint_pos_out_of_limit` / `joint_vel_out_of_limit` / `contact_force_limit` |
-| M2.4 | Reward 硬约束补齐 | `lin_vel_z_l2` / `applied_torque_l2` / `joint_vel_limits` / `base_height_l2` / `alive_bonus` |
-| M2.5 | 学习型 actuator | `MlpResidualActuator`（DCMotor base + MLP residual） |
-| M2.6 | Observation noise 扩展 | `ScaledNoise`、`CorrelatedNoise`、`BiasDrift` |
-| M2.7 | Deployment recipe 文档 | `docs/best-practices/sim2real.md` 描述「训练时该用哪些 DR、导出时该 dump 什么、部署端该怎么对齐」 |
+| ❌ M2.1 | DR 项扩展 | 补 `randomize_joint_stiffness_damping` / `randomize_restitution` / `push_robot`（脉冲外力）/ `randomize_imu_bias` / `randomize_gravity` / `randomize_actuator_deadzone` |
+| ✅ M2.2 | Interval-mode DR | EventManager 支持 `mode="interval"`，让某些 DR 在 episode 中途触发 |
+| ✅ M2.3 | Termination 越界保护 | `joint_pos_out_of_limit` / `joint_vel_out_of_limit` / `contact_force_limit`（PR #117/#118/#119） |
+| ✅ M2.4 | Reward 硬约束补齐 | `lin_vel_z_l2` / `applied_torque_l2` / `joint_vel_limits` / `base_height_l2` / `alive_bonus`（PR #117/#118） |
+| ✅ M2.5 | 学习型 actuator | `MlpResidualActuator`（DCMotor base + TorchScript MLP residual，PR #120） |
+| ❌ M2.6 | Observation noise 扩展 | `ScaledNoise`、`CorrelatedNoise`、`BiasDrift` |
+| ❌ M2.7 | Deployment recipe 文档 | `docs/best-practices/sim2real.md` 描述「训练时该用哪些 DR、导出时该 dump 什么、部署端该怎么对齐」 |
 
 **设计要点**
 
@@ -216,18 +225,21 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 
 > **One-liner**: 把 GeneLab 从「能跑 demo」推到「能做严肃 benchmark」。
 
+**状态：⏸ 基本未启动（全部 ❌）。** 仅有 5 个 asset（anymal_c / cartpole / franka / g1 / go1）。
+多机器人 API（M3.6）的架构前置（R3 + R4）已就位，但功能本身待做（先提 RFC）。
+
 **目标产物**
 
 | # | 交付 | 说明 |
 |---|---|---|
-| M3.1 | 资产扩充 | 至少 +3 个：A1 / H1 / UR10 / Allegro 任二（按下游需求） |
-| M3.2 | 更多 sub-terrain | gaps / stepping stones / discrete obstacles / mesh import |
-| M3.3 | Terrain curriculum 真生效 | `TerrainGeneratorCfg.curriculum=True` 时按 mdp/curriculums 的进度自动调难度 |
-| M3.4 | Camera segmentation + point cloud | 暴露 Genesis 的 semantic/instance ID 通道 |
-| M3.5 | F/T sensor + tactile array | 至少 joint-FT；指尖压力可后置 |
-| M3.6 | 多机器人 API | manager 层支持 `entity_cfg.name="robot_a"` 绑定特定 articulation，env 层去除 `["robot"]` 硬编码 |
-| M3.7 | SimulationCfg 字段扩展 | 暴露 Genesis 的接触参数、求解器选项、CCD、constraint damping |
-| M3.8 | Benchmark suite | 至少 8 个任务（含 locomotion / manipulation / dexterous / vision），每个都有 reference numbers |
+| ❌ M3.1 | 资产扩充 | 至少 +3 个：A1 / H1 / UR10 / Allegro 任二（按下游需求） |
+| ❌ M3.2 | 更多 sub-terrain | gaps / stepping stones / discrete obstacles / mesh import |
+| ❌ M3.3 | Terrain curriculum 真生效 | `TerrainGeneratorCfg.curriculum=True` 时按 mdp/curriculums 的进度自动调难度 |
+| ❌ M3.4 | Camera segmentation + point cloud | 暴露 Genesis 的 semantic/instance ID 通道 |
+| ❌ M3.5 | F/T sensor + tactile array | 至少 joint-FT；指尖压力可后置 |
+| ❌ M3.6 | 多机器人 API | manager 层支持 `entity_cfg.name="robot_a"` 绑定特定 articulation，env 层去除 `["robot"]` 硬编码 |
+| ❌ M3.7 | SimulationCfg 字段扩展 | 暴露 Genesis 的接触参数、求解器选项、CCD、constraint damping |
+| ❌ M3.8 | Benchmark suite | 至少 8 个任务（含 locomotion / manipulation / dexterous / vision），每个都有 reference numbers |
 
 **设计要点**
 
