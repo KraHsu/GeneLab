@@ -13,10 +13,12 @@ from genelab.managers import (
     ObservationTermCfg,
 )
 from genelab.mdp.noise import BiasDrift, CorrelatedNoise, Gnoise, ScaledNoise, Unoise
+from genelab.mdp.observations import joint_force_torque
 from genelab.sensor import (
     BodyVelocitySensorCfg,
     CameraSensorCfg,
     ContactSensorCfg,
+    ForceTorqueSensorCfg,
     FrameTransformerSensorCfg,
     GridPattern,
     HemispherePattern,
@@ -1368,3 +1370,70 @@ def test_root_angular_momentum_zero_when_get_mass_unavailable() -> None:
     sensor = RootAngularMomentumSensorCfg(name="L").build()
     sensor.bind(env)
     assert torch.all(sensor.data == 0.0)
+
+
+# ---------------------------------------------------------------------- ForceTorqueSensor (M3.5)
+
+
+class _FakeForceRobot:
+    def __init__(self, force: torch.Tensor) -> None:  # (num_envs, total_dofs)
+        self._force = force
+
+    def get_dofs_force(self) -> torch.Tensor:
+        return self._force
+
+
+class _FakeArticulation:
+    def __init__(self, actuated_dof_ids: torch.Tensor) -> None:
+        self.actuated_dof_ids = actuated_dof_ids
+
+
+class _FakeFTEnv:
+    def __init__(
+        self, joint_names: tuple[str, ...], actuated_dof_ids: list[int], force: torch.Tensor
+    ) -> None:
+        self.num_envs = force.shape[0]
+        self.device = "cpu"
+        self.joint_names = list(joint_names)
+        self.articulation = _FakeArticulation(torch.tensor(actuated_dof_ids, dtype=torch.long))
+        self.robot = _FakeForceRobot(force)
+        self.sensors: dict[str, object] = {}
+
+
+# 3 actuated joints (j0/j1/j2) sit at global DoFs 2/3/4 (DoFs 0–1 are a floating base).
+_FT_FORCE = torch.tensor([[10.0, 11, 12, 13, 14], [20, 21, 22, 23, 24]])
+
+
+def test_force_torque_sensor_all_joints_slices_actuated_dofs() -> None:
+    env = _FakeFTEnv(("j0", "j1", "j2"), [2, 3, 4], _FT_FORCE)
+    sensor = ForceTorqueSensorCfg(name="ft").build()
+    sensor.bind(env)
+    assert sensor.joint_names == ["j0", "j1", "j2"]
+    assert torch.allclose(sensor.data.force, torch.tensor([[12.0, 13, 14], [22, 23, 24]]))
+
+
+def test_force_torque_sensor_explicit_joint_subset() -> None:
+    env = _FakeFTEnv(("j0", "j1", "j2"), [2, 3, 4], _FT_FORCE)
+    sensor = ForceTorqueSensorCfg(name="ft", joint_names=("j1",)).build()
+    sensor.bind(env)
+    # j1 → global DoF 3.
+    assert torch.allclose(sensor.data.force, torch.tensor([[13.0], [23.0]]))
+
+
+def test_force_torque_sensor_regex_and_obs_term() -> None:
+    env = _FakeFTEnv(("j0", "j1", "j2"), [2, 3, 4], _FT_FORCE)
+    sensor = ForceTorqueSensorCfg(name="ft", joint_names_expr=r"j[02]").build()
+    sensor.bind(env)
+    env.sensors["ft"] = sensor
+    # j0, j2 → global DoFs 2, 4. The obs term returns the same (B, N) tensor.
+    expected = torch.tensor([[12.0, 14], [22, 24]])
+    assert torch.allclose(sensor.data.force, expected)
+    assert torch.allclose(joint_force_torque(env, "ft"), expected)
+
+
+def test_force_torque_sensor_zeros_without_genesis_getter() -> None:
+    env = _FakeFTEnv(("j0", "j1", "j2"), [2, 3, 4], _FT_FORCE)
+    env.robot = object()  # no get_dofs_force
+    sensor = ForceTorqueSensorCfg(name="ft").build()
+    sensor.bind(env)
+    assert torch.allclose(sensor.data.force, torch.zeros(2, 3))

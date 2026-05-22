@@ -7,6 +7,11 @@ from genelab.sensor.angular_momentum import (
 from genelab.sensor.body_velocity import BodyVelocitySensor, BodyVelocitySensorCfg
 from genelab.sensor.camera import CameraData, CameraSensor, CameraSensorCfg
 from genelab.sensor.contact import ContactData, ContactSensor, ContactSensorCfg
+from genelab.sensor.force_torque import (
+    ForceTorqueData,
+    ForceTorqueSensor,
+    ForceTorqueSensorCfg,
+)
 from genelab.sensor.frame_transformer import (
     FrameTransformerData,
     FrameTransformerSensor,
@@ -39,6 +44,9 @@ __all__ = [
     "ContactData",
     "ContactSensor",
     "ContactSensorCfg",
+    "ForceTorqueData",
+    "ForceTorqueSensor",
+    "ForceTorqueSensorCfg",
     "FrameTransformerData",
     "FrameTransformerSensor",
     "FrameTransformerSensorCfg",
