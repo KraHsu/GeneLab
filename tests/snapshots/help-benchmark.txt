@@ -1,0 +1,18 @@
+                                                                                                    
+ Usage: genelab benchmark [OPTIONS]                                                                 
+                                                                                                    
+ Evaluate a suite of tasks and aggregate reference numbers into one report.                         
+                                                                                                    
+ SUITE is a JSON list of entries, each ``{"task": ..., "checkpoint": ...}`` (optional ``episodes``  
+ / ``seed`` / ``num_envs``). Runs ``eval`` per entry. With --reference (a prior report), flags      
+ tasks whose ``return_mean`` dropped more than --tolerance and exits non-zero — usable as a         
+ regression gate.                                                                                   
+                                                                                                    
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
+│ *  --suite            PATH   Benchmark suite JSON (list of task/checkpoint entries). [required]  │
+│    --out              PATH   Output report JSON path. [default: benchmark.json]                  │
+│    --reference        PATH   Prior report JSON to compare return_mean against.                   │
+│    --tolerance        FLOAT  Max fractional return_mean drop before a regression. [default: 0.1] │
+│    --help                    Show this message and exit.                                         │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+
