@@ -468,7 +468,7 @@ def test_strip_distributed_flags_drops_gpus_and_env_counts() -> None:
 
 def test_shutdown_process_group_is_a_noop_when_not_initialized() -> None:
     """Single-GPU runs never call ``init_process_group``; the helper must no-op."""
-    from genelab.rl.distributed import shutdown_process_group
+    from genelab.utils.distributed import shutdown_process_group
 
     # The test environment is single-process; nothing was initialized.
     # The call should return cleanly without raising or trying to destroy anything.
