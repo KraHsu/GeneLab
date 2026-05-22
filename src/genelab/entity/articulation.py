@@ -36,6 +36,12 @@ class ArticulationCfg:
     default_joint_pos: dict[str, float] = field(default_factory=dict)
     actuators: dict[str, ActuatorBaseCfg] = field(default_factory=dict)
     foot_link_names: tuple[str, ...] = ()
+    # Optional uniform soft joint-velocity limit (rad/s, magnitude) applied across
+    # all actuated DoFs. Genesis does not expose per-joint velocity limits, so this
+    # is user-declared. ``None`` means "no limit" (+∞) — the velocity-limit
+    # reward / termination (``mdp.joint_vel_limits`` / ``mdp.joint_vel_out_of_limit``)
+    # then never trip. Opt-in; no behaviour change for existing tasks.
+    joint_vel_limit: float | None = None
     # Opt-in flag for the Genesis morph's Jacobian / IK kinematic tape. Default
     # ``False`` because allocating those buffers has a cost and most tasks
     # control the arm via joint targets. Set ``True`` whenever an action term
@@ -79,6 +85,10 @@ class RobotState:
         # ``mdp.joint_pos_rel`` returns the raw ``joint_pos − default`` and surfaces
         # that offset to the policy — mjlab parity for joint-encoder-bias sim2real DR.
         self.encoder_bias = z(num_envs, num_dofs)
+        # Per-env, per-actuated-DoF realized actuator torque (Genesis control force),
+        # refreshed each step via ``get_dofs_control_force``. Used by
+        # ``mdp.applied_torque_l2``. Zero on platforms / fake envs without the getter.
+        self.applied_torque = z(num_envs, num_dofs)
 
 
 class Articulation:
@@ -161,6 +171,13 @@ class Articulation:
                 )
         else:
             self._joint_pos_limits = torch.empty(self._actuated_dof_idx.numel(), 2, device=device)
+        # Per-actuated-joint velocity-limit magnitude (rad/s), shape ``(num_joints,)``.
+        # Genesis has no velocity-limit getter, so it comes from the cfg: a uniform
+        # ``joint_vel_limit`` broadcast across DoFs, or ``+∞`` (never trips) when unset.
+        vel_limit = float("inf") if self.cfg.joint_vel_limit is None else self.cfg.joint_vel_limit
+        self._joint_vel_limits = torch.full(
+            (self._actuated_dof_idx.numel(),), vel_limit, device=device
+        )
         # ``expand(...).contiguous()`` is a no-op when the expansion factor is 1
         # (single env): the expanded tensor is already contiguous, so
         # ``contiguous()`` returns the same storage rather than copying. That
@@ -321,6 +338,16 @@ class Articulation:
             rs.joint_vel.copy_(joint_vel_full.index_select(-1, self._actuated_dof_idx))
         except AttributeError:
             pass
+        # Realized actuator torque (Genesis control force), sliced to actuated DoFs.
+        # Guarded separately so a missing getter (fake envs / older Genesis) leaves
+        # ``applied_torque`` at zero without disturbing the joint-state read above.
+        get_control_force = getattr(robot, "get_dofs_control_force", None)
+        if get_control_force is not None:
+            try:
+                force_full = to_tensor(get_control_force(), self._device)
+                rs.applied_torque.copy_(force_full.index_select(-1, self._actuated_dof_idx))
+            except Exception:
+                pass
         for attr, target in (
             ("get_links_pos", "link_pos"),
             ("get_links_quat", "link_quat_w"),
@@ -517,6 +544,17 @@ class Articulation:
         flat ±π fallback.
         """
         return self._joint_pos_limits
+
+    @property
+    def joint_vel_limits(self) -> torch.Tensor:
+        """Per-actuated-joint velocity-limit magnitude (rad/s), shape ``(num_joints,)``.
+
+        Sourced from ``ArticulationCfg.joint_vel_limit`` (Genesis exposes no
+        velocity limit); ``+∞`` when unset. Used by
+        :func:`genelab.mdp.joint_vel_limits` and
+        :func:`genelab.mdp.joint_vel_out_of_limit`.
+        """
+        return self._joint_vel_limits
 
     @property
     def actuators(self) -> dict[str, ActuatorBase]:

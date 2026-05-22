@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 import torch
 
-from genelab.mdp.terminations import joint_pos_out_of_limit
+from genelab.mdp.terminations import joint_pos_out_of_limit, joint_vel_out_of_limit
 
 
 @dataclass
@@ -55,3 +55,34 @@ def test_joint_pos_out_of_limit_ignores_infinite_limit_joints() -> None:
         limits=[(float("-inf"), float("inf")), (-1.0, 1.0)],
     )
     assert joint_pos_out_of_limit(env).tolist() == [False, True]
+
+
+@dataclass
+class _FakeVelRobotState:
+    joint_vel: torch.Tensor
+
+
+@dataclass
+class _FakeVelEnv:
+    robot_state: _FakeVelRobotState
+    joint_vel_limits: torch.Tensor  # (J,)
+
+
+def test_joint_vel_out_of_limit_flags_only_over_speed_envs() -> None:
+    env = _FakeVelEnv(
+        robot_state=_FakeVelRobotState(
+            joint_vel=torch.tensor([[1.0, -1.5], [3.0, 0.0], [0.0, -9.0]])
+        ),
+        joint_vel_limits=torch.tensor([2.0, 2.0]),
+    )
+    out = joint_vel_out_of_limit(env)
+    assert out.dtype == torch.bool
+    assert out.tolist() == [False, True, True]
+
+
+def test_joint_vel_out_of_limit_inert_at_infinite_limit() -> None:
+    env = _FakeVelEnv(
+        robot_state=_FakeVelRobotState(joint_vel=torch.tensor([[100.0, -100.0]])),
+        joint_vel_limits=torch.tensor([float("inf"), float("inf")]),
+    )
+    assert joint_vel_out_of_limit(env).tolist() == [False]
