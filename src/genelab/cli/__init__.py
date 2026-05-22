@@ -74,12 +74,6 @@ __all__ = [
 ]
 
 
-# Back-compat alias (ADR-0008 / R7): the Protocol moved to ``registry.Runnable``
-# (public). Kept for one release for any external code that imported the private
-# name. Internal code uses ``Runnable``.
-_RunnableTask = Runnable
-
-
 @dataclass
 class _RootState:
     extension_modules: list[str] = field(default_factory=list)
@@ -349,7 +343,7 @@ def eval_cmd(
     ] = None,
 ) -> None:
     _load_extensions(_state(ctx))
-    from genelab.cli._eval import eval_task
+    from genelab.rl.eval_task import eval_task
 
     _result, payload = eval_task(
         task_id,
