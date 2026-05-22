@@ -8,6 +8,21 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Observation-noise models** (ROADMAP M2.6) — three new `NoiseCfg` types in
+  `genelab.mdp.noise`, re-exported from `genelab.mdp` and `genelab.lab`:
+  - `ScaledNoise(n_min, n_max)` — multiplicative scale-factor noise
+    (`data × (1 + U(n_min, n_max))`); corruption grows with the signal magnitude.
+  - `CorrelatedNoise(std, alpha)` — temporally-correlated AR(1) noise
+    (`x_t = α·x_{t-1} + √(1−α²)·N(0, std²)`), stationary std = `std` for any `α`.
+  - `BiasDrift(drift_std, max_bias)` — slowly-drifting additive bias (random walk,
+    optionally clamped to `±max_bias`).
+
+  `CorrelatedNoise` / `BiasDrift` are **stateful**: a per-element buffer is carried
+  across steps (lazily sized to the observation term; the observation manager
+  deep-copies the cfg so each term gets its own state). The state is not reset on
+  episode boundaries — like a real correlated / drifting sensor error. All three plug
+  into the existing `ObservationTermCfg.noise` + `enable_corruption` path with no
+  manager change. Tested in `tests/test_sensor.py`.
 - **Actuator-level domain randomization** (ROADMAP M2.1):
   - `mdp.dr.randomize_joint_stiffness_damping(env, env_ids, stiffness_range, damping_range)`
     — per-env multiplicative DR on each actuator's PD gains. Force-channel actuators
