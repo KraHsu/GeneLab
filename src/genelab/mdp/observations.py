@@ -15,12 +15,16 @@ if TYPE_CHECKING:
     from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
-def base_lin_vel(env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None) -> torch.Tensor:
+def base_lin_vel(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Body-frame linear velocity of the floating base."""
     return asset_state(env, asset_cfg).root_lin_vel_b
 
 
-def base_ang_vel(env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None) -> torch.Tensor:
+def base_ang_vel(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Body-frame angular velocity of the floating base."""
     return asset_state(env, asset_cfg).root_ang_vel_b
 
@@ -46,7 +50,9 @@ def joint_pos_rel(
     too would cancel the perturbation in the observation and silently neutralise
     the encoder-bias DR.
     """
-    return asset_state(env, asset_cfg).joint_pos - asset_articulation(env, asset_cfg).default_joint_pos
+    return (
+        asset_state(env, asset_cfg).joint_pos - asset_articulation(env, asset_cfg).default_joint_pos
+    )
 
 
 def joint_vel_rel(

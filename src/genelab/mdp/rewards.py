@@ -117,7 +117,7 @@ def applied_torque_l2(
     Reads ``robot_state.applied_torque`` (Genesis control force, refreshed each step).
     Discourages high-effort policies; pair with a negative weight.
     """
-    return torch.sum(_asset_state(env, asset_cfg).applied_torque**2, dim=-1)
+    return torch.sum(_asset_state(env, asset_cfg).applied_torque ** 2, dim=-1)
 
 
 def joint_vel_limits(
