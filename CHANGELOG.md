@@ -8,6 +8,17 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Terrain curriculum activation** (ROADMAP M3.3) — `TerrainGeneratorCfg.curriculum=True`
+  now orders the terrain rows easiest → hardest by a new `SubTerrainCfg.difficulty` field
+  (row 0 = lowest difficulty), instead of the previous proportion-weighted random tiling
+  (which ignored the flag). Each row uses its single difficulty-ranked sub-terrain type,
+  spread evenly when row/terrain counts differ. Pairs with the existing
+  `mdp.terrain_levels_vel` env curriculum (which indexes rows by each env's terrain level),
+  so promoting an env up a level now means genuinely harder terrain. Note: Genesis keys
+  `subterrain_parameters` by *type*, so difficulty must vary across distinct sub-terrain
+  types — in-type scaling ("steeper stairs per row") is not expressible. Tested in
+  `tests/test_terrain_generator.py`.
+
 - **More sub-terrains** (ROADMAP M3.2) — three new `SubTerrainCfg` types wrapping Genesis
   `parse_terrain` branches: `DiscreteObstaclesCfg` (`discrete_obstacles_terrain` — randomly
   placed rectangles), `SteppingStonesCfg` (`stepping_stones_terrain` — stones + gaps), and
