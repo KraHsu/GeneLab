@@ -29,7 +29,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from genelab.rl.distributed import is_main_process
+from genelab.utils.distributed import is_main_process
 
 if TYPE_CHECKING:
     from collections.abc import Generator
