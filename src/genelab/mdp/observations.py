@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, cast
 
 import torch
 
+from genelab.mdp._helpers import asset_articulation, asset_state
 from genelab.mdp.commands.motion_command import MotionCommand
 from genelab.sensor.contact import ContactSensor
 from genelab.sensor.force_torque import ForceTorqueSensor
@@ -11,24 +12,33 @@ from genelab.utils.math import matrix_from_quat, subtract_frame_transforms
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
-def base_lin_vel(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def base_lin_vel(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Body-frame linear velocity of the floating base."""
-    return env.robot_state.root_lin_vel_b
+    return asset_state(env, asset_cfg).root_lin_vel_b
 
 
-def base_ang_vel(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def base_ang_vel(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Body-frame angular velocity of the floating base."""
-    return env.robot_state.root_ang_vel_b
+    return asset_state(env, asset_cfg).root_ang_vel_b
 
 
-def projected_gravity(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def projected_gravity(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Gravity vector projected into the body frame (proxy for IMU orientation)."""
-    return env.robot_state.projected_gravity_b
+    return asset_state(env, asset_cfg).projected_gravity_b
 
 
-def joint_pos_rel(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def joint_pos_rel(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Joint positions minus default pose.
 
     Mirrors mjlab's default ``joint_pos_rel`` (no bias term). When the env's
@@ -40,12 +50,16 @@ def joint_pos_rel(env: "ManagerBasedRlEnv") -> torch.Tensor:
     too would cancel the perturbation in the observation and silently neutralise
     the encoder-bias DR.
     """
-    return env.robot_state.joint_pos - env.default_joint_pos
+    return (
+        asset_state(env, asset_cfg).joint_pos - asset_articulation(env, asset_cfg).default_joint_pos
+    )
 
 
-def joint_vel_rel(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def joint_vel_rel(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Joint velocities (default is zero, so just the raw vel)."""
-    return env.robot_state.joint_vel
+    return asset_state(env, asset_cfg).joint_vel
 
 
 def last_action(env: "ManagerBasedRlEnv") -> torch.Tensor:

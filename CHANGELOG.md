@@ -8,6 +8,24 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Multi-robot read-side term routing** (ROADMAP M3.6 / ADR-0012, slice **S3a**) — every
+  reward / observation / termination term that reads robot state now takes an optional
+  `asset_cfg: SceneEntityCfg | None = None` and routes through it, so a multi-robot task can
+  point any such term at a specific articulation by name.
+  - New `genelab.mdp._helpers.asset_state(env, asset_cfg)` / `asset_articulation(env, asset_cfg)`
+    (and the `site_pos_w` / `site_lin_vel_w` foot-site helpers) read the entity named by
+    `asset_cfg.name`, defaulting (`None`) to the primary `"robot"`.
+  - Migrated `mdp.observations` (base/joint state), `mdp.rewards` (velocity tracking,
+    height/orientation, torque/limit penalties, gait/foot rewards), and `mdp.terminations`
+    (orientation, height, joint pos/vel limits) off the singular `env.robot_state` /
+    `env.joint_*_limits` accessors.
+
+  Backward-compatible: the managers call terms via `**params`, so single-robot tasks and
+  examples that pass no `asset_cfg` are unchanged (default → primary). Tested in
+  `tests/test_multi_robot.py`; all existing reward/observation/termination suites stay green.
+  The write-side terms (`events` / `dr` / `curriculums`, which reach the raw Genesis handle)
+  migrate in **S3b**; the singular `env.robot*` accessors are removed in the final flip (S6).
+
 - **Multi-robot action/command routing** (ROADMAP M3.6 / ADR-0012, slice **S2**) — action and
   command terms now honour their (previously-dead) `asset_name`, routing to the named entity:
   - `genelab.mdp._helpers.resolve_articulation(env, name)` and `resolve_robot_state(env, name)`
