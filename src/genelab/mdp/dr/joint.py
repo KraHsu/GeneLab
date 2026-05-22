@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from genelab.managers.scene_entity_cfg import SceneEntityCfg
+from genelab.mdp._helpers import asset_articulation, asset_handle, asset_state
 from genelab.mdp.dr._common import normalise_env_ids, resolve_joint_indices
 
 if TYPE_CHECKING:
@@ -16,6 +17,7 @@ def randomize_joint_stiffness_damping(
     env_ids: torch.Tensor | None,
     stiffness_range: tuple[float, float] = (0.8, 1.2),
     damping_range: tuple[float, float] = (0.8, 1.2),
+    asset_cfg: "SceneEntityCfg | None" = None,
 ) -> None:
     """Per-env multiplicative DR on each actuator group's PD gains (kp / kv).
 
@@ -34,9 +36,10 @@ def randomize_joint_stiffness_damping(
     if env_ids.numel() == 0:
         return
     n = int(env_ids.numel())
-    set_kp = getattr(env.robot, "set_dofs_kp", None)
-    set_kv = getattr(env.robot, "set_dofs_kv", None)
-    for actuator in env.actuators.values():
+    handle = asset_handle(env, asset_cfg)
+    set_kp = getattr(handle, "set_dofs_kp", None)
+    set_kv = getattr(handle, "set_dofs_kv", None)
+    for actuator in asset_articulation(env, asset_cfg).actuators.values():
         n_joints = actuator.num_joints
         if n_joints == 0:
             continue
@@ -90,12 +93,13 @@ def encoder_bias(
     n_joints = int(joint_ids_tensor.numel())
 
     samples = torch.empty(n_envs, n_joints, device=env.device).uniform_(*bias_range)
+    encoder_bias_buf = asset_state(env, asset_cfg).encoder_bias
     if asset_cfg.joint_ids is None:
         # Optimisation: hitting every joint, so a flat row-slice avoids the 2-d
         # advanced indexing overhead. Behavior is identical to the else branch.
-        env.robot_state.encoder_bias[env_ids] = samples
+        encoder_bias_buf[env_ids] = samples
     else:
         # 2-d advanced indexing: outer product of env rows × joint columns. The
         # ``env_ids[:, None]`` / ``joint_ids[None, :]`` broadcast produces the
         # correct ``(n_envs, n_joints)`` write target.
-        env.robot_state.encoder_bias[env_ids[:, None], joint_ids_tensor[None, :]] = samples
+        encoder_bias_buf[env_ids[:, None], joint_ids_tensor[None, :]] = samples
