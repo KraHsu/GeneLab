@@ -8,6 +8,18 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal restructuring** (no behaviour change): the distributed
+  (multi-GPU) training plumbing moved out of `cli/__init__.py` into a new
+  `cli/_distributed.py` submodule. Six functions relocated verbatim —
+  `_relaunch_under_torchrun`, `_resolve_per_rank_num_envs`,
+  `_strip_distributed_flags`, `_strip_flag_value_pairs`,
+  `_extract_log_dir_flag`, `_has_log_dir_flag` — and are re-exported from
+  `genelab.cli` so existing imports (incl. `tests/test_cli.py` and
+  `tests/test_multi_seed_cli.py`) keep working unchanged. `cli/__init__.py`
+  shrinks 1,020 → 900 LoC. All `genelab` `--help` text is byte-identical
+  (R0.1 snapshot gate green); the importlinter baseline is unchanged (the
+  move stays within the `cli` package). Lands as ROADMAP §9 PR R4.1 — first
+  of three sub-PRs in ADR-0004 (CLI dispatcher decomposition).
 - **Internal restructuring** (no behaviour change): the play-mode
   shortcut-retargeting key list moved off the private
   `cli/__init__.py:_PLAY_RETARGETED_KEYS` constant onto
