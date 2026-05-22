@@ -8,6 +8,26 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal restructuring** (no behaviour change): the multi-seed train
+  orchestration moved out of `cli/__init__.py` into a new
+  `cli/_multi_seed.py` submodule. Four functions relocated verbatim —
+  `_dispatch_multi_seed_train`, `_parse_seed_list`,
+  `_resolve_multi_seed_parent`, `_strip_multi_seed_flags` (plus the
+  `_STRIPPABLE_MULTI_SEED_FLAGS` constant) — and are re-exported from
+  `genelab.cli` so existing imports (incl. `tests/test_multi_seed_cli.py`)
+  keep working unchanged. The new module imports its argv-strip helpers
+  (`_extract_log_dir_flag`, `_strip_flag_value_pairs`) from
+  `cli/_distributed.py`; the `_RunnableTask` type hint is a
+  `TYPE_CHECKING`-only forward reference (no runtime import cycle).
+  `cli/__init__.py` shrinks 900 → 775 LoC (the now-unused `import sys` is
+  dropped). Four `_relaunch_under_torchrun` tests had their
+  `monkeypatch.setattr` target corrected from the stale `genelab.cli.sys.argv`
+  to `genelab.cli._distributed.sys.argv` — that function moved to
+  `_distributed.py` in R4.1 and no longer relies on `sys` living in
+  `cli/__init__.py`. All `genelab` `--help` text is byte-identical (R0.1
+  snapshot gate green); the importlinter baseline is unchanged (the move
+  stays within the `cli` package). Lands as ROADMAP §9 PR R4.2 — second of
+  three sub-PRs in ADR-0004 (CLI dispatcher decomposition).
 - **Internal restructuring** (no behaviour change): the distributed
   (multi-GPU) training plumbing moved out of `cli/__init__.py` into a new
   `cli/_distributed.py` submodule. Six functions relocated verbatim —
