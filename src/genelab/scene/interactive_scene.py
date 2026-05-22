@@ -136,7 +136,7 @@ class InteractiveScene:
 
     def build(self) -> None:
         """Initialize Genesis, spawn every entity, build the parallel scene."""
-        from genelab.rl.distributed import pin_cuda_device
+        from genelab.utils.distributed import pin_cuda_device
 
         pinned = pin_cuda_device()
         if pinned is not None:
