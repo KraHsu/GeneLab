@@ -6,6 +6,7 @@ import torch
 
 from genelab.mdp.commands.motion_command import MotionCommand
 from genelab.sensor.contact import ContactSensor
+from genelab.sensor.force_torque import ForceTorqueSensor
 from genelab.utils.math import matrix_from_quat, subtract_frame_transforms
 
 if TYPE_CHECKING:
@@ -83,6 +84,16 @@ def foot_contact_forces(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Ten
     """Per-foot contact force, compressed via ``sign(f) * log1p(|f|)`` and flattened to ``(B, N*3)``."""
     force = _contact_sensor(env, sensor_name).data.force
     return (force.sign() * torch.log1p(force.abs())).reshape(force.shape[0], -1)
+
+
+def joint_force_torque(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
+    """Per-joint reaction force/torque from a ``ForceTorqueSensor``, shape ``(B, num_joints)``."""
+    sensor = env.sensors[sensor_name]
+    if not isinstance(sensor, ForceTorqueSensor):
+        raise TypeError(
+            f"sensor {sensor_name!r} is not a ForceTorqueSensor (got {type(sensor).__name__})"
+        )
+    return sensor.data.force
 
 
 def height_scan(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
