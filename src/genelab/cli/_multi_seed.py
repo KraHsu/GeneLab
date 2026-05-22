@@ -18,7 +18,7 @@ import typer
 from genelab.cli._distributed import _extract_log_dir_flag, _strip_flag_value_pairs
 
 if TYPE_CHECKING:
-    from genelab.cli import _RunnableTask  # pyright: ignore[reportPrivateUsage]
+    from genelab.registry import Runnable
 
 # These keep their leading underscores (they are CLI-package-private, re-exported
 # through ``cli/__init__.py``) but are this module's external API — listing them in
@@ -36,7 +36,7 @@ _STRIPPABLE_MULTI_SEED_FLAGS: Final[frozenset[str]] = frozenset(
 
 
 def _dispatch_multi_seed_train(
-    task: _RunnableTask,
+    task: Runnable,
     tokens: list[str],
     runner_args: dict[str, str],
 ) -> None:

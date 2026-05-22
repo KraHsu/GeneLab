@@ -6,6 +6,22 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ## [Unreleased]
 
+### Added
+
+- **Public extension API** `genelab.extensions` (ADR-0008 / ROADMAP §9 R7): a
+  single import path for the four extension kinds —
+  `from genelab.extensions import register_robot, register_env, register_task,
+  register_backend, ROBOTS, ENVS, TASKS, Backend, Runnable`. The symbols are
+  re-exports of the existing `genelab.registry` and `genelab.rl.backends`
+  implementations (which keep working unchanged); `genelab.extensions` is the
+  canonical, stable surface for third-party packages. `register_backend` — the
+  one previously-undocumented registration function — is now discoverable here.
+- `genelab.registry.Runnable` — the (now public) Protocol every `TASKS` value
+  must satisfy after instantiation (`cfg`, `play()`, `train()`). Promoted from
+  the former private `cli/__init__.py:_RunnableTask`; the CLI now imports it from
+  `registry` and keeps `_RunnableTask = Runnable` as a back-compat alias for one
+  release.
+
 ### Deprecated
 
 - The vec-env adapter modules moved under a new `genelab.rl.vecenvs/` package

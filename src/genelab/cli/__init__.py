@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Final, Literal, Protocol, cast
+from typing import Annotated, Final, Literal, cast
 
 import typer
 
@@ -56,6 +56,7 @@ from genelab.cli._scaffold import create_project_skeleton
 from genelab.configs import SimulationCfg, apply_overrides
 from genelab.registry import (
     TASKS,
+    Runnable,
     load_bundled_asset_zoo,
     load_entrypoint_extensions,
     load_extension_module,
@@ -73,12 +74,10 @@ __all__ = [
 ]
 
 
-class _RunnableTask(Protocol):
-    cfg: object
-
-    def play(self) -> None: ...
-
-    def train(self) -> None: ...
+# Back-compat alias (ADR-0008 / R7): the Protocol moved to ``registry.Runnable``
+# (public). Kept for one release for any external code that imported the private
+# name. Internal code uses ``Runnable``.
+_RunnableTask = Runnable
 
 
 @dataclass
@@ -528,7 +527,7 @@ def _load_extensions(state: _RootState) -> None:
 
 def _configured_task(
     tokens: list[str], *, command: str
-) -> tuple[_RunnableTask, dict[str, str], dict[str, str]]:
+) -> tuple[Runnable, dict[str, str], dict[str, str]]:
     try:
         task_id, overrides = parse_run_args(tokens)
     except SystemExit as exc:
@@ -569,16 +568,16 @@ def _configured_task(
     return task, runner_args, prof_args
 
 
-def _resolve_task(task_id: str) -> _RunnableTask:
+def _resolve_task(task_id: str) -> Runnable:
     try:
         with fetch_progress():
-            return cast(_RunnableTask, TASKS.get(task_id))
+            return cast(Runnable, TASKS.get(task_id))
     except KeyError as exc:
         picked = pick_name_interactively(TASKS.names(), f"Unknown task {task_id!r}. Pick one:")
         if picked is None or picked == task_id:
             raise SystemExit(str(exc)) from exc
         with fetch_progress():
-            return cast(_RunnableTask, TASKS.get(picked))
+            return cast(Runnable, TASKS.get(picked))
 
 
 _UNKNOWN_PATH_RE: Final[re.Pattern[str]] = re.compile(r"unknown override path: '([^']+)'")
