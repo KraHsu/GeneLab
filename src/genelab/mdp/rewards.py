@@ -97,6 +97,27 @@ def alive_bonus(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return torch.ones(env.num_envs, device=env.device)
 
 
+def applied_torque_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    """Penalize squared realized actuator torque — ``Σⱼ τⱼ²`` over actuated joints.
+
+    Reads ``robot_state.applied_torque`` (Genesis control force, refreshed each step).
+    Discourages high-effort policies; pair with a negative weight.
+    """
+    return torch.sum(env.robot_state.applied_torque**2, dim=-1)
+
+
+def joint_vel_limits(env: "ManagerBasedRlEnv", soft_ratio: float = 1.0) -> torch.Tensor:
+    """Sum of per-joint speed excursions past ``soft_ratio × joint_vel_limit``.
+
+    Mirrors :func:`joint_pos_limits` for velocity: ``Σⱼ max(0, |q̇ⱼ| − ratio·limⱼ)``.
+    The limit comes from ``env.joint_vel_limits`` (``ArticulationCfg.joint_vel_limit``);
+    joints with a ``+∞`` limit contribute zero, so this is inert until a task opts in.
+    """
+    limit = env.joint_vel_limits * soft_ratio  # (J,)
+    speed = torch.abs(env.robot_state.joint_vel)  # (B, J)
+    return torch.sum((speed - limit.unsqueeze(0)).clamp(min=0.0), dim=-1)
+
+
 _joint_acc_l2_warned = False
 
 

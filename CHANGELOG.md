@@ -18,9 +18,22 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
     leaves its position limits (reuses `env.joint_pos_limits`).
 
   Each has unit tests (`tests/test_rewards.py`, new `tests/test_terminations.py`).
-  The velocity-limit / applied-torque / contact-force terms in M2.3/M2.4 are
-  deferred — they need new data plumbed into `RobotState` / `Articulation` (joint
-  velocity limits and applied torque aren't exposed today) and ship in a follow-up.
+- **Velocity-limit + applied-torque MDP terms** (ROADMAP M2.3 / M2.4, second
+  slice) — plus the data plumbing they need:
+  - `RobotState.applied_torque` — realized actuator torque, refreshed each step from
+    Genesis `get_dofs_control_force` (zero on fake envs / platforms without it).
+  - `ArticulationCfg.joint_vel_limit: float | None` — optional uniform soft joint
+    velocity limit (rad/s); Genesis exposes no per-joint velocity limit, so it's
+    user-declared. `None` → `+∞` (terms inert). New `Articulation.joint_vel_limits`
+    / `env.joint_vel_limits` accessors mirror the existing `joint_pos_limits` ones.
+  - reward `applied_torque_l2(env)` — `Σ τ²` over actuated joints.
+  - reward `joint_vel_limits(env, soft_ratio=1.0)` — `Σ max(0, |q̇| − ratio·limit)`.
+  - termination `joint_vel_out_of_limit(env)` — trips when any joint exceeds its
+    velocity limit.
+
+  Opt-in and inert until a task sets `joint_vel_limit` — no behaviour change for
+  existing tasks. The contact-force term (`contact_force_limit`) remains deferred
+  (sensor-coupled). Unit-tested in `tests/test_rewards.py` + `tests/test_terminations.py`.
 - **`tests/test_articulation_size.py`** — size guard for `entity/articulation.py`,
   fulfilling ADR-0010 (defer the entity/articulation split) §Risks R10.1 /
   Validation. The split stays deferred; this is the recorded soft check that the
