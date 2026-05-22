@@ -12,7 +12,7 @@ from genelab.managers import (
     ObservationManager,
     ObservationTermCfg,
 )
-from genelab.mdp.noise import Gnoise, Unoise
+from genelab.mdp.noise import BiasDrift, CorrelatedNoise, Gnoise, ScaledNoise, Unoise
 from genelab.sensor import (
     BodyVelocitySensorCfg,
     CameraSensorCfg,
@@ -94,6 +94,45 @@ def test_gnoise_has_expected_std() -> None:
     data = torch.zeros(4096, 1)
     noisy = Gnoise(mean=0.0, std=0.5).apply(data)
     assert abs(noisy.std().item() - 0.5) < 0.05
+
+
+def test_scaled_noise_is_multiplicative_and_signal_proportional() -> None:
+    # Degenerate range → exact ×1 (no corruption).
+    data = torch.tensor([[2.0, -4.0]])
+    assert torch.allclose(ScaledNoise(0.0, 0.0).apply(data), data)
+    # Fixed +50% gain → data × 1.5; the perturbation scales with the signal.
+    assert torch.allclose(ScaledNoise(0.5, 0.5).apply(data), data * 1.5)
+
+
+def test_correlated_noise_zero_std_is_identity_and_keeps_state() -> None:
+    noise = CorrelatedNoise(std=0.0, alpha=0.9)
+    data = torch.zeros(4, 3)
+    for _ in range(3):
+        assert torch.allclose(noise.apply(data), data)  # white=0 → state stays 0
+    # Stationary std ≈ std for any alpha (sqrt(1-alpha^2) mixing).
+    torch.manual_seed(0)
+    corr = CorrelatedNoise(std=0.5, alpha=0.8)
+    flat = torch.zeros(20000, 1)
+    last = corr.apply(flat)
+    for _ in range(50):  # let the AR process reach its stationary regime
+        last = corr.apply(flat)
+    assert abs(last.std().item() - 0.5) < 0.1
+
+
+def test_bias_drift_accumulates_and_respects_max_bias() -> None:
+    # No drift → identity, bias stays zero across steps.
+    nodrift = BiasDrift(drift_std=0.0)
+    data = torch.zeros(8, 2)
+    for _ in range(3):
+        assert torch.allclose(nodrift.apply(data), data)
+    # Large drift, clamped: |bias| never exceeds max_bias.
+    torch.manual_seed(0)
+    drift = BiasDrift(drift_std=10.0, max_bias=0.1)
+    flat = torch.zeros(1000, 1)
+    for _ in range(20):
+        out = drift.apply(flat)
+    assert (out.abs() <= 0.1 + 1e-6).all()
+    assert out.abs().mean() > 1e-3  # the bias actually moved off zero
 
 
 def test_observation_pipeline_noise_only_when_corruption_enabled() -> None:
