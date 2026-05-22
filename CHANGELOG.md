@@ -8,6 +8,17 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **`SimulationCfg` rigid-solver options** (ROADMAP M3.7) — eight optional fields exposing
+  Genesis `RigidOptions`: `enable_self_collision`, `enable_joint_limit`, `max_collision_pairs`
+  (contact); `solver_iterations`, `ls_iterations`, `solver_tolerance`, `integrator` (solver);
+  `constraint_timeconst` (constraint stiffness/damping). All default `None` ("use Genesis
+  default"); `SimulationCfg.rigid_options_kwargs()` maps the set ones to `RigidOptions` kwargs
+  and `InteractiveScene` passes `rigid_options` to `gs.Scene` **only when at least one is set**
+  — so existing configs are byte-for-byte unchanged. `integrator` is a string resolved to
+  `gs.integrator.<name>` in the scene (keeps `configs` Genesis-free, invariant #5). (Genesis
+  exposes no continuous-collision-detection / CCD knob, so it is not surfaced.) Tested in
+  `tests/test_configs.py`.
+
 - **`ForceTorqueSensor`** (ROADMAP M3.5) — a joint force-torque sensor reporting each
   selected joint's internal reaction force/torque from Genesis `get_dofs_force` (the
   total internal DoF force, distinct from the commanded `applied_torque`). Select joints
