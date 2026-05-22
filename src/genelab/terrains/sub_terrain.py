@@ -18,6 +18,12 @@ class SubTerrainCfg:
     """Base config for a single sub-terrain cell type."""
 
     proportion: float = 1.0
+    # Difficulty rank used only when ``TerrainGeneratorCfg.curriculum=True``: rows are
+    # ordered easiest → hardest by this value (row 0 = lowest difficulty). Ignored for the
+    # default proportion-weighted random tiling. Genesis keys ``subterrain_parameters`` by
+    # type, so difficulty must vary across *distinct* sub-terrain types (in-type scaling
+    # like "steeper stairs per row" is not expressible).
+    difficulty: float = 0.0
 
     def genesis_type(self) -> str:
         raise NotImplementedError("SubTerrainCfg subclasses must override genesis_type")
