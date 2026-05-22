@@ -154,8 +154,9 @@ def _patch_picker(monkeypatch: pytest.MonkeyPatch, attr: str, value: str | None)
     monkeypatch.setattr(f"genelab.cli._interactive.{attr}", fake)
     # Patch every consumer module that imported the picker by name (each holds its
     # own binding to the original function). `pick_agent_kind` is consumed in
-    # `cli._dispatch`; the task/name/override pickers in `cli` itself.
-    for module in ("genelab.cli", "genelab.cli._dispatch"):
+    # `cli._dispatch`; the task/name/override pickers in `cli._resolve` (the hasattr
+    # guard skips modules that don't bind a given picker).
+    for module in ("genelab.cli", "genelab.cli._dispatch", "genelab.cli._resolve"):
         if hasattr(__import__(module, fromlist=[attr]), attr):
             monkeypatch.setattr(f"{module}.{attr}", fake)
 

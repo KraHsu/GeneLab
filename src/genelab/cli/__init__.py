@@ -1,11 +1,10 @@
 """Unified Typer + Rich command-line entry point for registered GeneLab tasks."""
 
 import json
-import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Final, Literal, cast
+from typing import Annotated, Final, Literal
 
 import typer
 
@@ -32,11 +31,6 @@ from genelab.cli._distributed import (
     _strip_distributed_flags as _strip_distributed_flags,
     _strip_flag_value_pairs as _strip_flag_value_pairs,
 )
-from genelab.cli._interactive import (
-    pick_name_interactively,
-    pick_override_path,
-    pick_task_interactively,
-)
 from genelab.cli._multi_seed import (
     _dispatch_multi_seed_train as _dispatch_multi_seed_train,
     _parse_seed_list as _parse_seed_list,
@@ -46,17 +40,15 @@ from genelab.cli._multi_seed import (
 from genelab.cli._prof import prof_app
 from genelab.cli._progress import fetch_progress
 from genelab.cli._render import (
-    iter_overridable_paths,
     render_cache,
     render_entry_info,
     render_main_help,
     render_registry,
 )
+from genelab.cli._help import _PLAY_HELP, _TRAIN_HELP
+from genelab.cli._resolve import _configured_task
 from genelab.cli._scaffold import create_project_skeleton
-from genelab.configs import SimulationCfg, apply_overrides
 from genelab.registry import (
-    TASKS,
-    Runnable,
     load_bundled_asset_zoo,
     load_entrypoint_extensions,
     load_extension_module,
@@ -84,61 +76,6 @@ class _RegistryKindArg(str, Enum):
     robots = "robots"
     envs = "envs"
     tasks = "tasks"
-
-
-_RUN_FLAGS_HELP: Final[str] = """\
-Shorthand flags rewritten into env overrides:
-
-\b
-  -v, --vis        Enable the Genesis viewer (env.simulation.vis=true).
-  --gpu            Use the GPU backend (env.simulation.gpu=true).
-  --steps N        Run for N steps. Play: env.simulation.steps=N.
-                   Train: alias for --max_iterations N.
-  --dt SECONDS     Override the sim timestep (env.simulation.dt=SECONDS).
-  --a.b.c VALUE    Set any dotted cfg path.
-
-Runner flags (used when an RL runner is engaged):
-
-\b
-  --num_envs N          Total parallel environments across all ranks.
-                        Must divide evenly by --gpus when both are set.
-  --num_envs_per_gpu N  Per-rank parallel environments. Mutually exclusive
-                        with --num_envs.
-  --agent KIND          one of: zero, random, trained (play only).
-  --checkpoint PATH     Resume from a checkpoint.
-  --seed N              RNG seed.
-  --log_dir PATH        Override the log directory.
-  --max_iterations N    Cap training iterations (train only).
-  --gpus N              Distributed training across N GPUs (train only).
-  --eval_every K        Run a deterministic eval every K iters and save
-                        best_model.<ext> on improvement (train only).
-  --eval_episodes N     Episodes to roll out per eval (train only, default 10).
-  --eval_num_envs N     Envs used during eval (train only, default = train num).
-  --eval_seed N         Seed for the eval rollout (train only, default 0).
-  --seeds 1,2,3         Fan out into N independent train runs, one per seed
-                        (train only). Each child gets --log_dir <parent>/seed_<S>.
-  --parallel N          Cap concurrent multi-seed train workers (train only,
-                        default 1). Ignored unless --seeds is set.
-
-Profiling flags (forwarded to torch.profiler; rank-0 only):
-
-\b
-  --prof                  Enable the profiler (overrides GENELAB_PROFILE).
-  --prof-out PATH         TensorBoard trace directory (GENELAB_PROFILE_OUT).
-  --prof-wait N           Schedule wait steps (GENELAB_PROFILE_WAIT, default 10).
-  --prof-warmup N         Schedule warmup steps (GENELAB_PROFILE_WARMUP, default 5).
-  --prof-active N         Schedule active steps (GENELAB_PROFILE_ACTIVE, default 10).
-  --prof-repeat N         Schedule cycles (GENELAB_PROFILE_REPEAT, default 2).
-  --prof-record-shapes    Record tensor shapes for op input attribution.
-  --prof-with-stack       Capture Python stack traces (high overhead).
-
-Use `genelab info TASK` to see the full overridable path list for a task.
-Use `genelab prof open [DIR]` to launch TensorBoard against a trace directory.
-"""
-
-
-_PLAY_HELP: Final[str] = "Run a registered task.\n\n" + _RUN_FLAGS_HELP
-_TRAIN_HELP: Final[str] = "Train a registered task when a runner exists.\n\n" + _RUN_FLAGS_HELP
 
 
 app = typer.Typer(
@@ -517,102 +454,6 @@ def _load_extensions(state: _RootState) -> None:
         load_entrypoint_extensions()
     for module_name in state.extension_modules:
         load_extension_module(module_name)
-
-
-def _configured_task(
-    tokens: list[str], *, command: str
-) -> tuple[Runnable, dict[str, str], dict[str, str]]:
-    try:
-        task_id, overrides = parse_run_args(tokens)
-    except SystemExit as exc:
-        if str(exc) != "missing task id":
-            raise
-        picked = pick_task_interactively()
-        if picked is None:
-            raise
-        task_id, overrides = parse_run_args([*tokens, picked])
-
-    task = _resolve_task(task_id)
-
-    # In train mode, ``--steps N`` is the short form for ``--max_iterations N``.
-    # ``env.simulation.steps`` is not consumed by ``train_task`` / ``ManagerBasedRlEnv``
-    # (episodes are governed by ``episode_length_s``), so leaving the override on the env
-    # cfg would silently no-op and the user would see iterations counted to the cfg
-    # default (e.g. 0/30000) instead of stopping at N.
-    if command == "train" and "env.simulation.steps" in overrides:
-        if "max_iterations" in overrides:
-            raise SystemExit(
-                "--steps and --max_iterations conflict in train mode: drop one. "
-                "(--steps is the short form for --max_iterations.)"
-            )
-        overrides["max_iterations"] = overrides.pop("env.simulation.steps")
-
-    runner_args = split_runner_keys(overrides)
-    prof_args = split_prof_keys(overrides)
-
-    # In play mode, retarget the short --vis / --gpu / --steps / --dt shortcuts at the
-    # task's play_env when one is configured. Keeps `genelab play TASK --vis` working
-    # without forcing users to spell `play_env.simulation.vis`.
-    if command == "play" and getattr(task.cfg, "play_env", None) is not None:
-        for short_key in SimulationCfg.play_retargeted_keys():
-            if short_key in overrides:
-                overrides[short_key.replace("env.", "play_env.", 1)] = overrides.pop(short_key)
-
-    _apply_overrides_interactively(task.cfg, overrides)
-    return task, runner_args, prof_args
-
-
-def _resolve_task(task_id: str) -> Runnable:
-    try:
-        with fetch_progress():
-            return cast(Runnable, TASKS.get(task_id))
-    except KeyError as exc:
-        picked = pick_name_interactively(TASKS.names(), f"Unknown task {task_id!r}. Pick one:")
-        if picked is None or picked == task_id:
-            raise SystemExit(str(exc)) from exc
-        with fetch_progress():
-            return cast(Runnable, TASKS.get(picked))
-
-
-_UNKNOWN_PATH_RE: Final[re.Pattern[str]] = re.compile(r"unknown override path: '([^']+)'")
-
-
-def _apply_overrides_interactively(cfg: object, overrides: dict[str, str]) -> None:
-    """Apply overrides; on an unknown path, prompt the user for a correction.
-
-    Coercion errors (e.g. ``int('abc')``) still exit immediately — those need a
-    new value, not a new key.
-    """
-    while True:
-        try:
-            apply_overrides(cfg, overrides)
-            return
-        except ValueError as exc:
-            msg = str(exc)
-            match = _UNKNOWN_PATH_RE.search(msg)
-            if match is None:
-                raise SystemExit(msg) from exc
-            bad_path = match.group(1)
-            override_key = _override_key_for(bad_path, overrides)
-            if override_key is None:
-                raise SystemExit(msg) from exc
-            candidates = [path for path, _, _ in iter_overridable_paths(cfg)]
-            picked = pick_override_path(bad_path, candidates)
-            if picked is None or picked == bad_path:
-                raise SystemExit(msg) from exc
-            overrides[picked] = overrides.pop(override_key)
-
-
-def _override_key_for(bad_path: str, overrides: dict[str, str]) -> str | None:
-    """Return the ``overrides`` key whose ``apply_overrides`` target equals ``bad_path``."""
-    from genelab.configs import resolve_override_alias
-
-    if bad_path in overrides:
-        return bad_path
-    for key in overrides:
-        if resolve_override_alias(key) == bad_path:
-            return key
-    return None
 
 
 def main(argv: list[str] | None = None) -> None:
