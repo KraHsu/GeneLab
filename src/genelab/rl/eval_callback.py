@@ -138,7 +138,7 @@ def run_with_eval_callback(
 
     Returns the final ``log_dir``.
     """
-    from genelab.cli._eval import eval_task
+    from genelab.rl.eval_task import eval_task
 
     assert eval_cfg.enabled, "run_with_eval_callback requires enabled cfg"
     log_dir.mkdir(parents=True, exist_ok=True)
