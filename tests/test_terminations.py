@@ -5,11 +5,16 @@ A minimal fake env provides ``joint_pos_limits`` (the per-actuated-joint
 and ``robot_state.joint_pos`` — enough for the limit termination. No Genesis runtime.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import torch
 
-from genelab.mdp.terminations import joint_pos_out_of_limit, joint_vel_out_of_limit
+from genelab.mdp.terminations import (
+    contact_force_limit,
+    joint_pos_out_of_limit,
+    joint_vel_out_of_limit,
+)
+from genelab.sensor import ContactSensorCfg
 
 
 @dataclass
@@ -86,3 +91,46 @@ def test_joint_vel_out_of_limit_inert_at_infinite_limit() -> None:
         joint_vel_limits=torch.tensor([float("inf"), float("inf")]),
     )
     assert joint_vel_out_of_limit(env).tolist() == [False]
+
+
+class _FakeContactRobot:
+    def __init__(self, num_envs: int, num_links: int) -> None:
+        self._force = torch.zeros(num_envs, num_links, 3)
+
+    def get_links_net_contact_force(self) -> torch.Tensor:
+        return self._force
+
+    def set_contact_force(self, f: torch.Tensor) -> None:
+        self._force = f
+
+
+@dataclass
+class _FakeContactEnv:
+    num_envs: int
+    link_names: list[str]
+    device: str = "cpu"
+    sensors: dict[str, object] = field(default_factory=dict)
+    robot: _FakeContactRobot | None = None
+
+    def __post_init__(self) -> None:
+        if self.robot is None:
+            self.robot = _FakeContactRobot(self.num_envs, len(self.link_names))
+
+
+def test_contact_force_limit_trips_only_above_threshold() -> None:
+    links = ("base", "left_foot", "right_foot")
+    env = _FakeContactEnv(num_envs=2, link_names=list(links))
+    # env 0: left_foot 50 N (under). env 1: base 600 N (over).
+    force = torch.zeros(2, 3, 3)
+    force[0, 1, 2] = 50.0
+    force[1, 0, 2] = 600.0
+    assert env.robot is not None
+    env.robot.set_contact_force(force)
+    sensor = ContactSensorCfg(name="impacts", link_names=links, track_air_time=False).build()
+    sensor.bind(env)
+    sensor.update(0.02)
+    env.sensors["impacts"] = sensor
+
+    out = contact_force_limit(env, sensor_name="impacts", max_force=500.0)
+    assert out.dtype == torch.bool
+    assert out.tolist() == [False, True]
