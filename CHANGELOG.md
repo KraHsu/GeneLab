@@ -8,6 +8,19 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **`MetricsManager` and `CurriculumManager` now subclass `BaseTermManager`**
+  (ADR-0002 addendum / ROADMAP §9 R2.5 dedup leftover; no behaviour change). Both
+  carried verbatim copies of the term-registration loop (`deepcopy` cfg →
+  `instantiate_class_term` per term → parallel `_term_names` / `_term_cfgs`) that
+  R2.5 already consolidated into `BaseTermManager` for the reward / termination
+  managers. `CurriculumManager.__init__` was byte-identical to the base (it now
+  inherits it outright); `MetricsManager` moved its `_episode_sums` /
+  `_step_count` allocation into the `_post_init` hook. The duplicated `num_envs` /
+  `device` / `active_terms` properties are dropped in favour of the base's. Public
+  constructor signatures (`(cfg, env)`) are unchanged.
+  `tests/test_manager_init_order.py` gained Metrics + Curriculum init-order
+  assertions (committed and verified green *before* the refactor, per the R2.5
+  gate-test pattern).
 - **Architecture lint is now a required CI gate** (ADR-0009 / ROADMAP §9 R7.3d —
   completes the R0–R7 refactor). The `lint-imports` step dropped its
   `continue-on-error`, so any PR that introduces a cross-layer import now fails CI.
