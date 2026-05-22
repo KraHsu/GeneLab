@@ -147,3 +147,52 @@ def test_joint_position_action_routes_to_named_entity() -> None:
     term.apply_actions()
     assert env._b.written is not None  # wrote to robot_b
     assert env._a.written is None  # primary left untouched
+
+
+# ---------------------------------------------------------------- S4: sensor entity routing
+
+
+def test_sensor_entity_resolvers_pick_named_else_primary() -> None:
+    from genelab.sensor._entity import entity_articulation, entity_handle, entity_state
+
+    a = types.SimpleNamespace(gs_handle="h_a", data="state_a")
+    b = types.SimpleNamespace(gs_handle="h_b", data="state_b")
+    multi = types.SimpleNamespace(
+        articulations={"robot": a, "robot_b": b}, articulation=a, robot="h_a", robot_state="state_a"
+    )
+    assert entity_articulation(multi, "robot_b") is b  # type: ignore[arg-type]
+    assert entity_handle(multi, "robot_b") == "h_b"  # type: ignore[arg-type]
+    assert entity_state(multi, "robot_b") == "state_b"  # type: ignore[arg-type]
+    # Unknown name / legacy env → primary fallback.
+    assert entity_articulation(multi, "nope") is a  # type: ignore[arg-type]
+    legacy = types.SimpleNamespace(articulation=a, robot="h_a", robot_state="state_a")
+    assert entity_handle(legacy, "robot") == "h_a"  # type: ignore[arg-type]
+    assert entity_state(legacy, "robot") == "state_a"  # type: ignore[arg-type]
+    # entity_articulation falls back to env itself for minimal fakes (env-level link_names).
+    bare = types.SimpleNamespace(link_names=["l0"])
+    assert entity_articulation(bare, "robot").link_names == ["l0"]  # type: ignore[arg-type]
+
+
+def test_force_torque_sensor_routes_to_named_entity() -> None:
+    from genelab.sensor import ForceTorqueSensorCfg
+
+    force_b = torch.tensor([[10.0, 11, 12], [20, 21, 22]])  # (2 envs, 3 dofs)
+    handle_b = types.SimpleNamespace(get_dofs_force=lambda: force_b)
+    art_a = types.SimpleNamespace(joint_names=["ja"], actuated_dof_ids=torch.tensor([0]))
+    art_b = types.SimpleNamespace(
+        joint_names=["jb0", "jb1"],
+        actuated_dof_ids=torch.tensor([1, 2]),  # robot_b's joints sit at global dofs 1, 2
+        gs_handle=handle_b,
+    )
+    env = types.SimpleNamespace(
+        num_envs=2,
+        device="cpu",
+        articulations={"robot": art_a, "robot_b": art_b},
+        articulation=art_a,
+        robot=None,
+        joint_names=["ja"],
+    )
+    sensor = ForceTorqueSensorCfg(name="ft", entity_name="robot_b").build()
+    sensor.bind(env)  # type: ignore[arg-type]
+    assert sensor.joint_names == ["jb0", "jb1"]  # resolved against robot_b
+    assert torch.allclose(sensor.data.force, force_b[:, [1, 2]])  # robot_b's dofs from its handle
