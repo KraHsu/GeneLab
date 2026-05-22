@@ -327,18 +327,18 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 
 ### 9.0 Status / 当前状态
 
-**Phase:** **R0 + R1 + R2 complete** · R3–R7 not started.
+**Phase:** **R0 + R1 + R2 + R3 complete · R4 in progress (1 / 3 PRs)** · R5–R7 not started.
 
 | What | Status | Artifact |
 |---|---|---|
 | Architecture assessment | ✅ written | [`plans/architecture/architecture-assessment.md`](plans/architecture/architecture-assessment.md) |
 | Target architecture | ✅ written | [`plans/architecture/target-architecture.md`](plans/architecture/target-architecture.md) |
-| ADRs 0001–0010 | ✅ drafted (all Status: Proposed; ADR-0001 + ADR-0002 + ADR-0003 ready for `Accepted` flip) | [`plans/adr/`](plans/adr/) |
+| ADRs 0001–0010 | ✅ drafted (all Status: Proposed; ADR-0001 + ADR-0002 + ADR-0003 + ADR-0005 ready for `Accepted` flip; ADR-0004 partially shipped) | [`plans/adr/`](plans/adr/) |
 | Phase R0 — baseline & tooling | ✅ **complete** (3 / 3 PRs merged) | PR #81 (`c3d851e`), #82 (`b8df293`), #83 (`d7a702e`) |
 | Phase R1 — break rl.runner ↔ rl.backends cycle | ✅ **merged** | PR #84 (`04509d9`) — implements ADR-0001 |
 | Phase R2 — small abstractions | ✅ **complete** (5 / 5 sub-slices merged) | PRs #85 (`74b2e30`), #86 (`039e502`), #87 (`0367462`), #88 (`a50d031`), #89 (`5571889`) — implement ADR-0003 (+ ADR-0002 for R2.5) |
-| Phase R3 — domain-owned parsing | ⬜ **next recommended** | gated on ADR-0005 |
-| Phase R4 — CLI decomposition | ⬜ not started | gated on R3 landing + ADR-0004 |
+| Phase R3 — domain-owned parsing | ✅ **complete** (2 / 2 sub-slices merged) | PR #90 (`6b97f6e`), #91 (`03f480b`) — implement ADR-0005 |
+| Phase R4 — CLI decomposition | 🔵 **in progress** (1 / 3 PRs) — R4.1 merged; R4.2 + R4.3 remain | PR #92 (`588f5be`) — implements ADR-0004 |
 | Phase R5 — task-specific rewards split | ⬜ not started | gated on ADR-0006 |
 | Phase R6 — vecenv rename | ⬜ not started | gated on ADR-0007 |
 | Phase R7 — extensions API + importlinter blocking | ⬜ not started | gated on R0–R6 landing + ADR-0008, ADR-0009 |
@@ -394,6 +394,22 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
   - Modified: `src/genelab/managers/{reward_manager,termination_manager}.py`. Both subclass `BaseTermManager[…TermCfg]`; each keeps only its buffer-allocation `_post_init`. `RewardManager.__init__` stashes `_scale_by_dt` then calls super; `TerminationManager` inherits the base `__init__` verbatim. Both drop `deepcopy`/`instantiate_class_term` imports and the 3 duplicated properties.
   - Modified: `CHANGELOG.md` (+19 lines under `[Unreleased] · Changed`).
   - **Init-order risk (ADR-0002 §Risks)** handled by the gate test — verified green pre- and post-refactor.
+- **PR R3.1 — `EvalCallbackCfg.from_args` extraction** (PR #90, merged `6b97f6e`, commit `fa9c60a`) — implements ADR-0005 sub-slice 1:
+  - Modified: `src/genelab/rl/eval_callback.py` (+26 LoC). New `@classmethod from_args(cls, runner_args: dict[str, str]) -> "EvalCallbackCfg | None"` — parses `--eval-every` / `--eval-episodes` / `--eval-num-envs` / `--eval-seed` verbatim from the runner-arg dict; returns `None` when `--eval-every` is unset (keeps the legacy single-shot `backend.train()` path).
+  - Modified: `src/genelab/cli/__init__.py`. `_build_eval_callback` removed; `_dispatch_train` now calls `EvalCallbackCfg.from_args(runner_args)`.
+  - New: `tests/test_eval_callback_from_args.py` (5 tests).
+  - Modified: `CHANGELOG.md`.
+  - **Direction note.** This moves a parser in the *allowed* `cli → rl` direction. It does **not** touch the function-local `from genelab.cli._eval import eval_task` inside `run_with_eval_callback` (the actual `rl → cli` violation) — see the corrected risk note below.
+- **PR R3.2 — `SimulationCfg.play_retargeted_keys` extraction** (PR #91, merged `03f480b`, commit `5963aa4`) — implements ADR-0005 sub-slice 2; **completes Phase R3**:
+  - Modified: `src/genelab/configs.py` (+18 LoC). New `@staticmethod play_retargeted_keys() -> tuple[str, ...]` returning `("env.simulation.vis", "env.simulation.gpu", "env.simulation.steps", "env.simulation.dt")` verbatim. `configs.py` stays torch-free at import (invariant #5) — the staticmethod adds no imports.
+  - Modified: `src/genelab/cli/__init__.py`. `_PLAY_RETARGETED_KEYS` constant removed; the play-mode `env.` → `play_env.` retarget loop calls the method; `SimulationCfg` added to the `from genelab.configs import …` line.
+  - New: `tests/test_configs.py` (3 tests).
+  - Modified: `CHANGELOG.md`.
+- **PR R4.1 — `cli/_distributed.py` extraction** (PR #92, merged `588f5be`, commit `c6adabd`) — implements ADR-0004 sub-slice 1 (first of 3 CLI-decomposition PRs):
+  - New: `src/genelab/cli/_distributed.py` (161 LoC). Six multi-GPU-plumbing functions moved **verbatim** — `_relaunch_under_torchrun`, `_resolve_per_rank_num_envs`, `_strip_distributed_flags`, `_strip_flag_value_pairs`, `_extract_log_dir_flag`, `_has_log_dir_flag` — plus the `_STRIPPABLE_DISTRIBUTED_FLAGS` constant. Declares `__all__` of the six (they keep CLI-private underscore names but are the module's external API; `__all__` suppresses pyright `reportUnusedFunction` on the externally-only-called ones).
+  - Modified: `src/genelab/cli/__init__.py` (1,020 → 900 LoC, −120). Drops the six definitions; re-exports them via the PEP-484 `from genelab.cli._distributed import _foo as _foo` idiom. The multi-seed pieces (`_STRIPPABLE_MULTI_SEED_FLAGS`, `_strip_multi_seed_flags`) stay until R4.2 and keep calling the re-exported `_strip_flag_value_pairs`.
+  - Modified: `CHANGELOG.md` (+14 lines under `[Unreleased] · Changed`).
+  - **Zero test edits.** All callers (incl. `tests/test_cli.py`, `tests/test_multi_seed_cli.py`) import via `from genelab.cli import <name>` — preserved by the shim.
 
 **Tests run.**
 
@@ -407,16 +423,19 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 - R2.3: ruff ✓, pyright 0/0/0 (after widening helper params from `list[str]` to `Sequence[str]` — `cfg.joint_names` is `tuple[str, ...]`), 384 tests pass, `lint-imports` baseline unchanged at 2 kept / 2 broken. `match_joints` smoke-tested directly with 5 cases (basic match, glob, `re.error` fallback, substring search, dedup). Final CI run `26236564576`: **all three jobs PASS**.
 - R2.4: ruff ✓, pyright 0/0/0, 384 tests pass, the 9 actuator-specific tests (`tests/test_actuator.py` + `tests/test_articulation_refresh.py`) green — including the 4 that exercise the `_write_pd_gains` path directly. `lint-imports` baseline unchanged at 2 kept / 2 broken. Final CI run `26237393291`: **all three jobs PASS**.
 - R2.5: **the init-order gate** (`tests/test_manager_init_order.py`, 3 tests) verified green on pure `dev` (commit `463f579` alone, pre-refactor) **and** after the refactor (commit `88454fa`) — the load-bearing proof that buffer-allocation timing is preserved. ruff ✓, pyright 0/0/0 (the `Generic[TCfg]` typing keeps `cfg`/`_term_cfgs` narrowed per subclass), full suite **387 passed** (was 384; +3 from the gate), manager/reward/metrics tests 48 passed. `lint-imports` baseline unchanged at 2 kept / 2 broken. Final CI run `26266527762`: **all three jobs PASS**.
+- R3.1: ruff ✓, pyright 0/0/0, full suite **392 passed** (was 387; +5 from `tests/test_eval_callback_from_args.py`). `lint-imports` baseline **unchanged at 2 kept / 2 broken** — the parser moved in the allowed `cli → rl` direction. `--help` snapshots green (no CLI output drift). All three CI jobs PASS.
+- R3.2: ruff ✓, pyright 0/0/0, full suite **395 passed** (was 392; +3 from `tests/test_configs.py`). `lint-imports` baseline unchanged at 2 kept / 2 broken. `genelab play --help` byte-identical (R0.1 snapshot gate green); `configs.py` torch-free at import re-verified. All three CI jobs PASS. Note: `cli/__init__.py` shrank −31 LoC (ADR-0005 estimated ≥35; the difference is the `SimulationCfg` import line added back).
+- R4.1: ruff ✓, ruff format ✓, pyright 0/0/0 (after adding `__all__` to `_distributed.py` to silence `reportUnusedFunction` on the externally-only-called functions), full suite **395 passed** (unchanged — no new tests; the move is covered by the existing `test_cli.py` + `test_multi_seed_cli.py`, 98 of which run in 2.6s), `lint-imports` baseline unchanged at 2 kept / 2 broken (move stays within the `cli` package). `--help` snapshots byte-identical. Final CI run `26270577235`: **all three jobs PASS**.
 
-**Changes to the dependency graph.** `mcp__codebase-memory-mcp__index_status` reports **3,887 nodes / 10,905 edges** post-R2.5 (was 3,829 / 11,427 at the start of the planning round). Net deltas across all merged work: +58 nodes (new test files plus the `_helpers.py` / `_algorithm_taxonomy.py` / `_attach_base.py` / `_joint_match.py` modules, the `ActuatorBase._write_pd_gains` method, and the `BaseTermManager` class with its methods/properties) and −522 edges. The large edge reduction is structural: the codebase-memory indexer re-resolves the graph after R0.3's `exclude_type_checking_imports = true` flag and after each consolidation (collapsing duplicate caller / property / method edges into a single canonical helper-import or inherited-base edge). The hotspots flagged in the assessment are being trimmed slice-by-slice; the cycle (R1) and all five cluster duplications (R2.1–R2.5) are gone.
+**Changes to the dependency graph.** `mcp__codebase-memory-mcp__index_status` reported **3,887 nodes / 10,905 edges** post-R2.5 (was 3,829 / 11,427 at the start of the planning round); the index has not been re-run since (counts above are as of `5571889`). R3 + R4.1 add: the `EvalCallbackCfg.from_args` classmethod and `SimulationCfg.play_retargeted_keys` staticmethod, the new `cli/_distributed.py` module (six functions + a constant) and its re-export edges into `cli/__init__.py`, and the `tests/test_eval_callback_from_args.py` + `tests/test_configs.py` nodes. None of these touch the cross-layer import baseline (R3 moves parsers in the allowed `cli → rl` / `cli → configs` direction; R4.1 stays within the `cli` package). The large edge reduction since the planning round is structural: the indexer re-resolves the graph after R0.3's `exclude_type_checking_imports = true` flag and after each consolidation (collapsing duplicate caller / property / method edges into a single canonical helper-import or inherited-base edge). The hotspots flagged in the assessment are being trimmed slice-by-slice; the cycle (R1) and all five cluster duplications (R2.1–R2.5) are gone.
 
 **Risks identified (aggregate view).** Detailed per-ADR; the highest-attention items:
 
 - **R1 (ADR-0001)** — ✅ **resolved by PR #84.** The quiescent `rl.runner ↔ rl.backends` cycle is gone; backends now import from `rl._helpers`. `tests/test_no_static_cycle.py` (grimp-based) prevents regression; matching importlinter contract is now KEPT.
 - **R2.5 (ADR-0002)** — ✅ **resolved by PR #89.** `BaseTermManager._post_init` preserves buffer-allocation timing; `tests/test_manager_init_order.py` was verified green pre- and post-refactor. The risk did not materialize.
-- **R4 (ADR-0004)** — CLI decomposition has large test surface (`test_cli.py` is 1,414 LoC). Mitigation: R0.1 `--help` snapshots are now in place and gate every PR.
+- **R4 (ADR-0004)** — CLI decomposition has large test surface (`test_cli.py` is 1,414 LoC). Mitigation: R0.1 `--help` snapshots are now in place and gate every PR. R4.1 confirmed the mitigation works (zero `--help` drift, zero test edits). R4.2/R4.3 remain.
 - **R5.2 (ADR-0006)** — parameterizing motion-tracking rewards risks numerical drift. Mitigation: bit-equivalence test ships in the same PR.
-- **R7 (ADR-0009)** — flipping importlinter from lint-only to blocking is gated on the R0.3 baseline being clean. Post-R2: **21 cross-layer imports remain across 2 broken contracts** (down from 24 / 3 — R1 trimmed 3; R2.1–R2.5 were intra-package dedup and did not touch the cross-layer baseline).
+- **R7 (ADR-0009)** — flipping importlinter from lint-only to blocking is gated on the R0.3 baseline being clean. Post-R4.1: **21 cross-layer imports remain across 2 broken contracts** (down from 24 / 3 — R1 trimmed 3; R2.1–R2.5, R3.1–R3.2, and R4.1 were all intra-package or allowed-direction moves and did not touch the cross-layer baseline). **Correction:** R3 was previously expected to clear the `rl.eval_callback → cli._eval` violation; it did not — see the corrected note below.
 
 **Risks discovered during R0 + R1 (new, not in the original list).**
 
@@ -425,13 +444,13 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 - **Local lint gates must be run before pushing** (R0.2). The first R0.2 push failed CI because `ruff format --check` flagged the implicit-string-concatenation in the subprocess wrapper. Triple-quoted strings are ruff-stable. Future test-only PRs should run `uv run ruff format --check` and `uv run ruff check` locally before pushing — both are part of CI's `lint` job.
 - **The layering spec in `target-architecture.md` / ADR-0009 has more drift from current code than the assessment suggested** (R0.3). With `exclude_type_checking_imports = true`, the R0.3 baseline showed **24 distinct cross-layer imports** across 3 broken contracts; R1 trimmed 3 of those. Root causes by category (post-R1):
   - ~~3 imports: `rl.backends.{rsl_rl,skrl,sb3} → rl.runner` — addressed by **R1 / ADR-0001**.~~ ✅ Resolved by PR #84.
-  - 1 import: `rl.eval_callback → cli._eval (l.114)` — addressed by **R3 / ADR-0005**.
+  - 1 import: `rl.eval_callback → cli._eval` (function-local `from genelab.cli._eval import eval_task` inside `run_with_eval_callback`, now ~l.141) — **NOT addressed by R3** (corrected: R3.1 moved the `--eval-*` *parser* into `EvalCallbackCfg.from_args`, an allowed `cli → rl` move, but left the `rl → cli` runtime import untouched). Needs a separate follow-up: inject `eval_task` into `run_with_eval_callback` rather than function-local importing it. Still gating R7.
   - 1 import: `scene.interactive_scene → rl.distributed (l.139)` — already function-local (lazy) inside `build()`; either move `pin_cuda_device` out of `rl/` or accept a TODO-tagged waiver in R1.
   - 6 imports: `asset_zoo.{cartpole,franka,unitree_g1,unitree_g1_motions,unitree_go1,anymal_c} → utils.download` — asset factories call `fetch_asset` directly; needs a small PR or new ADR.
   - 5+5 imports: `asset_zoo.* → actuator / entity` — asset factories build entities. Probably needs an "assets reach into domain" ADR.
   - ~8 imports: `envs.manager_based_rl_env → {bridges, entity, managers, scene, sensor}` — integration-point realities; some may stay, some can move behind interfaces during R3/R4.
   - Remaining imports (`scene.interactive_scene → {entity, recording, sensor, terrains}`, `entity.articulation → actuator`, `configs → {sensor, entity, recording, terrains}`, `utils.download → cache`) — each needs per-file audit during the relevant R-phase or a dedicated PR.
-- **R7 (importlinter blocking flip) is gated on the remaining 21 violations being cleaned up or explicitly waived.** Each R-phase PR should record which baseline violations it eliminates. Status: 3 / 24 resolved (all by R1). R2.1–R2.5 were intra-package dedup and did not touch the cross-layer baseline. **R3 is the next slice expected to reduce it** (`rl.eval_callback → cli._eval`).
+- **R7 (importlinter blocking flip) is gated on the remaining 21 violations being cleaned up or explicitly waived.** Each R-phase PR should record which baseline violations it eliminates. Status: **3 / 24 resolved (all by R1)**. R2.1–R2.5 (intra-package dedup), R3.1–R3.2 (allowed-direction parser moves), and R4.1 (intra-`cli` move) did not touch the cross-layer baseline. **No R-phase as currently scoped reduces it further** — the `rl.eval_callback → cli._eval` import needs a dedicated follow-up (inject `eval_task` instead of function-local import), and the `asset_zoo → utils.download` / `asset_zoo → {actuator,entity}` clusters need their own PRs or ADRs. This must be planned before R7's blocking flip.
 - **ADR-0001 §Migration plan's test spec was flawed** (R1). It said *"imports `genelab.rl.backends.sb3` in a subprocess and asserts `genelab.rl.runner` is not in `sys.modules` afterwards."* That spec assumed `rl/__init__.py` does not import `runner` — but it does (for the public `play_task` / `train_task` re-exports), so any submodule import of `genelab.rl` unavoidably pulls `runner` into `sys.modules` via parent-package init. The `sys.modules` check can never detect the actual cycle for `rl.backends.*` modules. PR #84 used a `grimp`-based static-graph test instead, which asserts no `rl.backends.<lib>` directly imports `rl.runner` — the real invariant. ADR-0001 §Migration plan has been amended to reflect this. Future "static cycle" tests should use the grimp pattern, not the sys.modules pattern.
 - **`# noqa: F401` does not silence pyright's `reportUnusedImport`** (R2.1). For re-export shims, use the PEP-484 explicit-re-export idiom `from foo import bar as bar` — recognized by both ruff and pyright (and mypy). No `__all__` maintenance required. Future R-phases that introduce re-export shims should follow this pattern; `noqa` comments alone will fail CI's typecheck job.
 - **Ruff E402 "module level import not at top of file" fires even when the call site is the bottom of the file** (R2.2). Pattern: import the helper at the top with the other imports; place the *call* wherever execution requires it (e.g. at module bottom for "register at module load" patterns). Future R-phases that wire bottom-of-file registration calls should put the imports up top.
@@ -440,25 +459,27 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 - **`Generic[TVar]` is required for a shared base whose `__init__` accepts a `dict[str, <subclass-cfg>]`** (R2.5). `dict` is invariant in its value type, so a base `__init__(cfg: dict[str, ManagerTermBaseCfg])` rejects `dict[str, RewardTermCfg]` at the call site under pyright. `BaseTermManager(Generic[TCfg])` with `TCfg = TypeVar(..., bound=ManagerTermBaseCfg)` lets each subclass narrow (`BaseTermManager[RewardTermCfg]`) without losing call-site type info. Future shared-base extractions over heterogeneous cfg dicts should use the same pattern.
 - **Init-order gate tests are cheap insurance for "pull __init__ up to a base" refactors** (R2.5). The `_post_init` template method moves buffer allocation across a method boundary; a 3-assertion test (buffers populated, keys mirror term names, empty-cfg → empty dicts) committed *before* the refactor and verified green pre- and post-move turns a "medium-risk" refactor into a low-risk one. Pattern worth reusing for R4 (CLI split) and any future base-class extraction.
 - **`metrics_manager.py` and `curriculum_manager.py` carry the same term-registration loop as the two managers R2.5 consolidated** (discovered during R2.5 audit). They are *out of ADR-0002's scope* (which targets rewards + terminations only) so were left untouched. They are a clean follow-up: adopting `BaseTermManager` there would remove two more copies of the registration loop. Candidate for a future R2.x-style PR or an ADR-0002 addendum.
+- **R3 relocates parsers in the *allowed* direction and does not reduce the importlinter baseline** (R3.1, corrected). The pre-R3 plan claimed moving `_build_eval_callback` into `EvalCallbackCfg.from_args` would clear the `rl.eval_callback → cli._eval` violation. It did not: `from_args` is a `cli → rl` move (allowed), whereas the violation is the `rl → cli` runtime import of `eval_task` *inside* `run_with_eval_callback`, which R3 never touched. Lesson: distinguish "where does the parsing live" (R3's concern) from "which module imports which at runtime" (the importlinter concern) — they are orthogonal. Clearing the violation is a separate follow-up (dependency-inject `eval_task`).
+- **`__all__` is the right tool for `reportUnusedFunction` on moved private functions** (R4.1). When CLI-package-private helpers (leading-underscore names that tests import via `from genelab.cli import _foo`) move into a new `cli/_*.py`, the ones called *only* from outside that module trip pyright `reportUnusedFunction` at the **def** site. The PEP-484 `as`-idiom re-export fixes `reportUnusedImport` at the *import* site (R2.1 lesson) but not this. Fix: declare an `__all__` listing the moved names in the new module — pyright treats `__all__` members as exported. Underscore names in `__all__` are legal and document the module's external API. Future R4.2/R4.3 (and any private-function relocation) should pre-empt this with `__all__`.
 
 **Next steps.**
 
-1. Maintainer review of ADRs 0001–0010. **ADR-0001** (cycle break, shipped), **ADR-0002** (BaseTermManager, shipped via R2.5), and **ADR-0003** (small dedup, all 5 sub-slices shipped) are strong candidates to flip from `Proposed` to `Accepted`.
+1. Maintainer review of ADRs. **ADR-0001** (cycle break), **ADR-0002** (BaseTermManager), **ADR-0003** (small dedup, all 5 sub-slices), and **ADR-0005** (domain-owned parsing, both sub-slices) are all shipped and strong candidates to flip from `Proposed` to `Accepted`. **ADR-0004** is partially shipped (R4.1 of 3) — leave `Proposed` until R4.3 lands.
 2. Move accepted ADRs to `Status: Accepted` (one-line edit per file).
-3. Start **Phase R3** — CLI domain-owned parsing (see below). It is the gate for R4 (CLI decomposition) and resolves 1 more R7-blocker violation.
-4. Parallel candidates (the §9.2 graph allows fan-out): **R5.1** (relocate motion-tracking rewards verbatim — pure file move), **R6** (vecenv rename + colocation — also relocates the `rl/_attach_base.py` deferred home). R4 stays serial after R3.
-5. R7 (importlinter blocking flip) remains gated on the 21 remaining R0.3-baseline cross-layer imports being cleaned up or waived. R2.1–R2.5 did not change the cross-layer baseline (intra-package dedup only).
-6. **Follow-up dedup** (not on the R-phase critical path): apply `BaseTermManager` to `metrics_manager.py` + `curriculum_manager.py` (2 more copies of the registration loop, discovered during the R2.5 audit).
+3. Continue **Phase R4** — CLI decomposition (see below). R4.1 (`cli/_distributed.py`) is merged; **R4.2 (`cli/_multi_seed.py`) is next**, then R4.3 (`cli/_dispatch.py`).
+4. Parallel candidates (the §9.2 graph allows fan-out): **R5.1** (relocate motion-tracking rewards verbatim — pure file move), **R6** (vecenv rename + colocation — also relocates the `rl/_attach_base.py` deferred home). R4.2/R4.3 stay serial after R4.1.
+5. R7 (importlinter blocking flip) remains gated on the 21 remaining R0.3-baseline cross-layer imports being cleaned up or waived. **No R-phase as currently scoped reduces them** — the `rl.eval_callback → cli._eval` import and the `asset_zoo → {utils.download, actuator, entity}` clusters each need a dedicated follow-up PR/ADR before R7.
+6. **Follow-up work** (not on the R-phase critical path): (a) clear `rl.eval_callback → cli._eval` by injecting `eval_task` into `run_with_eval_callback`; (b) apply `BaseTermManager` to `metrics_manager.py` + `curriculum_manager.py`; (c) split the 1,414-LoC `tests/test_cli.py` by concern once R4 lands (ADR-0004 names this as attractive).
 
-**Suggested next slice: R3 — domain owns its parsing (ADR-0005).**
+**Suggested next slice: R4.2 — `cli/_multi_seed.py` (ADR-0004, PR 2 of 3).**
 
-- **Scope.** Move runner-arg parsing out of `cli/__init__.py` into classmethods on the relevant domain configs: `EvalCallbackCfg.from_args(runner_args) → EvalCallbackCfg | None` (replaces `cli/__init__.py:_build_eval_callback`) and `SimulationCfg.play_retargeted_keys() → tuple[str, ...]` (replaces `cli/__init__.py:_PLAY_RETARGETED_KEYS`). 2 PRs (R3.1 / R3.2) per ADR-0005 §Migration plan.
-- **Why next.** (1) **Unblocks R4** — CLI decomposition is serial after R3 (§9.2). (2) **Resolves 1 more R7-blocker baseline violation** — `rl.eval_callback → cli._eval` flips from broken once the parse logic moves into the config classmethod. (3) **R0.1 `--help` snapshots are the safety net** — already in place; any CLI output drift fails the snapshot test (ADR-0005 §Test strategy requires empty snapshot diff).
-- **Production change.** Yes — move parsing logic; CLI delegates to the new classmethods. No CLI flag or `--help` text changes (snapshot-enforced).
-- **Risk.** Low. ADR-0005 §Rollback keeps the original inline parsing commented out for one deprecation window.
-- **Reviewer effort.** Medium — 2 PRs, each with a focused new test (`tests/test_eval_callback_from_args.py`, a `play_retargeted_keys` test in `tests/test_configs.py`) plus the R0.1 snapshot gate.
+- **Scope.** Move four functions verbatim out of `cli/__init__.py` into `src/genelab/cli/_multi_seed.py`: `_dispatch_multi_seed_train`, `_parse_seed_list`, `_resolve_multi_seed_parent`, `_strip_multi_seed_flags` (plus the `_STRIPPABLE_MULTI_SEED_FLAGS` constant). Re-export the four from `cli/__init__.py` (PEP-484 `as` idiom + an `__all__` in the new module, per the R4.1 lesson).
+- **Why next.** Serial after R4.1: `_dispatch_multi_seed_train` calls `_strip_distributed_flags`, and `_strip_multi_seed_flags`/`_resolve_multi_seed_parent` call `_strip_flag_value_pairs`/`_extract_log_dir_flag` — all now in `cli/_distributed.py`, so `_multi_seed.py` imports them from there. R4.3 (`cli/_dispatch.py`) is serial after R4.2.
+- **Production change.** Yes — file move only; behaviour identical. No CLI flag or `--help` text changes (R0.1 snapshot-enforced).
+- **Risk.** Low. `tests/test_multi_seed_cli.py` imports `_parse_seed_list`, `_resolve_multi_seed_parent`, `_strip_multi_seed_flags` via `from genelab.cli import` — preserved by the re-export shim (zero test edits, as in R4.1). Pre-PR `find_referencing_symbols` audit confirms.
+- **Reviewer effort.** Low–medium — one new file, one re-export shim, no logic change.
 
-**Alternative next slices** (unlocked, parallel-safe with R3):
+**Alternative next slices** (unlocked, parallel-safe with R4.2/R4.3):
 
 - **R5.1 (ADR-0006 PR1 of 2)** — relocate motion-tracking rewards verbatim. Pure file move.
 - **R6 (ADR-0007)** — vecenv rename + colocation. Independent of everything; relocates the R2.2 `rl/_attach_base.py` deferred home.
@@ -648,7 +669,7 @@ remaining 21 importlinter baseline violations being cleared).
 
 ---
 
-### Phase R3 — Domain owns its parsing / 解析逻辑下沉到 domain
+### Phase R3 — Domain owns its parsing / 解析逻辑下沉到 domain — ✅ COMPLETE (PRs #90, #91)
 
 1. **Goal.** Move runner-arg parsing out of `cli/__init__.py` into
    classmethods on the relevant domain configs. Sets the principle for
@@ -662,10 +683,13 @@ remaining 21 importlinter baseline violations being cleared).
    snapshot must match). No structural CLI decomposition (that's R4).
 4. **Affected modules.** `rl/eval_callback.py`, `configs.py`,
    `cli/__init__.py`.
-5. **Dependency changes.** None.
-6. **PR slices.** 2 PRs:
-   - PR3.1: `EvalCallbackCfg.from_args`; CLI delegates.
-   - PR3.2: `SimulationCfg.play_retargeted_keys()`; CLI delegates.
+5. **Dependency changes.** None. (Note: R3 does **not** clear the
+   `rl.eval_callback → cli._eval` importlinter violation — that is a
+   separate `rl → cli` runtime import, untouched here. The pre-R3 plan
+   wrongly assumed it would; corrected in §9.0.)
+6. **PR slices.** 2 PRs — both shipped:
+   - PR3.1 ✅ (#90): `EvalCallbackCfg.from_args`; CLI delegates.
+   - PR3.2 ✅ (#91): `SimulationCfg.play_retargeted_keys()`; CLI delegates.
 7. **Test strategy.**
    - R0 snapshot tests must produce empty diffs.
    - New `tests/test_eval_callback_from_args.py` covering the matrix
@@ -676,14 +700,17 @@ remaining 21 importlinter baseline violations being cleared).
 9. **Rollback.** Per-PR revert. CLI keeps the original inline parsing
    commented out during the first deprecation window (so revert is a
    no-op uncomment, not a full body re-paste).
-10. **Completion criteria.**
-    - `cli/__init__.py` shrinks by ≥ 35 LoC.
-    - New classmethods tested.
-    - Snapshot diff empty.
+10. **Completion criteria.** ✅ all met.
+    - `cli/__init__.py` shrinks by ≥ 35 LoC. → shrank ~31 LoC net
+      (R3.2 added back a `SimulationCfg` import line; the estimate did
+      not account for it — close enough, no concern).
+    - New classmethods tested. → `tests/test_eval_callback_from_args.py`
+      (5 tests) + `tests/test_configs.py` (3 tests).
+    - Snapshot diff empty. → verified green on both PRs.
 
 ---
 
-### Phase R4 — CLI dispatcher decomposition / CLI 拆解
+### Phase R4 — CLI dispatcher decomposition / CLI 拆解 — 🔵 IN PROGRESS (R4.1 merged #92; R4.2 + R4.3 remain)
 
 1. **Goal.** Carve `cli/__init__.py` (1,051 LoC, 40 symbols) into three
    focused submodules. Decision recorded in ADR-0004.
@@ -704,10 +731,14 @@ remaining 21 importlinter baseline violations being cleared).
    `cli/_*.py` files.
 5. **Dependency changes.** None.
 6. **PR slices.** 3 PRs, in order:
-   - PR4.1: `cli/_distributed.py` (smallest blast radius; pure plumbing).
-   - PR4.2: `cli/_multi_seed.py` (depends on `_distributed` only via
-     argv-strip helpers, which are now imported).
-   - PR4.3: `cli/_dispatch.py` (depends on `_distributed` and `_multi_seed`).
+   - PR4.1 ✅ (#92, `588f5be`): `cli/_distributed.py` (smallest blast
+     radius; pure plumbing). `cli/__init__.py` 1,020 → 900 LoC. Six
+     functions + constant moved verbatim; `__all__` added to silence
+     `reportUnusedFunction`; re-export shim kept all callers + both CLI
+     test modules working with zero edits.
+   - PR4.2 ⬜ **next**: `cli/_multi_seed.py` (depends on `_distributed`
+     only via the argv-strip helpers, now imported from there).
+   - PR4.3 ⬜: `cli/_dispatch.py` (depends on `_distributed` and `_multi_seed`).
 7. **Test strategy.**
    - Full `tests/test_cli.py` (1,414 LoC) and `tests/test_multi_seed_cli.py`
      per PR.
@@ -718,11 +749,12 @@ remaining 21 importlinter baseline violations being cleared).
    net is dense and R0 snapshots are baselined.
 9. **Rollback.** Per-PR revert. The moved files become orphans on
    revert; their content moves back inline.
-10. **Completion criteria.**
-    - `cli/__init__.py` ≤ 400 LoC.
-    - 3 new files created.
-    - `tests/test_cli.py` and `tests/test_multi_seed_cli.py` green.
-    - `--help` snapshot diff empty for all 8 commands.
+10. **Completion criteria.** (R4.1 done; R4.2 + R4.3 remain)
+    - `cli/__init__.py` ≤ 400 LoC. → 900 LoC after R4.1; the ≤400 target
+      lands after R4.3 moves the two `_dispatch_*` functions.
+    - 3 new files created. → 1 / 3 (`_distributed.py`).
+    - `tests/test_cli.py` and `tests/test_multi_seed_cli.py` green. → ✅ per R4.1.
+    - `--help` snapshot diff empty for all 8 commands. → ✅ per R4.1.
 
 ---
 
