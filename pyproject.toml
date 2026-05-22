@@ -199,8 +199,9 @@ testpaths = ["tests"]
 root_packages = ["genelab"]
 exclude_type_checking_imports = true
 
+# Domain modules must not reach UP into cli / rl. (After R7.3a + R7.3b this is clean.)
 [[tool.importlinter.contracts]]
-name = "Domain modules are below cli / rl / utils.download"
+name = "Domain modules are below cli / rl"
 type = "forbidden"
 source_modules = [
     "genelab.managers",
@@ -218,6 +219,27 @@ source_modules = [
 forbidden_modules = [
     "genelab.cli",
     "genelab.rl",
+]
+
+# Term logic must not trigger asset downloads. ``asset_zoo`` is the deliberate
+# exception: it is the asset catalog, so fetching assets via ``utils.download``
+# (a downward domain -> utils import) is its purpose (ADR-0009 / R7.3c).
+[[tool.importlinter.contracts]]
+name = "Domain (except asset_zoo) does not import utils.download"
+type = "forbidden"
+source_modules = [
+    "genelab.managers",
+    "genelab.mdp",
+    "genelab.entity",
+    "genelab.sensor",
+    "genelab.actuator",
+    "genelab.terrains",
+    "genelab.scene",
+    "genelab.bridges",
+    "genelab.recording",
+    "genelab.envs",
+]
+forbidden_modules = [
     "genelab.utils.download",
 ]
 
