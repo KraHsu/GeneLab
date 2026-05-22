@@ -6,7 +6,23 @@ import importlib
 from importlib import metadata
 from pathlib import Path
 import sys
-from typing import Any, Final, cast
+from typing import Any, Final, Protocol, cast
+
+
+class Runnable(Protocol):
+    """Contract every value in :data:`TASKS` must satisfy after instantiation.
+
+    A task exposes its config (``cfg``) and the two entry points the CLI dispatches
+    to (``play`` / ``train``). Promoted from the former private ``cli._RunnableTask``
+    so third-party task implementations have a documented, public contract to follow
+    (ADR-0008 / ROADMAP §9 R7).
+    """
+
+    cfg: object
+
+    def play(self) -> None: ...
+
+    def train(self) -> None: ...
 
 
 @dataclass(frozen=True)
