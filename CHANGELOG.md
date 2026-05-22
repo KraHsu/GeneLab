@@ -8,6 +8,15 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **`MlpResidualActuator`** (ROADMAP M2.5) — a learned-residual actuator:
+  `effort = clamp(DCMotor_base(q, q̇, q*) + scale · net([q*−q, q̇]), ±effort_budget)`.
+  The residual network is a TorchScript module loaded from
+  `MlpResidualActuatorCfg.network_file` (GeneLab only loads + runs it; training the
+  weights lives downstream, per M2.5). Single-step, per-joint contract: net input
+  `(…, 2)` = `[pos_error, joint_vel]`, output `(…, 1)` = residual torque (a plain
+  `nn.Linear(2, …)` first layer satisfies it). With no `network_file` it degrades to
+  a pure `DCMotorActuator`. Exported from `genelab.actuator` and `genelab.lab`;
+  tested in `tests/test_actuator.py`.
 - **`contact_force_limit(env, sensor_name, max_force)` termination** (ROADMAP
   M2.3, final slice) — trips when any link tracked by the named `ContactSensor`
   has a net contact-force magnitude (`force_norm`) above `max_force`. A safety

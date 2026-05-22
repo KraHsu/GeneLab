@@ -12,6 +12,8 @@ from genelab.actuator import (
     IdealPDActuatorCfg,
     ImplicitPDActuator,
     ImplicitPDActuatorCfg,
+    MlpResidualActuator,
+    MlpResidualActuatorCfg,
 )
 from genelab.bridges import (
     Bridge,
@@ -138,6 +140,8 @@ __all__ = [
     "KeyboardTwistBridgeCfg",
     "ManagerBasedEnv",
     "ManagerBasedEnvCfg",
+    "MlpResidualActuator",
+    "MlpResidualActuatorCfg",
     "NoiseCfg",
     "PyramidStairsCfg",
     "RandomRoughCfg",
