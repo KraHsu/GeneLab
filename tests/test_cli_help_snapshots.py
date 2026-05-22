@@ -58,6 +58,7 @@ HELP_COMMANDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("info", ("info", "--help")),
     ("play", ("play", "--help")),
     ("eval", ("eval", "--help")),
+    ("benchmark", ("benchmark", "--help")),
     ("export", ("export", "--help")),
     ("train", ("train", "--help")),
     ("project", ("project", "--help")),

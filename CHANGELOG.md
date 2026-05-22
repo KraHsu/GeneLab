@@ -8,6 +8,17 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **`genelab benchmark` command + suite scaffolding** (ROADMAP M3.8) — runs `eval` across a
+  JSON suite of tasks and aggregates the per-task metrics into one report.
+  `genelab benchmark --suite suite.json [--out report.json] [--reference ref.json]
+  [--tolerance 0.1]`; the suite is a list of `{task, checkpoint, episodes?, seed?, num_envs?}`.
+  With `--reference` (a prior report) it flags tasks whose `return_mean` dropped more than
+  `--tolerance` and exits non-zero — a regression gate. Orchestration in `genelab.rl.benchmark`
+  (`load_suite` / `run_benchmark` / `detect_regressions`), imported function-locally by the CLI
+  so `import genelab.cli` stays torch-free. Tested in `tests/test_benchmark.py` (eval mocked).
+  (The remaining M3.8 acceptance — ≥8 tasks with real reference numbers + a vision task — needs
+  a Genesis runtime + trained checkpoints + hosted assets, blocked in this environment as with M3.1.)
+
 - **Camera segmentation** (ROADMAP M3.4) — `CameraSensorCfg` gains `render_segmentation`
   and `colorize_segmentation` flags; `CameraData` gains a `segmentation` channel. The
   sensor now forwards `segmentation` / `colorize_seg` to Genesis's `camera.render` (the

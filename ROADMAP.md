@@ -247,7 +247,7 @@ Genesis 阻挡（`push_robot` ≈ 现有 `push_by_setting_velocity`；`randomize
 | ✅ M3.5 | F/T sensor + tactile array | `ForceTorqueSensor`（per-joint 反作用力矩，PR #126）；6 轴 wrench / 指尖压力阵列后置 |
 | 🚧 M3.6 | 多机器人 API | **RFC 已起草（ADR-0012，explicit-routing 设计）**；实现拆为 S1–S6 分片待做。manager 层启用已存在但未消费的 `SceneEntityCfg.name` / `asset_name` 绑定，env 用 `env.articulation(name)` 取代 `["robot"]` 硬编码（破坏性，~82 term 点 + 所有 examples 需迁移） |
 | ✅ M3.7 | SimulationCfg 字段扩展 | 暴露 Genesis `RigidOptions`：contact / solver / constraint-damping 共 8 字段（PR #127）。CCD：Genesis 无对应 knob，N/A |
-| ❌ M3.8 | Benchmark suite | 至少 8 个任务（含 locomotion / manipulation / dexterous / vision），每个都有 reference numbers |
+| 🚧 M3.8 | Benchmark suite | **`genelab benchmark --suite suite.json` 命令 + suite/report schema + 回归门（`--reference`/`--tolerance`）已落地**（rl/benchmark.py，mock 单测）。剩「≥8 个任务 + 真实 reference numbers + vision 任务端到端」待 Genesis runtime + checkpoint + asset（受阻，同 M3.1） |
 
 **设计要点**
 
@@ -566,7 +566,7 @@ deletions. Re-index after any future structural change with `index_repository`.
 **Risks discovered during R0 + R1 (new, not in the original list).**
 
 - **Rich/Typer help output is not deterministic under env-var pinning** (R0.1). `TERM=dumb` / `COLUMNS=N` / `NO_COLOR=1` are honoured differently across Rich versions and CI runners. GitHub Actions sets `FORCE_COLOR=1` which Rich honours *over* `NO_COLOR=1`. The portable mechanism is pinning Typer's module-level constants in a `python -c` wrapper before import: `typer.rich_utils.MAX_WIDTH = 100`, `typer.rich_utils.FORCE_TERMINAL = False`. Any future test that diff-checks Rich-rendered output must follow this pattern. Captured in `tests/test_cli_help_snapshots.py`'s module docstring.
-- **Doc drift: ROADMAP §9.0 originally enumerated 9 CLI commands; the real surface has 11** (R0.1). `prof` and the `project` subapp's own `--help` were missed. The R0.1 snapshot baseline covers all 11; this document has been updated. New CLI commands or subapps must be added to both `tests/test_cli_help_snapshots.py:HELP_COMMANDS` *and* the §9.0 list.
+- **Doc drift: ROADMAP §9.0 originally enumerated 9 CLI commands; the real surface has 11** (R0.1). `prof` and the `project` subapp's own `--help` were missed. The R0.1 snapshot baseline covers all 11; this document has been updated. New CLI commands or subapps must be added to both `tests/test_cli_help_snapshots.py:HELP_COMMANDS` *and* the §9.0 list. *(Update: M3.8 added the `benchmark` command — the surface is now **12**; its snapshot `help-benchmark.txt` is in `HELP_COMMANDS`.)*
 - **Local lint gates must be run before pushing** (R0.2). The first R0.2 push failed CI because `ruff format --check` flagged the implicit-string-concatenation in the subprocess wrapper. Triple-quoted strings are ruff-stable. Future test-only PRs should run `uv run ruff format --check` and `uv run ruff check` locally before pushing — both are part of CI's `lint` job.
 - **The layering spec in `target-architecture.md` / ADR-0009 has more drift from current code than the assessment suggested** (R0.3). With `exclude_type_checking_imports = true`, the R0.3 baseline showed **24 distinct cross-layer imports** across 3 broken contracts; R1 trimmed 3 of those. Root causes by category (post-R1):
   - ~~3 imports: `rl.backends.{rsl_rl,skrl,sb3} → rl.runner` — addressed by **R1 / ADR-0001**.~~ ✅ Resolved by PR #84.
