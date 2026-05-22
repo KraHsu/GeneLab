@@ -110,3 +110,74 @@ class WaveCfg(SubTerrainCfg):
 
     def to_genesis_params(self) -> dict[str, Any]:
         return {"num_waves": self.num_waves, "amplitude": self.amplitude}
+
+
+@dataclass
+class DiscreteObstaclesCfg(SubTerrainCfg):
+    """Randomly placed rectangular obstacles (Genesis ``discrete_obstacles_terrain``).
+
+    ``max_height`` is the obstacle height — Genesis draws each from
+    ``±{max, max/2}``. ``min_size`` / ``max_size`` bound the rectangle side length (m);
+    ``num_rects`` is the obstacle count. A useful "step over / around clutter" curriculum.
+    """
+
+    max_height: float = 0.05
+    min_size: float = 1.0
+    max_size: float = 2.0
+    num_rects: int = 20
+
+    def genesis_type(self) -> str:
+        return "discrete_obstacles_terrain"
+
+    def to_genesis_params(self) -> dict[str, Any]:
+        return {
+            "max_height": self.max_height,
+            "min_size": self.min_size,
+            "max_size": self.max_size,
+            "num_rects": self.num_rects,
+        }
+
+
+@dataclass
+class SteppingStonesCfg(SubTerrainCfg):
+    """Grid of raised stones separated by gaps (Genesis ``stepping_stones_terrain``).
+
+    ``stone_size`` is each stone's side length (m); ``stone_distance`` the gap between
+    stones (m); ``max_height`` randomizes per-stone height; ``platform_size`` is the flat
+    centre platform (m, ``0`` for none). Tests precise foot placement.
+    """
+
+    stone_size: float = 1.0
+    stone_distance: float = 0.25
+    max_height: float = 0.2
+    platform_size: float = 1.0
+
+    def genesis_type(self) -> str:
+        return "stepping_stones_terrain"
+
+    def to_genesis_params(self) -> dict[str, Any]:
+        return {
+            "stone_size": self.stone_size,
+            "stone_distance": self.stone_distance,
+            "max_height": self.max_height,
+            "platform_size": self.platform_size,
+        }
+
+
+@dataclass
+class FractalCfg(SubTerrainCfg):
+    """Multi-octave fractal-noise terrain (Genesis ``fractal_terrain``).
+
+    ``levels`` is the number of octaves (more = finer detail); ``scale`` the overall
+    amplitude. A natural-looking rough ground without the blocky steps of
+    ``random_uniform_terrain``.
+    """
+
+    levels: int = 8
+    scale: float = 5.0
+
+    def genesis_type(self) -> str:
+        return "fractal_terrain"
+
+    def to_genesis_params(self) -> dict[str, Any]:
+        return {"levels": self.levels, "scale": self.scale}
