@@ -8,6 +8,14 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Sim2Real deployment-recipe doc** (ROADMAP M2.7) —
+  `docs/best-practices/sim2real.{en,zh}.md` (How-to Guides → "Harden for Sim2Real"):
+  which DR / observation-noise to enable while training (the M2.1/M2.2/M2.6 events +
+  models), the hardening terminations/rewards (M2.3/M2.4), the optional learned
+  actuator (M2.5), what `genelab export` dumps (TorchScript/ONNX + `metadata.json`),
+  and how to align the obs vector / `action_scale` on the hardware side (and what
+  not to replicate). **Completes M2.**
+
 - **Observation-noise models** (ROADMAP M2.6) — three new `NoiseCfg` types in
   `genelab.mdp.noise`, re-exported from `genelab.mdp` and `genelab.lab`:
   - `ScaledNoise(n_min, n_max)` — multiplicative scale-factor noise
