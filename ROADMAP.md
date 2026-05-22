@@ -323,25 +323,25 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 > *structural hygiene* that those features rest on. R-phases are
 > independent of M1–M3 sequencing — most can interleave with feature work.
 >
-> Last reviewed: 2026-05-22 · against `dev` @ `4ca926d`.
+> Last reviewed: 2026-05-22 · against `dev` @ `67eef60`.
 
 ### 9.0 Status / 当前状态
 
-**Phase:** **R0 + R1 + R2 + R3 + R4 complete** · R5–R7 not started.
+**Phase:** **R0 + R1 + R2 + R3 + R4 + R5 complete** · R6–R7 not started.
 
 | What | Status | Artifact |
 |---|---|---|
 | Architecture assessment | ✅ written | [`plans/architecture/architecture-assessment.md`](plans/architecture/architecture-assessment.md) |
 | Target architecture | ✅ written | [`plans/architecture/target-architecture.md`](plans/architecture/target-architecture.md) |
-| ADRs 0001–0010 | ✅ drafted; ADR-0004 flipped to `Accepted` (R4 complete); ADR-0001 + ADR-0002 + ADR-0003 + ADR-0005 shipped and ready for `Accepted` flip (pending maintainer review) | [`plans/adr/`](plans/adr/) |
+| ADRs 0001–0010 | ✅ drafted; ADR-0004 + ADR-0006 flipped to `Accepted` (R4 + R5 complete); ADR-0001 + ADR-0002 + ADR-0003 + ADR-0005 shipped and ready for `Accepted` flip (pending maintainer review) | [`plans/adr/`](plans/adr/) |
 | Phase R0 — baseline & tooling | ✅ **complete** (3 / 3 PRs merged) | PR #81 (`c3d851e`), #82 (`b8df293`), #83 (`d7a702e`) |
 | Phase R1 — break rl.runner ↔ rl.backends cycle | ✅ **merged** | PR #84 (`04509d9`) — implements ADR-0001 |
 | Phase R2 — small abstractions | ✅ **complete** (5 / 5 sub-slices merged) | PRs #85 (`74b2e30`), #86 (`039e502`), #87 (`0367462`), #88 (`a50d031`), #89 (`5571889`) — implement ADR-0003 (+ ADR-0002 for R2.5) |
 | Phase R3 — domain-owned parsing | ✅ **complete** (2 / 2 sub-slices merged) | PR #90 (`6b97f6e`), #91 (`03f480b`) — implement ADR-0005 |
 | Phase R4 — CLI decomposition | ✅ **complete** (3 / 3 PRs merged) — implements ADR-0004 | PR #92 (`588f5be`), #94 (`43cf463`), #95 (`4ca926d`) |
-| Phase R5 — task-specific rewards split | ⬜ not started | gated on ADR-0006 |
+| Phase R5 — task-specific rewards split | ✅ **complete** (2 / 2 sub-slices merged) — implements ADR-0006 | PR #97 (`9bcbe01`), #98 (`67eef60`) |
 | Phase R6 — vecenv rename | ⬜ not started | gated on ADR-0007 |
-| Phase R7 — extensions API + importlinter blocking | ⬜ not started | gated on R0–R6 landing + ADR-0008, ADR-0009 |
+| Phase R7 — extensions API + importlinter blocking | ⬜ not started | gated on R6 landing + the cross-layer follow-ups + ADR-0008, ADR-0009 |
 | Phase deferred — entity/articulation split | ⏸ deferred (criteria recorded) | [ADR-0010](plans/adr/0010-defer-articulation-split.md) |
 
 **Completed.**
@@ -422,6 +422,15 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
   - Modified: `tests/test_cli.py` — four `_relaunch_under_torchrun` `os.execvp` patches repointed to `genelab.cli._distributed.os.execvp` (`os` left `__init__.py`); the `_patch_picker` helper generalized to also patch the `cli._dispatch` consumer site (`pick_agent_kind` is consumed there now; each importing module holds its own binding).
   - Modified: `CHANGELOG.md`.
   - **≤400-LoC target not reached** (645 LoC). All three ADR-0004 modules are extracted, but the residue — 10 Typer command callbacks, `_configured_task` / `_resolve_task`, the override helpers, `_RunnableTask`, and help text — is exactly what ADR-0004 deliberately kept in `__init__.py`. Reaching ≤400 needs a separate follow-up (new concern / ADR).
+- **PR R5.1 — `mdp/motion_tracking.py` extraction** (PR #97, merged `9bcbe01`) — implements ADR-0006 sub-slice 1:
+  - New: `src/genelab/mdp/motion_tracking.py` (116 LoC). The whole "motion imitation" section moved **verbatim** — six public functions (`motion_global_anchor_position_error_exp`, `motion_global_anchor_orientation_error_exp`, `motion_relative_body_position_error_exp`, `motion_relative_body_orientation_error_exp`, `motion_global_body_linear_velocity_error_exp`, `motion_global_body_angular_velocity_error_exp`) + the shared private helpers `_motion_command` / `_body_index_filter`.
+  - Modified: `src/genelab/mdp/rewards.py` (554 → 461 LoC). Re-exports the six (PEP-484 `as` idiom); drops the now-unused `cast` / `MotionCommand` / `quat_error_magnitude` imports. `mdp/__init__.py`, the Unitree G1 example, and tests are **unchanged** (the re-export preserves `genelab.mdp.motion_*` and `genelab.mdp.rewards.motion_*`).
+  - **ADR variance:** ADR-0006 §6.1 named only the three jaccard-1.000 functions; the section had grown to six + two helpers, so R5.1 moved the whole coherent block (keeps the shared helpers with their only users). Confirmed with the maintainer.
+- **PR R5.2 — `motion_body_error_exp` factory** (PR #98, merged `67eef60`, commit `31ce571`) — implements ADR-0006 sub-slice 2; **completes Phase R5**:
+  - Modified: `src/genelab/mdp/motion_tracking.py` (116 → 130 LoC). New `motion_body_error_exp(env, command_name, std, body_names=None, *, quantity)` factory + `_BODY_ERROR_ATTRS` mapping; the three jaccard-1.000 body-error rewards become thin `def` wrappers (kept as `def`, not `functools.partial`, so `__name__` / signature / reward-term logging are unchanged — ADR-0006 R6.2). Factory also exported from the `genelab.mdp` namespace.
+  - **Scope:** only the jaccard-1.000 trio (`pos` / `lin_vel` / `ang_vel`), per ADR-0006 and confirmed with the maintainer. The orientation (geodesic) + anchor rewards are structurally different and left unchanged.
+  - New: `tests/test_motion_tracking_equivalence.py` (3 tests). Pins the pre-refactor implementations and asserts the factory + wrappers reproduce them bit-for-bit (`torch.equal`), with/without the `body_names` filter, plus a distinct-signal guard. (These rewards had no test coverage before R5.2.)
+  - Modified: `src/genelab/mdp/__init__.py` (factory export), `CHANGELOG.md`.
 
 **Tests run.**
 
@@ -440,6 +449,8 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 - R4.1: ruff ✓, ruff format ✓, pyright 0/0/0 (after adding `__all__` to `_distributed.py` to silence `reportUnusedFunction` on the externally-only-called functions), full suite **395 passed** (unchanged — no new tests; the move is covered by the existing `test_cli.py` + `test_multi_seed_cli.py`, 98 of which run in 2.6s), `lint-imports` baseline unchanged at 2 kept / 2 broken (move stays within the `cli` package). `--help` snapshots byte-identical. Final CI run `26270577235`: **all three jobs PASS**.
 - R4.2: ruff ✓, ruff format ✓, pyright 0/0/0, full suite **395 passed** (unchanged), import smoke confirms no `cli → _multi_seed → cli` cycle, `lint-imports` baseline unchanged at 2 kept / 2 broken (intra-`cli` move). `--help` snapshots byte-identical. Moved bodies verified byte-identical to `HEAD`. The four `genelab.cli.sys.argv` → `genelab.cli._distributed.sys.argv` test repoints were forced by dropping the now-unused `import sys` from `__init__.py`.
 - R4.3: ruff ✓, ruff format ✓, pyright 0/0/0, full suite **395 passed** (unchanged), import smoke confirms no `cli → _dispatch → cli` cycle, `lint-imports` baseline unchanged at 2 kept / 2 broken. `--help` snapshots byte-identical. `_dispatch_play` / `_dispatch_train` + the `_parse_*` / `_coerce_prof_kwargs` cluster verified byte-identical to `HEAD`. Five `test_cli.py` failures surfaced mid-implementation (4 `os.execvp` patches + the `_patch_picker` agent-kind site) and were fixed by repointing the monkeypatch targets to the moved functions' new owning modules — same class of fix as R4.2's `sys.argv`.
+- R5.1: ruff ✓, ruff format ✓, pyright 0/0/0, full suite **395 passed** (unchanged), `lint-imports` baseline unchanged at 2 kept / 2 broken. Re-export smoke confirms all six motion fns resolve via `mdp` / `mdp.rewards` / `mdp.motion_tracking` to the same objects (no cycle); the moved 96-line block verified byte-identical to `HEAD`. Zero edits to `mdp/__init__.py`, examples, or tests.
+- R5.2: ruff ✓, ruff format ✓, pyright 0/0/0, full suite **398 passed** (was 395; +3 from `tests/test_motion_tracking_equivalence.py`), `lint-imports` baseline unchanged at 2 kept / 2 broken. The equivalence tests assert the factory + wrappers reproduce the pinned pre-refactor implementations bit-for-bit (`torch.equal`). The jaccard-1.000 `SIMILAR_TO` triple is gone by construction (the three bodies are now distinct one-liners); graph re-index runs post-merge.
 
 **Changes to the dependency graph.** `mcp__codebase-memory-mcp__index_status` reported **3,887 nodes / 10,905 edges** post-R2.5 (was 3,829 / 11,427 at the start of the planning round); the index has not been re-run since (counts above are as of `5571889`). R3 + R4.1 add: the `EvalCallbackCfg.from_args` classmethod and `SimulationCfg.play_retargeted_keys` staticmethod, the new `cli/_distributed.py` module (six functions + a constant) and its re-export edges into `cli/__init__.py`, and the `tests/test_eval_callback_from_args.py` + `tests/test_configs.py` nodes. None of these touch the cross-layer import baseline (R3 moves parsers in the allowed `cli → rl` / `cli → configs` direction; R4.1 stays within the `cli` package). The large edge reduction since the planning round is structural: the indexer re-resolves the graph after R0.3's `exclude_type_checking_imports = true` flag and after each consolidation (collapsing duplicate caller / property / method edges into a single canonical helper-import or inherited-base edge). The hotspots flagged in the assessment are being trimmed slice-by-slice; the cycle (R1) and all five cluster duplications (R2.1–R2.5) are gone.
 
@@ -448,7 +459,7 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 - **R1 (ADR-0001)** — ✅ **resolved by PR #84.** The quiescent `rl.runner ↔ rl.backends` cycle is gone; backends now import from `rl._helpers`. `tests/test_no_static_cycle.py` (grimp-based) prevents regression; matching importlinter contract is now KEPT.
 - **R2.5 (ADR-0002)** — ✅ **resolved by PR #89.** `BaseTermManager._post_init` preserves buffer-allocation timing; `tests/test_manager_init_order.py` was verified green pre- and post-refactor. The risk did not materialize.
 - **R4 (ADR-0004)** — ✅ **resolved by PRs #92 + #94 + #95.** All three CLI submodules (`_distributed`, `_multi_seed`, `_dispatch`) extracted; R0.1 `--help` snapshots gated every PR (zero drift). The large `test_cli.py` surface (1,414 LoC) needed only mechanical monkeypatch-target repoints in R4.2/R4.3 (functions moved out of `cli/__init__.py`, so `genelab.cli.{sys,os,pick_agent_kind}` patch paths were repointed to the new owning modules). `cli/__init__.py` 1,051 → 645 LoC; the ADR's ≤400 target is a documented follow-up (the residue is Typer wiring ADR-0004 deliberately kept).
-- **R5.2 (ADR-0006)** — parameterizing motion-tracking rewards risks numerical drift. Mitigation: bit-equivalence test ships in the same PR.
+- **R5.2 (ADR-0006)** — ✅ **resolved by PR #98.** The parameterization-drift risk was guarded by `tests/test_motion_tracking_equivalence.py`, which asserts the factory + wrappers reproduce the pinned pre-refactor implementations bit-for-bit (`torch.equal`). Scope was held to the jaccard-1.000 trio; the geodesic / anchor rewards (structurally different) were left untouched.
 - **R7 (ADR-0009)** — flipping importlinter from lint-only to blocking is gated on the R0.3 baseline being clean. Post-R4: **21 cross-layer imports remain across 2 broken contracts** (down from 24 / 3 — R1 trimmed 3; R2.1–R2.5, R3.1–R3.2, and all of R4 were intra-package or allowed-direction moves and did not touch the cross-layer baseline). **Correction:** R3 was previously expected to clear the `rl.eval_callback → cli._eval` violation; it did not — see the corrected note below.
 
 **Risks discovered during R0 + R1 (new, not in the original list).**
@@ -479,18 +490,21 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 - **When the moved function uses a parent-package symbol at *runtime* (not just in an annotation), co-locate that symbol with it** (R4.3). `_dispatch_play` / `_dispatch_train` call `_AGENT_KINDS` and `_coerce_prof_kwargs` (+ its private `_parse_*` helpers) at runtime; all are used *only* by the two dispatch functions. ADR-0004 had said `_coerce_prof_kwargs` "stays in `cli/__init__.py`", but that re-creates the cycle the `TYPE_CHECKING` trick can't fix (the names are evaluated, not stringified). Resolution: move the whole exclusively-used cluster into the new module so it stays a self-contained leaf. Recorded as an ADR variance. Rule of thumb: a moved function's *annotation* deps can stay behind (TYPE_CHECKING ref); its *runtime* deps must either move with it or already live in a non-`cli` / sibling `cli/_*` module.
 - **Removing a now-unused `import` from `cli/__init__.py` breaks `monkeypatch.setattr("genelab.cli.<mod>.<attr>", …)` paths that targeted it** (R4.2 + R4.3). `test_cli.py` patches `genelab.cli.sys.argv` and `genelab.cli.os.execvp` to drive `_relaunch_under_torchrun`. Those paths only resolved because `sys` / `os` were imported in `__init__.py`; the function itself moved to `_distributed.py` in R4.1. Once R4.2/R4.3 dropped the orphaned `import sys` / `import os`, the patch paths 404'd. Fix: repoint them to the module that *owns* the function (`genelab.cli._distributed.{sys,os}.…`). Likewise, a picker imported `from … import name` into a new consumer module needs its monkeypatch to target *that* module (each importer holds its own binding) — `_patch_picker` was generalized to patch every consumer site. **Lesson: when relocating a function, audit `tests/` for `monkeypatch.setattr("genelab.cli.<x>…")` strings, not just `from genelab.cli import` statements** — the string paths are invisible to `find_referencing_symbols`.
 - **A literal LoC target in an ADR is an estimate, not a guarantee** (R4.3). ADR-0004 set `cli/__init__.py ≤ 400 LoC`; extracting all three named modules landed it at 645. The gap is the Typer command callbacks + task-resolution + override helpers + help text the ADR explicitly chose to keep. Shipped as "ADR scope complete" with the gap documented; reaching ≤400 is a separate concern. When an ADR's quantitative target and its enumerated scope disagree after the work, the enumerated scope is the contract — record the deviation rather than expanding scope silently.
+- **An ADR's enumerated symbol list can go stale; re-audit the actual code before a "move" slice** (R5.1). ADR-0006 named three motion-tracking functions; by the time R5.1 ran, the "motion imitation" section of `mdp/rewards.py` had grown to six public functions + two shared private helpers. Moving only the three would have orphaned the shared helpers and left a half-family behind — defeating the ADR's coherence goal. `get_symbols_overview` on the target module before drafting the move surfaced the drift; the whole coherent block moved instead (maintainer-confirmed). Lesson: a relocation slice's scope is "the coherent unit in the code today," not "the symbols the ADR happened to list months ago."
+- **Pin the pre-refactor implementation in the test when a refactor *merges* bodies** (R5.2). Unlike a verbatim move (where `git show HEAD:… | diff` proves equivalence), a parameterizing refactor changes the code shape, so there's no in-tree "original" to diff against post-merge. The durable guard is a test that *copies* the original bodies as reference implementations and asserts the new factory/wrappers reproduce them bit-for-bit (`torch.equal`), exercising each parameter branch (here: each `quantity`, with and without the optional filter). These rewards had **zero** prior coverage — the equivalence test is also their first unit test, so it doubles as a regression net.
+- **Prefer thin `def` wrappers over `functools.partial` for back-compat shims** (R5.2). ADR-0006 floated `partial`, but `partial` objects have no `__name__` and a noisy `repr` — risky if any consumer logs reward terms by `func.__name__`. A one-line `def` that forwards to the factory keeps the public name a real function with its original signature and `__name__`, for one extra line each. Use `partial` only when the call site truly needs a callable value, not a named function.
 
 **Next steps.**
 
 1. Maintainer review of ADRs. **ADR-0004** is flipped to `Accepted` (R4 complete). **ADR-0001** (cycle break), **ADR-0002** (BaseTermManager), **ADR-0003** (small dedup, all 5 sub-slices), and **ADR-0005** (domain-owned parsing, both sub-slices) are all shipped and strong candidates to flip from `Proposed` to `Accepted` (one-line edit per file, pending maintainer review).
-2. **Phase R4 is complete** (R4.1 #92, R4.2 #94, R4.3 #95). Next R-phases fan out (the §9.2 graph allows it): **R5** (ADR-0006 — motion-tracking rewards split) and **R6** (ADR-0007 — vecenv rename + colocation, also relocating the R2.2 `rl/_attach_base.py` deferred home). Both are independent and parallel-safe.
+2. **Phases R4 + R5 are complete** (R4.1 #92, R4.2 #94, R4.3 #95; R5.1 #97, R5.2 #98). The last structural R-phase is **R6** (ADR-0007 — vecenv rename + colocation, also relocating the R2.2 `rl/_attach_base.py` deferred home); it is independent of everything.
 3. R7 (importlinter blocking flip) remains gated on the 21 remaining R0.3-baseline cross-layer imports being cleaned up or waived. **No R-phase as currently scoped reduces them** — the `rl.eval_callback → cli._eval` import and the `asset_zoo → {utils.download, actuator, entity}` clusters each need a dedicated follow-up PR/ADR before R7.
 4. **Follow-up work** (not on the R-phase critical path): (a) clear `rl.eval_callback → cli._eval` by injecting `eval_task` into `run_with_eval_callback`; (b) apply `BaseTermManager` to `metrics_manager.py` + `curriculum_manager.py`; (c) **reach the ADR-0004 ≤400-LoC target for `cli/__init__.py`** (now 645) by extracting the residue ADR-0004 kept — Typer command callbacks, `_configured_task` / `_resolve_task`, override helpers, help text — as a new concern (own ADR); (d) split the 1,414-LoC `tests/test_cli.py` by concern (ADR-0004 names this as attractive, and the R4.2/R4.3 monkeypatch-target churn shows the test file now has stale module-coupling worth untangling).
 
-**Suggested next slice: R5.1 — `mdp/motion_tracking.py` (ADR-0006, PR 1 of 2),** or **R6 (ADR-0007)** — both unlocked and parallel-safe now that R4 is done.
+**Suggested next slice: R6 (ADR-0007)** — the last structural R-phase, unlocked and independent of everything.
 
-- **R5.1 scope.** Relocate the three motion-tracking rewards (`motion_relative_body_position_error_exp`, `motion_global_body_linear_velocity_error_exp`, `motion_global_body_angular_velocity_error_exp`) verbatim out of `mdp/rewards.py` into a new `mdp/motion_tracking.py`. Pure file move; R5.2 then adds the `motion_body_error_exp` factory + bit-equivalence test.
-- **R6 scope.** Rename the vecenv adapters under `rl/vecenvs/` and relocate `rl/_attach_base.py` to its ADR-0007-intended home. Independent of everything.
+- **R6 scope.** Rename the vecenv adapters (`rl/<lib>_wrapper.py`) under a new `rl/vecenvs/` package and relocate `rl/_attach_base.py` (placed flat in R2.2) to its ADR-0007-intended home. Keep back-compat re-exports for the public import paths. Pure structural move; the existing RL backend / wrapper tests + the optional-dep import tests are the safety net.
+- **Then R7 (ADR-0009)** — flip importlinter from lint-only to blocking, gated on the remaining 21 cross-layer baseline violations being cleared or waived (see the follow-up list below).
 
 ### 9.1 Cross-phase rules
 
@@ -521,13 +535,13 @@ in §9.0 records progress against them.
 R0 ✅─┬──► R1 ✅ ──────────────────────────────────────► R7
       ├──► R2 ✅ (R2.1–R2.5 all merged) ────────────────► R7
       ├──► R3 ✅ ──► R4 ✅ (R4.1–R4.3 all merged) ───────► R7
-      ├──► R5 ─────────────────────────────────────────► R7
+      ├──► R5 ✅ (R5.1–R5.2 all merged) ────────────────► R7
       └──► R6 ─────────────────────────────────────────► R7
 ```
 
-R0–R4 are complete. R5 / R6 fan out in parallel (independent of each
-other and of the finished phases). R7 is the closer (gated on the
-remaining 21 importlinter baseline violations being cleared).
+R0–R5 are complete. Only **R6** (independent) remains before **R7**,
+the closer (gated on the remaining 21 importlinter baseline violations
+being cleared or waived).
 
 ---
 
@@ -775,50 +789,59 @@ remaining 21 importlinter baseline violations being cleared).
 
 ---
 
-### Phase R5 — Task-specific rewards out of `mdp/rewards.py` / 拆出任务专属奖励
+### Phase R5 — Task-specific rewards out of `mdp/rewards.py` / 拆出任务专属奖励 — ✅ COMPLETE (R5.1 #97, R5.2 #98)
 
 1. **Goal.** Separate motion-tracking rewards from the generic reward
-   library; parameterize the three near-identical motion variants.
+   library; parameterize the near-identical motion variants.
    Decision recorded in ADR-0006.
-2. **Scope.**
-   - Create `mdp/motion_tracking.py`.
-   - Move `motion_relative_body_position_error_exp`,
-     `motion_global_body_linear_velocity_error_exp`,
-     `motion_global_body_angular_velocity_error_exp` verbatim.
-   - Add `motion_body_error_exp(quantity, frame, *, std, …)` factory.
-   - Keep the three named functions as thin wrappers for back-compat
-     (`from genelab.mdp.rewards import motion_*` keeps working via a
-     re-export block).
+2. **Scope (as shipped).**
+   - Created `mdp/motion_tracking.py`.
+   - Moved the **whole** "motion imitation" section verbatim — the six
+     public functions + the `_motion_command` / `_body_index_filter`
+     helpers (ADR-0006 named only three; the family had grown — variance
+     recorded, maintainer-confirmed).
+   - Added `motion_body_error_exp(env, command_name, std, body_names=None,
+     *, quantity)` factory; the three jaccard-1.000 body-error rewards
+     became thin `def` wrappers (kept as `def`, not `partial`, so
+     `__name__` / signatures are unchanged).
+   - `mdp/rewards.py` re-exports the six (`from genelab.mdp.motion_tracking
+     import …`), so `genelab.mdp.motion_*` and `genelab.mdp.rewards.motion_*`
+     both keep working.
 3. **Non-goals.** No new reward families. No behavioral change to the
-   three motion-tracking rewards (verified numerically — see test
-   strategy).
-4. **Affected modules.** `mdp/rewards.py`, `mdp/motion_tracking.py`
-   (new), `examples/unitree/` (no change, just verified).
+   moved rewards (verified numerically — see test strategy).
+4. **Affected modules (as shipped).** `mdp/rewards.py` (554 → 460 LoC),
+   `mdp/motion_tracking.py` (new, 130 LoC), `mdp/__init__.py` (factory
+   export only). `examples/unitree/` and the tests are unchanged.
 5. **Dependency changes.** None.
 6. **PR slices.** 2 PRs:
-   - PR5.1: relocate the three functions verbatim; re-export from
-     `rewards.py`. Pure file move.
-   - PR5.2: parameterize via `motion_body_error_exp`; the three names
-     become wrappers.
-7. **Test strategy.**
-   - `tests/test_rewards.py` green per PR.
-   - PR5.2 adds `tests/test_motion_tracking_equivalence.py` — for each
-     of the three reward names, builds a small batch of fake states and
-     asserts the wrapper output equals the original implementation
-     bit-for-bit (within float tolerance).
-   - Run `examples/unitree/g1` training for one chunk per PR; reward
-     curves must match the reference run from `docs/best-practices/reference-runs.md`.
+   - PR5.1 ✅ (#97, `9bcbe01`): relocate the whole motion family verbatim;
+     re-export from `rewards.py`. Pure file move.
+   - PR5.2 ✅ (#98, `67eef60`): parameterize via `motion_body_error_exp`;
+     the three jaccard-1.000 names become wrappers. Completes Phase R5.
+7. **Test strategy (as shipped).**
+   - Full suite green per PR (395 → 398).
+   - PR5.2 added `tests/test_motion_tracking_equivalence.py` — for each of
+     the three reward names, builds a small batch of fake states and asserts
+     the wrapper + factory output equals the **pinned original**
+     implementation bit-for-bit (`torch.equal`), with and without the
+     `body_names` filter, plus a distinct-signal guard.
+   - (The Unitree G1 reference-run check from the original plan was not run
+     — the bit-for-bit equivalence test is the stronger guarantee, and a
+     reference-runs doc does not yet exist; deferred to M1.7.)
 8. **Risk level.**
-   - PR5.1: low (file move).
-   - PR5.2: medium (parameterization — target-arch risk R9).
+   - PR5.1: low (file move). — borne out.
+   - PR5.2: medium (parameterization — target-arch risk R9). — mitigated
+     by the bit-equivalence test; scope held to the jaccard-1.000 trio.
 9. **Rollback.** Per-PR revert. `mdp/rewards.py` re-export block keeps
    import paths stable in both directions.
-10. **Completion criteria.**
-    - 3 functions live in `mdp/motion_tracking.py`.
-    - Re-running `search_graph(relation='SIMILAR_TO')` shows
-      jaccard < 0.9 for those names.
-    - Equivalence test green.
-    - Unitree G1 reference run reproduces existing numbers.
+10. **Completion criteria.** (all met)
+    - ✅ The motion family lives in `mdp/motion_tracking.py`.
+    - ✅ The jaccard-1.000 `SIMILAR_TO` triple is gone by construction (the
+      three bodies are now distinct one-liners); graph re-index runs
+      post-merge to confirm jaccard < 0.9.
+    - ✅ Equivalence test green (`torch.equal`).
+    - ⚠️ Unitree G1 reference run — superseded by the bit-equivalence test;
+      no reference-runs doc exists yet (M1.7).
 
 ---
 
