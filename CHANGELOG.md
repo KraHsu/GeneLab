@@ -8,6 +8,28 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal restructuring** (no behaviour change): the motion-imitation
+  reward family moved out of `mdp/rewards.py` into a new
+  `mdp/motion_tracking.py` (ADR-0006 / ROADMAP §9 PR R5.1), so the generic
+  reward library stays a coherent "any task may use this" surface. The whole
+  "motion imitation" section relocated **verbatim** — six public functions
+  (`motion_global_anchor_position_error_exp`,
+  `motion_global_anchor_orientation_error_exp`,
+  `motion_relative_body_position_error_exp`,
+  `motion_relative_body_orientation_error_exp`,
+  `motion_global_body_linear_velocity_error_exp`,
+  `motion_global_body_angular_velocity_error_exp`) plus the shared private
+  helpers `_motion_command` / `_body_index_filter`. `mdp/rewards.py` re-exports
+  the six (PEP-484 `as` idiom), so both `genelab.mdp.motion_*` (the package
+  namespace all consumers use) and `genelab.mdp.rewards.motion_*` keep
+  resolving — `mdp/__init__.py`, the Unitree G1 example, and the tests are
+  unchanged. `mdp/rewards.py` shrinks 554 → 461 LoC (also dropped the now-unused
+  `cast` / `MotionCommand` / `quat_error_magnitude` imports). **ADR variance:**
+  ADR-0006 named only the three jaccard-1.000 functions; the "motion imitation"
+  section had since grown to six + the two helpers, so R5.1 moved the whole
+  coherent block (keeps the shared helpers with their only users). The
+  parameterized `motion_body_error_exp` factory + numerical-equivalence test
+  remain for R5.2.
 - **Internal restructuring** (no behaviour change): the play / train dispatch
   moved out of `cli/__init__.py` into a new `cli/_dispatch.py` submodule,
   completing the CLI dispatcher decomposition (ADR-0004). `_dispatch_play` and
