@@ -8,6 +8,15 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Camera segmentation** (ROADMAP M3.4) — `CameraSensorCfg` gains `render_segmentation`
+  and `colorize_segmentation` flags; `CameraData` gains a `segmentation` channel. The
+  sensor now forwards `segmentation` / `colorize_seg` to Genesis's `camera.render` (the
+  segmentation slot was previously discarded) and returns either an `(num_envs, H, W)` int32
+  object-index map (level per Genesis `VisOptions.segmentation_level`) or, when colorized,
+  an `(num_envs, H, W, 3)` uint8 image. Off by default → no change for existing cameras.
+  Tested in `tests/test_sensor.py`. (Depth-derived point clouds — the other half of M3.4 —
+  are deferred; Genesis's renderer emits no point-cloud channel.)
+
 - **Terrain curriculum activation** (ROADMAP M3.3) — `TerrainGeneratorCfg.curriculum=True`
   now orders the terrain rows easiest → hardest by a new `SubTerrainCfg.difficulty` field
   (row 0 = lowest difficulty), instead of the previous proportion-weighted random tiling

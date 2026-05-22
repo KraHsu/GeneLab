@@ -20,8 +20,9 @@ Constraints (governed by Genesis's renderer, not this wrapper):
 * All BatchRender cameras share resolution; mixing different ``(width, height)`` pairs
   across cameras on the same scene will assert in Genesis.
 
-Out of scope for this revision: ``follow_entity`` chase mode, segmentation / normal
-channels, single-env fallback path.
+Segmentation masks are supported (``render_segmentation``); out of scope for this
+revision: ``follow_entity`` chase mode, the surface-normal channel, depth-derived point
+clouds, single-env fallback path.
 """
 
 from dataclasses import dataclass
@@ -44,8 +45,10 @@ class CameraSensorCfg(SensorCfg):
     ``link_name`` resolves through ``env.link_names`` (mirrors :class:`IMUSensorCfg`).
     ``offset_pos`` is the camera origin in the parent link's local frame; ``offset_quat``
     is a wxyz unit quaternion describing the camera orientation relative to the link.
-    ``render_rgb`` and ``render_depth`` independently toggle the two channels so a
-    depth-only or RGB-only configuration skips the unused render path.
+    ``render_rgb`` / ``render_depth`` / ``render_segmentation`` independently toggle the
+    three channels so an unused render path is skipped. The segmentation mask stores a
+    per-pixel object index (``link`` / ``entity`` etc. per Genesis ``VisOptions.segmentation_level``);
+    set ``colorize_segmentation`` to get an RGB visualisation instead of raw indices.
     """
 
     link_name: str = ""
@@ -58,6 +61,8 @@ class CameraSensorCfg(SensorCfg):
     far: float = 10.0
     render_rgb: bool = True
     render_depth: bool = True
+    render_segmentation: bool = False
+    colorize_segmentation: bool = False
 
     def build(self) -> "CameraSensor":
         return CameraSensor(self)
@@ -69,6 +74,9 @@ class CameraData:
 
     rgb: torch.Tensor | None  # (num_envs, H, W, 3) uint8 when render_rgb else None
     depth: torch.Tensor | None  # (num_envs, H, W) float32 (meters) when render_depth else None
+    # (num_envs, H, W) int32 object-index map when render_segmentation (else None);
+    # (num_envs, H, W, 3) uint8 when colorize_segmentation is also set.
+    segmentation: torch.Tensor | None = None
 
 
 class CameraSensor(Sensor[CameraData]):
@@ -128,10 +136,14 @@ class CameraSensor(Sensor[CameraData]):
     def _validate_cfg(self) -> None:
         if not self._cfg_typed.link_name:
             raise ValueError(f"CameraSensorCfg(name={self._cfg.name!r}) requires link_name")
-        if not (self._cfg_typed.render_rgb or self._cfg_typed.render_depth):
+        if not (
+            self._cfg_typed.render_rgb
+            or self._cfg_typed.render_depth
+            or self._cfg_typed.render_segmentation
+        ):
             raise ValueError(
                 f"CameraSensorCfg(name={self._cfg.name!r}): at least one of "
-                f"render_rgb / render_depth must be True"
+                f"render_rgb / render_depth / render_segmentation must be True"
             )
 
     def _allocate_camera(self, gs_scene: object, link: object) -> object:
@@ -163,9 +175,11 @@ class CameraSensor(Sensor[CameraData]):
         # ``move_to_attach`` is required every step — Genesis does not auto-update the
         # camera pose even when attached to a tracked link.
         self._cam.move_to_attach()  # type: ignore[attr-defined]
-        rgb_raw, depth_raw, _, _ = self._cam.render(  # type: ignore[attr-defined]
+        rgb_raw, depth_raw, seg_raw, _ = self._cam.render(  # type: ignore[attr-defined]
             rgb=self._cfg_typed.render_rgb,
             depth=self._cfg_typed.render_depth,
+            segmentation=self._cfg_typed.render_segmentation,
+            colorize_seg=self._cfg_typed.colorize_segmentation,
         )
         # Genesis returns numpy arrays from the default Rasterizer (no batch dim when
         # ``num_envs == 1`` and the camera is not env-separated) and torch tensors from
@@ -174,7 +188,12 @@ class CameraSensor(Sensor[CameraData]):
         num_envs = self._env.num_envs
         rgb_out = self._coerce_rgb(rgb_raw, num_envs) if rgb_raw is not None else None
         depth_out = self._coerce_depth(depth_raw, num_envs) if depth_raw is not None else None
-        return CameraData(rgb=rgb_out, depth=depth_out)
+        seg_out = (
+            self._coerce_segmentation(seg_raw, num_envs, self._cfg_typed.colorize_segmentation)
+            if seg_raw is not None
+            else None
+        )
+        return CameraData(rgb=rgb_out, depth=depth_out, segmentation=seg_out)
 
     @staticmethod
     def _to_tensor(raw: object) -> torch.Tensor:
@@ -210,6 +229,22 @@ class CameraSensor(Sensor[CameraData]):
         """Return ``(num_envs, H, W)`` float32 torch tensor from numpy / torch input."""
 
         tensor = cls._to_tensor(depth).to(torch.float32)
+        if tensor.dim() == 2:
+            tensor = tensor.unsqueeze(0)
+        if tensor.shape[0] != num_envs and tensor.shape[0] == 1 and num_envs > 1:
+            tensor = tensor.expand(num_envs, -1, -1).contiguous()
+        return tensor
+
+    @classmethod
+    def _coerce_segmentation(cls, seg: object, num_envs: int, colorized: bool) -> torch.Tensor:
+        """Return the segmentation mask with a leading batch dim.
+
+        Colorized → ``(num_envs, H, W, 3)`` uint8 (same shape as RGB). Otherwise an
+        ``(num_envs, H, W)`` int32 object-index map.
+        """
+        if colorized:
+            return cls._coerce_rgb(seg, num_envs)
+        tensor = cls._to_tensor(seg).to(torch.int32)
         if tensor.dim() == 2:
             tensor = tensor.unsqueeze(0)
         if tensor.shape[0] != num_envs and tensor.shape[0] == 1 and num_envs > 1:
