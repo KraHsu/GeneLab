@@ -8,6 +8,23 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal refactor** (no behaviour change): the three jaccard-1.000
+  motion-tracking body-error rewards are now thin wrappers over a shared
+  `motion_body_error_exp(env, command_name, std, body_names=None, *, quantity)`
+  factory in `mdp/motion_tracking.py` (ADR-0006 / ROADMAP §9 PR R5.2). `quantity`
+  (`"pos"` / `"lin_vel"` / `"ang_vel"`) selects the `(reference, robot)` attribute
+  pair on the `MotionCommand`; the public names
+  (`motion_relative_body_position_error_exp`,
+  `motion_global_body_linear_velocity_error_exp`,
+  `motion_global_body_angular_velocity_error_exp`) keep their exact signatures and
+  `__name__` (thin `def` wrappers, not `functools.partial`, so reward-term logging
+  is unaffected). The factory is also exported from the `genelab.mdp` namespace for
+  direct use. The orientation (geodesic) and anchor rewards are left as-is — they
+  are not part of the jaccard-1.000 duplication. New `tests/test_motion_tracking_equivalence.py`
+  pins the pre-refactor implementations and asserts the factory/wrappers reproduce
+  them bit-for-bit (`torch.equal`), with and without the `body_names` filter.
+  Completes ADR-0006 (R5).
+
 - **Internal restructuring** (no behaviour change): the motion-imitation
   reward family moved out of `mdp/rewards.py` into a new
   `mdp/motion_tracking.py` (ADR-0006 / ROADMAP §9 PR R5.1), so the generic

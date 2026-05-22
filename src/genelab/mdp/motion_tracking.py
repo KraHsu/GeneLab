@@ -7,7 +7,7 @@ motion-tracking family has one home. Consumers reach these via the
 re-export block so ``genelab.mdp.rewards.motion_*`` also still resolves.
 """
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 import torch
 
@@ -49,6 +49,38 @@ def motion_global_anchor_orientation_error_exp(
     return torch.exp(-error / (std * std))
 
 
+_BODY_ERROR_ATTRS: dict[str, tuple[str, str]] = {
+    "pos": ("body_pos_relative_w", "robot_body_pos_w"),
+    "lin_vel": ("body_lin_vel_w", "robot_body_lin_vel_w"),
+    "ang_vel": ("body_ang_vel_w", "robot_body_ang_vel_w"),
+}
+
+
+def motion_body_error_exp(
+    env: "ManagerBasedRlEnv",
+    command_name: str,
+    std: float,
+    body_names: tuple[str, ...] | None = None,
+    *,
+    quantity: Literal["pos", "lin_vel", "ang_vel"],
+) -> torch.Tensor:
+    """Per-body L2 error of a kinematic ``quantity`` vs the reference motion, exp-kernelled.
+
+    Shared body of the three jaccard-1.000 motion-tracking rewards (position in the
+    anchor-relative frame; linear / angular velocity in world frame). ``quantity``
+    selects the ``(reference, robot)`` attribute pair on the :class:`MotionCommand`;
+    the error is summed over the spatial axis, averaged over the selected bodies, and
+    mapped through ``exp(-error / std^2)``.
+    """
+    reference_attr, robot_attr = _BODY_ERROR_ATTRS[quantity]
+    cmd = _motion_command(env, command_name)
+    indexes = _body_index_filter(cmd, body_names)
+    reference = getattr(cmd, reference_attr)
+    robot = getattr(cmd, robot_attr)
+    error = torch.sum((reference[:, indexes] - robot[:, indexes]) ** 2, dim=-1)
+    return torch.exp(-error.mean(dim=-1) / (std * std))
+
+
 def motion_relative_body_position_error_exp(
     env: "ManagerBasedRlEnv",
     command_name: str,
@@ -56,13 +88,7 @@ def motion_relative_body_position_error_exp(
     body_names: tuple[str, ...] | None = None,
 ) -> torch.Tensor:
     """Multi-body L2 position error against the anchor-aligned reference frames."""
-    cmd = _motion_command(env, command_name)
-    indexes = _body_index_filter(cmd, body_names)
-    error = torch.sum(
-        (cmd.body_pos_relative_w[:, indexes] - cmd.robot_body_pos_w[:, indexes]) ** 2,
-        dim=-1,
-    )
-    return torch.exp(-error.mean(dim=-1) / (std * std))
+    return motion_body_error_exp(env, command_name, std, body_names, quantity="pos")
 
 
 def motion_relative_body_orientation_error_exp(
@@ -91,13 +117,7 @@ def motion_global_body_linear_velocity_error_exp(
     body_names: tuple[str, ...] | None = None,
 ) -> torch.Tensor:
     """L2 world-frame linear-velocity error across the tracked bodies."""
-    cmd = _motion_command(env, command_name)
-    indexes = _body_index_filter(cmd, body_names)
-    error = torch.sum(
-        (cmd.body_lin_vel_w[:, indexes] - cmd.robot_body_lin_vel_w[:, indexes]) ** 2,
-        dim=-1,
-    )
-    return torch.exp(-error.mean(dim=-1) / (std * std))
+    return motion_body_error_exp(env, command_name, std, body_names, quantity="lin_vel")
 
 
 def motion_global_body_angular_velocity_error_exp(
@@ -107,10 +127,4 @@ def motion_global_body_angular_velocity_error_exp(
     body_names: tuple[str, ...] | None = None,
 ) -> torch.Tensor:
     """L2 world-frame angular-velocity error across the tracked bodies."""
-    cmd = _motion_command(env, command_name)
-    indexes = _body_index_filter(cmd, body_names)
-    error = torch.sum(
-        (cmd.body_ang_vel_w[:, indexes] - cmd.robot_body_ang_vel_w[:, indexes]) ** 2,
-        dim=-1,
-    )
-    return torch.exp(-error.mean(dim=-1) / (std * std))
+    return motion_body_error_exp(env, command_name, std, body_names, quantity="ang_vel")
