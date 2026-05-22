@@ -52,6 +52,11 @@ TARGETS: tuple[str, ...] = (
     "genelab.rl.backends.rsl_rl",
     "genelab.rl.backends.skrl",
     "genelab.rl.backends.sb3",
+    # VecEnv adapters (ADR-0007 / R6): each must import without its RL library —
+    # the "subclass the upstream base if installed" step defers via importlib.
+    "genelab.rl.vecenvs.rsl_rl",
+    "genelab.rl.vecenvs.skrl",
+    "genelab.rl.vecenvs.sb3",
 )
 
 _WRAPPER = """\

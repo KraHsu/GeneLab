@@ -80,7 +80,7 @@ def test_select_backend_routes_by_cfg_type() -> None:
 
 
 def test_sb3_wrapper_flat_contract() -> None:
-    from genelab.rl.sb3_wrapper import GenelabSb3VecEnv
+    from genelab.rl.vecenvs.sb3 import GenelabSb3VecEnv
 
     env = _FakeEnv()
     wrapped = GenelabSb3VecEnv(env, obs_group="policy")
@@ -103,14 +103,14 @@ def test_sb3_wrapper_flat_contract() -> None:
 
 
 def test_sb3_wrapper_rejects_missing_obs_group() -> None:
-    from genelab.rl.sb3_wrapper import GenelabSb3VecEnv
+    from genelab.rl.vecenvs.sb3 import GenelabSb3VecEnv
 
     with pytest.raises(KeyError):
         GenelabSb3VecEnv(_FakeEnv(), obs_group="does-not-exist")
 
 
 def test_sb3_wrapper_her_contract() -> None:
-    from genelab.rl.sb3_wrapper import GenelabSb3VecEnv
+    from genelab.rl.vecenvs.sb3 import GenelabSb3VecEnv
 
     captured: dict[str, Any] = {}
 

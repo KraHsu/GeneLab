@@ -8,7 +8,6 @@ from genelab.rl.config import (
     RslRlPpoAlgorithmCfg,
 )
 from genelab.rl.profiler import maybe_profile, profiler_enabled
-from genelab.rl.rsl_rl_wrapper import RslRlVecEnvWrapper
 from genelab.rl.runner import AgentKind, play_task, train_task
 from genelab.rl.sb3_config import Sb3AgentCfg, Sb3ExperimentCfg, Sb3HerCfg, Sb3PolicyCfg
 from genelab.rl.skrl_config import SkrlAgentCfg, SkrlExperimentCfg, SkrlModelCfg
@@ -21,7 +20,6 @@ __all__ = [
     "RslRlModelCfg",
     "RslRlOnPolicyRunnerCfg",
     "RslRlPpoAlgorithmCfg",
-    "RslRlVecEnvWrapper",
     "Sb3AgentCfg",
     "Sb3ExperimentCfg",
     "Sb3HerCfg",
@@ -36,3 +34,22 @@ __all__ = [
     "select_backend",
     "train_task",
 ]
+
+
+def __getattr__(name: str) -> object:
+    # Deprecated single-backend re-export (ADR-0007 / R6). The vecenv adapters now
+    # live under ``genelab.rl.vecenvs.<lib>``; this kept the asymmetric top-level
+    # ``RslRlVecEnvWrapper`` export working for one release. Removed from ``__all__``.
+    if name == "RslRlVecEnvWrapper":
+        import warnings
+
+        from genelab.rl.vecenvs.rsl_rl import RslRlVecEnvWrapper as _cls
+
+        warnings.warn(
+            "genelab.rl.RslRlVecEnvWrapper is deprecated; import it from "
+            "genelab.rl.vecenvs.rsl_rl instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _cls
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

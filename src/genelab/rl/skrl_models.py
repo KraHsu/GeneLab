@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     import gymnasium
 
     from genelab.rl.skrl_config import SkrlModelCfg
-    from genelab.rl.skrl_wrapper import GenelabSkrlWrapper
+    from genelab.rl.vecenvs.skrl import GenelabSkrlWrapper
 
 _ACTIVATIONS = {
     "elu": nn.ELU,
