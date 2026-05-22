@@ -226,6 +226,11 @@ class ManagerBasedRlEnv:
         """Per-actuated-joint ``(lower, upper)`` limits, shape ``(num_joints, 2)``."""
         return self._articulation.joint_pos_limits
 
+    @property
+    def joint_vel_limits(self) -> torch.Tensor:
+        """Per-actuated-joint velocity-limit magnitude (rad/s), shape ``(num_joints,)``."""
+        return self._articulation.joint_vel_limits
+
     # ------------------------------------------------------------------ reference state
 
     def write_joint_state_to_sim(
