@@ -48,17 +48,19 @@ GeneLab 的差异化价值：
 - **Observation noise（M2.6 完成）**：`Unoise`/`Gnoise` + `ScaledNoise`/`CorrelatedNoise`/`BiasDrift`
 - **Sim2Real 部署文档（M2.7 完成）**：`docs/best-practices/sim2real.{en,zh}.md`
 - Curriculum：terrain levels + velocity range
-- 传感器：IMU / Contact / FrameTransformer / RayCast(3 模式) / Camera(RGB+depth) / TerrainHeight
+- 传感器：IMU / Contact / FrameTransformer / RayCast(3 模式) / Camera(RGB+depth) / TerrainHeight /
+  **ForceTorque（joint-FT，M3.5 完成）**
+- **Sim rigid 选项（M3.7 完成）**：`SimulationCfg` 暴露 Genesis `RigidOptions` 的 contact / solver /
+  constraint-damping 共 8 字段
 - Recording：NPZ / CSV / video / 实时 PyQt & MPL plots；Teleop bridges：keyboard / DearPyGui
 - torchrun 多卡训练
 - **架构**：`lint-imports` 必过 CI 分层门禁（6/0）；pyright 在 `src/` 上 0 错误（不再几乎全关）
 
-⚠️ **关键缺口**（按 ROI 排序详见 §4）—— **M1 与 M2 均已完成；剩余缺口全在 M3（平台广度）**：
+⚠️ **关键缺口**（按 ROI 排序详见 §4）—— **M1、M2 完成；M3 进行中（M3.5 / M3.7 ✅）**，剩余缺口全在 M3：
 - 多机器人 API 缺位（`articulations["robot"]` 硬编码，M3.6 —— 最大一项，先提 RFC）
-- `SimulationCfg` 字段过少（M3.7）
-- Camera 无 segmentation、无 F-T/tactile（M3.4 / M3.5）
+- Camera 无 segmentation（M3.4）；指尖压力 tactile 阵列待做（M3.5 已交付 joint-FT）
 - Terrain curriculum flag 未生效、sub-terrain 仅 5 种（M3.2 / M3.3）
-- 资产仅 5 个（M3.1）；benchmark suite 未建（M3.8）
+- 资产仅 5 个（M3.1，需外部托管 MJCF）；benchmark suite 未建（M3.8）
 
 ---
 
@@ -229,8 +231,10 @@ Genesis 阻挡（`push_robot` ≈ 现有 `push_by_setting_velocity`；`randomize
 
 > **One-liner**: 把 GeneLab 从「能跑 demo」推到「能做严肃 benchmark」。
 
-**状态：⏸ 基本未启动（全部 ❌）。** 仅有 5 个 asset（anymal_c / cartpole / franka / g1 / go1）。
-多机器人 API（M3.6）的架构前置（R3 + R4）已就位，但功能本身待做（先提 RFC）。
+**状态：进行中 — M3.5（F/T 传感器，PR #126）/ M3.7（SimulationCfg rigid 选项，PR #127）✅；
+其余待做。** 仅有 5 个 asset（anymal_c / cartpole / franka / g1 / go1）。多机器人 API（M3.6）的架构
+前置（R3 + R4）已就位，但功能本身待做（先提 RFC）。M3.1（新资产）在当前环境受阻——每个 asset_zoo
+机器人需外部托管 MJCF + 固定 md5。
 
 **目标产物**
 
@@ -240,9 +244,9 @@ Genesis 阻挡（`push_robot` ≈ 现有 `push_by_setting_velocity`；`randomize
 | ❌ M3.2 | 更多 sub-terrain | gaps / stepping stones / discrete obstacles / mesh import |
 | ❌ M3.3 | Terrain curriculum 真生效 | `TerrainGeneratorCfg.curriculum=True` 时按 mdp/curriculums 的进度自动调难度 |
 | ❌ M3.4 | Camera segmentation + point cloud | 暴露 Genesis 的 semantic/instance ID 通道 |
-| ❌ M3.5 | F/T sensor + tactile array | 至少 joint-FT；指尖压力可后置 |
+| ✅ M3.5 | F/T sensor + tactile array | `ForceTorqueSensor`（per-joint 反作用力矩，PR #126）；6 轴 wrench / 指尖压力阵列后置 |
 | ❌ M3.6 | 多机器人 API | manager 层支持 `entity_cfg.name="robot_a"` 绑定特定 articulation，env 层去除 `["robot"]` 硬编码 |
-| ❌ M3.7 | SimulationCfg 字段扩展 | 暴露 Genesis 的接触参数、求解器选项、CCD、constraint damping |
+| ✅ M3.7 | SimulationCfg 字段扩展 | 暴露 Genesis `RigidOptions`：contact / solver / constraint-damping 共 8 字段（PR #127）。CCD：Genesis 无对应 knob，N/A |
 | ❌ M3.8 | Benchmark suite | 至少 8 个任务（含 locomotion / manipulation / dexterous / vision），每个都有 reference numbers |
 
 **设计要点**
