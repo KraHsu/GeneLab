@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from genelab.managers.command_manager import CommandTerm, CommandTermCfg
+from genelab.mdp._helpers import resolve_robot_state
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
@@ -82,6 +83,7 @@ class UniformVelocityCommand(CommandTerm):
 
     def __init__(self, cfg: UniformVelocityCommandCfg, env: "ManagerBasedRlEnv") -> None:
         super().__init__(cfg, env)
+        self._robot_state = resolve_robot_state(env, cfg.asset_name)
         self._command = torch.zeros(self.num_envs, 3, device=self.device)
         # Snapshot of the resample-time velocity in the world frame; only read by
         # ``rel_world_envs`` envs so we can rotate it back into the body frame each
@@ -198,7 +200,7 @@ class UniformVelocityCommand(CommandTerm):
     def _update_command(self) -> None:
         # 1. Heading PD overrides ωz for heading envs only.
         if self.cfg.heading_command and self._is_heading.any():
-            quat = self._env.robot_state.root_quat
+            quat = self._robot_state.root_quat
             yaw = _yaw_from_quat(quat)
             heading_error = torch.atan2(
                 torch.sin(self._heading_target - yaw), torch.cos(self._heading_target - yaw)
@@ -213,7 +215,7 @@ class UniformVelocityCommand(CommandTerm):
         # 2. World envs: rotate the cached world-frame velocity into the body frame.
         if self._is_world.any():
             w_ids = self._is_world.nonzero(as_tuple=False).flatten()
-            yaw_w = _yaw_from_quat(self._env.robot_state.root_quat[w_ids])
+            yaw_w = _yaw_from_quat(self._robot_state.root_quat[w_ids])
             cos_h = torch.cos(yaw_w)
             sin_h = torch.sin(yaw_w)
             vx_w = self._command_w[w_ids, 0]
