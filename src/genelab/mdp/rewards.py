@@ -66,6 +66,37 @@ def action_rate_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return torch.sum((env.action_manager.action - env.action_manager.prev_action) ** 2, dim=-1)
 
 
+# --------------------------------------------------------------------- base hard-constraints (M2.4)
+
+
+def lin_vel_z_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    """Penalize vertical base velocity — ``v_z²`` in the base frame.
+
+    Discourages bouncing / vertical oscillation in locomotion. Returns the
+    non-negative square; pair it with a negative weight in the term cfg.
+    """
+    return env.robot_state.root_lin_vel_b[:, 2] ** 2
+
+
+def base_height_l2(env: "ManagerBasedRlEnv", target_height: float) -> torch.Tensor:
+    """Penalize squared deviation of base height from ``target_height``.
+
+    Flat-ground variant (no terrain-height sensor): ``(root_z − target_height)²``
+    on the world-frame root z. Pair with a negative weight.
+    """
+    return (env.robot_state.root_pos[:, 2] - target_height) ** 2
+
+
+def alive_bonus(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    """Constant ``+1`` per env per step (pair with a positive weight).
+
+    Rewards staying alive so per-step penalties don't make early termination look
+    attractive. The reward manager zeroes terminated envs on reset, so this counts
+    only steps actually taken.
+    """
+    return torch.ones(env.num_envs, device=env.device)
+
+
 _joint_acc_l2_warned = False
 
 
