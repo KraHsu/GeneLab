@@ -323,15 +323,18 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 > *structural hygiene* that those features rest on. R-phases are
 > independent of M1–M3 sequencing — most can interleave with feature work.
 >
-> Last reviewed: 2026-05-22 · against `dev` @ `2a380fa` (R7 complete + #108 R2.5 dedup finished).
+> Last reviewed: 2026-05-22 · against `dev` @ `9296aad` (R7 complete; post-R7 cleanup #108 + #110–#112 merged).
 
 ### 9.0 Status / 当前状态
 
-**Phase:** **R0–R7 COMPLETE + R2.5 dedup finished (#108)** — the architecture
+**Phase:** **R0–R7 COMPLETE + post-R7 cleanup done** — the architecture
 refactor is done; importlinter now runs as a **required** CI gate with a clean
 **6 contracts / 0 violations** baseline. All four term-keyed managers share
-`BaseTermManager`. Only ADR-0010 (entity/articulation split) remains, deliberately
-deferred.
+`BaseTermManager` (#108). Post-R7 housekeeping is merged: the R-phase deprecation
+shims are **removed** (#110), the example-robot tests are split out of `test_cli.py`
+(#112), and ADR-0010 ships its size guard (#111) while staying deferred. ADRs
+0001–0009 are all `Accepted`; only ADR-0010 (entity/articulation split) remains,
+deliberately deferred (its trigger criteria are unmet).
 
 | What | Status | Artifact |
 |---|---|---|
@@ -455,6 +458,9 @@ deferred.
   - `tests/test_manager_init_order.py`: +3 gate tests (metrics post-init buffers, curriculum registration, metrics+curriculum empty-cfg), committed first (commit 1) and verified green against the **unrefactored** managers before the refactor (commit 2).
   - `CHANGELOG.md`: entry under `[Unreleased] · Changed`.
   - Reference audit (`find_referencing_symbols`): both managers are constructed only in `envs/manager_based_rl_env.py` (lines 109/110) and re-exported from `managers/__init__.py`; no external reader of their private buffers. Public ctors `(cfg, env)` unchanged.
+- **PR #110 — remove the R-phase deprecation shims** (merged `dev` @ `8dd4edd`) — backward-compat for the R6/R7 relocations is no longer maintained (maintainer waived it), so the §9.1 "ride one release" gate no longer applies. Deleted `rl/{rsl_rl,sb3,skrl}_wrapper.py`, `rl/distributed.py`, `cli/_eval.py`, and `tests/test_deprecated_imports.py`; removed the top-level `rl.RslRlVecEnvWrapper` `__getattr__` re-export and the `cli._RunnableTask = Runnable` alias. Repointed the three live references that still used an old path (`cli/__init__.py` → `rl.eval_task`; `tests/test_cli.py` → `utils.distributed`; + 5 stale docstrings). Audit (`grep` across `src`/`tests`/`examples`/`docs`) found no other importer; smoke check confirms every old path now raises and the canonical paths resolve. Net −179 LoC.
+- **PR #111 — ADR-0010 articulation size guard** (merged `dev` @ `16d5b1c`) — fulfills ADR-0010's remaining Validation-criteria deliverable (its §Risks R10.1 soft check) **without** doing the split (none of the four trigger criteria is met; the file is 528 LoC). New `tests/test_articulation_size.py`: silent pass ≤700 LoC, `UserWarning` at 700–1000 (prompting a revisit of the trigger criteria), hard fail >1000. ADR-0010 stays `Proposed`/deferred.
+- **PR #112 — split example-robot tests out of `test_cli.py`** (merged `dev` @ `9296aad`) — first slice of the "split the 1,414-LoC `test_cli.py`" follow-up. Moved ~19 tests that exercise `genelab_examples` robot logic (not the CLI) verbatim into `tests/test_examples_rubiks.py` (11 tests + the `_Fake*` physics doubles) and `tests/test_examples_wuji.py` (8 tests + `_FakeWuji*`). `test_cli.py` dropped 1,418 → 1,000 LoC (80 → 61 tests); shed orphaned `numpy` / `Sequence` / examples imports + the `FloatArray` alias. Pure relocation, byte-identical bodies, suite total unchanged.
 
 **Tests run.**
 
@@ -483,9 +489,13 @@ deferred.
 - R7.3c: config-only. `lint-imports` **4 kept / 1 broken**; ruff + pyright clean; full suite **411 passed** (unchanged).
 - R7.3d: ruff ✓, ruff format ✓, pyright 0/0/0, full suite **413 passed** (was 411; +2 `test_importlinter_configured`), optional-dep boundary still green after the `CACHE_DIR` move, import smoke confirms no cycle. **`lint-imports` 6 kept / 0 broken** — the gate is now required in CI.
 - #108: gate tests **6 passed** pre-refactor (verified green against the unrefactored managers); manager-related subset (`test_manager_init_order` + `test_metrics` + `test_managers` + `test_rewards`) **54 passed** post-refactor; ruff ✓, ruff format ✓, **pyright 0/0/0** (CI config-driven, `src/genelab` only — the test-file private-usage / `_FakeEnv` errors are excluded since `[tool.pyright] include = ["src/genelab"]`), **`lint-imports` 6 kept / 0 broken** (intra-`managers/` move, no cross-layer change), import smoke confirms both managers' `__mro__[1]` is `BaseTermManager`. Full suite **416 passed** (was 413; +3 gate tests).
+- #110: ruff ✓, ruff format ✓, **pyright 0/0/0**, **`lint-imports` 6 kept / 0 broken**; smoke check confirms all five removed modules + `rl.RslRlVecEnvWrapper` now raise on import while the canonical paths resolve. Full suite **410 passed** (was 416; −6 from the deleted `tests/test_deprecated_imports.py`).
+- #111: branch logic verified at 528 / 700 / 701 / 1000 / 1001 LoC (PASS / PASS / WARN / WARN / FAIL); ruff ✓, ruff format ✓, pyright 0/0/0, `lint-imports` 6 / 0. Full suite **411 passed** (+1).
+- #112: per-file counts 61 (cli) + 11 (rubiks) + 8 (wuji) = 80, unchanged; ruff ✓, ruff format ✓, pyright 0/0/0, `lint-imports` 6 / 0. Full suite **410 passed** (unchanged — pure move; #111's +1 not yet on the branch base).
 
 **Changes to the dependency graph.** `mcp__codebase-memory-mcp__index_status`
-reports **3,982 nodes / 11,433 edges** post-R7 (was 3,829 / 11,427 at the start
+reports **3,961 nodes / 11,349 edges** after a full re-index at `dev` @ `8dd4edd`
+(was 3,982 / 11,433 mid-cleanup post-R7, and 3,829 / 11,427 at the start
 of the planning round; dipped to ~3,887 / ~10,905 mid-refactor as R0.3's
 `exclude_type_checking_imports` filter + the R1/R2 consolidations collapsed
 duplicate edges). The net node/edge growth in R3–R7 reflects **added** structure,
@@ -498,13 +508,18 @@ the **re-export / deprecation shims** (each shim adds import edges:
 (R2.1–R2.5) are gone; the SIMILAR_TO jaccard-1.000 motion-tracking triple
 collapsed in R5.2; and the cross-layer import baseline went from 24 violations / 3
 broken contracts (R0.3) to **0 violations / 6 kept contracts** (R7.3d).
-**Post-#108 (re-index pending):** that PR removes the last
+**Post-R7 cleanup (re-indexed at `8dd4edd`, verified):** #108 removed the last
 registration-loop duplication — `CurriculumManager.__init__`'s jaccard-1.000
-`SIMILAR_TO` edge to `BaseTermManager.__init__` disappears (the method is
-deleted), `MetricsManager.__init__` becomes `_post_init`, two managers gain
-`INHERITS` edges to `BaseTermManager`, and 4 duplicated properties + 2 unused
-imports per file drop — a small net node/edge decrease in `managers/`. All four
-term-keyed managers now share the base; run `index_repository` to refresh.
+`SIMILAR_TO` edge to `BaseTermManager.__init__` is gone (the method was deleted),
+confirmed in the graph (`SIMILAR_TO` count dropped to 37); all four term-keyed
+managers now share the base. #110 deleted the five deprecation-shim modules — they
+no longer appear as nodes (only legitimately-named test functions match), and
+their re-export import edges are gone, which is the main driver of the edge-count
+dip from 11,433 → 11,349. Inheritance is stored as a `base_classes` property on the
+`Class` node, not an edge (and the parser leaves it blank for *subscripted generic*
+bases like `BaseTermManager[RewardTermCfg]`, so all four managers read blank there —
+a known parser limitation, not staleness). #111/#112 are test-only and barely move
+the graph. Re-index after any future structural change with `index_repository`.
 
 **Risks identified (aggregate view).** Detailed per-ADR; the highest-attention items:
 
@@ -552,35 +567,35 @@ term-keyed managers now share the base; run `index_repository` to refresh.
 - **A forbidden contract states intent better than a blanket ban + waivers** (R7.3c). `asset_zoo → utils.download` is a legitimate downward `domain → utils` dependency (the asset catalog fetches assets). Rather than waive 6 edges with `ignore_imports` + TODO, split the contract so the rule reads "term logic must not download, but the asset catalog may." Waivers accrete; a precise contract documents the architecture.
 
 **The refactor is complete.** R0–R7 are all merged; the architecture is enforced
-by a required `lint-imports` CI gate (6 contracts, 0 violations). The R2.5 dedup
-leftover (metrics + curriculum) is also done (**PR #108**, post-R7). What remains:
+by a required `lint-imports` CI gate (6 contracts, 0 violations). The post-R7
+cleanup is largely done too: the R2.5 dedup leftover (#108), the deprecation-shim
+removal (#110), the ADR-0010 size guard (#111), and the first `test_cli.py` split
+slice (#112). What remains:
 
 1. **ADR review** (local-only — `plans/` is gitignored; see the lesson above).
-   ADR-0002 / 0004 / 0006 / 0007 / 0008 / 0009 are `Accepted`. ADR-0001 / 0003 /
-   0005 are shipped and ready to flip locally. ADR-0010 stays deferred.
+   ADR-0001 through 0009 are all `Accepted`. ADR-0010 stays `Proposed`/deferred —
+   its own deliverables (incl. the #111 size guard) are complete; the *split* is
+   intentionally not done until a trigger fires.
 2. **Follow-up work** (none on a critical path; each is an independent, optional PR):
-   - **Remove the deprecation shims** (`rl/{rsl_rl,sb3,skrl}_wrapper.py`,
-     `rl/distributed.py`, `cli/_eval.py` re-export, `cli._RunnableTask` alias,
-     `rl.RslRlVecEnvWrapper` `__getattr__`). **The maintainer waived backward-compat
-     (2026-05-22), so the §9.1 "ride one release on `main`" gate no longer applies
-     — this is unblocked.** Audit callers with `find_referencing_symbols`, delete
-     the shim, repoint internal callers to the canonical path.
+   - **Further split `tests/test_cli.py`** — #112 carved the example-robot tests out
+     (1,418 → 1,000 LoC); the residue could partition by CLI concern (core surface /
+     arg-parsing+overrides / distributed+torchrun / routing+picker / profiler). The
+     4 `monkeypatch.setattr("genelab.cli._distributed.os.execvp", …)` string paths
+     stay with the distributed cluster (absolute, so unaffected by the move).
    - **Reach the ADR-0004 ≤400-LoC target for `cli/__init__.py`** (now ≈645) by
      extracting the residue ADR-0004 deliberately kept — Typer command callbacks,
      `_configured_task` / `_resolve_task`, override helpers, help text — as a new
-     concern (its own ADR).
-   - Split the 1,414-LoC `tests/test_cli.py` by concern (ADR-0004 flagged this; the
-     R4.2/R4.3 monkeypatch-target churn shows the file has stale module-coupling).
+     concern (its own ADR). The larger of the two; needs an ADR first.
    - Reconsider ADR-0010 (entity/articulation split) against its recorded trigger
-     criteria when multi-robot work (M3.6) begins.
+     criteria when multi-robot work (M3.6) begins. The #111 guard (`UserWarning` at
+     700 LoC, hard fail at 1000) is the tripwire that forces that conversation.
 
-**Suggested next slice.** No further R-phase. With backward-compat waived, the
-highest-value follow-up is **removing the deprecation shims** — pure deletion of
-dead forwarding code (`rl/{rsl_rl,sb3,skrl}_wrapper.py`, `rl/distributed.py`, the
-`cli/_eval.py` re-export, the `cli._RunnableTask` alias, the
-`rl.RslRlVecEnvWrapper.__getattr__`), each guarded by a `find_referencing_symbols`
-audit + the full suite. The R-phase machinery (snapshots, optional-dep tests, the
-blocking importlinter gate) stays in place to catch any regression.
+**Suggested next slice.** No further R-phase. The lowest-risk remaining follow-up is
+**further partitioning the CLI tests** that #112 left in `test_cli.py` (1,000 LoC,
+61 tests) — pure relocation, no source change, guarded by an unchanged suite total.
+The larger `cli/__init__.py` ≤400-LoC extraction needs its own ADR first. The
+R-phase machinery (snapshots, optional-dep tests, the blocking importlinter gate)
+stays in place to catch any regression.
 
 ### 9.1 Cross-phase rules
 
