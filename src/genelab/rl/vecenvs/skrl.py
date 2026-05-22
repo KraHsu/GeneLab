@@ -5,7 +5,7 @@ group dict that ``ManagerBasedRlEnv`` produces — so the wrapper selects one
 observation group (``obs_group``, default ``"policy"``) as the agent's observation.
 skrl also expects reward / terminated / truncated shaped ``(num_envs, 1)``.
 
-Like ``rsl_rl_wrapper``, this becomes a subclass of skrl's ``Wrapper`` base when
+Like ``vecenvs.rsl_rl``, this becomes a subclass of skrl's ``Wrapper`` base when
 skrl is installed, and degrades to a plain object otherwise so zero/random play
 and unit tests work without skrl. ``gymnasium`` is required either way.
 """
