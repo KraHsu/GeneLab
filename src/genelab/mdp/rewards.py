@@ -9,6 +9,8 @@ import torch
 from genelab.managers.reward_manager import RewardTermCfg
 from genelab.managers.scene_entity_cfg import SceneEntityCfg
 from genelab.mdp._helpers import (
+    asset_articulation as _asset_articulation,
+    asset_state as _asset_state,
     command_active as _command_active,
     contact_sensor as _contact_sensor,
     link_ids as _link_ids,
@@ -31,7 +33,10 @@ if TYPE_CHECKING:
 
 
 def track_linear_velocity_xy_exp(
-    env: "ManagerBasedRlEnv", command_name: str, std: float = 0.5
+    env: "ManagerBasedRlEnv",
+    command_name: str,
+    std: float = 0.5,
+    asset_cfg: "SceneEntityCfg | None" = None,
 ) -> torch.Tensor:
     """``exp(-(||cmd_xy - vel_xy||² + vel_z²) / std²)``.
 
@@ -40,14 +45,17 @@ def track_linear_velocity_xy_exp(
     bouncing alongside xy-tracking.
     """
     cmd = env.command_manager.get_command(command_name)[:, :2]
-    vel = env.robot_state.root_lin_vel_b
+    vel = _asset_state(env, asset_cfg).root_lin_vel_b
     xy_err = torch.sum((cmd - vel[:, :2]) ** 2, dim=-1)
     z_err = vel[:, 2] ** 2
     return torch.exp(-(xy_err + z_err) / (std**2))
 
 
 def track_angular_velocity_z_exp(
-    env: "ManagerBasedRlEnv", command_name: str, std: float = 0.5
+    env: "ManagerBasedRlEnv",
+    command_name: str,
+    std: float = 0.5,
+    asset_cfg: "SceneEntityCfg | None" = None,
 ) -> torch.Tensor:
     """``exp(-((cmd_z − vel_z)² + ||vel_xy||²) / std²)``.
 
@@ -56,7 +64,7 @@ def track_angular_velocity_z_exp(
     alongside yaw-tracking.
     """
     cmd = env.command_manager.get_command(command_name)[:, 2]
-    vel = env.robot_state.root_ang_vel_b
+    vel = _asset_state(env, asset_cfg).root_ang_vel_b
     z_err = (cmd - vel[:, 2]) ** 2
     xy_err = torch.sum(vel[:, :2] ** 2, dim=-1)
     return torch.exp(-(z_err + xy_err) / (std**2))
@@ -69,22 +77,26 @@ def action_rate_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
 # --------------------------------------------------------------------- base hard-constraints (M2.4)
 
 
-def lin_vel_z_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def lin_vel_z_l2(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Penalize vertical base velocity — ``v_z²`` in the base frame.
 
     Discourages bouncing / vertical oscillation in locomotion. Returns the
     non-negative square; pair it with a negative weight in the term cfg.
     """
-    return env.robot_state.root_lin_vel_b[:, 2] ** 2
+    return _asset_state(env, asset_cfg).root_lin_vel_b[:, 2] ** 2
 
 
-def base_height_l2(env: "ManagerBasedRlEnv", target_height: float) -> torch.Tensor:
+def base_height_l2(
+    env: "ManagerBasedRlEnv", target_height: float, asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Penalize squared deviation of base height from ``target_height``.
 
     Flat-ground variant (no terrain-height sensor): ``(root_z − target_height)²``
     on the world-frame root z. Pair with a negative weight.
     """
-    return (env.robot_state.root_pos[:, 2] - target_height) ** 2
+    return (_asset_state(env, asset_cfg).root_pos[:, 2] - target_height) ** 2
 
 
 def alive_bonus(env: "ManagerBasedRlEnv") -> torch.Tensor:
@@ -97,24 +109,28 @@ def alive_bonus(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return torch.ones(env.num_envs, device=env.device)
 
 
-def applied_torque_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def applied_torque_l2(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Penalize squared realized actuator torque — ``Σⱼ τⱼ²`` over actuated joints.
 
     Reads ``robot_state.applied_torque`` (Genesis control force, refreshed each step).
     Discourages high-effort policies; pair with a negative weight.
     """
-    return torch.sum(env.robot_state.applied_torque**2, dim=-1)
+    return torch.sum(_asset_state(env, asset_cfg).applied_torque ** 2, dim=-1)
 
 
-def joint_vel_limits(env: "ManagerBasedRlEnv", soft_ratio: float = 1.0) -> torch.Tensor:
+def joint_vel_limits(
+    env: "ManagerBasedRlEnv", soft_ratio: float = 1.0, asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Sum of per-joint speed excursions past ``soft_ratio × joint_vel_limit``.
 
     Mirrors :func:`joint_pos_limits` for velocity: ``Σⱼ max(0, |q̇ⱼ| − ratio·limⱼ)``.
-    The limit comes from ``env.joint_vel_limits`` (``ArticulationCfg.joint_vel_limit``);
+    The limit comes from the entity's ``joint_vel_limits`` (``ArticulationCfg.joint_vel_limit``);
     joints with a ``+∞`` limit contribute zero, so this is inert until a task opts in.
     """
-    limit = env.joint_vel_limits * soft_ratio  # (J,)
-    speed = torch.abs(env.robot_state.joint_vel)  # (B, J)
+    limit = _asset_articulation(env, asset_cfg).joint_vel_limits * soft_ratio  # (J,)
+    speed = torch.abs(_asset_state(env, asset_cfg).joint_vel)  # (B, J)
     return torch.sum((speed - limit.unsqueeze(0)).clamp(min=0.0), dim=-1)
 
 
@@ -133,12 +149,15 @@ def joint_acc_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
             stacklevel=2,
         )
         _joint_acc_l2_warned = True
-    return torch.zeros(env.robot_state.joint_vel.shape[0], device=env.robot_state.joint_vel.device)
+    rs = _asset_state(env, None)
+    return torch.zeros(rs.joint_vel.shape[0], device=rs.joint_vel.device)
 
 
-def flat_orientation_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def flat_orientation_l2(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Penalise tilt: the xy components of body-frame gravity should be zero."""
-    return torch.sum(env.robot_state.projected_gravity_b[:, :2] ** 2, dim=-1)
+    return torch.sum(_asset_state(env, asset_cfg).projected_gravity_b[:, :2] ** 2, dim=-1)
 
 
 def upright_exp(
@@ -165,7 +184,7 @@ def upright_exp(
     When multiple links are selected, their xy-squared tilts are summed.
     """
     if asset_cfg is None or asset_cfg.link_ids is None:
-        xy_squared = torch.sum(env.robot_state.projected_gravity_b[:, :2] ** 2, dim=-1)
+        xy_squared = torch.sum(_asset_state(env, asset_cfg).projected_gravity_b[:, :2] ** 2, dim=-1)
         return torch.exp(-xy_squared / (std * std))
     # ``gravity_w = (0, 0, -1)`` is the convention used throughout robot_state — project
     # it into each selected link's frame via the link's world quaternion. Result xy
@@ -173,7 +192,7 @@ def upright_exp(
     link_ids = list(asset_cfg.link_ids)
     gravity_w = torch.zeros(env.num_envs, 3, device=env.device)
     gravity_w[:, 2] = -1.0
-    quat_w = env.robot_state.link_quat_w[:, link_ids, :]  # (B, N, 4)
+    quat_w = _asset_state(env, asset_cfg).link_quat_w[:, link_ids, :]  # (B, N, 4)
     gravity_expanded = gravity_w.unsqueeze(1).expand_as(quat_w[..., :3])  # (B, N, 3)
     projected = quat_apply_inverse(quat_w, gravity_expanded)  # (B, N, 3)
     xy_squared = torch.sum(projected[..., :2] ** 2, dim=(-1, -2))
@@ -252,11 +271,14 @@ class variable_posture:
             + self._std_running * running_mask
         )
 
-        error = env.robot_state.joint_pos - env.default_joint_pos
+        art = _asset_articulation(env, None)
+        error = _asset_state(env, None).joint_pos - art.default_joint_pos
         return torch.exp(-torch.mean((error * error) / (std * std), dim=-1))
 
 
-def joint_pos_limits(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def joint_pos_limits(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """Sum of per-joint excursions past the actuator's configured limits.
 
     mjlab parity (``envs/mdp/rewards.py::joint_pos_limits``):
@@ -272,10 +294,10 @@ def joint_pos_limits(env: "ManagerBasedRlEnv") -> torch.Tensor:
     the clamps. Joints not configured for the policy (floating-base DoFs)
     were already filtered out of ``joint_pos``.
     """
-    limits = env.joint_pos_limits  # (J, 2)
+    limits = _asset_articulation(env, asset_cfg).joint_pos_limits  # (J, 2)
     lower = limits[:, 0]
     upper = limits[:, 1]
-    joint_pos = env.robot_state.joint_pos  # (B, J)
+    joint_pos = _asset_state(env, asset_cfg).joint_pos  # (B, J)
     out_of_lower = (lower.unsqueeze(0) - joint_pos).clamp(min=0.0)
     out_of_upper = (joint_pos - upper.unsqueeze(0)).clamp(min=0.0)
     return torch.sum(out_of_lower + out_of_upper, dim=-1)
@@ -297,7 +319,7 @@ def body_angular_velocity_penalty(
     single-body variant; multiple links sum their contributions.
     """
     indices = list(_link_ids(asset_cfg))
-    ang_vel = env.robot_state.link_ang_vel_w[:, indices, :2]
+    ang_vel = _asset_state(env, asset_cfg).link_ang_vel_w[:, indices, :2]
     return torch.sum(ang_vel * ang_vel, dim=(-1, -2))
 
 
@@ -324,7 +346,7 @@ def feet_clearance(
     """
     indices = list(_link_ids(asset_cfg))
     offsets = asset_cfg.link_offsets_tensor
-    foot_vel_xy = _site_lin_vel_w(env, indices, offsets)[..., :2]
+    foot_vel_xy = _site_lin_vel_w(env, indices, offsets, asset_cfg)[..., :2]
     vel_norm = torch.norm(foot_vel_xy, dim=-1)  # (B, F)
 
     if height_sensor_name is not None:
@@ -335,7 +357,7 @@ def feet_clearance(
                 f"expected {len(indices)} to match asset_cfg link order"
             )
     else:
-        heights = _site_pos_w(env, indices, offsets)[..., 2]
+        heights = _site_pos_w(env, indices, offsets, asset_cfg)[..., 2]
 
     delta = (heights - target_height).abs()
     cost = torch.sum(delta * vel_norm, dim=-1)
@@ -356,7 +378,7 @@ def feet_slip(
     """
     indices = list(_link_ids(asset_cfg))
     in_contact = _contact_sensor(env, sensor_name).data.found.float()
-    foot_vel_xy = _site_lin_vel_w(env, indices, asset_cfg.link_offsets_tensor)[..., :2]
+    foot_vel_xy = _site_lin_vel_w(env, indices, asset_cfg.link_offsets_tensor, asset_cfg)[..., :2]
     vel_sq = torch.sum(foot_vel_xy * foot_vel_xy, dim=-1)  # (B, F)
     cost = torch.sum(vel_sq * in_contact, dim=-1)
     return cost * _command_active(env, command_name, command_threshold)
@@ -400,6 +422,7 @@ class feet_swing_height:
     def __init__(self, cfg: RewardTermCfg, env: "ManagerBasedRlEnv") -> None:
         self._env = env
         asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self._asset_cfg = asset_cfg
         indices = list(_link_ids(asset_cfg))
         self._foot_indices: list[int] = indices
         self._foot_indices_tensor = torch.tensor(indices, dtype=torch.long, device=env.device)
@@ -417,7 +440,7 @@ class feet_swing_height:
     ) -> torch.Tensor:
         del asset_cfg  # consumed at __init__
         data = _contact_sensor(env, sensor_name).data
-        foot_z = _site_pos_w(env, self._foot_indices, self._offsets_tensor)[..., 2]
+        foot_z = _site_pos_w(env, self._foot_indices, self._offsets_tensor, self._asset_cfg)[..., 2]
 
         # On lift-off, snap the peak to the current height so the new swing measures fresh.
         self._peak_heights = torch.where(data.first_detached, foot_z, self._peak_heights)

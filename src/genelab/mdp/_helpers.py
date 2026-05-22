@@ -51,6 +51,24 @@ def resolve_robot_state(env: "ManagerBasedRlEnv", name: str) -> "RobotState":
     return env.robot_state
 
 
+def asset_state(env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None") -> "RobotState":
+    """``RobotState`` for ``asset_cfg``'s entity (M3.6 / ADR-0012 S3); ``None`` → primary.
+
+    Term functions accept an optional ``asset_cfg`` and read state through this so a
+    multi-robot task can point any reward / observation / termination at a specific
+    articulation by name. ``None`` (the single-robot default) resolves to the primary
+    ``"robot"``.
+    """
+    return resolve_robot_state(env, asset_cfg.name if asset_cfg is not None else "robot")
+
+
+def asset_articulation(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None"
+) -> "Articulation":
+    """:class:`Articulation` for ``asset_cfg``'s entity; ``None`` → primary ``"robot"``."""
+    return resolve_articulation(env, asset_cfg.name if asset_cfg is not None else "robot")
+
+
 def link_ids(asset_cfg: SceneEntityCfg) -> tuple[int, ...]:
     """Pull resolved link ids off an ``asset_cfg`` or fail loudly if they're missing.
 
@@ -98,15 +116,17 @@ def site_pos_w(
     env: "ManagerBasedRlEnv",
     indices: list[int],
     offsets: torch.Tensor | None,
+    asset_cfg: "SceneEntityCfg | None" = None,
 ) -> torch.Tensor:
     """World-frame site position for each selected link.
 
     ``site_pos_w = link_pos_w + R_link · offset_local``. With ``offsets=None``
-    this reduces to ``link_pos_w`` — matches the pre-parity behaviour.
+    this reduces to ``link_pos_w`` — matches the pre-parity behaviour. ``indices`` index
+    ``asset_cfg``'s articulation (``None`` → primary).
 
     Returns ``(B, F, 3)`` aligned with ``indices``.
     """
-    rs = env.robot_state
+    rs = asset_state(env, asset_cfg)
     link_pos = rs.link_pos[:, indices]  # (B, F, 3)
     if offsets is None:
         return link_pos
@@ -119,15 +139,17 @@ def site_lin_vel_w(
     env: "ManagerBasedRlEnv",
     indices: list[int],
     offsets: torch.Tensor | None,
+    asset_cfg: "SceneEntityCfg | None" = None,
 ) -> torch.Tensor:
     """World-frame linear velocity at each selected link's site.
 
     ``v_site = v_link + ω × (R_link · offset_local)``. With ``offsets=None``
-    this reduces to ``link_lin_vel_w`` — matches the pre-parity behaviour.
+    this reduces to ``link_lin_vel_w`` — matches the pre-parity behaviour. ``indices`` index
+    ``asset_cfg``'s articulation (``None`` → primary).
 
     Returns ``(B, F, 3)`` aligned with ``indices``.
     """
-    rs = env.robot_state
+    rs = asset_state(env, asset_cfg)
     link_lin_vel = rs.link_lin_vel_w[:, indices]  # (B, F, 3)
     if offsets is None:
         return link_lin_vel
