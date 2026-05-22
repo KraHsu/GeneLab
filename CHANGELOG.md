@@ -8,6 +8,17 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal restructuring** (no behaviour change): the play-mode
+  shortcut-retargeting key list moved off the private
+  `cli/__init__.py:_PLAY_RETARGETED_KEYS` constant onto
+  `SimulationCfg.play_retargeted_keys()` (a static method on the domain
+  config in `genelab.configs`). The CLI's `env.` → `play_env.` retarget
+  loop now calls the method; the set of play-retargetable simulation
+  override paths (`env.simulation.{vis,gpu,steps,dt}`) lives next to the
+  `SimulationCfg` fields the `--vis` / `--gpu` / `--steps` / `--dt`
+  shortcuts target. `genelab play --help` is unchanged (R0.1 snapshot
+  gate green); `configs.py` stays torch-free at import (invariant #5).
+  Lands as ROADMAP §9 PR R3.2 — completes ADR-0005 (R3).
 - **Internal restructuring** (no behaviour change): `--eval-*` runner-arg
   parsing for in-training eval moved from `cli/__init__.py:_build_eval_callback`
   onto the domain config as `EvalCallbackCfg.from_args(runner_args) ->
