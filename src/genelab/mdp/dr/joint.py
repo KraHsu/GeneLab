@@ -5,10 +5,58 @@ from typing import TYPE_CHECKING
 import torch
 
 from genelab.managers.scene_entity_cfg import SceneEntityCfg
-from genelab.mdp.dr._common import resolve_joint_indices
+from genelab.mdp.dr._common import normalise_env_ids, resolve_joint_indices
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
+
+def randomize_joint_stiffness_damping(
+    env: "ManagerBasedRlEnv",
+    env_ids: torch.Tensor | None,
+    stiffness_range: tuple[float, float] = (0.8, 1.2),
+    damping_range: tuple[float, float] = (0.8, 1.2),
+) -> None:
+    """Per-env multiplicative DR on each actuator group's PD gains (kp / kv).
+
+    For every actuator the kp and kv multipliers are sampled per-env, per-joint:
+
+    * **force-channel** actuators (IdealPD / DCMotor / MlpResidual) receive a per-env
+      gain *scale* applied inside their Python ``compute`` (via ``set_gain_scale``);
+    * **implicit-PD** actuators have their sim-side kp/kv rewritten to
+      ``nominal × multiplier`` per env through Genesis ``set_dofs_kp`` / ``set_dofs_kv``.
+
+    Multipliers default to ±20% — the standard sim2real PD-gain calibration sweep.
+    Genesis calls are guarded so the function stays usable on the fake-env test
+    scaffolding.
+    """
+    env_ids = normalise_env_ids(env, env_ids)
+    if env_ids.numel() == 0:
+        return
+    n = int(env_ids.numel())
+    set_kp = getattr(env.robot, "set_dofs_kp", None)
+    set_kv = getattr(env.robot, "set_dofs_kv", None)
+    for actuator in env.actuators.values():
+        n_joints = actuator.num_joints
+        if n_joints == 0:
+            continue
+        kp_mult = torch.empty(n, n_joints, device=env.device).uniform_(*stiffness_range)
+        kv_mult = torch.empty(n, n_joints, device=env.device).uniform_(*damping_range)
+        if actuator.channel == "force":
+            actuator.set_gain_scale(env_ids, kp_mult, kv_mult)
+            continue
+        kp_vals = actuator.stiffness.unsqueeze(0) * kp_mult
+        kv_vals = actuator.damping.unsqueeze(0) * kv_mult
+        if set_kp is not None:
+            try:
+                set_kp(kp_vals, dofs_idx_local=actuator.dof_ids, envs_idx=env_ids)
+            except Exception:
+                pass
+        if set_kv is not None:
+            try:
+                set_kv(kv_vals, dofs_idx_local=actuator.dof_ids, envs_idx=env_ids)
+            except Exception:
+                pass
 
 
 def encoder_bias(
