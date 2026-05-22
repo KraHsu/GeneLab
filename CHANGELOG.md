@@ -8,6 +8,23 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal dedup** (no public API change): `RewardManager` and
+  `TerminationManager` now subclass a new
+  `genelab.managers._base.BaseTermManager[TCfg]` (generic in the
+  term-cfg type). The shared `__init__` body — deepcopy cfg, build the
+  parallel `_term_names` / `_term_cfgs` lists, run
+  `instantiate_class_term` per term — and the `num_envs` / `device` /
+  `active_terms` properties move to the base (jaccard 0.953 between the
+  two former `__init__` methods). Each subclass keeps only its
+  domain-specific buffer allocation, now in a `_post_init` hook the
+  base calls at the **end** of `__init__` (after term registration) —
+  preserving the buffer-allocation timing that `RewardManager.reset` /
+  `TerminationManager.reset` depend on. A new
+  `tests/test_manager_init_order.py` gate (added in the preceding
+  commit, passes pre- and post-refactor) locks this init-order
+  invariant. Lands as ROADMAP §9 PR R2.5 — the fifth and final
+  small-abstraction sub-slice in ADR-0003 (with the `_post_init`
+  template-method shape from ADR-0002); completes Phase R2.
 - **Internal dedup** (no public API change): the shared PD-gain-write
   body of `IdealPDActuator.initialize` and `ImplicitPDActuator.initialize`
   (jaccard 0.969 — only the kp/kv tensor source varied: `zeros` for
