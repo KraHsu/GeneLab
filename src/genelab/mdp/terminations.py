@@ -47,6 +47,18 @@ def joint_pos_out_of_limit(env: "ManagerBasedRlEnv") -> torch.Tensor:
     return torch.any(below | above, dim=-1)
 
 
+def joint_vel_out_of_limit(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    """True for any env where an actuated joint exceeds its velocity-limit magnitude.
+
+    Reads ``env.joint_vel_limits`` (``ArticulationCfg.joint_vel_limit``, ``+∞`` when
+    unset → never trips) and ``robot_state.joint_vel``. A safety termination for
+    runaway joint speeds; inert until a task declares a velocity limit.
+    """
+    limit = env.joint_vel_limits  # (J,)
+    speed = torch.abs(env.robot_state.joint_vel)  # (B, J)
+    return torch.any(speed > limit.unsqueeze(0), dim=-1)
+
+
 # --------------------------------------------------------------------- motion imitation
 
 
