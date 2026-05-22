@@ -241,3 +241,45 @@ def test_importer_spawns_and_exposes_height_field(genesis_runtime: Any) -> None:
     ts = importer.terrain_scale
     assert pytest.approx(float(ts[0])) == 0.25
     assert pytest.approx(float(ts[1])) == 0.005
+
+
+def test_curriculum_orders_rows_easiest_to_hardest() -> None:
+    # Insertion order is deliberately scrambled; difficulty must drive row order.
+    gen = TerrainGenerator(
+        TerrainGeneratorCfg(
+            num_rows=3,
+            num_cols=2,
+            curriculum=True,
+            sub_terrains={
+                "hard": PyramidStairsCfg(difficulty=2.0),
+                "easy": FlatPatchCfg(difficulty=0.0),
+                "mid": WaveCfg(difficulty=1.0),
+            },
+        )
+    )
+    assert gen.layout == [["easy", "easy"], ["mid", "mid"], ["hard", "hard"]]
+
+
+def test_curriculum_spreads_when_more_rows_than_terrains() -> None:
+    gen = TerrainGenerator(
+        TerrainGeneratorCfg(
+            num_rows=4,
+            num_cols=1,
+            curriculum=True,
+            sub_terrains={"easy": FlatPatchCfg(difficulty=0.0), "hard": WaveCfg(difficulty=1.0)},
+        )
+    )
+    # round(i/3 * 1) for i=0..3 → 0,0,1,1: difficulty is monotonic non-decreasing down the rows.
+    assert [row[0] for row in gen.layout] == ["easy", "easy", "hard", "hard"]
+
+
+def test_curriculum_single_row_uses_easiest() -> None:
+    gen = TerrainGenerator(
+        TerrainGeneratorCfg(
+            num_rows=1,
+            num_cols=2,
+            curriculum=True,
+            sub_terrains={"hard": WaveCfg(difficulty=5.0), "easy": FlatPatchCfg(difficulty=0.0)},
+        )
+    )
+    assert gen.layout == [["easy", "easy"]]

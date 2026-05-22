@@ -38,6 +38,10 @@ class TerrainGeneratorCfg:
     pos: tuple[float, float, float] = (0.0, 0.0, 0.0)
     sub_terrains: dict[str, SubTerrainCfg] = field(default_factory=dict)
     layout: tuple[tuple[str, ...], ...] | None = None
+    # When True (and ``layout`` is None), rows are ordered easiest → hardest by each
+    # sub-terrain's ``difficulty`` (row 0 = easiest) instead of proportion-weighted random
+    # tiling — so the env-level terrain curriculum (``mdp.terrain_levels_vel``) ramps real
+    # difficulty as it promotes envs up the rows.
     curriculum: bool = False
     seed: int = 0
 
@@ -67,14 +71,26 @@ class TerrainGenerator:
             if unknown:
                 raise ValueError(f"layout references unknown sub_terrains: {sorted(unknown)}")
             return rows
-        # Random tiling weighted by proportion.
         names = list(cfg.sub_terrains.keys())
+        if cfg.curriculum:
+            # Difficulty-ordered rows (M3.3): sort the sub-terrains by ``difficulty`` and map
+            # row 0 → easiest, last row → hardest, spreading evenly when the counts differ.
+            # ``terrain_levels_vel`` indexes rows by the env's terrain level, so this makes
+            # "promote to a higher level" mean "harder terrain". Every cell in a row uses the
+            # row's single difficulty-ranked type (Genesis keys params by type, so a row can't
+            # mix difficulties of the same type anyway). ``sorted`` is stable, so equal
+            # difficulties keep their insertion order.
+            ordered = sorted(names, key=lambda n: cfg.sub_terrains[n].difficulty)
+            denom = max(cfg.num_rows - 1, 1)
+            return [
+                [ordered[round(i / denom * (len(ordered) - 1))]] * cfg.num_cols
+                for i in range(cfg.num_rows)
+            ]
+        # Default: random tiling weighted by proportion.
         weights = [cfg.sub_terrains[n].proportion for n in names]
         if sum(weights) <= 0:
             raise ValueError("sub_terrains proportions sum to zero")
         rng = random.Random(cfg.seed)
-        # PR3 (curriculum) will refine row ordering by difficulty; for PR1 every row uses
-        # the same proportion distribution regardless of ``cfg.curriculum``.
         return [rng.choices(names, weights=weights, k=cfg.num_cols) for _ in range(cfg.num_rows)]
 
     # ------------------------------------------------------------------ origins
