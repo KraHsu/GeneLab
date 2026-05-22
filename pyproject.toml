@@ -250,15 +250,46 @@ type = "forbidden"
 source_modules = ["genelab.rl.backends"]
 forbidden_modules = ["genelab.rl.runner"]
 
+# The band ordering (cli > rl > domain > config-band > utils) is enforced with
+# directional ``forbidden`` contracts rather than a single ``layers`` contract: a
+# ``layers`` contract lists the 11 domain packages as pipe-separated siblings, which
+# importlinter treats as mutually *independent* — that wrongly forbids the legitimate
+# intra-domain imports a manager-based env relies on (envs -> scene, mdp -> managers,
+# entity -> actuator, …). The contracts below capture "no band imports a band above
+# it" while leaving intra-band imports free (ADR-0009 / ROADMAP §9 R7.3d).
+
+# rl sits below cli.
 [[tool.importlinter.contracts]]
-name = "Top-down layering: cli > rl > domain > utils"
-type = "layers"
-layers = [
+name = "rl is below cli"
+type = "forbidden"
+source_modules = ["genelab.rl"]
+forbidden_modules = ["genelab.cli"]
+
+# Infrastructure (configs / registry / cache / utils) is the bottom of the stack and
+# must not reach up into rl, cli, or any domain package.
+[[tool.importlinter.contracts]]
+name = "Infrastructure modules do not import up"
+type = "forbidden"
+source_modules = [
+    "genelab.configs",
+    "genelab.registry",
+    "genelab.cache",
+    "genelab.utils",
+]
+forbidden_modules = [
     "genelab.cli",
     "genelab.rl",
-    "genelab.envs | genelab.managers | genelab.mdp | genelab.scene | genelab.entity | genelab.sensor | genelab.actuator | genelab.terrains | genelab.asset_zoo | genelab.bridges | genelab.recording",
-    "genelab.configs | genelab.registry | genelab.cache",
-    "genelab.utils",
+    "genelab.managers",
+    "genelab.mdp",
+    "genelab.entity",
+    "genelab.sensor",
+    "genelab.actuator",
+    "genelab.terrains",
+    "genelab.asset_zoo",
+    "genelab.scene",
+    "genelab.bridges",
+    "genelab.recording",
+    "genelab.envs",
 ]
 
 [[tool.importlinter.contracts]]
