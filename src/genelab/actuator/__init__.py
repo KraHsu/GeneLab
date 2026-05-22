@@ -4,13 +4,15 @@ Joint-group electromechanical models composed onto :class:`genelab.entity.Articu
 Each actuator owns a regex-matched subset of an articulation's actuated joints and decides
 how to drive them through Genesis: either via the simulator's implicit PD law
 (:class:`ImplicitPDActuator`), or by computing torque in Python and pushing it through the
-force channel (:class:`IdealPDActuator`, :class:`DCMotorActuator`).
+force channel (:class:`IdealPDActuator`, :class:`DCMotorActuator`,
+:class:`MlpResidualActuator`).
 """
 
 from genelab.actuator.actuator_base import ActuatorBase, ActuatorBaseCfg
 from genelab.actuator.dc_motor import DCMotorActuator, DCMotorActuatorCfg
 from genelab.actuator.ideal_pd import IdealPDActuator, IdealPDActuatorCfg
 from genelab.actuator.implicit_pd import ImplicitPDActuator, ImplicitPDActuatorCfg
+from genelab.actuator.mlp_residual import MlpResidualActuator, MlpResidualActuatorCfg
 
 __all__ = [
     "ActuatorBase",
@@ -21,4 +23,6 @@ __all__ = [
     "IdealPDActuatorCfg",
     "ImplicitPDActuator",
     "ImplicitPDActuatorCfg",
+    "MlpResidualActuator",
+    "MlpResidualActuatorCfg",
 ]
