@@ -38,7 +38,7 @@ from genelab.cli._render import (
     render_registry,
 )
 from genelab.cli._scaffold import create_project_skeleton
-from genelab.configs import apply_overrides
+from genelab.configs import SimulationCfg, apply_overrides
 from genelab.registry import (
     TASKS,
     load_bundled_asset_zoo,
@@ -79,14 +79,6 @@ class _RegistryKindArg(str, Enum):
 
 
 _AGENT_KINDS: Final[frozenset[str]] = frozenset({"zero", "random", "trained"})
-
-_PLAY_RETARGETED_KEYS: Final[tuple[str, ...]] = (
-    "env.simulation.vis",
-    "env.simulation.gpu",
-    "env.simulation.steps",
-    "env.simulation.dt",
-)
-
 
 _RUN_FLAGS_HELP: Final[str] = """\
 Shorthand flags rewritten into env overrides:
@@ -556,7 +548,7 @@ def _configured_task(
     # task's play_env when one is configured. Keeps `genelab play TASK --vis` working
     # without forcing users to spell `play_env.simulation.vis`.
     if command == "play" and getattr(task.cfg, "play_env", None) is not None:
-        for short_key in _PLAY_RETARGETED_KEYS:
+        for short_key in SimulationCfg.play_retargeted_keys():
             if short_key in overrides:
                 overrides[short_key.replace("env.", "play_env.", 1)] = overrides.pop(short_key)
 
