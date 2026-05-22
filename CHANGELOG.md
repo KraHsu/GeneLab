@@ -6,6 +6,20 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ## [Unreleased]
 
+### Changed
+
+- **Internal restructuring** (no behaviour change): `eval_task` moved from
+  `cli/_eval.py` to a new `genelab.rl.eval_task` module (ADR-0009 / ROADMAP §9
+  R7.3). Its body is backend-agnostic eval orchestration whose dependencies all
+  live in the `rl` / config bands (`cache`, `registry`, `rl.evaluator`,
+  `rl.backends`, `rl.runner`) — it imported nothing from `cli`. Both callers (the
+  `genelab eval` command and the in-training `EvalCallback`) now reach it in the
+  `rl` layer, which removes the `rl.eval_callback → cli._eval` layering violation
+  (the last `rl → cli` import). `cli/_eval.py` keeps re-exporting `eval_task`, so
+  `from genelab.cli._eval import eval_task` still works. The `rl.runner` import is
+  function-local in the moved function to keep the import graph acyclic. Body is
+  byte-identical to before apart from that import.
+
 ### Added
 
 - **Public extension API** `genelab.extensions` (ADR-0008 / ROADMAP §9 R7): a
