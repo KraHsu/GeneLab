@@ -8,7 +8,7 @@ re-exported from :mod:`genelab.mdp` (no entry in ``mdp/__init__.py:__all__``);
 external code should keep importing the rewards / metrics functions, not these.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import torch
 
@@ -17,7 +17,38 @@ from genelab.sensor.contact import ContactSensor
 from genelab.utils.math import quat_apply
 
 if TYPE_CHECKING:
+    from genelab.entity import Articulation, RobotState
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
+
+def resolve_articulation(env: "ManagerBasedRlEnv", name: str) -> "Articulation":
+    """Return the articulation named ``name``, else the primary ``env.articulation``.
+
+    Action / command terms route by ``cfg.asset_name`` (ROADMAP M3.6 / ADR-0012 S2): the
+    named entity when ``env.articulations`` exists and holds ``name``, otherwise the singular
+    primary — so single-robot terms and fake-env tests (which expose only ``env.articulation``)
+    are unchanged.
+    """
+    arts = getattr(env, "articulations", None)
+    if arts is not None and name in arts:
+        return arts[name]
+    # Fallbacks: the singular primary ``env.articulation`` (real env / most fakes), then
+    # ``env`` itself for minimal fakes that expose ``joint_names`` / ``default_joint_pos``
+    # at env level without a full articulation (duck-typed — hence the cast).
+    return cast("Articulation", getattr(env, "articulation", env))
+
+
+def resolve_robot_state(env: "ManagerBasedRlEnv", name: str) -> "RobotState":
+    """Return the named entity's ``RobotState``, falling back to ``env.robot_state``.
+
+    The read-only counterpart to :func:`resolve_articulation` for terms that only consume
+    state (e.g. command terms). Falls back to the primary ``env.robot_state`` so fake envs
+    that expose state directly — without a full articulation — keep working.
+    """
+    arts = getattr(env, "articulations", None)
+    if arts is not None and name in arts:
+        return arts[name].data
+    return env.robot_state
 
 
 def link_ids(asset_cfg: SceneEntityCfg) -> tuple[int, ...]:

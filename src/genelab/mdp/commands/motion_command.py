@@ -19,6 +19,7 @@ import numpy as np
 import torch
 
 from genelab.managers.command_manager import CommandTerm, CommandTermCfg
+from genelab.mdp._helpers import resolve_robot_state
 from genelab.utils.math import (
     quat_apply,
     quat_from_euler_xyz,
@@ -111,6 +112,7 @@ class MotionCommand(CommandTerm):
 
     def __init__(self, cfg: MotionCommandCfg, env: "ManagerBasedRlEnv") -> None:
         super().__init__(cfg, env)
+        self._robot_state = resolve_robot_state(env, cfg.asset_name)
         if not cfg.body_names:
             raise ValueError("MotionCommandCfg.body_names must be a non-empty tuple")
         if not cfg.anchor_body_name:
@@ -231,27 +233,27 @@ class MotionCommand(CommandTerm):
 
     @property
     def robot_anchor_pos_w(self) -> torch.Tensor:
-        return self._env.robot_state.link_pos[:, self.robot_anchor_body_index]
+        return self._robot_state.link_pos[:, self.robot_anchor_body_index]
 
     @property
     def robot_anchor_quat_w(self) -> torch.Tensor:
-        return self._env.robot_state.link_quat_w[:, self.robot_anchor_body_index]
+        return self._robot_state.link_quat_w[:, self.robot_anchor_body_index]
 
     @property
     def robot_body_pos_w(self) -> torch.Tensor:
-        return self._env.robot_state.link_pos[:, self.body_indexes]
+        return self._robot_state.link_pos[:, self.body_indexes]
 
     @property
     def robot_body_quat_w(self) -> torch.Tensor:
-        return self._env.robot_state.link_quat_w[:, self.body_indexes]
+        return self._robot_state.link_quat_w[:, self.body_indexes]
 
     @property
     def robot_body_lin_vel_w(self) -> torch.Tensor:
-        return self._env.robot_state.link_lin_vel_w[:, self.body_indexes]
+        return self._robot_state.link_lin_vel_w[:, self.body_indexes]
 
     @property
     def robot_body_ang_vel_w(self) -> torch.Tensor:
-        return self._env.robot_state.link_ang_vel_w[:, self.body_indexes]
+        return self._robot_state.link_ang_vel_w[:, self.body_indexes]
 
     # ------------------------------------------------------------------ sampling / resets
 

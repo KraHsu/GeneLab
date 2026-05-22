@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from genelab.managers.action_manager import ActionTerm, ActionTermCfg
+from genelab.mdp._helpers import resolve_articulation, resolve_robot_state
 from genelab.utils.math import axis_angle_from_quat, quat_inv, quat_mul
 
 if TYPE_CHECKING:
@@ -93,7 +94,9 @@ class DifferentialIKAction(ActionTerm):
                 "DifferentialIKActionCfg.body_name is required (e.g. 'hand' for Franka)"
             )
 
-        articulation = env.articulation
+        self._articulation = resolve_articulation(env, cfg.asset_name)
+        self._robot_state = resolve_robot_state(env, cfg.asset_name)
+        articulation = self._articulation
         link_names = articulation.link_names
         try:
             self._ee_link_idx = link_names.index(cfg.body_name)
@@ -103,7 +106,7 @@ class DifferentialIKAction(ActionTerm):
                 f"link list {link_names!r}"
             ) from None
 
-        joint_names = env.joint_names
+        joint_names = self._articulation.joint_names
         matched: list[int] = []
         for pat in cfg.joint_names:
             try:
@@ -215,7 +218,7 @@ class DifferentialIKAction(ActionTerm):
             # Append 3 angular rows that drive the EE back toward a fixed
             # orientation target — panda-gym re-solves IK to a constant gripper
             # orientation every step; this is the differential equivalent.
-            cur_quat = self._env.robot_state.link_quat_w[:, self._ee_link_idx, :]
+            cur_quat = self._robot_state.link_quat_w[:, self._ee_link_idx, :]
             if self._fixed_quat is None:
                 self._fixed_quat = cur_quat.detach().clone()
             target_quat = self._fixed_quat
@@ -246,7 +249,7 @@ class DifferentialIKAction(ActionTerm):
         bound = float(self.cfg.max_delta_joint)
         delta_q = delta_q.clamp(min=-bound, max=bound)
 
-        current_q = self._env.robot_state.joint_pos.index_select(1, self._joint_indices)
+        current_q = self._robot_state.joint_pos.index_select(1, self._joint_indices)
         target_q = current_q + delta_q
         if self._joint_pos_lower is not None and self._joint_pos_upper is not None:
             target_q = torch.maximum(target_q, self._joint_pos_lower.unsqueeze(0))
@@ -254,4 +257,4 @@ class DifferentialIKAction(ActionTerm):
         self._target_q[:] = target_q
 
     def apply_actions(self) -> None:
-        self._env.articulation.write_joint_targets_partial(self._joint_indices, self._target_q)
+        self._articulation.write_joint_targets_partial(self._joint_indices, self._target_q)

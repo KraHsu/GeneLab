@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from genelab.managers.action_manager import ActionTerm, ActionTermCfg
+from genelab.mdp._helpers import resolve_articulation, resolve_robot_state
 from genelab.mdp.actions._joint_match import match_joints
 
 if TYPE_CHECKING:
@@ -59,7 +60,9 @@ class ContinuousGripperAction(ActionTerm):
 
     def __init__(self, cfg: ContinuousGripperActionCfg, env: "ManagerBasedRlEnv") -> None:
         super().__init__(cfg, env)
-        matched = match_joints(cfg.joint_names, env.joint_names)
+        self._articulation = resolve_articulation(env, cfg.asset_name)
+        self._robot_state = resolve_robot_state(env, cfg.asset_name)
+        matched = match_joints(cfg.joint_names, self._articulation.joint_names)
         if not matched:
             raise ValueError(
                 f"ContinuousGripperAction matched zero joints from patterns {cfg.joint_names!r}"
@@ -85,7 +88,7 @@ class ContinuousGripperAction(ActionTerm):
         # ``get_fingers_width()`` each step rather than the last command, so a
         # blocked gripper (cube held / joint at a limit) does not let the target
         # drift away from the physical state.
-        sensed = self._env.robot_state.joint_pos.index_select(1, self._joint_indices)
+        sensed = self._robot_state.joint_pos.index_select(1, self._joint_indices)
         width = sensed.mean(dim=1, keepdim=True)  # (B, 1)
         target = (width + actions[:, :1] * float(self.cfg.speed)).clamp(
             min=float(self.cfg.closed_pos), max=float(self.cfg.open_pos)
@@ -93,4 +96,4 @@ class ContinuousGripperAction(ActionTerm):
         self._target[:] = target  # broadcast (B, 1) -> (B, n_fingers)
 
     def apply_actions(self) -> None:
-        self._env.articulation.write_joint_targets_partial(self._joint_indices, self._target)
+        self._articulation.write_joint_targets_partial(self._joint_indices, self._target)
