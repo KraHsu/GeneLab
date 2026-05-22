@@ -323,22 +323,24 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 > *structural hygiene* that those features rest on. R-phases are
 > independent of M1–M3 sequencing — most can interleave with feature work.
 >
-> Last reviewed: 2026-05-22 · against `dev` @ `fe5f604` (R7 complete).
+> Last reviewed: 2026-05-22 · against `dev` @ `2a380fa` (R7 complete + #108 R2.5 dedup finished).
 
 ### 9.0 Status / 当前状态
 
-**Phase:** **R0–R7 COMPLETE** — the architecture refactor is done; importlinter
-now runs as a **required** CI gate with a clean **6 contracts / 0 violations**
-baseline. Only ADR-0010 (entity/articulation split) remains, deliberately deferred.
+**Phase:** **R0–R7 COMPLETE + R2.5 dedup finished (#108)** — the architecture
+refactor is done; importlinter now runs as a **required** CI gate with a clean
+**6 contracts / 0 violations** baseline. All four term-keyed managers share
+`BaseTermManager`. Only ADR-0010 (entity/articulation split) remains, deliberately
+deferred.
 
 | What | Status | Artifact |
 |---|---|---|
 | Architecture assessment | ✅ written | [`plans/architecture/architecture-assessment.md`](plans/architecture/architecture-assessment.md) |
 | Target architecture | ✅ written | [`plans/architecture/target-architecture.md`](plans/architecture/target-architecture.md) |
-| ADRs 0001–0010 | ✅ ADR-0004 + ADR-0006 + ADR-0007 + ADR-0008 + ADR-0009 `Accepted` (shipped); ADR-0001 + ADR-0002 + ADR-0003 + ADR-0005 shipped, ready for `Accepted` (pending maintainer review); ADR-0010 `Accepted: deferred` | [`plans/adr/`](plans/adr/) |
+| ADRs 0001–0010 | ✅ ADR-0002 + 0004 + 0006 + 0007 + 0008 + 0009 `Accepted`; ADR-0001 + 0003 + 0005 shipped, ready for `Accepted` (local-only — `plans/` is gitignored); ADR-0010 `Accepted: deferred` | [`plans/adr/`](plans/adr/) |
 | Phase R0 — baseline & tooling | ✅ **complete** (3 / 3 PRs merged) | PR #81 (`c3d851e`), #82 (`b8df293`), #83 (`d7a702e`) |
 | Phase R1 — break rl.runner ↔ rl.backends cycle | ✅ **merged** | PR #84 (`04509d9`) — implements ADR-0001 |
-| Phase R2 — small abstractions | ✅ **complete** (5 / 5 sub-slices merged) | PRs #85 (`74b2e30`), #86 (`039e502`), #87 (`0367462`), #88 (`a50d031`), #89 (`5571889`) — implement ADR-0003 (+ ADR-0002 for R2.5) |
+| Phase R2 — small abstractions | ✅ **complete** (5 / 5 sub-slices merged) — implement ADR-0003 (+ ADR-0002 for R2.5); R2.5 dedup leftover finished by **PR #108** (metrics + curriculum onto `BaseTermManager`) | PRs #85 (`74b2e30`), #86 (`039e502`), #87 (`0367462`), #88 (`a50d031`), #89 (`5571889`), #108 |
 | Phase R3 — domain-owned parsing | ✅ **complete** (2 / 2 sub-slices merged) | PR #90 (`6b97f6e`), #91 (`03f480b`) — implement ADR-0005 |
 | Phase R4 — CLI decomposition | ✅ **complete** (3 / 3 PRs merged) — implements ADR-0004 | PR #92 (`588f5be`), #94 (`43cf463`), #95 (`4ca926d`) |
 | Phase R5 — task-specific rewards split | ✅ **complete** (2 / 2 sub-slices merged) — implements ADR-0006 | PR #97 (`9bcbe01`), #98 (`67eef60`) |
@@ -447,6 +449,12 @@ baseline. Only ADR-0010 (entity/articulation split) remains, deliberately deferr
   - Replaced the monolithic "Top-down layering" `layers` contract (which forbade legitimate intra-domain imports) with directional `forbidden` contracts: **"rl is below cli"** + **"Infrastructure modules do not import up"** (configs/registry/cache/utils ⊬ cli/rl/domain).
   - Code fix: `PROJECT_ROOT` / `CACHE_DIR` moved to new `genelab/utils/paths.py` (cache re-exports), removing the last `utils.download → cache` infra edge so the strict infra contract passes with no waiver.
   - Flipped `.github/workflows/ci.yml` `lint-imports` to **required** (dropped `continue-on-error`); new `tests/test_importlinter_configured.py` guards the contract set against silent deletion. Final baseline: **6 kept / 0 broken**.
+- **PR #108 — `BaseTermManager` for metrics + curriculum** (merged `dev` @ `2a380fa`, 2 commits) — implements the ADR-0002 addendum; **finishes the R2.5 dedup leftover** (post-R7, off the R-phase critical path):
+  - `src/genelab/managers/curriculum_manager.py`: `CurriculumManager` now subclasses `BaseTermManager[CurriculumTermCfg]`; its `__init__` (byte-identical to the base, `SIMILAR_TO` jaccard 1.000) and duplicated `active_terms` property were deleted. Unused `deepcopy` / `instantiate_class_term` / `TYPE_CHECKING` imports dropped.
+  - `src/genelab/managers/metrics_manager.py`: `MetricsManager` now subclasses `BaseTermManager[MetricsTermCfg]`; `_episode_sums` / `_step_count` allocation moved into `_post_init`; duplicated `num_envs` / `device` / `active_terms` properties dropped along with unused imports.
+  - `tests/test_manager_init_order.py`: +3 gate tests (metrics post-init buffers, curriculum registration, metrics+curriculum empty-cfg), committed first (commit 1) and verified green against the **unrefactored** managers before the refactor (commit 2).
+  - `CHANGELOG.md`: entry under `[Unreleased] · Changed`.
+  - Reference audit (`find_referencing_symbols`): both managers are constructed only in `envs/manager_based_rl_env.py` (lines 109/110) and re-exported from `managers/__init__.py`; no external reader of their private buffers. Public ctors `(cfg, env)` unchanged.
 
 **Tests run.**
 
@@ -474,6 +482,7 @@ baseline. Only ADR-0010 (entity/articulation split) remains, deliberately deferr
 - R7.3b: ruff ✓, pyright 0/0/0, full suite **411 passed** (+1 deprecation case), no cycle. `scene → rl` (+ `envs → scene → rl`) gone; **no `domain → rl` violations remain**.
 - R7.3c: config-only. `lint-imports` **4 kept / 1 broken**; ruff + pyright clean; full suite **411 passed** (unchanged).
 - R7.3d: ruff ✓, ruff format ✓, pyright 0/0/0, full suite **413 passed** (was 411; +2 `test_importlinter_configured`), optional-dep boundary still green after the `CACHE_DIR` move, import smoke confirms no cycle. **`lint-imports` 6 kept / 0 broken** — the gate is now required in CI.
+- #108: gate tests **6 passed** pre-refactor (verified green against the unrefactored managers); manager-related subset (`test_manager_init_order` + `test_metrics` + `test_managers` + `test_rewards`) **54 passed** post-refactor; ruff ✓, ruff format ✓, **pyright 0/0/0** (CI config-driven, `src/genelab` only — the test-file private-usage / `_FakeEnv` errors are excluded since `[tool.pyright] include = ["src/genelab"]`), **`lint-imports` 6 kept / 0 broken** (intra-`managers/` move, no cross-layer change), import smoke confirms both managers' `__mro__[1]` is `BaseTermManager`. Full suite **416 passed** (was 413; +3 gate tests).
 
 **Changes to the dependency graph.** `mcp__codebase-memory-mcp__index_status`
 reports **3,982 nodes / 11,433 edges** post-R7 (was 3,829 / 11,427 at the start
@@ -489,11 +498,18 @@ the **re-export / deprecation shims** (each shim adds import edges:
 (R2.1–R2.5) are gone; the SIMILAR_TO jaccard-1.000 motion-tracking triple
 collapsed in R5.2; and the cross-layer import baseline went from 24 violations / 3
 broken contracts (R0.3) to **0 violations / 6 kept contracts** (R7.3d).
+**Post-#108 (re-index pending):** that PR removes the last
+registration-loop duplication — `CurriculumManager.__init__`'s jaccard-1.000
+`SIMILAR_TO` edge to `BaseTermManager.__init__` disappears (the method is
+deleted), `MetricsManager.__init__` becomes `_post_init`, two managers gain
+`INHERITS` edges to `BaseTermManager`, and 4 duplicated properties + 2 unused
+imports per file drop — a small net node/edge decrease in `managers/`. All four
+term-keyed managers now share the base; run `index_repository` to refresh.
 
 **Risks identified (aggregate view).** Detailed per-ADR; the highest-attention items:
 
 - **R1 (ADR-0001)** — ✅ **resolved by PR #84.** The quiescent `rl.runner ↔ rl.backends` cycle is gone; backends now import from `rl._helpers`. `tests/test_no_static_cycle.py` (grimp-based) prevents regression; matching importlinter contract is now KEPT.
-- **R2.5 (ADR-0002)** — ✅ **resolved by PR #89.** `BaseTermManager._post_init` preserves buffer-allocation timing; `tests/test_manager_init_order.py` was verified green pre- and post-refactor. The risk did not materialize.
+- **R2.5 (ADR-0002)** — ✅ **resolved by PR #89, extended by PR #108.** `BaseTermManager._post_init` preserves buffer-allocation timing; `tests/test_manager_init_order.py` was verified green pre- and post-refactor for rewards/terminations (#89) and again for metrics/curriculum (#108). The init-order risk did not materialize either time. All four term-keyed managers now share the base.
 - **R4 (ADR-0004)** — ✅ **resolved by PRs #92 + #94 + #95.** All three CLI submodules (`_distributed`, `_multi_seed`, `_dispatch`) extracted; R0.1 `--help` snapshots gated every PR (zero drift). The large `test_cli.py` surface (1,414 LoC) needed only mechanical monkeypatch-target repoints in R4.2/R4.3 (functions moved out of `cli/__init__.py`, so `genelab.cli.{sys,os,pick_agent_kind}` patch paths were repointed to the new owning modules). `cli/__init__.py` 1,051 → 645 LoC; the ADR's ≤400 target is a documented follow-up (the residue is Typer wiring ADR-0004 deliberately kept).
 - **R5.2 (ADR-0006)** — ✅ **resolved by PR #98.** The parameterization-drift risk was guarded by `tests/test_motion_tracking_equivalence.py`, which asserts the factory + wrappers reproduce the pinned pre-refactor implementations bit-for-bit (`torch.equal`). Scope was held to the jaccard-1.000 trio; the geodesic / anchor rewards (structurally different) were left untouched.
 - **R7 (ADR-0009)** — ✅ **resolved by PRs #103–#106.** The blocking flip was gated on clearing the R0.3 baseline (24 cross-layer imports → 21 after R1 → still 21 through R6, since R2–R6 were intra-package / allowed-direction / intra-`cli` moves that didn't touch the cross-layer baseline). R7.3 cleared the rest: **R7.3a** (`rl.eval_callback → cli._eval`, via moving `eval_task` to `rl`), **R7.3b** (`scene → rl.distributed`, via moving the helpers to `utils` — also clearing `envs → scene → rl`), **R7.3c** (`asset_zoo → utils.download` recognized as legitimate via a contract split), **R7.3d** (`utils.download → cache` removed by moving `CACHE_DIR` to `utils.paths`; the monolithic `layers` contract replaced by directional `forbidden` contracts). Final baseline: **0 violations / 6 kept contracts**, now a required CI gate.
@@ -519,7 +535,8 @@ broken contracts (R0.3) to **0 violations / 6 kept contracts** (R7.3d).
 - **ADR-0003 R2.2 names the new module `rl/vecenvs/_attach_base.py`, but `rl/vecenvs/` is created in R6** (ADR-0007). PR #86 placed the helper flat at `rl/_attach_base.py` and noted the deferred relocation in both the PR description and CHANGELOG. R6 will move it. Same care should be taken for any future R-phase slice that targets a directory the upstream ADR assumes already exists.
 - **`Generic[TVar]` is required for a shared base whose `__init__` accepts a `dict[str, <subclass-cfg>]`** (R2.5). `dict` is invariant in its value type, so a base `__init__(cfg: dict[str, ManagerTermBaseCfg])` rejects `dict[str, RewardTermCfg]` at the call site under pyright. `BaseTermManager(Generic[TCfg])` with `TCfg = TypeVar(..., bound=ManagerTermBaseCfg)` lets each subclass narrow (`BaseTermManager[RewardTermCfg]`) without losing call-site type info. Future shared-base extractions over heterogeneous cfg dicts should use the same pattern.
 - **Init-order gate tests are cheap insurance for "pull __init__ up to a base" refactors** (R2.5). The `_post_init` template method moves buffer allocation across a method boundary; a 3-assertion test (buffers populated, keys mirror term names, empty-cfg → empty dicts) committed *before* the refactor and verified green pre- and post-move turns a "medium-risk" refactor into a low-risk one. Pattern worth reusing for R4 (CLI split) and any future base-class extraction.
-- **`metrics_manager.py` and `curriculum_manager.py` carry the same term-registration loop as the two managers R2.5 consolidated** (discovered during R2.5 audit). They are *out of ADR-0002's scope* (which targets rewards + terminations only) so were left untouched. They are a clean follow-up: adopting `BaseTermManager` there would remove two more copies of the registration loop. Candidate for a future R2.x-style PR or an ADR-0002 addendum.
+- **`metrics_manager.py` and `curriculum_manager.py` carried the same term-registration loop as the two managers R2.5 consolidated** (discovered during R2.5 audit; *out of ADR-0002's original scope* — rewards + terminations only — so deferred). **Finished in PR #108** (ADR-0002 addendum, post-R7): both now subclass `BaseTermManager`. `CurriculumManager.__init__` was byte-identical to the base (codebase-memory `SIMILAR_TO` jaccard 1.000) and was deleted (inherits the base ctor); `MetricsManager` moved `_episode_sums` / `_step_count` allocation into `_post_init`. The R2.5 init-order gate test (`tests/test_manager_init_order.py`) was extended for both and verified green *before* the refactor commit — the medium-risk init-order concern again did not materialize. All four term-keyed managers now share the base; the `SIMILAR_TO` registration-loop cluster is gone by construction. The remaining managers (action / observation / command / event) keep bespoke ctors and migrate only if a future change makes the fit obvious.
+- **`CLAUDE.md`, `AGENTS.md`, and `plans/` are gitignored — they are local-only, NOT version-controlled** (discovered 2026-05-22 during the #108 follow-up). `.gitignore` excludes `CLAUDE.md` (line 36), `AGENTS.md` (line 37), and `plans/` (line 39), so `git add` of any of them is silently skipped — an "ADR Status flip" or a `CLAUDE.md` refresh produces **no diff and no PR**. The only tracked docs are **`ROADMAP.md` + `CHANGELOG.md`** (root) and **`docs/`** (the MkDocs site); the only tracked code is `src/` + `tests/`. So the durable record of a shipped decision is the **PR + `ROADMAP.md` + `CHANGELOG.md` + the `docs/` site** — not `CLAUDE.md` and not the ADR's Status line. Treat `CLAUDE.md`/ADR edits as local bookkeeping; never gate a deliverable on "the doc is committed."
 - **R3 relocates parsers in the *allowed* direction and does not reduce the importlinter baseline** (R3.1, corrected). The pre-R3 plan claimed moving `_build_eval_callback` into `EvalCallbackCfg.from_args` would clear the `rl.eval_callback → cli._eval` violation. It did not: `from_args` is a `cli → rl` move (allowed), whereas the violation is the `rl → cli` runtime import of `eval_task` *inside* `run_with_eval_callback`, which R3 never touched. Lesson: distinguish "where does the parsing live" (R3's concern) from "which module imports which at runtime" (the importlinter concern) — they are orthogonal. Clearing the violation is a separate follow-up (dependency-inject `eval_task`).
 - **`__all__` is the right tool for `reportUnusedFunction` on moved private functions** (R4.1). When CLI-package-private helpers (leading-underscore names that tests import via `from genelab.cli import _foo`) move into a new `cli/_*.py`, the ones called *only* from outside that module trip pyright `reportUnusedFunction` at the **def** site. The PEP-484 `as`-idiom re-export fixes `reportUnusedImport` at the *import* site (R2.1 lesson) but not this. Fix: declare an `__all__` listing the moved names in the new module — pyright treats `__all__` members as exported. Underscore names in `__all__` are legal and document the module's external API. Future R4.2/R4.3 (and any private-function relocation) should pre-empt this with `__all__`.
 - **A `TYPE_CHECKING`-only forward ref breaks the cycle when a moved function's *annotation* references a symbol left behind in the parent package** (R4.2 + R4.3). `_dispatch_multi_seed_train`, `_dispatch_play`, `_dispatch_train` are all annotated `task: _RunnableTask`, and `_RunnableTask` (a Protocol) stays in `cli/__init__.py` (it moves to `registry.Runnable` only in ADR-0008). Adding `from __future__ import annotations` + `if TYPE_CHECKING: from genelab.cli import _RunnableTask` keeps the annotation a string at runtime, so the new `cli/_*.py` module never imports `cli` at runtime — no `cli → _* → cli` cycle. A targeted `# pyright: ignore[reportPrivateUsage]` on that import covers the private-name lint. Verified with an import smoke test each PR.
@@ -535,34 +552,35 @@ broken contracts (R0.3) to **0 violations / 6 kept contracts** (R7.3d).
 - **A forbidden contract states intent better than a blanket ban + waivers** (R7.3c). `asset_zoo → utils.download` is a legitimate downward `domain → utils` dependency (the asset catalog fetches assets). Rather than waive 6 edges with `ignore_imports` + TODO, split the contract so the rule reads "term logic must not download, but the asset catalog may." Waivers accrete; a precise contract documents the architecture.
 
 **The refactor is complete.** R0–R7 are all merged; the architecture is enforced
-by a required `lint-imports` CI gate (6 contracts, 0 violations). What remains:
+by a required `lint-imports` CI gate (6 contracts, 0 violations). The R2.5 dedup
+leftover (metrics + curriculum) is also done (**PR #108**, post-R7). What remains:
 
-1. **ADR review.** ADR-0004 / 0006 / 0007 / 0008 / 0009 are `Accepted` (shipped).
-   ADR-0001 / 0002 / 0003 / 0005 are shipped and ready to flip from `Proposed` to
-   `Accepted` (one-line edit per file, pending maintainer review). ADR-0010 stays
-   deferred.
+1. **ADR review** (local-only — `plans/` is gitignored; see the lesson above).
+   ADR-0002 / 0004 / 0006 / 0007 / 0008 / 0009 are `Accepted`. ADR-0001 / 0003 /
+   0005 are shipped and ready to flip locally. ADR-0010 stays deferred.
 2. **Follow-up work** (none on a critical path; each is an independent, optional PR):
-   - Apply `BaseTermManager` to `metrics_manager.py` + `curriculum_manager.py`
-     (the R2.5 dedup leftover — two more copies of the term-registration loop).
+   - **Remove the deprecation shims** (`rl/{rsl_rl,sb3,skrl}_wrapper.py`,
+     `rl/distributed.py`, `cli/_eval.py` re-export, `cli._RunnableTask` alias,
+     `rl.RslRlVecEnvWrapper` `__getattr__`). **The maintainer waived backward-compat
+     (2026-05-22), so the §9.1 "ride one release on `main`" gate no longer applies
+     — this is unblocked.** Audit callers with `find_referencing_symbols`, delete
+     the shim, repoint internal callers to the canonical path.
    - **Reach the ADR-0004 ≤400-LoC target for `cli/__init__.py`** (now ≈645) by
      extracting the residue ADR-0004 deliberately kept — Typer command callbacks,
      `_configured_task` / `_resolve_task`, override helpers, help text — as a new
      concern (its own ADR).
    - Split the 1,414-LoC `tests/test_cli.py` by concern (ADR-0004 flagged this; the
      R4.2/R4.3 monkeypatch-target churn shows the file has stale module-coupling).
-   - Remove the deprecation shims (`rl/{rsl_rl,sb3,skrl}_wrapper.py`,
-     `rl/distributed.py`, `cli/_eval.py` re-export, `cli._RunnableTask` alias,
-     `rl.RslRlVecEnvWrapper` `__getattr__`) once they've ridden one release on
-     `main` (per §9.1 rule 1).
    - Reconsider ADR-0010 (entity/articulation split) against its recorded trigger
      criteria when multi-robot work (M3.6) begins.
 
-**Suggested next slice.** No further R-phase. The highest-value optional follow-up
-is the **`BaseTermManager` adoption for `metrics_manager.py` + `curriculum_manager.py`**
-— it is the smallest, lowest-risk, fully-understood item (a known dedup with a
-proven init-order gate-test pattern from R2.5) and finishes the consolidation R2
-started. The R-phase machinery (snapshots, optional-dep tests, the now-blocking
-importlinter gate) all stays in place to guard it.
+**Suggested next slice.** No further R-phase. With backward-compat waived, the
+highest-value follow-up is **removing the deprecation shims** — pure deletion of
+dead forwarding code (`rl/{rsl_rl,sb3,skrl}_wrapper.py`, `rl/distributed.py`, the
+`cli/_eval.py` re-export, the `cli._RunnableTask` alias, the
+`rl.RslRlVecEnvWrapper.__getattr__`), each guarded by a `find_referencing_symbols`
+audit + the full suite. The R-phase machinery (snapshots, optional-dep tests, the
+blocking importlinter gate) stays in place to catch any regression.
 
 ### 9.1 Cross-phase rules
 
