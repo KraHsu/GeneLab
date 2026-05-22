@@ -8,6 +8,19 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal restructuring** (no behaviour change): `--eval-*` runner-arg
+  parsing for in-training eval moved from `cli/__init__.py:_build_eval_callback`
+  onto the domain config as `EvalCallbackCfg.from_args(runner_args) ->
+  EvalCallbackCfg | None` (in `genelab.rl.eval_callback`). The CLI dispatcher
+  now forwards the raw flag dict; the config owns parsing its own args. Parse
+  behaviour is byte-identical (`--eval-every` unset → `None`; otherwise an
+  enabled cfg with int-coerced `--eval-episodes` / `--eval-num-envs` /
+  `--eval-seed`, defaulting to 10 / None / 0). `genelab train --help` is
+  unchanged (R0.1 snapshot gate stays green). Lands as ROADMAP §9 PR R3.1
+  (first of two sub-PRs in ADR-0005). Note: R3.1 does **not** change the
+  importlinter baseline — the separate `rl.eval_callback -> cli._eval`
+  layering violation (the eval-callback loop calling `eval_task`) is a
+  distinct concern tracked for a follow-up slice.
 - **Internal dedup** (no public API change): `RewardManager` and
   `TerminationManager` now subclass a new
   `genelab.managers._base.BaseTermManager[TCfg]` (generic in the
