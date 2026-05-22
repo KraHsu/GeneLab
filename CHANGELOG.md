@@ -8,6 +8,19 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Architecture lint** (no code change): split the "Domain modules are below
+  cli / rl / utils.download" importlinter contract into two — "Domain modules are
+  below cli / rl" (all domain packages) and "Domain (except asset_zoo) does not
+  import utils.download" (ADR-0009 / ROADMAP §9 R7.3c). `asset_zoo` is the asset
+  catalog, so fetching assets via `utils.download` (`fetch_asset(AssetSpec(...))`
+  for URDF/MJCF/motion files) is a legitimate downward `domain → utils` import,
+  not a layering violation; the split states that intent while keeping the
+  "term logic must not download" guard for the other ten domain packages. With
+  R7.3a + R7.3b already clearing the `domain → rl` leaks, both forbidden contracts
+  now pass — the importlinter baseline is **4 kept / 1 broken** (only the
+  "Top-down layering" contract remains, addressed in R7.3d before the blocking
+  flip).
+
 - **Internal restructuring** (no behaviour change): the torchrun helpers moved
   from `genelab.rl.distributed` to `genelab.utils.distributed` (ADR-0009 /
   ROADMAP §9 R7.3b). They are a generic environment/torchrun utility (only `os` +
