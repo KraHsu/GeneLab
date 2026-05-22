@@ -13,7 +13,7 @@ Two observation modes:
   ``observation`` / ``achieved_goal`` / ``desired_goal`` keys, and
   ``env_method("compute_reward", ...)`` routes to the task's relabelling reward.
 
-Like ``skrl_wrapper``, this becomes a subclass of SB3's ``VecEnv`` when SB3 is
+Like ``vecenvs.skrl``, this becomes a subclass of SB3's ``VecEnv`` when SB3 is
 installed and degrades to a plain object otherwise, so zero/random play and unit
 tests work without SB3. ``gymnasium`` is required either way.
 """
