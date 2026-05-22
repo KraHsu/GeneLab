@@ -531,7 +531,7 @@ def test_relaunch_under_torchrun_builds_expected_command(
 
     monkeypatch.setattr("genelab.cli.os.execvp", _fake_execvp)
     monkeypatch.setattr(
-        "genelab.cli.sys.argv",
+        "genelab.cli._distributed.sys.argv",
         ["genelab", "train", "TASK_ID", "--gpus", "4", "--num-envs", "8"],
     )
 
@@ -583,7 +583,7 @@ def test_relaunch_under_torchrun_preserves_explicit_log_dir(
 
     monkeypatch.setattr("genelab.cli.os.execvp", _fake_execvp)
     monkeypatch.setattr(
-        "genelab.cli.sys.argv",
+        "genelab.cli._distributed.sys.argv",
         ["genelab", "train", "TASK", "--gpus", "2", "--log-dir", "/tmp/keep-this"],
     )
 
@@ -627,7 +627,7 @@ def test_relaunch_under_torchrun_injects_interactively_picked_task_id(
     monkeypatch.setattr("genelab.cli.os.execvp", _fake_execvp)
     # No task id in argv — parent picked it interactively.
     monkeypatch.setattr(
-        "genelab.cli.sys.argv",
+        "genelab.cli._distributed.sys.argv",
         ["genelab", "train", "--num_envs", "8192", "--steps", "20", "--gpus", "8"],
     )
 
@@ -668,7 +668,7 @@ def test_relaunch_under_torchrun_does_not_duplicate_explicit_task_id(
 
     monkeypatch.setattr("genelab.cli.os.execvp", _fake_execvp)
     monkeypatch.setattr(
-        "genelab.cli.sys.argv",
+        "genelab.cli._distributed.sys.argv",
         ["genelab", "train", "Explicit-Task-v0", "--gpus", "2"],
     )
 
