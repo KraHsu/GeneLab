@@ -6,6 +6,15 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ## [Unreleased]
 
+### Added
+
+- **`tests/test_articulation_size.py`** — size guard for `entity/articulation.py`,
+  fulfilling ADR-0010 (defer the entity/articulation split) §Risks R10.1 /
+  Validation. The split stays deferred; this is the recorded soft check that the
+  file isn't accreting unnoticed past the point a split would be cheap: silent
+  pass ≤700 LoC, a `UserWarning` (prompting a revisit of the ADR's trigger
+  criteria) at 700–1000, hard failure >1000. The file is 528 LoC today.
+
 ### Removed
 
 - **Dropped the R-phase deprecation shims** (backward-compat for the relocated
