@@ -14,6 +14,19 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
   file isn't accreting unnoticed past the point a split would be cheap: silent
   pass ≤700 LoC, a `UserWarning` (prompting a revisit of the ADR's trigger
   criteria) at 700–1000, hard failure >1000. The file is 528 LoC today.
+- **Public extension API** `genelab.extensions` (ADR-0008 / ROADMAP §9 R7): a
+  single import path for the four extension kinds —
+  `from genelab.extensions import register_robot, register_env, register_task,
+  register_backend, ROBOTS, ENVS, TASKS, Backend, Runnable`. The symbols are
+  re-exports of the existing `genelab.registry` and `genelab.rl.backends`
+  implementations (which keep working unchanged); `genelab.extensions` is the
+  canonical, stable surface for third-party packages. `register_backend` — the
+  one previously-undocumented registration function — is now discoverable here.
+- `genelab.registry.Runnable` — the (now public) Protocol every `TASKS` value
+  must satisfy after instantiation (`cfg`, `play()`, `train()`). Promoted from
+  the former private `cli/__init__.py:_RunnableTask`; the CLI imports it from
+  `registry`. (The transitional `_RunnableTask = Runnable` alias was removed
+  within this same cycle — see Removed, #110.)
 
 ### Removed
 
@@ -91,10 +104,9 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
   `scene → rl.distributed` layering violation (and the `envs → scene → rl` chain
   through it); after R7.3a + R7.3b there are **no `domain → rl` violations left**.
   All internal callers (the three backends, `rl/profiler.py`, `scene`, and a CLI
-  test) now import from `genelab.utils.distributed`. The old `genelab.rl.distributed`
-  path is a `DeprecationWarning` re-export shim for one release (its
-  `is_main_process` is referenced by name in downstream-facing docs). Module moved
-  verbatim.
+  test) now import from `genelab.utils.distributed`. Module moved verbatim. The old
+  `genelab.rl.distributed` path shipped briefly as a `DeprecationWarning` re-export
+  shim and was removed within this same cycle (see Removed, #110).
 - **Internal restructuring** (no behaviour change): `eval_task` moved from
   `cli/_eval.py` to a new `genelab.rl.eval_task` module (ADR-0009 / ROADMAP §9
   R7.3). Its body is backend-agnostic eval orchestration whose dependencies all
@@ -102,56 +114,24 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
   `rl.backends`, `rl.runner`) — it imported nothing from `cli`. Both callers (the
   `genelab eval` command and the in-training `EvalCallback`) now reach it in the
   `rl` layer, which removes the `rl.eval_callback → cli._eval` layering violation
-  (the last `rl → cli` import). `cli/_eval.py` keeps re-exporting `eval_task`, so
-  `from genelab.cli._eval import eval_task` still works. The `rl.runner` import is
+  (the last `rl → cli` import). `cli/_eval.py` re-exported `eval_task` as a shim
+  that was removed within this same cycle (see Removed, #110); callers import
+  `genelab.rl.eval_task.eval_task` directly. The `rl.runner` import is
   function-local in the moved function to keep the import graph acyclic. Body is
   byte-identical to before apart from that import.
-
-### Added
-
-- **Public extension API** `genelab.extensions` (ADR-0008 / ROADMAP §9 R7): a
-  single import path for the four extension kinds —
-  `from genelab.extensions import register_robot, register_env, register_task,
-  register_backend, ROBOTS, ENVS, TASKS, Backend, Runnable`. The symbols are
-  re-exports of the existing `genelab.registry` and `genelab.rl.backends`
-  implementations (which keep working unchanged); `genelab.extensions` is the
-  canonical, stable surface for third-party packages. `register_backend` — the
-  one previously-undocumented registration function — is now discoverable here.
-- `genelab.registry.Runnable` — the (now public) Protocol every `TASKS` value
-  must satisfy after instantiation (`cfg`, `play()`, `train()`). Promoted from
-  the former private `cli/__init__.py:_RunnableTask`; the CLI now imports it from
-  `registry` and keeps `_RunnableTask = Runnable` as a back-compat alias for one
-  release.
-
-### Deprecated
-
-- The vec-env adapter modules moved under a new `genelab.rl.vecenvs/` package
-  (ADR-0007 / ROADMAP §9 R6): import `RslRlVecEnvWrapper` from
-  `genelab.rl.vecenvs.rsl_rl`, `GenelabSb3VecEnv` from `genelab.rl.vecenvs.sb3`,
-  and `GenelabSkrlWrapper` from `genelab.rl.vecenvs.skrl`. The old paths
-  (`genelab.rl.{rsl_rl,sb3,skrl}_wrapper`) and the top-level
-  `genelab.rl.RslRlVecEnvWrapper` re-export still work but now emit a
-  `DeprecationWarning`; they will be removed in the next minor release.
-  Recommended long-term access is `select_backend(cfg)` rather than the wrapper
-  classes directly. Class names are unchanged.
-
-### Changed
 
 - **Internal restructuring** (no behaviour change): the three vec-env adapters
   moved verbatim from `rl/<lib>_wrapper.py` into `rl/vecenvs/<lib>.py`, so each
   adapter sits next to its same-named trainer under `rl/backends/<lib>.py` and
   the file tree expresses the per-library pairing (ADR-0007). The shared
   `attach_optional_base` helper (R2.2) relocated alongside them to
-  `rl/vecenvs/_attach_base.py` — its R2.2 deferred home. The old module paths
-  became thin `DeprecationWarning` shims (see Deprecated above); all internal
-  callers (the three backends, `skrl_models.py`, and the RL pipeline tests) now
-  import the canonical `rl/vecenvs/<lib>` paths. `genelab.rl.RslRlVecEnvWrapper`
-  is served by a module-level `__getattr__` shim and dropped from `rl.__all__`
-  (the asymmetric single-backend export is now deprecated). New
-  `tests/test_deprecated_imports.py` (subprocess-isolated, per the cv2/Qt
-  conflict) verifies every legacy path resolves to the moved class and warns;
-  `tests/test_optional_deps.py` now also covers the three `rl/vecenvs/<lib>`
-  modules. Completes ADR-0007 (R6).
+  `rl/vecenvs/_attach_base.py` — its R2.2 deferred home. All internal callers
+  (the three backends, `skrl_models.py`, and the RL pipeline tests) import the
+  canonical `rl/vecenvs/<lib>` paths. The old `rl/<lib>_wrapper.py` paths and the
+  top-level `genelab.rl.RslRlVecEnvWrapper` re-export shipped briefly as
+  `DeprecationWarning` shims and were **removed within this same unreleased cycle**
+  (see Removed, #110), so they net to absent in the release. `tests/test_optional_deps.py`
+  now also covers the three `rl/vecenvs/<lib>` modules. Completes ADR-0007 (R6).
 
 - **Internal refactor** (no behaviour change): the three jaccard-1.000
   motion-tracking body-error rewards are now thin wrappers over a shared
