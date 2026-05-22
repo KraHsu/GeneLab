@@ -8,6 +8,25 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Architecture lint is now a required CI gate** (ADR-0009 / ROADMAP §9 R7.3d —
+  completes the R0–R7 refactor). The `lint-imports` step dropped its
+  `continue-on-error`, so any PR that introduces a cross-layer import now fails CI.
+  The baseline is clean: **6 contracts, 0 violations**. To get there, the
+  monolithic `layers` contract (which treated the 11 domain packages as mutually
+  independent and so wrongly forbade legitimate intra-domain imports like
+  `envs → scene`, `mdp → managers`, `entity → actuator`) was replaced by
+  directional `forbidden` contracts that enforce the band ordering
+  (`cli > rl > domain > config-band > utils`) while leaving intra-band imports
+  free: added "rl is below cli" and "Infrastructure modules do not import up". A
+  new `tests/test_importlinter_configured.py` asserts the contract set stays
+  present so the gate can't be silently disabled by deleting the config.
+- **Internal restructuring** (no behaviour change): `PROJECT_ROOT` / `CACHE_DIR`
+  moved from `genelab.cache` to a new `genelab.utils.paths` module (ADR-0009 /
+  R7.3d), so `utils.download` resolves the asset cache without importing up into
+  `genelab.cache` (the last infra→config-band edge). `genelab.cache` re-exports
+  them, so `from genelab.cache import CACHE_DIR` and `ensure_project_cache` are
+  unchanged.
+
 - **Architecture lint** (no code change): split the "Domain modules are below
   cli / rl / utils.download" importlinter contract into two — "Domain modules are
   below cli / rl" (all domain packages) and "Domain (except asset_zoo) does not

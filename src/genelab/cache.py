@@ -1,10 +1,14 @@
-"""Project-local cache directory helpers."""
+"""Project-local cache directory helpers.
+
+``PROJECT_ROOT`` / ``CACHE_DIR`` live in :mod:`genelab.utils.paths` (the bottom infra
+band) so ``utils.download`` can resolve the asset cache without importing up into this
+module (ADR-0009 / R7.3d); they are re-exported here for back-compat.
+"""
 
 import os
-from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-CACHE_DIR = PROJECT_ROOT / ".cache"
+from genelab.utils.paths import CACHE_DIR as CACHE_DIR, PROJECT_ROOT as PROJECT_ROOT
+
 XDG_CACHE_DIR = CACHE_DIR / "xdg"
 MATPLOTLIB_CACHE_DIR = CACHE_DIR / "matplotlib"
 
