@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import torch
 
+from genelab.sensor._entity import entity_articulation, entity_handle
 from genelab.sensor.sensor import Sensor, SensorCfg
 from genelab.utils.math import matrix_from_quat
 
@@ -97,16 +98,17 @@ class CameraSensor(Sensor[CameraData]):
         """
 
         self._validate_cfg()
-        robot_wrapper = entities.get("robot")
+        name = self._cfg_typed.entity_name
+        robot_wrapper = entities.get(name)
         if robot_wrapper is None:
             raise ValueError(
-                f"sensor {self._cfg.name!r}: pre_build_genesis needs entities['robot']; "
+                f"sensor {self._cfg.name!r}: pre_build_genesis needs entities[{name!r}]; "
                 f"got entities={sorted(entities.keys())!r}"
             )
         robot_handle = getattr(robot_wrapper, "gs_handle", None)
         if robot_handle is None:
             raise RuntimeError(
-                f"sensor {self._cfg.name!r}: entities['robot'].gs_handle is None; "
+                f"sensor {self._cfg.name!r}: entities[{name!r}].gs_handle is None; "
                 "call pre_build_genesis after the robot has been spawned"
             )
         link = robot_handle.get_link(self._cfg_typed.link_name)
@@ -115,12 +117,13 @@ class CameraSensor(Sensor[CameraData]):
     def bind(self, env: "ManagerBasedRlEnv") -> None:
         super().bind(env)
         self._validate_cfg()
+        link_names = entity_articulation(env, self._cfg_typed.entity_name).link_names
         try:
-            self._link_idx = env.link_names.index(self._cfg_typed.link_name)
+            self._link_idx = link_names.index(self._cfg_typed.link_name)
         except ValueError as exc:
             raise ValueError(
                 f"sensor {self._cfg.name!r}: link {self._cfg_typed.link_name!r} not in "
-                f"env.link_names={env.link_names!r}"
+                f"link_names={link_names!r}"
             ) from exc
 
         # ``pre_build_genesis`` typically allocates the Genesis camera ahead of
@@ -130,7 +133,9 @@ class CameraSensor(Sensor[CameraData]):
         # accept cameras added either side of build.
         if self._cam is None:
             gs_scene = env.scene.gs_scene
-            link = env.robot.get_link(self._cfg_typed.link_name)
+            link = entity_handle(env, self._cfg_typed.entity_name).get_link(
+                self._cfg_typed.link_name
+            )
             self._cam = self._allocate_camera(gs_scene, link)
 
     def _validate_cfg(self) -> None:

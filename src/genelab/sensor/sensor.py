@@ -20,6 +20,10 @@ class SensorCfg(ABC):
     """Backend-agnostic sensor configuration. Subclasses describe what to sense and how."""
 
     name: str = ""
+    # Which scene entity the sensor attaches to / reads from (ROADMAP M3.6 / ADR-0012 S4).
+    # Defaults to the primary ``"robot"``; multi-robot scenes set it per sensor (e.g.
+    # ``"robot_b"``). Resolved via ``genelab.sensor._entity`` with a primary fallback.
+    entity_name: str = "robot"
 
     @abstractmethod
     def build(self) -> "Sensor[Any]": ...
@@ -59,8 +63,8 @@ class Sensor[T](ABC):
 
         ``entities`` maps entity names to the :class:`~genelab.entity.Articulation` /
         :class:`~genelab.entity.RigidObject` wrappers spawned on ``gs_scene``. Use
-        ``entities["robot"].gs_handle`` to reach the raw Genesis handle when the sensor
-        needs to attach to a link.
+        ``entities[self.cfg.entity_name].gs_handle`` to reach the raw Genesis handle when the
+        sensor needs to attach to a link (``entity_name`` defaults to the primary ``"robot"``).
         """
         del gs_scene, entities
 
