@@ -5,11 +5,16 @@ from typing import TYPE_CHECKING, cast
 
 import torch
 
-from genelab.mdp._helpers import contact_sensor as _contact_sensor
+from genelab.mdp._helpers import (
+    asset_articulation as _asset_articulation,
+    asset_state as _asset_state,
+    contact_sensor as _contact_sensor,
+)
 from genelab.mdp.commands.motion_command import MotionCommand
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
 def time_out(env: "ManagerBasedRlEnv") -> torch.Tensor:
@@ -19,21 +24,26 @@ def time_out(env: "ManagerBasedRlEnv") -> torch.Tensor:
 def bad_orientation(
     env: "ManagerBasedRlEnv",
     limit_angle: float = math.radians(70.0),
+    asset_cfg: "SceneEntityCfg | None" = None,
 ) -> torch.Tensor:
     """True when the body z-axis tilts more than ``limit_angle`` from world up.
 
     Body-frame projected gravity z = -cos(tilt). So |projected_gravity_b.z| < cos(limit_angle).
     """
     cos_limit = math.cos(limit_angle)
-    gravity_z = env.robot_state.projected_gravity_b[:, 2]
+    gravity_z = _asset_state(env, asset_cfg).projected_gravity_b[:, 2]
     return gravity_z > -cos_limit
 
 
-def root_height_below(env: "ManagerBasedRlEnv", min_height: float) -> torch.Tensor:
-    return env.robot_state.root_pos[:, 2] < min_height
+def root_height_below(
+    env: "ManagerBasedRlEnv", min_height: float, asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
+    return _asset_state(env, asset_cfg).root_pos[:, 2] < min_height
 
 
-def joint_pos_out_of_limit(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def joint_pos_out_of_limit(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """True for any env where an actuated joint left its position limits.
 
     Reads the same per-joint ``(lower, upper)`` limits as the ``joint_pos_limits``
@@ -41,22 +51,24 @@ def joint_pos_out_of_limit(env: "ManagerBasedRlEnv") -> torch.Tensor:
     with ±∞ limits (continuous joints) never trip it. Use as a safety termination so
     a policy can't learn to exploit a joint slammed against its hard stop.
     """
-    limits = env.joint_pos_limits  # (J, 2)
-    joint_pos = env.robot_state.joint_pos  # (B, J)
+    limits = _asset_articulation(env, asset_cfg).joint_pos_limits  # (J, 2)
+    joint_pos = _asset_state(env, asset_cfg).joint_pos  # (B, J)
     below = joint_pos < limits[:, 0].unsqueeze(0)
     above = joint_pos > limits[:, 1].unsqueeze(0)
     return torch.any(below | above, dim=-1)
 
 
-def joint_vel_out_of_limit(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def joint_vel_out_of_limit(
+    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+) -> torch.Tensor:
     """True for any env where an actuated joint exceeds its velocity-limit magnitude.
 
     Reads ``env.joint_vel_limits`` (``ArticulationCfg.joint_vel_limit``, ``+∞`` when
     unset → never trips) and ``robot_state.joint_vel``. A safety termination for
     runaway joint speeds; inert until a task declares a velocity limit.
     """
-    limit = env.joint_vel_limits  # (J,)
-    speed = torch.abs(env.robot_state.joint_vel)  # (B, J)
+    limit = _asset_articulation(env, asset_cfg).joint_vel_limits  # (J,)
+    speed = torch.abs(_asset_state(env, asset_cfg).joint_vel)  # (B, J)
     return torch.any(speed > limit.unsqueeze(0), dim=-1)
 
 
