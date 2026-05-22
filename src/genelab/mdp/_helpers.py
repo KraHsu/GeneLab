@@ -8,7 +8,7 @@ re-exported from :mod:`genelab.mdp` (no entry in ``mdp/__init__.py:__all__``);
 external code should keep importing the rewards / metrics functions, not these.
 """
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import torch
 
@@ -67,6 +67,20 @@ def asset_articulation(
 ) -> "Articulation":
     """:class:`Articulation` for ``asset_cfg``'s entity; ``None`` → primary ``"robot"``."""
     return resolve_articulation(env, asset_cfg.name if asset_cfg is not None else "robot")
+
+
+def asset_handle(env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None") -> Any:
+    """Raw Genesis handle for ``asset_cfg``'s entity (for ``set_pos`` / ``set_dofs_*`` etc.).
+
+    ``env.articulations[name].gs_handle`` when present, else the primary ``env.robot`` — so
+    DR / event terms that write through the handle stay single-robot-correct and fake-env
+    tests (which expose ``env.robot`` directly) are unchanged. ``None`` → primary ``"robot"``.
+    """
+    name = asset_cfg.name if asset_cfg is not None else "robot"
+    arts = getattr(env, "articulations", None)
+    if arts is not None and name in arts:
+        return arts[name].gs_handle
+    return env.robot
 
 
 def link_ids(asset_cfg: SceneEntityCfg) -> tuple[int, ...]:

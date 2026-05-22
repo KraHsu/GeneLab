@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from genelab.managers.scene_entity_cfg import SceneEntityCfg
+from genelab.mdp._helpers import asset_handle
 from genelab.mdp.dr._common import normalise_env_ids, resolve_link_indices
 
 if TYPE_CHECKING:
@@ -40,7 +41,7 @@ def body_com_offset(
     if ranges:
         for axis, (lo, hi) in ranges.items():
             com_shift[..., axis] = torch.empty(n_envs, n_links, device=env.device).uniform_(lo, hi)
-    setter = getattr(env.robot, "set_COM_shift", None)
+    setter = getattr(asset_handle(env, asset_cfg), "set_COM_shift", None)
     if setter is None:
         return
     try:
@@ -69,7 +70,7 @@ def body_mass_offset(
     n_envs = int(env_ids.numel())
     n_links = len(link_indices)
     mass_shift = torch.empty(n_envs, n_links, device=env.device).uniform_(*ranges)
-    setter = getattr(env.robot, "set_mass_shift", None)
+    setter = getattr(asset_handle(env, asset_cfg), "set_mass_shift", None)
     if setter is None:
         return
     try:
