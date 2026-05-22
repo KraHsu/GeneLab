@@ -13,10 +13,13 @@ import pytest
 import torch
 
 from genelab.terrains import (
+    DiscreteObstaclesCfg,
     FlatPatchCfg,
+    FractalCfg,
     PyramidStairsCfg,
     RandomRoughCfg,
     SlopeCfg,
+    SteppingStonesCfg,
     TerrainGenerator,
     TerrainGeneratorCfg,
     TerrainImporter,
@@ -30,6 +33,29 @@ def test_sub_terrain_cfgs_emit_genesis_strings() -> None:
     assert RandomRoughCfg().genesis_type() == "random_uniform_terrain"
     assert SlopeCfg().genesis_type() == "sloped_terrain"
     assert WaveCfg().genesis_type() == "wave_terrain"
+    # M3.2 additions (each maps to a real Genesis parse_terrain branch).
+    assert DiscreteObstaclesCfg().genesis_type() == "discrete_obstacles_terrain"
+    assert SteppingStonesCfg().genesis_type() == "stepping_stones_terrain"
+    assert FractalCfg().genesis_type() == "fractal_terrain"
+
+
+def test_m3_2_sub_terrain_params_round_trip() -> None:
+    d = DiscreteObstaclesCfg(max_height=0.1, min_size=0.5, max_size=1.5, num_rects=12)
+    assert d.to_genesis_params() == {
+        "max_height": 0.1,
+        "min_size": 0.5,
+        "max_size": 1.5,
+        "num_rects": 12,
+    }
+    s = SteppingStonesCfg(stone_size=0.4, stone_distance=0.3, max_height=0.15, platform_size=2.0)
+    assert s.to_genesis_params() == {
+        "stone_size": 0.4,
+        "stone_distance": 0.3,
+        "max_height": 0.15,
+        "platform_size": 2.0,
+    }
+    f = FractalCfg(levels=6, scale=3.0)
+    assert f.to_genesis_params() == {"levels": 6, "scale": 3.0}
 
 
 def test_sub_terrain_params_round_trip() -> None:
