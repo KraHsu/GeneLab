@@ -8,6 +8,15 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **`ForceTorqueSensor`** (ROADMAP M3.5) — a joint force-torque sensor reporting each
+  selected joint's internal reaction force/torque from Genesis `get_dofs_force` (the
+  total internal DoF force, distinct from the commanded `applied_torque`). Select joints
+  via `joint_names` / `joint_names_expr` (default: all actuated joints); `ForceTorqueData.force`
+  is `(num_envs, num_joints)`. Comes with the `mdp.joint_force_torque(env, sensor_name)`
+  observation term and a new `Articulation.actuated_dof_ids` accessor (joint→global-DoF
+  map). Exported from `genelab.sensor` + `genelab.lab`; tested in `tests/test_sensor.py`.
+  (Full 6-axis wrench / fingertip-pressure array deferred, per M3.5.)
+
 - **Sim2Real deployment-recipe doc** (ROADMAP M2.7) —
   `docs/best-practices/sim2real.{en,zh}.md` (How-to Guides → "Harden for Sim2Real"):
   which DR / observation-noise to enable while training (the M2.1/M2.2/M2.6 events +
