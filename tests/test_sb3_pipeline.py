@@ -1,7 +1,7 @@
 """Smoke tests for the SB3 backend: config defaults, the env wrapper surface
 (flat + goal-conditioned HER modes), and backend selection.
 
-The ``genelab.rl.sb3_wrapper`` import is deliberately kept *inside* the test
+The ``genelab.rl.vecenvs.sb3`` import is deliberately kept *inside* the test
 functions rather than at module scope: importing it pulls in ``stable_baselines3``
 (and transitively ``cv2``, which hijacks ``QT_QPA_PLATFORM_PLUGIN_PATH``). pytest
 imports every test module during collection, so a module-level import would poison

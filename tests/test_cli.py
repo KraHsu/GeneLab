@@ -484,7 +484,7 @@ def test_shutdown_process_group_destroys_when_initialized(
 
     import torch.distributed as dist
 
-    from genelab.rl import distributed
+    from genelab.utils import distributed
 
     destroyed = {"count": 0}
 

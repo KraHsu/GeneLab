@@ -6,6 +6,26 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ## [Unreleased]
 
+### Removed
+
+- **Dropped the R-phase deprecation shims** (backward-compat for the relocated
+  modules from R6/R7 is no longer maintained). The following old import paths are
+  **gone** — import from the canonical locations instead:
+  - `genelab.rl.rsl_rl_wrapper` / `genelab.rl.sb3_wrapper` / `genelab.rl.skrl_wrapper`
+    → `genelab.rl.vecenvs.{rsl_rl,sb3,skrl}` (the vecenv adapters, ADR-0007 / R6).
+  - `genelab.rl.RslRlVecEnvWrapper` (top-level re-export via `__getattr__`)
+    → `genelab.rl.vecenvs.rsl_rl.RslRlVecEnvWrapper`.
+  - `genelab.rl.distributed` → `genelab.utils.distributed` (the torchrun helpers,
+    ADR-0009 / R7.3b).
+  - `genelab.cli._eval.eval_task` (CLI re-export) → `genelab.rl.eval_task.eval_task`
+    (ADR-0009 / R7.3a).
+  - `genelab.cli._RunnableTask` (private alias) → `genelab.registry.Runnable`
+    (ADR-0008 / R7.1).
+
+  `tests/test_deprecated_imports.py` (which asserted the shims warned + re-exported)
+  is removed with them. No behaviour change for the canonical surface; the three
+  internal/test references that still used an old path were repointed.
+
 ### Changed
 
 - **`MetricsManager` and `CurriculumManager` now subclass `BaseTermManager`**
