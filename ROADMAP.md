@@ -57,7 +57,7 @@ GeneLab 的差异化价值：
 - **架构**：`lint-imports` 必过 CI 分层门禁（6/0）；pyright 在 `src/` 上 0 错误（不再几乎全关）
 
 ⚠️ **关键缺口**（按 ROI 排序详见 §4）—— **M1、M2 完成；M3 进行中（M3.5 / M3.7 ✅）**，剩余缺口全在 M3：
-- 多机器人 API 缺位（`articulations["robot"]` 硬编码，M3.6 —— 最大一项，先提 RFC）
+- 多机器人 API 缺位（`articulations["robot"]` 硬编码，M3.6 —— 最大一项，**RFC 已起草：ADR-0012**，实现分片待做）
 - Camera 无 segmentation（M3.4）；指尖压力 tactile 阵列待做（M3.5 已交付 joint-FT）
 - Terrain curriculum flag 未生效、sub-terrain 仅 5 种（M3.2 / M3.3）
 - 资产仅 5 个（M3.1，需外部托管 MJCF）；benchmark suite 未建（M3.8）
@@ -245,13 +245,15 @@ Genesis 阻挡（`push_robot` ≈ 现有 `push_by_setting_velocity`；`randomize
 | ❌ M3.3 | Terrain curriculum 真生效 | `TerrainGeneratorCfg.curriculum=True` 时按 mdp/curriculums 的进度自动调难度 |
 | ❌ M3.4 | Camera segmentation + point cloud | 暴露 Genesis 的 semantic/instance ID 通道 |
 | ✅ M3.5 | F/T sensor + tactile array | `ForceTorqueSensor`（per-joint 反作用力矩，PR #126）；6 轴 wrench / 指尖压力阵列后置 |
-| ❌ M3.6 | 多机器人 API | manager 层支持 `entity_cfg.name="robot_a"` 绑定特定 articulation，env 层去除 `["robot"]` 硬编码 |
+| 🚧 M3.6 | 多机器人 API | **RFC 已起草（ADR-0012，explicit-routing 设计）**；实现拆为 S1–S6 分片待做。manager 层启用已存在但未消费的 `SceneEntityCfg.name` / `asset_name` 绑定，env 用 `env.articulation(name)` 取代 `["robot"]` 硬编码（破坏性，~82 term 点 + 所有 examples 需迁移） |
 | ✅ M3.7 | SimulationCfg 字段扩展 | 暴露 Genesis `RigidOptions`：contact / solver / constraint-damping 共 8 字段（PR #127）。CCD：Genesis 无对应 knob，N/A |
 | ❌ M3.8 | Benchmark suite | 至少 8 个任务（含 locomotion / manipulation / dexterous / vision），每个都有 reference numbers |
 
 **设计要点**
 
-- 多机器人 API 改动较大。**先在 PR 中给一份「API 设计 RFC」征求意见**，再动代码。
+- 多机器人 API 改动较大。**RFC 已起草：ADR-0012**（采用 explicit-routing / 破坏性设计——
+  去掉单数 `env.robot*` 访问器，term 一律经 `asset_name` 路由）。实现按 ADR-0012 的 S1–S6
+  分片推进。
 - Benchmark suite 不是 examples 的简单堆砌；要有一个统一的 `genelab benchmark` 命令一键 run。
 - Camera segmentation 通道写在 `CameraSensorCfg` 上而非新 sensor 类型，遵守 P2。
 
@@ -259,7 +261,9 @@ Genesis 阻挡（`push_robot` ≈ 现有 `push_by_setting_velocity`；`randomize
 
 - `genelab list robots` 至少 8 个
 - 至少一个 vision-based 任务能端到端训练（如「Franka stacking with depth obs」）
-- 多机器人 API 改完后所有现有 examples 不破坏（向后兼容 `articulations["robot"]` 仍工作）
+- 多机器人 API（M3.6）：一个 2-robot 示例任务 + 集成测试（两 articulation、各自 action / reward）
+  通过，即 ADR-0012 的验收门（S6）。**注意：ADR-0012 选择破坏性迁移，现有 examples 会随 S5 一起迁移、
+  不保证向后兼容**（与早期「向后兼容」设想相反，已在 ADR 中记录变更）。
 
 **关键文件**
 - 新增：`src/genelab/asset_zoo/{a1,h1,ur10,allegro}.py`
