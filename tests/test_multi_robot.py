@@ -7,7 +7,10 @@ Genesis-free: covers the entity-cfg resolution + primary selection + the entity-
 
 from __future__ import annotations
 
+import types
+
 import pytest
+import torch
 
 from genelab.entity import ArticulationCfg
 from genelab.envs.manager_based_rl_env import (
@@ -16,6 +19,8 @@ from genelab.envs.manager_based_rl_env import (
     _resolve_entity_cfgs,
 )
 from genelab.managers.scene_entity_cfg import SceneEntityCfg
+from genelab.mdp._helpers import resolve_articulation
+from genelab.mdp.actions.joint_position import JointPositionAction, JointPositionActionCfg
 
 
 def test_resolve_entity_cfgs_falls_back_to_single_robot() -> None:
@@ -85,3 +90,60 @@ def test_scene_entity_cfg_fallback_without_articulations() -> None:
     cfg.resolve(env)  # type: ignore[arg-type]
     assert cfg.joint_ids == (1,)
     assert cfg.link_ids == (0,)
+
+
+# ---------------------------------------------------------------- S2: asset_name routing
+
+
+class _PrimaryOnlyEnv:
+    """Fake env exposing only the singular ``articulation`` (no ``articulations``)."""
+
+    def __init__(self) -> None:
+        self.articulation = object()
+
+
+def test_resolve_articulation_picks_named_entity_else_primary() -> None:
+    a, b = object(), object()
+    multi = types.SimpleNamespace(articulations={"robot": a, "robot_b": b}, articulation=a)
+    assert resolve_articulation(multi, "robot_b") is b  # type: ignore[arg-type]
+    assert resolve_articulation(multi, "robot") is a  # type: ignore[arg-type]
+    # Unknown name → primary fallback.
+    assert resolve_articulation(multi, "nope") is a  # type: ignore[arg-type]
+    # Legacy env without .articulations → primary.
+    legacy = _PrimaryOnlyEnv()
+    assert resolve_articulation(legacy, "robot") is legacy.articulation  # type: ignore[arg-type]
+
+
+class _RoutingArticulation:
+    def __init__(self, joint_names: list[str], num_envs: int) -> None:
+        self.joint_names = joint_names
+        n = len(joint_names)
+        self.default_joint_pos = torch.zeros(n)
+        self.action_scale_tensor = torch.ones(n)
+        self.data = types.SimpleNamespace(encoder_bias=torch.zeros(num_envs, n))
+        self.written: tuple[torch.Tensor, torch.Tensor] | None = None
+
+    def write_joint_targets_partial(self, idx: torch.Tensor, target: torch.Tensor) -> None:
+        self.written = (idx, target)
+
+
+class _RoutingEnv:
+    def __init__(self) -> None:
+        self.num_envs = 2
+        self.device = "cpu"
+        self._a = _RoutingArticulation(["ja0"], self.num_envs)
+        self._b = _RoutingArticulation(["jb0", "jb1"], self.num_envs)
+        self.articulations = {"robot": self._a, "robot_b": self._b}
+        self.articulation = self._a
+
+
+def test_joint_position_action_routes_to_named_entity() -> None:
+    env = _RoutingEnv()
+    cfg = JointPositionActionCfg(asset_name="robot_b", joint_names=(".*",), scale=1.0)
+    term = JointPositionAction(cfg, env)  # type: ignore[arg-type]
+    # Matched robot_b's two joints, not robot's one.
+    assert term.action_dim == 2
+    term.process_actions(torch.zeros(2, 2))
+    term.apply_actions()
+    assert env._b.written is not None  # wrote to robot_b
+    assert env._a.written is None  # primary left untouched

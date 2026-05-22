@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from genelab.managers.action_manager import ActionTerm, ActionTermCfg
+from genelab.mdp._helpers import resolve_articulation
 from genelab.mdp.actions._joint_match import match_joints
 
 if TYPE_CHECKING:
@@ -45,7 +46,8 @@ class BinaryGripperAction(ActionTerm):
 
     def __init__(self, cfg: BinaryGripperActionCfg, env: "ManagerBasedRlEnv") -> None:
         super().__init__(cfg, env)
-        matched = match_joints(cfg.joint_names, env.joint_names)
+        self._articulation = resolve_articulation(env, cfg.asset_name)
+        matched = match_joints(cfg.joint_names, self._articulation.joint_names)
         if not matched:
             raise ValueError(
                 f"BinaryGripperAction matched zero joints from patterns {cfg.joint_names!r}"
@@ -73,4 +75,4 @@ class BinaryGripperAction(ActionTerm):
         self._target[:] = pos.unsqueeze(-1)
 
     def apply_actions(self) -> None:
-        self._env.articulation.write_joint_targets_partial(self._joint_indices, self._target)
+        self._articulation.write_joint_targets_partial(self._joint_indices, self._target)

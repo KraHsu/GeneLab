@@ -8,6 +8,24 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Multi-robot action/command routing** (ROADMAP M3.6 / ADR-0012, slice **S2**) — action and
+  command terms now honour their (previously-dead) `asset_name`, routing to the named entity:
+  - `genelab.mdp._helpers.resolve_articulation(env, name)` and `resolve_robot_state(env, name)`
+    return the entity named by `asset_name` (`env.articulations[name]` / its `.data`), falling
+    back to the singular primary (`env.articulation` / `env.robot_state`) — so single-robot
+    tasks and fake-env tests are unchanged.
+  - All four action terms (`JointPositionAction`, `BinaryGripperAction`,
+    `ContinuousGripperAction`, `DifferentialIKAction`) match joints, read state and write
+    targets against `asset_name`'s entity; the two command terms (`UniformVelocityCommand`,
+    `MotionCommand`) read state from it. The write/config path uses `resolve_articulation`, the
+    state reads use `resolve_robot_state` — preserving the prior "write via articulation, read
+    via robot_state" split exactly.
+
+  Zero behaviour change for single-robot tasks. Tested in `tests/test_multi_robot.py`
+  (`resolve_articulation` selection + a `JointPositionAction` routed to a non-primary entity).
+  Per ADR-0012, the remaining reward/observation/termination/event term sites + sensors migrate
+  in S3/S4.
+
 - **Multi-robot env foundation** (ROADMAP M3.6 / ADR-0012, slice **S1**) — first slice of the
   multi-robot API:
   - `ManagerBasedRlEnvCfg.robots: dict[str, ArticulationCfg]` — when non-empty, the env
