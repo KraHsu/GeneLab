@@ -37,6 +37,25 @@ class SimulationCfg:
     # raise ``decimation`` if that's not what you want.
     render_fps: int | None = 60
 
+    @staticmethod
+    def play_retargeted_keys() -> tuple[str, ...]:
+        """Override paths the CLI rewrites ``env.`` → ``play_env.`` in play mode.
+
+        The ``--vis`` / ``--gpu`` / ``--steps`` / ``--dt`` shorthand flags expand
+        to ``env.simulation.<field>`` overrides. When a task defines a separate
+        ``play_env``, ``genelab play TASK --vis`` should target *that* env, so the
+        CLI retargets these keys onto ``play_env.simulation.<field>``. Owning the
+        list here (rather than as a private constant in ``cli/__init__.py``) keeps
+        the set of play-retargetable simulation overrides next to the fields
+        themselves (ADR-0005 / R3.2).
+        """
+        return (
+            "env.simulation.vis",
+            "env.simulation.gpu",
+            "env.simulation.steps",
+            "env.simulation.dt",
+        )
+
 
 @dataclass
 class InteractiveSceneCfg:
