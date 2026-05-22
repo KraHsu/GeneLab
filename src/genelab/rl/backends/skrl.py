@@ -187,7 +187,7 @@ class SkrlBackend:
         from skrl.trainers.torch import SequentialTrainer
         from skrl.utils import set_seed
 
-        from genelab.rl.skrl_wrapper import GenelabSkrlWrapper
+        from genelab.rl.vecenvs.skrl import GenelabSkrlWrapper
 
         set_seed(agent_cfg.seed)
         env = ctx.env
@@ -234,7 +234,7 @@ class SkrlBackend:
         return log_dir
 
     def make_inference_setup(self, ctx: PlayContext) -> InferenceSetup:
-        from genelab.rl.skrl_wrapper import GenelabSkrlWrapper
+        from genelab.rl.vecenvs.skrl import GenelabSkrlWrapper
 
         if ctx.checkpoint is None:
             raise SystemExit("SkrlBackend.make_inference_setup requires ctx.checkpoint")
@@ -265,7 +265,7 @@ class SkrlBackend:
         )
 
     def play(self, ctx: PlayContext) -> None:
-        from genelab.rl.skrl_wrapper import GenelabSkrlWrapper
+        from genelab.rl.vecenvs.skrl import GenelabSkrlWrapper
 
         env = ctx.env
         agent_cfg = ctx.agent_cfg
