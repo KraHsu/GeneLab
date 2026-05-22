@@ -43,6 +43,7 @@ from genelab.mdp.observations import (
     robot_body_pos_b,
     sensor_data,
 )
+from genelab.mdp.motion_tracking import motion_body_error_exp
 from genelab.mdp.rewards import (
     action_rate_l2,
     angular_momentum_penalty,
@@ -119,6 +120,7 @@ __all__ = [
     "mean_action_acc",
     "motion_anchor_ori_b",
     "motion_anchor_pos_b",
+    "motion_body_error_exp",
     "motion_global_anchor_orientation_error_exp",
     "motion_global_anchor_position_error_exp",
     "motion_global_body_angular_velocity_error_exp",
