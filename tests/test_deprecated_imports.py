@@ -75,3 +75,19 @@ def test_rsl_wrapper_dropped_from_rl_all() -> None:
     # Removed from the public ``__all__`` (the deprecation signal); still reachable
     # via the ``__getattr__`` shim above.
     assert "RslRlVecEnvWrapper" not in rl.__all__
+
+
+def test_legacy_rl_distributed_module_warns_and_reexports() -> None:
+    # The torchrun helpers moved to genelab.utils.distributed (R7.3b). The shim has
+    # no cv2/Qt dependency, so it is safe in-process; drop any cached copy so the
+    # module-level warning re-fires.
+    import importlib
+    import sys
+
+    sys.modules.pop("genelab.rl.distributed", None)
+    with pytest.warns(DeprecationWarning, match="genelab.rl.distributed"):
+        legacy = importlib.import_module("genelab.rl.distributed")
+    from genelab.utils import distributed as new
+
+    assert legacy.pin_cuda_device is new.pin_cuda_device
+    assert legacy.is_main_process is new.is_main_process

@@ -7,7 +7,7 @@ from typing import Any, cast
 from genelab.rl.backends import register_backend
 from genelab.rl.backends.base import InferenceSetup, PlayContext, TrainContext
 from genelab.rl.config import RslRlOnPolicyRunnerCfg
-from genelab.rl.distributed import is_main_process, shutdown_process_group
+from genelab.utils.distributed import is_main_process, shutdown_process_group
 from genelab.rl.profiler import maybe_profile
 from genelab.rl.vecenvs.rsl_rl import RslRlVecEnvWrapper
 from genelab.rl._helpers import (

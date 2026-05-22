@@ -8,6 +8,19 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal restructuring** (no behaviour change): the torchrun helpers moved
+  from `genelab.rl.distributed` to `genelab.utils.distributed` (ADR-0009 /
+  ROADMAP §9 R7.3b). They are a generic environment/torchrun utility (only `os` +
+  a deferred `torch`; no RL-specific content), and a domain module
+  (`scene.interactive_scene`) needs `pin_cuda_device` — which `rl` may not sit
+  below. Moving the module to the `utils` band clears the
+  `scene → rl.distributed` layering violation (and the `envs → scene → rl` chain
+  through it); after R7.3a + R7.3b there are **no `domain → rl` violations left**.
+  All internal callers (the three backends, `rl/profiler.py`, `scene`, and a CLI
+  test) now import from `genelab.utils.distributed`. The old `genelab.rl.distributed`
+  path is a `DeprecationWarning` re-export shim for one release (its
+  `is_main_process` is referenced by name in downstream-facing docs). Module moved
+  verbatim.
 - **Internal restructuring** (no behaviour change): `eval_task` moved from
   `cli/_eval.py` to a new `genelab.rl.eval_task` module (ADR-0009 / ROADMAP §9
   R7.3). Its body is backend-agnostic eval orchestration whose dependencies all
