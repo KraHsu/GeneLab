@@ -32,6 +32,21 @@ def root_height_below(env: "ManagerBasedRlEnv", min_height: float) -> torch.Tens
     return env.robot_state.root_pos[:, 2] < min_height
 
 
+def joint_pos_out_of_limit(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    """True for any env where an actuated joint left its position limits.
+
+    Reads the same per-joint ``(lower, upper)`` limits as the ``joint_pos_limits``
+    reward (``env.joint_pos_limits``, sliced to actuated DoFs at bind time). Joints
+    with ±∞ limits (continuous joints) never trip it. Use as a safety termination so
+    a policy can't learn to exploit a joint slammed against its hard stop.
+    """
+    limits = env.joint_pos_limits  # (J, 2)
+    joint_pos = env.robot_state.joint_pos  # (B, J)
+    below = joint_pos < limits[:, 0].unsqueeze(0)
+    above = joint_pos > limits[:, 1].unsqueeze(0)
+    return torch.any(below | above, dim=-1)
+
+
 # --------------------------------------------------------------------- motion imitation
 
 

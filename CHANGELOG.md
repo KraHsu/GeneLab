@@ -8,6 +8,19 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **MDP hard-constraint terms** (ROADMAP M2.3 / M2.4, first slice): four new
+  reusable functions in `genelab.mdp`, re-exported from the package namespace —
+  - reward `lin_vel_z_l2(env)` — penalize vertical base velocity (`v_z²`),
+  - reward `base_height_l2(env, target_height)` — squared base-height deviation
+    (flat-ground variant),
+  - reward `alive_bonus(env)` — constant `+1` per alive step,
+  - termination `joint_pos_out_of_limit(env)` — trips when any actuated joint
+    leaves its position limits (reuses `env.joint_pos_limits`).
+
+  Each has unit tests (`tests/test_rewards.py`, new `tests/test_terminations.py`).
+  The velocity-limit / applied-torque / contact-force terms in M2.3/M2.4 are
+  deferred — they need new data plumbed into `RobotState` / `Articulation` (joint
+  velocity limits and applied torque aren't exposed today) and ship in a follow-up.
 - **`tests/test_articulation_size.py`** — size guard for `entity/articulation.py`,
   fulfilling ADR-0010 (defer the entity/articulation split) §Risks R10.1 /
   Validation. The split stays deferred; this is the recorded soft check that the
