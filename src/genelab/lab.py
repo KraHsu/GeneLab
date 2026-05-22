@@ -35,7 +35,7 @@ from genelab.entity import (
     RigidObjectCfg,
     RobotState,
 )
-from genelab.mdp.noise import Gnoise, NoiseCfg, Unoise
+from genelab.mdp.noise import BiasDrift, CorrelatedNoise, Gnoise, NoiseCfg, ScaledNoise, Unoise
 from genelab.scene import InteractiveScene
 from genelab.registry import (
     ENVS,
@@ -109,6 +109,7 @@ __all__ = [
     "ActuatorBaseCfg",
     "Articulation",
     "ArticulationCfg",
+    "BiasDrift",
     "Bridge",
     "BridgeCfg",
     "CameraData",
@@ -117,6 +118,7 @@ __all__ = [
     "ContactData",
     "ContactSensor",
     "ContactSensorCfg",
+    "CorrelatedNoise",
     "DCMotorActuator",
     "DCMotorActuatorCfg",
     "FlatPatchCfg",
@@ -154,6 +156,7 @@ __all__ = [
     "RigidObjectCfg",
     "RingPattern",
     "RobotState",
+    "ScaledNoise",
     "Sensor",
     "SensorCfg",
     "SimulationCfg",

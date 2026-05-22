@@ -24,7 +24,7 @@ from genelab.mdp.metrics import (
     peak_height_mean,
     slip_velocity_mean,
 )
-from genelab.mdp.noise import Gnoise, NoiseCfg, Unoise
+from genelab.mdp.noise import BiasDrift, CorrelatedNoise, Gnoise, NoiseCfg, ScaledNoise, Unoise
 from genelab.mdp.observations import (
     base_ang_vel,
     base_lin_vel,
@@ -86,6 +86,8 @@ from genelab.mdp.terminations import (
 )
 
 __all__ = [
+    "BiasDrift",
+    "CorrelatedNoise",
     "Gnoise",
     "JointPositionAction",
     "JointPositionActionCfg",
@@ -93,6 +95,7 @@ __all__ = [
     "MotionCommandCfg",
     "MotionLoader",
     "NoiseCfg",
+    "ScaledNoise",
     "UniformVelocityCommand",
     "UniformVelocityCommandCfg",
     "Unoise",
