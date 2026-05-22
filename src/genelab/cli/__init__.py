@@ -1,12 +1,11 @@
 """Unified Typer + Rich command-line entry point for registered GeneLab tasks."""
 
 import json
-import os
 import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, Final, Literal, Protocol, cast
+from typing import Annotated, Final, Literal, Protocol, cast
 
 import typer
 
@@ -21,6 +20,10 @@ from genelab.cli._argv import (
     split_runner_keys,
 )
 from genelab.cli._completion import complete_any_registry_name, complete_task_names
+from genelab.cli._dispatch import (
+    _dispatch_play as _dispatch_play,
+    _dispatch_train as _dispatch_train,
+)
 from genelab.cli._distributed import (
     _extract_log_dir_flag as _extract_log_dir_flag,
     _has_log_dir_flag as _has_log_dir_flag,
@@ -30,7 +33,6 @@ from genelab.cli._distributed import (
     _strip_flag_value_pairs as _strip_flag_value_pairs,
 )
 from genelab.cli._interactive import (
-    pick_agent_kind,
     pick_name_interactively,
     pick_override_path,
     pick_task_interactively,
@@ -90,8 +92,6 @@ class _RegistryKindArg(str, Enum):
     envs = "envs"
     tasks = "tasks"
 
-
-_AGENT_KINDS: Final[frozenset[str]] = frozenset({"zero", "random", "trained"})
 
 _RUN_FLAGS_HELP: Final[str] = """\
 Shorthand flags rewritten into env overrides:
@@ -620,136 +620,6 @@ def _override_key_for(bad_path: str, overrides: dict[str, str]) -> str | None:
         if resolve_override_alias(key) == bad_path:
             return key
     return None
-
-
-def _parse_bool(raw: str | None) -> bool | None:
-    if raw is None:
-        return None
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _parse_int(raw: str | None) -> int | None:
-    return int(raw) if raw is not None else None
-
-
-def _parse_path(raw: str | None) -> Path | None:
-    return Path(raw) if raw is not None else None
-
-
-def _coerce_prof_kwargs(prof_args: dict[str, str]) -> dict[str, Any]:
-    """Translate the raw string dict produced by ``split_prof_keys`` into typed kwargs."""
-    return {
-        "prof": _parse_bool(prof_args.get("prof")),
-        "prof_out": _parse_path(prof_args.get("prof_out")),
-        "prof_wait": _parse_int(prof_args.get("prof_wait")),
-        "prof_warmup": _parse_int(prof_args.get("prof_warmup")),
-        "prof_active": _parse_int(prof_args.get("prof_active")),
-        "prof_repeat": _parse_int(prof_args.get("prof_repeat")),
-        "prof_record_shapes": _parse_bool(prof_args.get("prof_record_shapes")),
-        "prof_with_stack": _parse_bool(prof_args.get("prof_with_stack")),
-    }
-
-
-def _dispatch_play(
-    task: _RunnableTask, runner_args: dict[str, str], prof_args: dict[str, str]
-) -> None:
-    task_cfg = getattr(task, "cfg", None)
-    agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
-    checkpoint_raw = runner_args.get("checkpoint")
-    agent_raw = runner_args.get("agent")
-    if agent_raw is not None and agent_raw not in _AGENT_KINDS:
-        picked_agent = pick_agent_kind()
-        if picked_agent is None or picked_agent not in _AGENT_KINDS:
-            raise SystemExit(f"--agent must be one of {{zero, random, trained}}; got {agent_raw!r}")
-        agent_raw = picked_agent
-        runner_args["agent"] = picked_agent
-    # play is always single-process; either flag is accepted but mapped through the same
-    # resolver so the mutual-exclusion guard fires on misuse.
-    num_envs_per_rank = _resolve_per_rank_num_envs(runner_args, gpus=1)
-    if (
-        checkpoint_raw is None
-        and num_envs_per_rank is None
-        and agent_raw is None
-        and agent_cfg is None
-        and not prof_args
-    ):
-        task.play()
-        return
-    from genelab.rl import AgentKind, play_task
-
-    task_id = getattr(task_cfg, "name", None)
-    if not isinstance(task_id, str):
-        raise SystemExit("task config is missing 'name'; cannot route through RL play helper")
-    # Pass the CLI's already-overridden cfg (play_env when configured): TASKS.get
-    # returns a fresh task each call, so the runner re-resolving would discard the
-    # --vis / --gpu / --a.env.* overrides applied above.
-    play_env_cfg = getattr(task_cfg, "play_env", None)
-    if play_env_cfg is None:
-        play_env_cfg = getattr(task_cfg, "env", None)
-    play_task(
-        task_id,
-        env_cfg=play_env_cfg,
-        checkpoint=Path(checkpoint_raw) if checkpoint_raw is not None else None,
-        num_envs=num_envs_per_rank,
-        agent=cast("AgentKind | None", agent_raw),
-        **_coerce_prof_kwargs(prof_args),
-    )
-
-
-def _dispatch_train(
-    task: _RunnableTask, runner_args: dict[str, str], prof_args: dict[str, str]
-) -> None:
-    task_cfg = getattr(task, "cfg", None)
-    agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
-    if agent_cfg is None:
-        task.train()
-        return
-    from genelab.rl import select_backend, train_task
-
-    # The backend is chosen by the agent cfg type (RSL-RL, skrl, ...); an
-    # unregistered type raises a clear error here instead of deep in the runner.
-    try:
-        backend = select_backend(agent_cfg)
-    except ValueError as exc:
-        raise SystemExit(str(exc)) from exc
-    task_id = getattr(task_cfg, "name", None)
-    if not isinstance(task_id, str):
-        raise SystemExit("task config is missing 'name'; cannot route through RL train helper")
-
-    gpus_raw = runner_args.pop("gpus", None)
-    gpus = int(gpus_raw) if gpus_raw is not None else 1
-    num_envs_per_rank = _resolve_per_rank_num_envs(runner_args, gpus=gpus)
-    if gpus > 1:
-        if backend.name != "rsl_rl":
-            raise SystemExit(
-                f"multi-GPU training (--gpus {gpus}) is only supported by the RSL-RL "
-                f"backend; this task uses the {backend.name!r} backend"
-            )
-        if "TORCHELASTIC_RUN_ID" not in os.environ:
-            _relaunch_under_torchrun(
-                gpus, agent_cfg, runner_args, num_envs_per_rank, task_id=task_id
-            )
-            return
-
-    max_iter_raw = runner_args.get("max_iterations")
-    seed_raw = runner_args.get("seed")
-    log_dir_raw = runner_args.get("log_dir")
-    from genelab.rl.eval_callback import EvalCallbackCfg
-
-    eval_callback = EvalCallbackCfg.from_args(runner_args)
-    train_task(
-        task_id,
-        agent_cfg,
-        # Pass the CLI's already-overridden cfg: TASKS.get returns a fresh task
-        # each call, so the runner re-resolving would discard --gpu / --a.env.* .
-        env_cfg=getattr(task_cfg, "env", None),
-        num_envs=num_envs_per_rank,
-        max_iterations=int(max_iter_raw) if max_iter_raw is not None else None,
-        seed=int(seed_raw) if seed_raw is not None else None,
-        log_dir=Path(log_dir_raw) if log_dir_raw is not None else None,
-        eval_callback=eval_callback,
-        **_coerce_prof_kwargs(prof_args),
-    )
 
 
 def main(argv: list[str] | None = None) -> None:

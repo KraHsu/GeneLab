@@ -529,7 +529,7 @@ def test_relaunch_under_torchrun_builds_expected_command(
         captured["file"] = file
         captured["args"] = args
 
-    monkeypatch.setattr("genelab.cli.os.execvp", _fake_execvp)
+    monkeypatch.setattr("genelab.cli._distributed.os.execvp", _fake_execvp)
     monkeypatch.setattr(
         "genelab.cli._distributed.sys.argv",
         ["genelab", "train", "TASK_ID", "--gpus", "4", "--num-envs", "8"],
@@ -581,7 +581,7 @@ def test_relaunch_under_torchrun_preserves_explicit_log_dir(
     def _fake_execvp(file: str, args: list[str]) -> None:
         captured["args"] = args
 
-    monkeypatch.setattr("genelab.cli.os.execvp", _fake_execvp)
+    monkeypatch.setattr("genelab.cli._distributed.os.execvp", _fake_execvp)
     monkeypatch.setattr(
         "genelab.cli._distributed.sys.argv",
         ["genelab", "train", "TASK", "--gpus", "2", "--log-dir", "/tmp/keep-this"],
@@ -624,7 +624,7 @@ def test_relaunch_under_torchrun_injects_interactively_picked_task_id(
     def _fake_execvp(file: str, args: list[str]) -> None:
         captured["args"] = args
 
-    monkeypatch.setattr("genelab.cli.os.execvp", _fake_execvp)
+    monkeypatch.setattr("genelab.cli._distributed.os.execvp", _fake_execvp)
     # No task id in argv — parent picked it interactively.
     monkeypatch.setattr(
         "genelab.cli._distributed.sys.argv",
@@ -666,7 +666,7 @@ def test_relaunch_under_torchrun_does_not_duplicate_explicit_task_id(
     def _fake_execvp(file: str, args: list[str]) -> None:
         captured["args"] = args
 
-    monkeypatch.setattr("genelab.cli.os.execvp", _fake_execvp)
+    monkeypatch.setattr("genelab.cli._distributed.os.execvp", _fake_execvp)
     monkeypatch.setattr(
         "genelab.cli._distributed.sys.argv",
         ["genelab", "train", "Explicit-Task-v0", "--gpus", "2"],
@@ -1214,8 +1214,12 @@ def _patch_picker(monkeypatch: pytest.MonkeyPatch, attr: str, value: str | None)
         return value
 
     monkeypatch.setattr(f"genelab.cli._interactive.{attr}", fake)
-    if hasattr(__import__("genelab.cli", fromlist=[attr]), attr):
-        monkeypatch.setattr(f"genelab.cli.{attr}", fake)
+    # Patch every consumer module that imported the picker by name (each holds its
+    # own binding to the original function). `pick_agent_kind` is consumed in
+    # `cli._dispatch`; the task/name/override pickers in `cli` itself.
+    for module in ("genelab.cli", "genelab.cli._dispatch"):
+        if hasattr(__import__(module, fromlist=[attr]), attr):
+            monkeypatch.setattr(f"{module}.{attr}", fake)
 
 
 def test_play_unknown_task_falls_back_to_picker(

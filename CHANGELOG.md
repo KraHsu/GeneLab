@@ -8,6 +8,33 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Changed
 
+- **Internal restructuring** (no behaviour change): the play / train dispatch
+  moved out of `cli/__init__.py` into a new `cli/_dispatch.py` submodule,
+  completing the CLI dispatcher decomposition (ADR-0004). `_dispatch_play` and
+  `_dispatch_train` relocated verbatim and are re-exported from `genelab.cli`
+  so the `play` / `train` Typer callbacks keep calling them unchanged. The
+  profiler-kwarg coercion (`_coerce_prof_kwargs` + the private
+  `_parse_bool` / `_parse_int` / `_parse_path` helpers) and the `_AGENT_KINDS`
+  set moved alongside them — the two dispatch functions are their only users,
+  so co-locating keeps `_dispatch.py` a self-contained leaf and avoids a
+  runtime `cli → _dispatch → cli` import cycle (ADR-0004 had tentatively kept
+  `_coerce_prof_kwargs` in `__init__.py`; the cycle its R4.2 risk row
+  anticipated forced the co-location — recorded as an ADR variance). The
+  `_RunnableTask` type hint is a `TYPE_CHECKING`-only forward reference. Three
+  imports orphaned by the move (`os`, `typing.Any`, `pick_agent_kind`) were
+  dropped from `__init__.py`. Test monkeypatch targets were repointed to the
+  new owning modules: the four `_relaunch_under_torchrun` `os.execvp` patches
+  to `genelab.cli._distributed.os.execvp`, and the `_patch_picker` helper now
+  also patches the `cli._dispatch` consumer site (each importing module holds
+  its own binding). `cli/__init__.py` shrinks 775 → 645 LoC. All three modules
+  ADR-0004 named are now extracted; the ADR's ≤400-LoC target is not reached
+  by this slice (the residue — 10 Typer command callbacks, `_configured_task`
+  / `_resolve_task`, the override helpers, `_RunnableTask`, and help text — is
+  what ADR-0004 deliberately kept in `__init__.py`), so reaching ≤400 is left
+  to a separate follow-up. `--help` text byte-identical (R0.1 snapshot gate
+  green); importlinter baseline unchanged at 2 kept / 2 broken (the move stays
+  within the `cli` package). Lands as ROADMAP §9 PR R4.3 — completes Phase R4
+  / ADR-0004.
 - **Internal restructuring** (no behaviour change): the multi-seed train
   orchestration moved out of `cli/__init__.py` into a new
   `cli/_multi_seed.py` submodule. Four functions relocated verbatim —
