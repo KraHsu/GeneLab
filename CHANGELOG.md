@@ -8,6 +8,25 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Multi-robot env foundation** (ROADMAP M3.6 / ADR-0012, slice **S1**) — first slice of the
+  multi-robot API:
+  - `ManagerBasedRlEnvCfg.robots: dict[str, ArticulationCfg]` — when non-empty, the env
+    spawns one articulation per entry; when empty it falls back to `{"robot": robot}`, so
+    single-robot tasks are unchanged.
+  - `env.articulations: dict[str, Articulation]` accessor; the env now holds all entities and
+    designates a primary (`"robot"` or the first key) that the singular `env.robot` /
+    `env.robot_state` / `env.articulation` accessors alias (those are removed in a later slice
+    once terms route by name).
+  - `SceneEntityCfg.resolve` is now **entity-aware** — it indexes joint/link names against
+    `env.articulations[name]`, activating the previously-dead `SceneEntityCfg.name` field.
+    Falls back to the env's primary tables when `articulations` is absent, so existing terms
+    and tests are unchanged.
+
+  Zero behaviour change for current single-robot tasks. The actual multi-robot env *build* is
+  exercised by the `genesis_runtime`-gated scene test; the resolution / selection logic is
+  unit-tested in `tests/test_multi_robot.py`. (Per ADR-0012, the ~127 term-call-site migration
+  and removal of the singular accessors land in subsequent slices.)
+
 - **`genelab benchmark` command + suite scaffolding** (ROADMAP M3.8) — runs `eval` across a
   JSON suite of tasks and aggregates the per-task metrics into one report.
   `genelab benchmark --suite suite.json [--out report.json] [--reference ref.json]
