@@ -40,6 +40,33 @@ class EvalCallbackCfg:
     eval_num_envs: int | None = None  # None = same as train num_envs
     eval_seed: int = 0
 
+    @classmethod
+    def from_args(cls, runner_args: dict[str, str]) -> "EvalCallbackCfg | None":
+        """Build a config from CLI ``--eval-*`` runner args, or ``None``.
+
+        Returns ``None`` when ``--eval-every`` is unset; that keeps the legacy
+        single-shot ``backend.train()`` path. Setting ``--eval-every K`` triggers
+        chunked training where each chunk ends with a deterministic eval and best-
+        model promotion (see :func:`run_with_eval_callback`).
+
+        Moved here from ``cli/__init__.py:_build_eval_callback`` per ADR-0005
+        (R3): the domain config owns the parsing of its own runner args, so the
+        CLI dispatcher just forwards the raw flag dict.
+        """
+        eval_every_raw = runner_args.get("eval_every")
+        if eval_every_raw is None:
+            return None
+        eval_episodes_raw = runner_args.get("eval_episodes")
+        eval_num_envs_raw = runner_args.get("eval_num_envs")
+        eval_seed_raw = runner_args.get("eval_seed")
+        return cls(
+            enabled=True,
+            eval_every_iters=int(eval_every_raw),
+            eval_episodes=int(eval_episodes_raw) if eval_episodes_raw is not None else 10,
+            eval_num_envs=int(eval_num_envs_raw) if eval_num_envs_raw is not None else None,
+            eval_seed=int(eval_seed_raw) if eval_seed_raw is not None else 0,
+        )
+
 
 def _checkpoint_extension(backend_name: str) -> str:
     """Return the on-disk extension for ``backend_name``'s checkpoints."""

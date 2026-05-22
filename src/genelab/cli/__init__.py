@@ -856,7 +856,9 @@ def _dispatch_train(
     max_iter_raw = runner_args.get("max_iterations")
     seed_raw = runner_args.get("seed")
     log_dir_raw = runner_args.get("log_dir")
-    eval_callback = _build_eval_callback(runner_args)
+    from genelab.rl.eval_callback import EvalCallbackCfg
+
+    eval_callback = EvalCallbackCfg.from_args(runner_args)
     train_task(
         task_id,
         agent_cfg,
@@ -869,31 +871,6 @@ def _dispatch_train(
         log_dir=Path(log_dir_raw) if log_dir_raw is not None else None,
         eval_callback=eval_callback,
         **_coerce_prof_kwargs(prof_args),
-    )
-
-
-def _build_eval_callback(runner_args: dict[str, str]) -> Any:
-    """Pop ``--eval-*`` flags from ``runner_args`` into an ``EvalCallbackCfg``.
-
-    Returns ``None`` when ``--eval-every`` is unset; that keeps the legacy
-    single-shot ``backend.train()`` path. Setting ``--eval-every K`` triggers
-    chunked training where each chunk ends with a deterministic eval and best-
-    model promotion (see ``genelab.rl.eval_callback``).
-    """
-    eval_every_raw = runner_args.get("eval_every")
-    if eval_every_raw is None:
-        return None
-    from genelab.rl.eval_callback import EvalCallbackCfg
-
-    eval_episodes_raw = runner_args.get("eval_episodes")
-    eval_num_envs_raw = runner_args.get("eval_num_envs")
-    eval_seed_raw = runner_args.get("eval_seed")
-    return EvalCallbackCfg(
-        enabled=True,
-        eval_every_iters=int(eval_every_raw),
-        eval_episodes=int(eval_episodes_raw) if eval_episodes_raw is not None else 10,
-        eval_num_envs=int(eval_num_envs_raw) if eval_num_envs_raw is not None else None,
-        eval_seed=int(eval_seed_raw) if eval_seed_raw is not None else 0,
     )
 
 
