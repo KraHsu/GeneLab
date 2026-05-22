@@ -164,7 +164,7 @@ def _model_kwargs(
 
 def _make_vec_env(env: Any, agent_cfg: Sb3AgentCfg) -> Any:
     """Wrap ``env`` as a SB3 ``VecEnv`` (goal-conditioned when HER is enabled)."""
-    from genelab.rl.sb3_wrapper import GenelabSb3VecEnv
+    from genelab.rl.vecenvs.sb3 import GenelabSb3VecEnv
 
     her_cfg = agent_cfg.her if agent_cfg.her.enabled else None
     return GenelabSb3VecEnv(env, obs_group=agent_cfg.obs_group, her_cfg=her_cfg)

@@ -6,7 +6,35 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ## [Unreleased]
 
+### Deprecated
+
+- The vec-env adapter modules moved under a new `genelab.rl.vecenvs/` package
+  (ADR-0007 / ROADMAP §9 R6): import `RslRlVecEnvWrapper` from
+  `genelab.rl.vecenvs.rsl_rl`, `GenelabSb3VecEnv` from `genelab.rl.vecenvs.sb3`,
+  and `GenelabSkrlWrapper` from `genelab.rl.vecenvs.skrl`. The old paths
+  (`genelab.rl.{rsl_rl,sb3,skrl}_wrapper`) and the top-level
+  `genelab.rl.RslRlVecEnvWrapper` re-export still work but now emit a
+  `DeprecationWarning`; they will be removed in the next minor release.
+  Recommended long-term access is `select_backend(cfg)` rather than the wrapper
+  classes directly. Class names are unchanged.
+
 ### Changed
+
+- **Internal restructuring** (no behaviour change): the three vec-env adapters
+  moved verbatim from `rl/<lib>_wrapper.py` into `rl/vecenvs/<lib>.py`, so each
+  adapter sits next to its same-named trainer under `rl/backends/<lib>.py` and
+  the file tree expresses the per-library pairing (ADR-0007). The shared
+  `attach_optional_base` helper (R2.2) relocated alongside them to
+  `rl/vecenvs/_attach_base.py` — its R2.2 deferred home. The old module paths
+  became thin `DeprecationWarning` shims (see Deprecated above); all internal
+  callers (the three backends, `skrl_models.py`, and the RL pipeline tests) now
+  import the canonical `rl/vecenvs/<lib>` paths. `genelab.rl.RslRlVecEnvWrapper`
+  is served by a module-level `__getattr__` shim and dropped from `rl.__all__`
+  (the asymmetric single-backend export is now deprecated). New
+  `tests/test_deprecated_imports.py` (subprocess-isolated, per the cv2/Qt
+  conflict) verifies every legacy path resolves to the moved class and warns;
+  `tests/test_optional_deps.py` now also covers the three `rl/vecenvs/<lib>`
+  modules. Completes ADR-0007 (R6).
 
 - **Internal refactor** (no behaviour change): the three jaccard-1.000
   motion-tracking body-error rewards are now thin wrappers over a shared

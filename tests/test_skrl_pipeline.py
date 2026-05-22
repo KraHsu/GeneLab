@@ -16,7 +16,7 @@ import gymnasium  # noqa: E402
 from genelab.rl import RslRlOnPolicyRunnerCfg, SkrlAgentCfg  # noqa: E402
 from genelab.rl.backends import select_backend  # noqa: E402
 from genelab.rl.skrl_models import build_models  # noqa: E402
-from genelab.rl.skrl_wrapper import GenelabSkrlWrapper  # noqa: E402
+from genelab.rl.vecenvs.skrl import GenelabSkrlWrapper  # noqa: E402
 
 ALGORITHMS = ["PPO", "A2C", "SAC", "TD3", "DDPG"]
 

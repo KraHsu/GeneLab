@@ -1,6 +1,6 @@
 """Shared "subclass the optional library's base if installed" helper.
 
-Each of ``rsl_rl_wrapper.py``, ``skrl_wrapper.py``, and ``sb3_wrapper.py``
+Each of ``vecenvs/rsl_rl.py``, ``vecenvs/skrl.py``, and ``vecenvs/sb3.py``
 declares a vec-env adapter (``RslRlVecEnvWrapper`` / ``GenelabSkrlWrapper`` /
 ``GenelabSb3VecEnv``) that should *additionally* subclass the matching
 upstream library's vec-env base class **only when that optional library is
@@ -23,8 +23,8 @@ The helper rebinds the wrapper class in the caller's module namespace via the
         caller_globals=globals(),
     )
 
-R6 (ADR-0007) will relocate this module under ``rl/vecenvs/`` together with
-the three wrapper modules; for now it lives flat at ``rl/_attach_base.py``.
+Lives under ``rl/vecenvs/`` next to its three callers (relocated here from the
+flat ``rl/_attach_base.py`` in R6 / ADR-0007).
 """
 
 from __future__ import annotations

@@ -11,7 +11,7 @@ from genelab.rl import (  # noqa: E402  (after importorskip)
     RslRlOnPolicyRunnerCfg,
     RslRlPpoAlgorithmCfg,
 )
-from genelab.rl.rsl_rl_wrapper import RslRlVecEnvWrapper  # noqa: E402
+from genelab.rl.vecenvs.rsl_rl import RslRlVecEnvWrapper  # noqa: E402
 
 
 def test_rsl_rl_runner_cfg_defaults_match_mjlab_shape() -> None:
