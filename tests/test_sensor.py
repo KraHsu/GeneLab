@@ -1079,7 +1079,8 @@ class _FakeGsCamera:
         self,
         rgb: bool = False,
         depth: bool = False,
-        segmentation: bool = False,  # noqa: ARG002
+        segmentation: bool = False,
+        colorize_seg: bool = False,
         normal: bool = False,  # noqa: ARG002
     ) -> tuple[Any, Any, Any, Any]:
         self.render_calls += 1
@@ -1087,7 +1088,14 @@ class _FakeGsCamera:
         w = int(self.kwargs["res"][0])
         rgb_t = torch.zeros(self.num_envs, h, w, 3, dtype=torch.uint8) if rgb else None
         depth_t = torch.full((self.num_envs, h, w), 0.5) if depth else None
-        return rgb_t, depth_t, None, None
+        seg_t = None
+        if segmentation:
+            seg_t = (
+                torch.zeros(self.num_envs, h, w, 3, dtype=torch.uint8)
+                if colorize_seg
+                else torch.ones(self.num_envs, h, w, dtype=torch.int32)
+            )
+        return rgb_t, depth_t, seg_t, None
 
 
 class _FakeGsScene:
@@ -1167,6 +1175,59 @@ def test_camera_render_rgb_only() -> None:
     data = sensor.data
     assert data.rgb is not None
     assert data.depth is None
+
+
+def test_camera_segmentation_index_map() -> None:
+    env = _FakeCameraEnv(num_envs=2)
+    sensor = CameraSensorCfg(
+        name="cam", link_name="head", width=4, height=4, render_segmentation=True
+    ).build()
+    sensor.bind(env)  # type: ignore[arg-type]
+    data = sensor.data
+    assert data.segmentation is not None
+    assert data.segmentation.shape == (2, 4, 4)
+    assert data.segmentation.dtype == torch.int32
+
+
+def test_camera_segmentation_colorized() -> None:
+    env = _FakeCameraEnv(num_envs=2)
+    sensor = CameraSensorCfg(
+        name="cam",
+        link_name="head",
+        width=4,
+        height=4,
+        render_segmentation=True,
+        colorize_segmentation=True,
+    ).build()
+    sensor.bind(env)  # type: ignore[arg-type]
+    data = sensor.data
+    assert data.segmentation is not None
+    assert data.segmentation.shape == (2, 4, 4, 3)
+    assert data.segmentation.dtype == torch.uint8
+
+
+def test_camera_segmentation_off_by_default() -> None:
+    env = _FakeCameraEnv(num_envs=2)
+    sensor = CameraSensorCfg(name="cam", link_name="head", width=4, height=4).build()
+    sensor.bind(env)  # type: ignore[arg-type]
+    assert sensor.data.segmentation is None
+
+
+def test_camera_segmentation_only_config_valid() -> None:
+    env = _FakeCameraEnv(num_envs=2)
+    sensor = CameraSensorCfg(
+        name="cam",
+        link_name="head",
+        width=4,
+        height=4,
+        render_rgb=False,
+        render_depth=False,
+        render_segmentation=True,
+    ).build()
+    sensor.bind(env)  # type: ignore[arg-type]
+    data = sensor.data
+    assert data.rgb is None and data.depth is None
+    assert data.segmentation is not None
 
 
 def test_camera_unknown_link_raises() -> None:
