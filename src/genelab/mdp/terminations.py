@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 import torch
 
+from genelab.mdp._helpers import contact_sensor as _contact_sensor
 from genelab.mdp.commands.motion_command import MotionCommand
 
 if TYPE_CHECKING:
@@ -57,6 +58,19 @@ def joint_vel_out_of_limit(env: "ManagerBasedRlEnv") -> torch.Tensor:
     limit = env.joint_vel_limits  # (J,)
     speed = torch.abs(env.robot_state.joint_vel)  # (B, J)
     return torch.any(speed > limit.unsqueeze(0), dim=-1)
+
+
+def contact_force_limit(
+    env: "ManagerBasedRlEnv", sensor_name: str, max_force: float
+) -> torch.Tensor:
+    """True for any env where a tracked link's net contact-force magnitude exceeds ``max_force``.
+
+    Reads ``force_norm`` ``(B, N)`` from the named :class:`~genelab.sensor.ContactSensor`
+    (``N`` = the links it tracks). A safety termination for impact spikes — e.g. a
+    base or knee slamming the ground harder than the real hardware could survive.
+    """
+    force_norm = _contact_sensor(env, sensor_name).data.force_norm  # (B, N)
+    return torch.any(force_norm > max_force, dim=-1)
 
 
 # --------------------------------------------------------------------- motion imitation

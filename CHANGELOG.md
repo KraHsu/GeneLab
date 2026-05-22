@@ -8,6 +8,12 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **`contact_force_limit(env, sensor_name, max_force)` termination** (ROADMAP
+  M2.3, final slice) — trips when any link tracked by the named `ContactSensor`
+  has a net contact-force magnitude (`force_norm`) above `max_force`. A safety
+  termination for impact spikes (e.g. base/knee ground slams). **Completes M2.3 /
+  M2.4** — all out-of-limit terminations + reward hard-constraints are now in
+  `genelab.mdp`. Unit-tested in `tests/test_terminations.py`.
 - **MDP hard-constraint terms** (ROADMAP M2.3 / M2.4, first slice): four new
   reusable functions in `genelab.mdp`, re-exported from the package namespace —
   - reward `lin_vel_z_l2(env)` — penalize vertical base velocity (`v_z²`),
