@@ -42,22 +42,23 @@ GeneLab 的差异化价值：
 - **Sim2Real 硬约束（M2.3 / M2.4 完成）**：termination `joint_pos/vel_out_of_limit`、`contact_force_limit`；
   reward `lin_vel_z_l2` / `base_height_l2` / `alive_bonus` / `applied_torque_l2` / `joint_vel_limits`
 - **学习型 actuator（M2.5 完成）**：`MlpResidualActuator`（DCMotor base + TorchScript MLP 残差）
-- DR：COM offset / mass offset / friction / encoder bias + **interval-mode（M2.2 完成）**；
-  plumbing：`RobotState.applied_torque`、`ArticulationCfg.joint_vel_limit`
+- **DR（M2.1 / M2.2 完成）**：COM / mass / friction / encoder-bias + interval-mode +
+  `randomize_joint_stiffness_damping` / `randomize_actuator_deadzone`；plumbing：
+  `RobotState.applied_torque`、`ArticulationCfg.joint_vel_limit`、actuator gain-scale/deadzone
+- **Observation noise（M2.6 完成）**：`Unoise`/`Gnoise` + `ScaledNoise`/`CorrelatedNoise`/`BiasDrift`
+- **Sim2Real 部署文档（M2.7 完成）**：`docs/best-practices/sim2real.{en,zh}.md`
 - Curriculum：terrain levels + velocity range
 - 传感器：IMU / Contact / FrameTransformer / RayCast(3 模式) / Camera(RGB+depth) / TerrainHeight
 - Recording：NPZ / CSV / video / 实时 PyQt & MPL plots；Teleop bridges：keyboard / DearPyGui
 - torchrun 多卡训练
 - **架构**：`lint-imports` 必过 CI 分层门禁（6/0）；pyright 在 `src/` 上 0 错误（不再几乎全关）
 
-⚠️ **关键缺口**（按 ROI 排序详见 §4）
-- **M2.1**：DR 项仍稀薄——缺 `randomize_joint_stiffness_damping` / `restitution` / `push_robot` /
-  `imu_bias` / `gravity` / `actuator_deadzone`
-- **M2.6**：observation noise 仅 `Unoise`/`Gnoise`，缺 `ScaledNoise`/`CorrelatedNoise`/`BiasDrift`
-- **M2.7**：sim2real deployment recipe 文档未写
-- **M3 平台广度（基本未启动）**：多机器人 API 缺位（`articulations["robot"]` 硬编码，M3.6）；
-  `SimulationCfg` 字段过少（M3.7）；Camera 无 segmentation、无 F-T/tactile（M3.4/M3.5）；
-  Terrain curriculum flag 未生效、sub-terrain 仅 5 种（M3.2/M3.3）；资产仅 5 个（M3.1）；benchmark suite（M3.8）
+⚠️ **关键缺口**（按 ROI 排序详见 §4）—— **M1 与 M2 均已完成；剩余缺口全在 M3（平台广度）**：
+- 多机器人 API 缺位（`articulations["robot"]` 硬编码，M3.6 —— 最大一项，先提 RFC）
+- `SimulationCfg` 字段过少（M3.7）
+- Camera 无 segmentation、无 F-T/tactile（M3.4 / M3.5）
+- Terrain curriculum flag 未生效、sub-terrain 仅 5 种（M3.2 / M3.3）
+- 资产仅 5 个（M3.1）；benchmark suite 未建（M3.8）
 
 ---
 
@@ -187,19 +188,22 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 
 > **One-liner**: 让用 GeneLab 训出来的 policy 部署到真机时尽量不掉链子。
 
-**状态：进行中 — M2.2 / M2.3 / M2.4 / M2.5 ✅ 完成；M2.1（DR 扩展）/ M2.6（noise）/ M2.7（文档）待做。**
+**状态：✅ 完成（M2.1–M2.7 全部落地，PR #117–#124）。** M2.1 交付了两个可行的新 DR
+（`randomize_joint_stiffness_damping` / `randomize_actuator_deadzone`）；其余 M2.1 项已被覆盖或被
+Genesis 阻挡（`push_robot` ≈ 现有 `push_by_setting_velocity`；`randomize_imu_bias` ≈ IMU 传感器自带
+的 per-env bias；`randomize_restitution` / `randomize_gravity` Genesis 无对应 setter）。**M2 完成。**
 
 **目标产物**
 
 | # | 交付 | 说明 |
 |---|---|---|
-| ❌ M2.1 | DR 项扩展 | 补 `randomize_joint_stiffness_damping` / `randomize_restitution` / `push_robot`（脉冲外力）/ `randomize_imu_bias` / `randomize_gravity` / `randomize_actuator_deadzone` |
+| ✅ M2.1 | DR 项扩展 | 新增 `randomize_joint_stiffness_damping` / `randomize_actuator_deadzone`（PR #122）；`push_robot`/`randomize_imu_bias` 已被现有功能覆盖；`randomize_restitution`/`randomize_gravity` Genesis 无 setter（详见上方状态说明） |
 | ✅ M2.2 | Interval-mode DR | EventManager 支持 `mode="interval"`，让某些 DR 在 episode 中途触发 |
 | ✅ M2.3 | Termination 越界保护 | `joint_pos_out_of_limit` / `joint_vel_out_of_limit` / `contact_force_limit`（PR #117/#118/#119） |
 | ✅ M2.4 | Reward 硬约束补齐 | `lin_vel_z_l2` / `applied_torque_l2` / `joint_vel_limits` / `base_height_l2` / `alive_bonus`（PR #117/#118） |
 | ✅ M2.5 | 学习型 actuator | `MlpResidualActuator`（DCMotor base + TorchScript MLP residual，PR #120） |
-| ❌ M2.6 | Observation noise 扩展 | `ScaledNoise`、`CorrelatedNoise`、`BiasDrift` |
-| ❌ M2.7 | Deployment recipe 文档 | `docs/best-practices/sim2real.md` 描述「训练时该用哪些 DR、导出时该 dump 什么、部署端该怎么对齐」 |
+| ✅ M2.6 | Observation noise 扩展 | `ScaledNoise`、`CorrelatedNoise`、`BiasDrift`（PR #123） |
+| ✅ M2.7 | Deployment recipe 文档 | `docs/best-practices/sim2real.{en,zh}.md`「Harden for Sim2Real」(PR #124) |
 
 **设计要点**
 
