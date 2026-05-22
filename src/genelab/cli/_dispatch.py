@@ -24,7 +24,7 @@ from genelab.cli._distributed import _relaunch_under_torchrun, _resolve_per_rank
 from genelab.cli._interactive import pick_agent_kind
 
 if TYPE_CHECKING:
-    from genelab.cli import _RunnableTask  # pyright: ignore[reportPrivateUsage]
+    from genelab.registry import Runnable
 
 # These keep their leading underscores (they are CLI-package-private, re-exported
 # through ``cli/__init__.py``) but are this module's external API — listing them in
@@ -65,9 +65,7 @@ def _coerce_prof_kwargs(prof_args: dict[str, str]) -> dict[str, Any]:
     }
 
 
-def _dispatch_play(
-    task: _RunnableTask, runner_args: dict[str, str], prof_args: dict[str, str]
-) -> None:
+def _dispatch_play(task: Runnable, runner_args: dict[str, str], prof_args: dict[str, str]) -> None:
     task_cfg = getattr(task, "cfg", None)
     agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
     checkpoint_raw = runner_args.get("checkpoint")
@@ -111,9 +109,7 @@ def _dispatch_play(
     )
 
 
-def _dispatch_train(
-    task: _RunnableTask, runner_args: dict[str, str], prof_args: dict[str, str]
-) -> None:
+def _dispatch_train(task: Runnable, runner_args: dict[str, str], prof_args: dict[str, str]) -> None:
     task_cfg = getattr(task, "cfg", None)
     agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
     if agent_cfg is None:
