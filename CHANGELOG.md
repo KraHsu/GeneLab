@@ -8,6 +8,28 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Actuator-level domain randomization** (ROADMAP M2.1):
+  - `mdp.dr.randomize_joint_stiffness_damping(env, env_ids, stiffness_range, damping_range)`
+    — per-env multiplicative DR on each actuator's PD gains. Force-channel actuators
+    (IdealPD/DCMotor/MlpResidual) get a per-env gain *scale* used inside `compute`;
+    implicit-PD actuators have their sim-side kp/kv rewritten to `nominal × mult` via
+    Genesis.
+  - `mdp.dr.randomize_actuator_deadzone(env, env_ids, deadzone_range)` — per-env,
+    per-joint torque deadzone (zeroes computed efforts below the half-width; models
+    actuator stiction / driver backlash).
+  - Plumbing on `ActuatorBase`: per-env `_kp_scale`/`_kv_scale` buffers +
+    `set_gain_scale`, a `deadzone` cfg field + `_deadzone` buffer + `set_deadzone` /
+    `apply_deadzone` (applied to the computed effort in the articulation control
+    loop). Both default to no-ops (scales = 1, deadzone = 0), so **no behaviour
+    change** for existing tasks. Per-env gain scaling activates only when `compute`
+    runs on the full `num_envs` batch (the production path), leaving flexible-batch
+    unit-test calls untouched. New `env.actuators` accessor.
+
+  Scope note (M2.1): the remaining ROADMAP M2.1 items are already covered or
+  Genesis-blocked — `push_robot` ≈ existing `mdp.events.push_by_setting_velocity`;
+  `randomize_imu_bias` ≈ the IMU sensor's per-env `bias_range_*` resampled on reset;
+  `randomize_restitution` / `randomize_gravity` have no Genesis setter
+  (`RigidEntity` exposes friction only; `Scene` gravity is construction-time).
 - **`MlpResidualActuator`** (ROADMAP M2.5) — a learned-residual actuator:
   `effort = clamp(DCMotor_base(q, q̇, q*) + scale · net([q*−q, q̇]), ±effort_budget)`.
   The residual network is a TorchScript module loaded from

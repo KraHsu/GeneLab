@@ -42,8 +42,9 @@ class IdealPDActuator(ActuatorBase):
         target_pos: torch.Tensor,
         target_vel: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        kp = self._stiffness.unsqueeze(0)
-        kv = self._damping.unsqueeze(0)
+        kp_scale, kv_scale = self.gain_scales(joint_pos.shape[0])
+        kp = self._stiffness.unsqueeze(0) * kp_scale
+        kv = self._damping.unsqueeze(0) * kv_scale
         tau = kp * (target_pos - joint_pos) - kv * joint_vel
         if self._effort_limit is not None:
             lim = self._effort_limit.unsqueeze(0)

@@ -200,6 +200,12 @@ class ManagerBasedRlEnv:
         return self._sensors
 
     @property
+    def actuators(self) -> dict[str, Any]:
+        """Named actuator groups on the robot articulation (for DR events that
+        randomize per-actuator gains / deadzone — see ``genelab.mdp.dr``)."""
+        return self._articulation.actuators
+
+    @property
     def joint_names(self) -> list[str]:
         return self._articulation.joint_names
 
