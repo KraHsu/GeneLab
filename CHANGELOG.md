@@ -8,6 +8,14 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **More sub-terrains** (ROADMAP M3.2) — three new `SubTerrainCfg` types wrapping Genesis
+  `parse_terrain` branches: `DiscreteObstaclesCfg` (`discrete_obstacles_terrain` — randomly
+  placed rectangles), `SteppingStonesCfg` (`stepping_stones_terrain` — stones + gaps), and
+  `FractalCfg` (`fractal_terrain` — multi-octave noise). Exported from `genelab.terrains` +
+  `genelab.lab`; tested in `tests/test_terrain_generator.py`. (M3.2's "gaps" has no Genesis
+  terrain branch and "mesh import" is the separate `Terrain.height_field` path — both
+  deferred.)
+
 - **`SimulationCfg` rigid-solver options** (ROADMAP M3.7) — eight optional fields exposing
   Genesis `RigidOptions`: `enable_self_collision`, `enable_joint_limit`, `max_collision_pairs`
   (contact); `solver_iterations`, `ls_iterations`, `solver_tolerance`, `integrator` (solver);
