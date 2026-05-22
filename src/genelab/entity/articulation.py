@@ -519,6 +519,16 @@ class Articulation:
         return list(self._joint_names)
 
     @property
+    def actuated_dof_ids(self) -> torch.Tensor:
+        """Global Genesis DoF index for each actuated joint, in :attr:`joint_names` order.
+
+        ``get_dofs_*`` returns every entity DoF (including the floating base); index by this
+        to keep only the policy-controlled joints. Used by
+        :class:`~genelab.sensor.ForceTorqueSensor` to slice ``get_dofs_force`` to its joints.
+        """
+        return self._actuated_dof_idx
+
+    @property
     def link_names(self) -> list[str]:
         return list(self._link_names)
 
