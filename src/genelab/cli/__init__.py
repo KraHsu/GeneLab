@@ -295,6 +295,53 @@ def eval_cmd(
     typer.echo(json.dumps(payload, indent=2))
 
 
+@app.command(
+    "benchmark",
+    help=(
+        "Evaluate a suite of tasks and aggregate reference numbers into one report.\n\n"
+        'SUITE is a JSON list of entries, each ``{"task": ..., "checkpoint": ...}`` '
+        "(optional ``episodes`` / ``seed`` / ``num_envs``). Runs ``eval`` per entry. "
+        "With --reference (a prior report), flags tasks whose ``return_mean`` dropped more "
+        "than --tolerance and exits non-zero — usable as a regression gate."
+    ),
+    rich_help_panel="Runtime",
+)
+def benchmark_cmd(
+    ctx: typer.Context,
+    suite: Annotated[
+        Path,
+        typer.Option("--suite", help="Benchmark suite JSON (list of task/checkpoint entries)."),
+    ],
+    out: Annotated[
+        Path,
+        typer.Option("--out", help="Output report JSON path."),
+    ] = Path("benchmark.json"),
+    reference: Annotated[
+        Path | None,
+        typer.Option("--reference", help="Prior report JSON to compare return_mean against."),
+    ] = None,
+    tolerance: Annotated[
+        float,
+        typer.Option("--tolerance", help="Max fractional return_mean drop before a regression."),
+    ] = 0.1,
+) -> None:
+    _load_extensions(_state(ctx))
+    from genelab.rl.benchmark import load_suite, run_benchmark
+
+    entries = load_suite(suite)
+    ref = json.loads(reference.read_text()) if reference is not None else None
+    report = run_benchmark(entries, out_path=out, reference=ref, tolerance=tolerance)
+    typer.echo(json.dumps(report, indent=2))
+    regressions = report["regressions"]
+    if regressions:
+        tasks = ", ".join(r["task"] for r in regressions)
+        typer.echo(
+            f"benchmark: {len(regressions)} regression(s) beyond tolerance {tolerance}: {tasks}",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
 _EXPORT_FORMATS: Final[tuple[str, ...]] = ("torchscript", "onnx")
 
 
