@@ -323,25 +323,27 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 > *structural hygiene* that those features rest on. R-phases are
 > independent of M1–M3 sequencing — most can interleave with feature work.
 >
-> Last reviewed: 2026-05-22 · against `dev` @ `67eef60`.
+> Last reviewed: 2026-05-22 · against `dev` @ `fe5f604` (R7 complete).
 
 ### 9.0 Status / 当前状态
 
-**Phase:** **R0 + R1 + R2 + R3 + R4 + R5 complete** · R6–R7 not started.
+**Phase:** **R0–R7 COMPLETE** — the architecture refactor is done; importlinter
+now runs as a **required** CI gate with a clean **6 contracts / 0 violations**
+baseline. Only ADR-0010 (entity/articulation split) remains, deliberately deferred.
 
 | What | Status | Artifact |
 |---|---|---|
 | Architecture assessment | ✅ written | [`plans/architecture/architecture-assessment.md`](plans/architecture/architecture-assessment.md) |
 | Target architecture | ✅ written | [`plans/architecture/target-architecture.md`](plans/architecture/target-architecture.md) |
-| ADRs 0001–0010 | ✅ drafted; ADR-0004 + ADR-0006 flipped to `Accepted` (R4 + R5 complete); ADR-0001 + ADR-0002 + ADR-0003 + ADR-0005 shipped and ready for `Accepted` flip (pending maintainer review) | [`plans/adr/`](plans/adr/) |
+| ADRs 0001–0010 | ✅ ADR-0004 + ADR-0006 + ADR-0007 + ADR-0008 + ADR-0009 `Accepted` (shipped); ADR-0001 + ADR-0002 + ADR-0003 + ADR-0005 shipped, ready for `Accepted` (pending maintainer review); ADR-0010 `Accepted: deferred` | [`plans/adr/`](plans/adr/) |
 | Phase R0 — baseline & tooling | ✅ **complete** (3 / 3 PRs merged) | PR #81 (`c3d851e`), #82 (`b8df293`), #83 (`d7a702e`) |
 | Phase R1 — break rl.runner ↔ rl.backends cycle | ✅ **merged** | PR #84 (`04509d9`) — implements ADR-0001 |
 | Phase R2 — small abstractions | ✅ **complete** (5 / 5 sub-slices merged) | PRs #85 (`74b2e30`), #86 (`039e502`), #87 (`0367462`), #88 (`a50d031`), #89 (`5571889`) — implement ADR-0003 (+ ADR-0002 for R2.5) |
 | Phase R3 — domain-owned parsing | ✅ **complete** (2 / 2 sub-slices merged) | PR #90 (`6b97f6e`), #91 (`03f480b`) — implement ADR-0005 |
 | Phase R4 — CLI decomposition | ✅ **complete** (3 / 3 PRs merged) — implements ADR-0004 | PR #92 (`588f5be`), #94 (`43cf463`), #95 (`4ca926d`) |
 | Phase R5 — task-specific rewards split | ✅ **complete** (2 / 2 sub-slices merged) — implements ADR-0006 | PR #97 (`9bcbe01`), #98 (`67eef60`) |
-| Phase R6 — vecenv rename | ⬜ not started | gated on ADR-0007 |
-| Phase R7 — extensions API + importlinter blocking | ⬜ not started | gated on R6 landing + the cross-layer follow-ups + ADR-0008, ADR-0009 |
+| Phase R6 — vecenv rename + colocation | ✅ **complete** (1 PR) — implements ADR-0007 | PR #100 (`c8d2880`) |
+| Phase R7 — extensions API + importlinter blocking | ✅ **complete** (6 PRs: 7.1 + docs + 7.3a–d) — implements ADR-0008 + ADR-0009 | PRs #101, #102 (docs), #103, #104, #105, #106 |
 | Phase deferred — entity/articulation split | ⏸ deferred (criteria recorded) | [ADR-0010](plans/adr/0010-defer-articulation-split.md) |
 
 **Completed.**
@@ -431,6 +433,20 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
   - **Scope:** only the jaccard-1.000 trio (`pos` / `lin_vel` / `ang_vel`), per ADR-0006 and confirmed with the maintainer. The orientation (geodesic) + anchor rewards are structurally different and left unchanged.
   - New: `tests/test_motion_tracking_equivalence.py` (3 tests). Pins the pre-refactor implementations and asserts the factory + wrappers reproduce them bit-for-bit (`torch.equal`), with/without the `body_names` filter, plus a distinct-signal guard. (These rewards had no test coverage before R5.2.)
   - Modified: `src/genelab/mdp/__init__.py` (factory export), `CHANGELOG.md`.
+- **PR R6 — vecenv rename + colocation** (PR #100, merged `c8d2880`) — implements ADR-0007:
+  - New package `src/genelab/rl/vecenvs/` with `{rsl_rl,sb3,skrl}.py` (the three adapters moved **verbatim** from `rl/<lib>_wrapper.py`; git renames, only the `_attach_base` import path changed) + `_attach_base.py` (relocated from `rl/_attach_base.py`, its R2.2 deferred home) + `__init__.py`. The file tree now pairs each adapter with its same-named trainer under `rl/backends/`.
+  - Old paths `rl/{rsl_rl,sb3,skrl}_wrapper.py` are `DeprecationWarning` re-export shims; `genelab.rl.RslRlVecEnvWrapper` is served by a module-level `__getattr__` shim and dropped from `rl.__all__`. All internal callers (3 backends, `skrl_models.py`, pipeline tests) repointed to `rl/vecenvs/<lib>`.
+  - New `tests/test_deprecated_imports.py` (the sb3/skrl shim checks run in a **subprocess** to dodge the cv2/Qt collection conflict); `tests/test_optional_deps.py` extended to the three `rl/vecenvs/<lib>` modules.
+- **PR R7.1 — public extension API** (PR #101, merged) — implements ADR-0008:
+  - New `src/genelab/extensions.py` re-exports `register_{robot,env,task,backend}`, `ROBOTS`/`ENVS`/`TASKS`, `Backend`, `Runnable`. `cli._RunnableTask` Protocol promoted to public `genelab.registry.Runnable`; CLI keeps `_RunnableTask = Runnable` alias and internal annotations migrated to `Runnable` (dropped the two R4 `reportPrivateUsage` ignores). New `tests/test_extensions_api.py` (4 tests).
+- **PR R7.2 — extensions docs** (PR #102, merged) — `docs/concepts/extensions.{en,zh}.md` updated to cover the `genelab.extensions` path, `register_backend`, and the `Runnable` / `Backend` contracts (with a runnable `EchoBackend` example). `mkdocs build --strict` green.
+- **PR R7.3a — `eval_task` → rl layer** (PR #103, merged) — clears `rl.eval_callback → cli._eval`. `eval_task` moved verbatim from `cli/_eval.py` to new `genelab.rl.eval_task` (runner import made function-local to stay acyclic); `cli/_eval.py` re-exports it.
+- **PR R7.3b — distributed helpers → utils** (PR #104, merged) — clears `scene → rl.distributed` (and `envs → scene → rl`). `rl/distributed.py` moved verbatim to `genelab/utils/distributed.py`; old path is a `DeprecationWarning` shim; 6 internal callers repointed. After R7.3a+b, **no `domain → rl` violations remain**.
+- **PR R7.3c — split the domain-forbidden contract** (PR #105, merged) — config-only. Split "Domain below cli/rl/utils.download" into "Domain ⊬ cli/rl" + "Domain (except asset_zoo) ⊬ utils.download", recognizing asset fetching as `asset_zoo`'s legitimate downward `domain → utils` dependency. Baseline → 4 kept / 1 broken.
+- **PR R7.3d — importlinter blocking flip** (PR #106, merged `fe5f604`) — implements ADR-0009; **completes the refactor**:
+  - Replaced the monolithic "Top-down layering" `layers` contract (which forbade legitimate intra-domain imports) with directional `forbidden` contracts: **"rl is below cli"** + **"Infrastructure modules do not import up"** (configs/registry/cache/utils ⊬ cli/rl/domain).
+  - Code fix: `PROJECT_ROOT` / `CACHE_DIR` moved to new `genelab/utils/paths.py` (cache re-exports), removing the last `utils.download → cache` infra edge so the strict infra contract passes with no waiver.
+  - Flipped `.github/workflows/ci.yml` `lint-imports` to **required** (dropped `continue-on-error`); new `tests/test_importlinter_configured.py` guards the contract set against silent deletion. Final baseline: **6 kept / 0 broken**.
 
 **Tests run.**
 
@@ -451,8 +467,28 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 - R4.3: ruff ✓, ruff format ✓, pyright 0/0/0, full suite **395 passed** (unchanged), import smoke confirms no `cli → _dispatch → cli` cycle, `lint-imports` baseline unchanged at 2 kept / 2 broken. `--help` snapshots byte-identical. `_dispatch_play` / `_dispatch_train` + the `_parse_*` / `_coerce_prof_kwargs` cluster verified byte-identical to `HEAD`. Five `test_cli.py` failures surfaced mid-implementation (4 `os.execvp` patches + the `_patch_picker` agent-kind site) and were fixed by repointing the monkeypatch targets to the moved functions' new owning modules — same class of fix as R4.2's `sys.argv`.
 - R5.1: ruff ✓, ruff format ✓, pyright 0/0/0, full suite **395 passed** (unchanged), `lint-imports` baseline unchanged at 2 kept / 2 broken. Re-export smoke confirms all six motion fns resolve via `mdp` / `mdp.rewards` / `mdp.motion_tracking` to the same objects (no cycle); the moved 96-line block verified byte-identical to `HEAD`. Zero edits to `mdp/__init__.py`, examples, or tests.
 - R5.2: ruff ✓, ruff format ✓, pyright 0/0/0, full suite **398 passed** (was 395; +3 from `tests/test_motion_tracking_equivalence.py`), `lint-imports` baseline unchanged at 2 kept / 2 broken. The equivalence tests assert the factory + wrappers reproduce the pinned pre-refactor implementations bit-for-bit (`torch.equal`). The jaccard-1.000 `SIMILAR_TO` triple is gone by construction (the three bodies are now distinct one-liners); graph re-index runs post-merge.
+- R6: ruff ✓, ruff format ✓, pyright 0/0/0, full suite **406 passed** (was 398; +5 `test_deprecated_imports` + 3 new `test_optional_deps` vecenv targets), `lint-imports` baseline unchanged at 2 kept / 2 broken (intra-`rl` move). Moved adapter bodies verified to differ from `HEAD` only by the `_attach_base` import line. **Incident:** the first full-suite run SIGABRTed — `test_deprecated_imports` (sorts early) imported the SB3 adapter → cv2 → Qt, poisoning the Genesis PyQt plotter tests; fixed by subprocess-isolating the sb3/skrl shim checks.
+- R7.1: ruff ✓, ruff format ✓, pyright 0/0/0, full suite **410 passed** (was 406; +4 `test_extensions_api`), `lint-imports` unchanged at 2 kept / 2 broken. `import genelab` stays torch-free (`extensions.py` is standalone).
+- R7.2: docs-only. `mkdocs build --strict` green; the `EchoBackend` example executed end-to-end (`isinstance Backend` True; `select_backend` round-trip).
+- R7.3a: ruff ✓, pyright 0/0/0, full suite **410 passed** (unchanged), import smoke confirms no cycle and `cli._eval.eval_task is rl.eval_task.eval_task`. `rl → cli` violation gone.
+- R7.3b: ruff ✓, pyright 0/0/0, full suite **411 passed** (+1 deprecation case), no cycle. `scene → rl` (+ `envs → scene → rl`) gone; **no `domain → rl` violations remain**.
+- R7.3c: config-only. `lint-imports` **4 kept / 1 broken**; ruff + pyright clean; full suite **411 passed** (unchanged).
+- R7.3d: ruff ✓, ruff format ✓, pyright 0/0/0, full suite **413 passed** (was 411; +2 `test_importlinter_configured`), optional-dep boundary still green after the `CACHE_DIR` move, import smoke confirms no cycle. **`lint-imports` 6 kept / 0 broken** — the gate is now required in CI.
 
-**Changes to the dependency graph.** `mcp__codebase-memory-mcp__index_status` reported **3,887 nodes / 10,905 edges** post-R2.5 (was 3,829 / 11,427 at the start of the planning round); the index has not been re-run since (counts above are as of `5571889`). R3 + R4.1 add: the `EvalCallbackCfg.from_args` classmethod and `SimulationCfg.play_retargeted_keys` staticmethod, the new `cli/_distributed.py` module (six functions + a constant) and its re-export edges into `cli/__init__.py`, and the `tests/test_eval_callback_from_args.py` + `tests/test_configs.py` nodes. None of these touch the cross-layer import baseline (R3 moves parsers in the allowed `cli → rl` / `cli → configs` direction; R4.1 stays within the `cli` package). The large edge reduction since the planning round is structural: the indexer re-resolves the graph after R0.3's `exclude_type_checking_imports = true` flag and after each consolidation (collapsing duplicate caller / property / method edges into a single canonical helper-import or inherited-base edge). The hotspots flagged in the assessment are being trimmed slice-by-slice; the cycle (R1) and all five cluster duplications (R2.1–R2.5) are gone.
+**Changes to the dependency graph.** `mcp__codebase-memory-mcp__index_status`
+reports **3,982 nodes / 11,433 edges** post-R7 (was 3,829 / 11,427 at the start
+of the planning round; dipped to ~3,887 / ~10,905 mid-refactor as R0.3's
+`exclude_type_checking_imports` filter + the R1/R2 consolidations collapsed
+duplicate edges). The net node/edge growth in R3–R7 reflects **added** structure,
+not regressions: new modules (`cli/_distributed.py`, `cli/_multi_seed.py`,
+`cli/_dispatch.py`, `mdp/motion_tracking.py`, `rl/vecenvs/{rsl_rl,sb3,skrl,_attach_base}.py`,
+`rl/eval_task.py`, `extensions.py`, `utils/distributed.py`, `utils/paths.py`) plus
+the **re-export / deprecation shims** (each shim adds import edges:
+`rl/{rsl_rl,sb3,skrl}_wrapper.py`, `rl/distributed.py`, `cli/_eval.py`,
+`registry.Runnable`'s alias). The cycle (R1) and all five cluster duplications
+(R2.1–R2.5) are gone; the SIMILAR_TO jaccard-1.000 motion-tracking triple
+collapsed in R5.2; and the cross-layer import baseline went from 24 violations / 3
+broken contracts (R0.3) to **0 violations / 6 kept contracts** (R7.3d).
 
 **Risks identified (aggregate view).** Detailed per-ADR; the highest-attention items:
 
@@ -460,7 +496,7 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 - **R2.5 (ADR-0002)** — ✅ **resolved by PR #89.** `BaseTermManager._post_init` preserves buffer-allocation timing; `tests/test_manager_init_order.py` was verified green pre- and post-refactor. The risk did not materialize.
 - **R4 (ADR-0004)** — ✅ **resolved by PRs #92 + #94 + #95.** All three CLI submodules (`_distributed`, `_multi_seed`, `_dispatch`) extracted; R0.1 `--help` snapshots gated every PR (zero drift). The large `test_cli.py` surface (1,414 LoC) needed only mechanical monkeypatch-target repoints in R4.2/R4.3 (functions moved out of `cli/__init__.py`, so `genelab.cli.{sys,os,pick_agent_kind}` patch paths were repointed to the new owning modules). `cli/__init__.py` 1,051 → 645 LoC; the ADR's ≤400 target is a documented follow-up (the residue is Typer wiring ADR-0004 deliberately kept).
 - **R5.2 (ADR-0006)** — ✅ **resolved by PR #98.** The parameterization-drift risk was guarded by `tests/test_motion_tracking_equivalence.py`, which asserts the factory + wrappers reproduce the pinned pre-refactor implementations bit-for-bit (`torch.equal`). Scope was held to the jaccard-1.000 trio; the geodesic / anchor rewards (structurally different) were left untouched.
-- **R7 (ADR-0009)** — flipping importlinter from lint-only to blocking is gated on the R0.3 baseline being clean. Post-R4: **21 cross-layer imports remain across 2 broken contracts** (down from 24 / 3 — R1 trimmed 3; R2.1–R2.5, R3.1–R3.2, and all of R4 were intra-package or allowed-direction moves and did not touch the cross-layer baseline). **Correction:** R3 was previously expected to clear the `rl.eval_callback → cli._eval` violation; it did not — see the corrected note below.
+- **R7 (ADR-0009)** — ✅ **resolved by PRs #103–#106.** The blocking flip was gated on clearing the R0.3 baseline (24 cross-layer imports → 21 after R1 → still 21 through R6, since R2–R6 were intra-package / allowed-direction / intra-`cli` moves that didn't touch the cross-layer baseline). R7.3 cleared the rest: **R7.3a** (`rl.eval_callback → cli._eval`, via moving `eval_task` to `rl`), **R7.3b** (`scene → rl.distributed`, via moving the helpers to `utils` — also clearing `envs → scene → rl`), **R7.3c** (`asset_zoo → utils.download` recognized as legitimate via a contract split), **R7.3d** (`utils.download → cache` removed by moving `CACHE_DIR` to `utils.paths`; the monolithic `layers` contract replaced by directional `forbidden` contracts). Final baseline: **0 violations / 6 kept contracts**, now a required CI gate.
 
 **Risks discovered during R0 + R1 (new, not in the original list).**
 
@@ -475,7 +511,7 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
   - 5+5 imports: `asset_zoo.* → actuator / entity` — asset factories build entities. Probably needs an "assets reach into domain" ADR.
   - ~8 imports: `envs.manager_based_rl_env → {bridges, entity, managers, scene, sensor}` — integration-point realities; some may stay, some can move behind interfaces during R3/R4.
   - Remaining imports (`scene.interactive_scene → {entity, recording, sensor, terrains}`, `entity.articulation → actuator`, `configs → {sensor, entity, recording, terrains}`, `utils.download → cache`) — each needs per-file audit during the relevant R-phase or a dedicated PR.
-- **R7 (importlinter blocking flip) is gated on the remaining 21 violations being cleaned up or explicitly waived.** Each R-phase PR should record which baseline violations it eliminates. Status: **3 / 24 resolved (all by R1)**. R2.1–R2.5 (intra-package dedup), R3.1–R3.2 (allowed-direction parser moves), and all of R4 (R4.1–R4.3, intra-`cli` moves) did not touch the cross-layer baseline. **No R-phase as currently scoped reduces it further** — the `rl.eval_callback → cli._eval` import needs a dedicated follow-up (inject `eval_task` instead of function-local import), and the `asset_zoo → utils.download` / `asset_zoo → {actuator,entity}` clusters need their own PRs or ADRs. This must be planned before R7's blocking flip.
+- **R7 (importlinter blocking flip) — ✅ DONE.** The R0.3 baseline of 24 cross-layer imports is fully cleared (24 → 21 after R1 → 0 after R7.3). Resolution by edge cluster: `rl.backends → rl.runner` ×3 (R1); `rl.eval_callback → cli._eval` (R7.3a, relocate `eval_task`); `scene/envs → rl.distributed` (R7.3b, relocate to `utils`); `asset_zoo → utils.download` ×6 (R7.3c, legitimate — contract split); `utils.download → cache` (R7.3d, relocate `CACHE_DIR`). The remaining ~14 "violations" in the old `layers` contract were **never real** — they were legitimate intra-domain imports the monolithic `layers` contract mis-flagged by treating domain packages as mutually independent; R7.3d's directional `forbidden` contracts stop flagging them. Net: **6 kept / 0 broken**, required in CI.
 - **ADR-0001 §Migration plan's test spec was flawed** (R1). It said *"imports `genelab.rl.backends.sb3` in a subprocess and asserts `genelab.rl.runner` is not in `sys.modules` afterwards."* That spec assumed `rl/__init__.py` does not import `runner` — but it does (for the public `play_task` / `train_task` re-exports), so any submodule import of `genelab.rl` unavoidably pulls `runner` into `sys.modules` via parent-package init. The `sys.modules` check can never detect the actual cycle for `rl.backends.*` modules. PR #84 used a `grimp`-based static-graph test instead, which asserts no `rl.backends.<lib>` directly imports `rl.runner` — the real invariant. ADR-0001 §Migration plan has been amended to reflect this. Future "static cycle" tests should use the grimp pattern, not the sys.modules pattern.
 - **`# noqa: F401` does not silence pyright's `reportUnusedImport`** (R2.1). For re-export shims, use the PEP-484 explicit-re-export idiom `from foo import bar as bar` — recognized by both ruff and pyright (and mypy). No `__all__` maintenance required. Future R-phases that introduce re-export shims should follow this pattern; `noqa` comments alone will fail CI's typecheck job.
 - **Ruff E402 "module level import not at top of file" fires even when the call site is the bottom of the file** (R2.2). Pattern: import the helper at the top with the other imports; place the *call* wherever execution requires it (e.g. at module bottom for "register at module load" patterns). Future R-phases that wire bottom-of-file registration calls should put the imports up top.
@@ -493,18 +529,40 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 - **An ADR's enumerated symbol list can go stale; re-audit the actual code before a "move" slice** (R5.1). ADR-0006 named three motion-tracking functions; by the time R5.1 ran, the "motion imitation" section of `mdp/rewards.py` had grown to six public functions + two shared private helpers. Moving only the three would have orphaned the shared helpers and left a half-family behind — defeating the ADR's coherence goal. `get_symbols_overview` on the target module before drafting the move surfaced the drift; the whole coherent block moved instead (maintainer-confirmed). Lesson: a relocation slice's scope is "the coherent unit in the code today," not "the symbols the ADR happened to list months ago."
 - **Pin the pre-refactor implementation in the test when a refactor *merges* bodies** (R5.2). Unlike a verbatim move (where `git show HEAD:… | diff` proves equivalence), a parameterizing refactor changes the code shape, so there's no in-tree "original" to diff against post-merge. The durable guard is a test that *copies* the original bodies as reference implementations and asserts the new factory/wrappers reproduce them bit-for-bit (`torch.equal`), exercising each parameter branch (here: each `quantity`, with and without the optional filter). These rewards had **zero** prior coverage — the equivalence test is also their first unit test, so it doubles as a regression net.
 - **Prefer thin `def` wrappers over `functools.partial` for back-compat shims** (R5.2). ADR-0006 floated `partial`, but `partial` objects have no `__name__` and a noisy `repr` — risky if any consumer logs reward terms by `func.__name__`. A one-line `def` that forwards to the factory keeps the public name a real function with its original signature and `__name__`, for one extra line each. Use `partial` only when the call site truly needs a callable value, not a named function.
+- **`subprocess`-isolate any test that imports the SB3 vecenv adapter** (R6). Importing `genelab.rl.vecenvs.sb3` pulls `cv2`, which forces the `xcb` Qt plugin and SIGABRTs Genesis's PyQt plotter tests if it happens in the shared pytest process. `test_sb3_pipeline.py` dodges this only because it sorts *after* the plotter tests; `test_deprecated_imports.py` sorts early (`d`) and crashed the suite on the first run. Fix: run such checks in a subprocess (like `test_optional_deps.py`). See project memory `cv2-qt-plotter-conflict.md`. The backend *modules* are safe in-process (they import the adapter only function-locally); only the adapter modules pull cv2.
+- **`importlinter`'s `layers` contract forbids intra-layer imports among pipe-separated siblings** (R7.3d). Listing the 11 domain packages as `a | b | c | …` in one layer makes them mutually *independent* — which wrongly flags every legitimate intra-domain import (`envs → scene`, `mdp → managers`, `entity → actuator`). There is no "allow imports within a layer" flag, and the packages have no shared parent module to collapse them into one layer item. Lesson: to enforce *band ordering* without forbidding intra-band imports, use directional `forbidden` contracts ("lower band ⊬ each higher band"), not a monolithic `layers` contract. The `layers` type fits strict pipelines, not flat bands.
+- **A relocation can fix a layering violation more cleanly than DI** (R7.3a/b). Both `rl.eval_callback → cli._eval` and `scene → rl.distributed` were "function imports something a layer up." The instinct is dependency injection (thread the callable down), but the better fix was noticing the imported thing lived in the *wrong layer*: `eval_task`'s body is all `rl`/config-band work (move it to `rl`), and `rl.distributed` is a generic env helper with no `rl` content (move it to `utils`). Relocating to the correct layer removes the edge at its source with no signature churn. Check "is this symbol in the right layer?" before threading injection params.
+- **A forbidden contract states intent better than a blanket ban + waivers** (R7.3c). `asset_zoo → utils.download` is a legitimate downward `domain → utils` dependency (the asset catalog fetches assets). Rather than waive 6 edges with `ignore_imports` + TODO, split the contract so the rule reads "term logic must not download, but the asset catalog may." Waivers accrete; a precise contract documents the architecture.
 
-**Next steps.**
+**The refactor is complete.** R0–R7 are all merged; the architecture is enforced
+by a required `lint-imports` CI gate (6 contracts, 0 violations). What remains:
 
-1. Maintainer review of ADRs. **ADR-0004** is flipped to `Accepted` (R4 complete). **ADR-0001** (cycle break), **ADR-0002** (BaseTermManager), **ADR-0003** (small dedup, all 5 sub-slices), and **ADR-0005** (domain-owned parsing, both sub-slices) are all shipped and strong candidates to flip from `Proposed` to `Accepted` (one-line edit per file, pending maintainer review).
-2. **Phases R4 + R5 are complete** (R4.1 #92, R4.2 #94, R4.3 #95; R5.1 #97, R5.2 #98). The last structural R-phase is **R6** (ADR-0007 — vecenv rename + colocation, also relocating the R2.2 `rl/_attach_base.py` deferred home); it is independent of everything.
-3. R7 (importlinter blocking flip) remains gated on the 21 remaining R0.3-baseline cross-layer imports being cleaned up or waived. **No R-phase as currently scoped reduces them** — the `rl.eval_callback → cli._eval` import and the `asset_zoo → {utils.download, actuator, entity}` clusters each need a dedicated follow-up PR/ADR before R7.
-4. **Follow-up work** (not on the R-phase critical path): (a) clear `rl.eval_callback → cli._eval` by injecting `eval_task` into `run_with_eval_callback`; (b) apply `BaseTermManager` to `metrics_manager.py` + `curriculum_manager.py`; (c) **reach the ADR-0004 ≤400-LoC target for `cli/__init__.py`** (now 645) by extracting the residue ADR-0004 kept — Typer command callbacks, `_configured_task` / `_resolve_task`, override helpers, help text — as a new concern (own ADR); (d) split the 1,414-LoC `tests/test_cli.py` by concern (ADR-0004 names this as attractive, and the R4.2/R4.3 monkeypatch-target churn shows the test file now has stale module-coupling worth untangling).
+1. **ADR review.** ADR-0004 / 0006 / 0007 / 0008 / 0009 are `Accepted` (shipped).
+   ADR-0001 / 0002 / 0003 / 0005 are shipped and ready to flip from `Proposed` to
+   `Accepted` (one-line edit per file, pending maintainer review). ADR-0010 stays
+   deferred.
+2. **Follow-up work** (none on a critical path; each is an independent, optional PR):
+   - Apply `BaseTermManager` to `metrics_manager.py` + `curriculum_manager.py`
+     (the R2.5 dedup leftover — two more copies of the term-registration loop).
+   - **Reach the ADR-0004 ≤400-LoC target for `cli/__init__.py`** (now ≈645) by
+     extracting the residue ADR-0004 deliberately kept — Typer command callbacks,
+     `_configured_task` / `_resolve_task`, override helpers, help text — as a new
+     concern (its own ADR).
+   - Split the 1,414-LoC `tests/test_cli.py` by concern (ADR-0004 flagged this; the
+     R4.2/R4.3 monkeypatch-target churn shows the file has stale module-coupling).
+   - Remove the deprecation shims (`rl/{rsl_rl,sb3,skrl}_wrapper.py`,
+     `rl/distributed.py`, `cli/_eval.py` re-export, `cli._RunnableTask` alias,
+     `rl.RslRlVecEnvWrapper` `__getattr__`) once they've ridden one release on
+     `main` (per §9.1 rule 1).
+   - Reconsider ADR-0010 (entity/articulation split) against its recorded trigger
+     criteria when multi-robot work (M3.6) begins.
 
-**Suggested next slice: R6 (ADR-0007)** — the last structural R-phase, unlocked and independent of everything.
-
-- **R6 scope.** Rename the vecenv adapters (`rl/<lib>_wrapper.py`) under a new `rl/vecenvs/` package and relocate `rl/_attach_base.py` (placed flat in R2.2) to its ADR-0007-intended home. Keep back-compat re-exports for the public import paths. Pure structural move; the existing RL backend / wrapper tests + the optional-dep import tests are the safety net.
-- **Then R7 (ADR-0009)** — flip importlinter from lint-only to blocking, gated on the remaining 21 cross-layer baseline violations being cleared or waived (see the follow-up list below).
+**Suggested next slice.** No further R-phase. The highest-value optional follow-up
+is the **`BaseTermManager` adoption for `metrics_manager.py` + `curriculum_manager.py`**
+— it is the smallest, lowest-risk, fully-understood item (a known dedup with a
+proven init-order gate-test pattern from R2.5) and finishes the consolidation R2
+started. The R-phase machinery (snapshots, optional-dep tests, the now-blocking
+importlinter gate) all stays in place to guard it.
 
 ### 9.1 Cross-phase rules
 
@@ -532,16 +590,17 @@ in §9.0 records progress against them.
 ### 9.2 Phase sequencing
 
 ```
-R0 ✅─┬──► R1 ✅ ──────────────────────────────────────► R7
-      ├──► R2 ✅ (R2.1–R2.5 all merged) ────────────────► R7
-      ├──► R3 ✅ ──► R4 ✅ (R4.1–R4.3 all merged) ───────► R7
-      ├──► R5 ✅ (R5.1–R5.2 all merged) ────────────────► R7
-      └──► R6 ─────────────────────────────────────────► R7
+R0 ✅─┬──► R1 ✅ ──────────────────────────────────────► R7 ✅
+      ├──► R2 ✅ (R2.1–R2.5 all merged) ────────────────► R7 ✅
+      ├──► R3 ✅ ──► R4 ✅ (R4.1–R4.3 all merged) ───────► R7 ✅
+      ├──► R5 ✅ (R5.1–R5.2 all merged) ────────────────► R7 ✅
+      └──► R6 ✅ ───────────────────────────────────────► R7 ✅
 ```
 
-R0–R5 are complete. Only **R6** (independent) remains before **R7**,
-the closer (gated on the remaining 21 importlinter baseline violations
-being cleared or waived).
+**All phases complete.** R7 (R7.1 + docs + R7.3a–d) cleared every cross-layer
+violation (24 → 0) and flipped `lint-imports` to a required CI gate. The
+architecture described in `target-architecture.md` §4–§5 is now executable and
+enforced.
 
 ---
 
@@ -845,7 +904,7 @@ being cleared or waived).
 
 ---
 
-### Phase R6 — VecEnv rename and colocation / VecEnv 重命名
+### Phase R6 — VecEnv rename and colocation / VecEnv 重命名 — ✅ COMPLETE (PR #100)
 
 1. **Goal.** Disambiguate "wrapper" (env adapter) from "backend"
    (trainer) by relocating env adapters under `rl/vecenvs/`. Decision
@@ -886,7 +945,7 @@ being cleared or waived).
 
 ---
 
-### Phase R7 — Public extension API + importlinter blocking / 公开扩展接口 + CI 强制分层
+### Phase R7 — Public extension API + importlinter blocking / 公开扩展接口 + CI 强制分层 — ✅ COMPLETE (PRs #101–#106)
 
 1. **Goal.** Codify the third-party extension contract and flip the
    layering contract from lint-only to a required CI check. Decisions
