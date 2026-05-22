@@ -8,6 +8,24 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Multi-robot write-side term routing** (ROADMAP M3.6 / ADR-0012, slice **S3b**) —
+  completes the MDP-layer migration started in S3a. Event, DR and curriculum terms now
+  route through `asset_cfg` to the named entity instead of the singular accessors:
+  - New `genelab.mdp._helpers.asset_handle(env, asset_cfg)` returns the entity's raw Genesis
+    handle (`env.articulations[name].gs_handle`, else primary `env.robot`).
+  - `mdp.events` (`reset_root_state_uniform`, `reset_joints_to_default`,
+    `reset_joints_by_offset`, `push_by_setting_velocity`) and `mdp.dr`
+    (`randomize_joint_stiffness_damping`, `randomize_actuator_deadzone`,
+    `body_com_offset` / `body_mass_offset`, `geom_friction`, `encoder_bias`) and
+    `mdp.curriculums.terrain_levels_vel` gain an `asset_cfg` (default → primary `"robot"`)
+    and reach the entity via `asset_handle` / `asset_articulation` / `asset_state`.
+
+  With S3a + S3b, no `mdp` term reads the singular `env.robot` / `env.robot_state` /
+  `env.articulation` / `env.default_joint_pos` / `env.actuators` runtime accessors any more
+  (only the `env.joint_names` name table remains, handled by the S6 flip). Backward-compatible
+  (managers call terms via `**params`); small test-fake updates put `default_joint_pos` on the
+  fake articulation, mirroring the real env. Tested in `tests/test_events.py` + `tests/test_dr.py`.
+
 - **Multi-robot read-side term routing** (ROADMAP M3.6 / ADR-0012, slice **S3a**) — every
   reward / observation / termination term that reads robot state now takes an optional
   `asset_cfg: SceneEntityCfg | None = None` and routes through it, so a multi-robot task can

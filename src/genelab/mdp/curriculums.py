@@ -4,8 +4,11 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 
+from genelab.mdp._helpers import asset_articulation
+
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
 def terrain_levels_vel(
@@ -13,6 +16,7 @@ def terrain_levels_vel(
     env_ids: torch.Tensor | slice | None,
     distance_threshold: float,
     demote_ratio: float = 0.5,
+    asset_cfg: "SceneEntityCfg | None" = None,
 ) -> torch.Tensor:
     """Promote / demote each env's terrain level by how far it walked from spawn.
 
@@ -38,7 +42,8 @@ def terrain_levels_vel(
     if env_ids.numel() == 0:
         return terrain.terrain_levels.float().mean()
 
-    current_pos = env.articulation.data.root_pos[env_ids]
+    articulation = asset_articulation(env, asset_cfg)
+    current_pos = articulation.data.root_pos[env_ids]
     spawn_pos = terrain.spawn_pos[env_ids]
     walked = torch.linalg.vector_norm(current_pos[:, :2] - spawn_pos[:, :2], dim=-1)
 
@@ -54,7 +59,7 @@ def terrain_levels_vel(
     zero_quat = torch.zeros(n, 4, device=env.device)
     zero_quat[:, 0] = 1.0
     zero_vel = torch.zeros(n, 3, device=env.device)
-    env.articulation.write_root_state(new_origins, zero_quat, zero_vel, zero_vel, env_ids)
+    articulation.write_root_state(new_origins, zero_quat, zero_vel, zero_vel, env_ids)
 
     return levels.float().mean()
 
