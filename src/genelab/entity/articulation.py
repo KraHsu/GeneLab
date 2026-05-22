@@ -485,6 +485,7 @@ class Articulation:
                 effort = actuator.compute(joint_pos, joint_vel, target_slice)
                 if effort is None:
                     continue
+                effort = actuator.apply_deadzone(effort)
                 ctrl = getattr(robot, "control_dofs_force", None)
                 if ctrl is None:
                     continue
