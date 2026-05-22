@@ -323,7 +323,7 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 > *structural hygiene* that those features rest on. R-phases are
 > independent of M1–M3 sequencing — most can interleave with feature work.
 >
-> Last reviewed: 2026-05-22 · against `dev` @ `9296aad` (R7 complete; post-R7 cleanup #108 + #110–#112 merged).
+> Last reviewed: 2026-05-22 · against `dev` @ `5d08c1c` (R7 complete; post-R7 cleanup #108 + #110–#115 merged).
 
 ### 9.0 Status / 当前状态
 
@@ -331,10 +331,12 @@ genelab export GeneLab-Franka-Pick-And-Place-v0 logs/.../model_500.pt \
 refactor is done; importlinter now runs as a **required** CI gate with a clean
 **6 contracts / 0 violations** baseline. All four term-keyed managers share
 `BaseTermManager` (#108). Post-R7 housekeeping is merged: the R-phase deprecation
-shims are **removed** (#110), the example-robot tests are split out of `test_cli.py`
-(#112), and ADR-0010 ships its size guard (#111) while staying deferred. ADRs
-0001–0009 are all `Accepted`; only ADR-0010 (entity/articulation split) remains,
-deliberately deferred (its trigger criteria are unmet).
+shims are **removed** (#110); ADR-0010 ships its size guard (#111) while staying
+deferred; `test_cli.py` is fully dissolved into concern modules (#112 examples,
+#114 the four `test_cli_*` files); and `cli/__init__.py` is trimmed to **479 LoC**
+by extracting `cli/_help.py` + `cli/_resolve.py` (#115 / ADR-0011). ADRs 0001–0011
+are all `Accepted`; only ADR-0010 (entity/articulation split) remains, deliberately
+deferred (its trigger criteria are unmet).
 
 | What | Status | Artifact |
 |---|---|---|
@@ -461,6 +463,9 @@ deliberately deferred (its trigger criteria are unmet).
 - **PR #110 — remove the R-phase deprecation shims** (merged `dev` @ `8dd4edd`) — backward-compat for the R6/R7 relocations is no longer maintained (maintainer waived it), so the §9.1 "ride one release" gate no longer applies. Deleted `rl/{rsl_rl,sb3,skrl}_wrapper.py`, `rl/distributed.py`, `cli/_eval.py`, and `tests/test_deprecated_imports.py`; removed the top-level `rl.RslRlVecEnvWrapper` `__getattr__` re-export and the `cli._RunnableTask = Runnable` alias. Repointed the three live references that still used an old path (`cli/__init__.py` → `rl.eval_task`; `tests/test_cli.py` → `utils.distributed`; + 5 stale docstrings). Audit (`grep` across `src`/`tests`/`examples`/`docs`) found no other importer; smoke check confirms every old path now raises and the canonical paths resolve. Net −179 LoC.
 - **PR #111 — ADR-0010 articulation size guard** (merged `dev` @ `16d5b1c`) — fulfills ADR-0010's remaining Validation-criteria deliverable (its §Risks R10.1 soft check) **without** doing the split (none of the four trigger criteria is met; the file is 528 LoC). New `tests/test_articulation_size.py`: silent pass ≤700 LoC, `UserWarning` at 700–1000 (prompting a revisit of the trigger criteria), hard fail >1000. ADR-0010 stays `Proposed`/deferred.
 - **PR #112 — split example-robot tests out of `test_cli.py`** (merged `dev` @ `9296aad`) — first slice of the "split the 1,414-LoC `test_cli.py`" follow-up. Moved ~19 tests that exercise `genelab_examples` robot logic (not the CLI) verbatim into `tests/test_examples_rubiks.py` (11 tests + the `_Fake*` physics doubles) and `tests/test_examples_wuji.py` (8 tests + `_FakeWuji*`). `test_cli.py` dropped 1,418 → 1,000 LoC (80 → 61 tests); shed orphaned `numpy` / `Sequence` / examples imports + the `FloatArray` alias. Pure relocation, byte-identical bodies, suite total unchanged.
+- **PR #113 — docs: record #110–#112 in §9** (merged `dev`) — refactor-state refresh (this doc); also recorded the gitignore lesson (`CLAUDE.md` / `AGENTS.md` / `plans/` are local-only).
+- **PR #114 — split `test_cli.py` into four concern modules** (merged `dev` @ `eb40498`) — dissolves the remaining 977-LoC `test_cli.py` (61 tests) into `test_cli_core.py` (16) / `test_cli_args.py` (17) / `test_cli_distributed.py` (13) / `test_cli_routing.py` (15). Byte-identical relocations (16+17+13+15 = 61). The 4 `monkeypatch.setattr("genelab.cli._distributed.{os.execvp,sys.argv}")` paths stay with the relaunch tests (absolute, unaffected). One non-mechanical fix: `test_core_does_not_register_example_tasks_by_default` asserts the example tasks are *absent*, which depends on the never-reset global registry; once `test_cli_args.py` (loads examples) sorts before `test_cli_core.py`, it failed → the test now snapshots/clears/restores the `TASKS`/`ROBOTS`/`ENVS` registries (a blanket reset fixture is unsafe — `register()` raises on duplicate). `test_cli.py` deleted.
+- **PR #115 — extract `_help` + `_resolve` from `cli/__init__.py`** (merged `dev` @ `5d08c1c`, ADR-0011) — `cli/_help.py` (help-text constants) + `cli/_resolve.py` (`_configured_task`/`_resolve_task`/`_apply_overrides_interactively`/`_override_key_for`/`_UNKNOWN_PATH_RE`). `cli/__init__.py` **638 → 479 LoC**; the Typer app + command callbacks + thin context glue (`_state`/`_load_extensions`/`_RootState`) stay (avoids a `_resolve → cli` cycle). The pickers now bind in `cli._resolve`, so `_patch_picker` adds `genelab.cli._resolve` to its loop; `_help`/`_resolve` declare `__all__` for the cross-module underscore names (R4.1/R4.2 lessons). Revises ADR-0004's ≤400 target to "≈≤480, command callbacks retained" (ADR-0011). No behaviour change.
 
 **Tests run.**
 
@@ -492,10 +497,12 @@ deliberately deferred (its trigger criteria are unmet).
 - #110: ruff ✓, ruff format ✓, **pyright 0/0/0**, **`lint-imports` 6 kept / 0 broken**; smoke check confirms all five removed modules + `rl.RslRlVecEnvWrapper` now raise on import while the canonical paths resolve. Full suite **410 passed** (was 416; −6 from the deleted `tests/test_deprecated_imports.py`).
 - #111: branch logic verified at 528 / 700 / 701 / 1000 / 1001 LoC (PASS / PASS / WARN / WARN / FAIL); ruff ✓, ruff format ✓, pyright 0/0/0, `lint-imports` 6 / 0. Full suite **411 passed** (+1).
 - #112: per-file counts 61 (cli) + 11 (rubiks) + 8 (wuji) = 80, unchanged; ruff ✓, ruff format ✓, pyright 0/0/0, `lint-imports` 6 / 0. Full suite **410 passed** (unchanged — pure move; #111's +1 not yet on the branch base).
+- #114: per-file counts 16 + 17 + 13 + 15 = 61, unchanged; ruff ✓, ruff format ✓, pyright 0/0/0, `lint-imports` 6 / 0. Full suite **411 passed** (unchanged), verified under the `args → core` pollution order that exposed the registry-isolation bug.
+- #115: `cli/__init__.py` 638 → 479 LoC; ruff ✓, ruff format ✓, **pyright 0/0/0** (after `__all__` in `_help`/`_resolve` silences `reportUnusedFunction`/`reportPrivateUsage`), **`lint-imports` 6 / 0**. Full suite **411 passed** (unchanged); CLI `--help` snapshots green (play/train help byte-identical, sourced from `_help`).
 
 **Changes to the dependency graph.** `mcp__codebase-memory-mcp__index_status`
-reports **3,961 nodes / 11,349 edges** after a full re-index at `dev` @ `8dd4edd`
-(was 3,982 / 11,433 mid-cleanup post-R7, and 3,829 / 11,427 at the start
+reports **4,056 nodes / 11,950 edges** after a full re-index at `dev` @ `5d08c1c`
+(was 3,961 / 11,349 at `8dd4edd` post-shim-removal, 3,982 / 11,433 mid-cleanup, and 3,829 / 11,427 at the start
 of the planning round; dipped to ~3,887 / ~10,905 mid-refactor as R0.3's
 `exclude_type_checking_imports` filter + the R1/R2 consolidations collapsed
 duplicate edges). The net node/edge growth in R3–R7 reflects **added** structure,
@@ -518,14 +525,17 @@ their re-export import edges are gone, which is the main driver of the edge-coun
 dip from 11,433 → 11,349. Inheritance is stored as a `base_classes` property on the
 `Class` node, not an edge (and the parser leaves it blank for *subscripted generic*
 bases like `BaseTermManager[RewardTermCfg]`, so all four managers read blank there —
-a known parser limitation, not staleness). #111/#112 are test-only and barely move
-the graph. Re-index after any future structural change with `index_repository`.
+a known parser limitation, not staleness). The re-index at `5d08c1c` shows the
+count climbing back to **4,056 / 11,950**: #114 split `test_cli.py` into four
+`test_cli_*` modules (net + test-file nodes) and #115 added `cli/_help.py` +
+`cli/_resolve.py` (new module nodes + their import edges), both outweighing #110's
+deletions. Re-index after any future structural change with `index_repository`.
 
 **Risks identified (aggregate view).** Detailed per-ADR; the highest-attention items:
 
 - **R1 (ADR-0001)** — ✅ **resolved by PR #84.** The quiescent `rl.runner ↔ rl.backends` cycle is gone; backends now import from `rl._helpers`. `tests/test_no_static_cycle.py` (grimp-based) prevents regression; matching importlinter contract is now KEPT.
 - **R2.5 (ADR-0002)** — ✅ **resolved by PR #89, extended by PR #108.** `BaseTermManager._post_init` preserves buffer-allocation timing; `tests/test_manager_init_order.py` was verified green pre- and post-refactor for rewards/terminations (#89) and again for metrics/curriculum (#108). The init-order risk did not materialize either time. All four term-keyed managers now share the base.
-- **R4 (ADR-0004)** — ✅ **resolved by PRs #92 + #94 + #95.** All three CLI submodules (`_distributed`, `_multi_seed`, `_dispatch`) extracted; R0.1 `--help` snapshots gated every PR (zero drift). The large `test_cli.py` surface (1,414 LoC) needed only mechanical monkeypatch-target repoints in R4.2/R4.3 (functions moved out of `cli/__init__.py`, so `genelab.cli.{sys,os,pick_agent_kind}` patch paths were repointed to the new owning modules). `cli/__init__.py` 1,051 → 645 LoC; the ADR's ≤400 target is a documented follow-up (the residue is Typer wiring ADR-0004 deliberately kept).
+- **R4 (ADR-0004)** — ✅ **resolved by PRs #92 + #94 + #95.** All three CLI submodules (`_distributed`, `_multi_seed`, `_dispatch`) extracted; R0.1 `--help` snapshots gated every PR (zero drift). The large `test_cli.py` surface (1,414 LoC) needed only mechanical monkeypatch-target repoints in R4.2/R4.3 (functions moved out of `cli/__init__.py`, so `genelab.cli.{sys,os,pick_agent_kind}` patch paths were repointed to the new owning modules). `cli/__init__.py` 1,051 → 645 LoC at R4, later → **479 LoC** (#115 / ADR-0011, extracting `_help` + `_resolve`); the ≤400 target was revised to "≈≤480, command callbacks retained" (ADR-0011).
 - **R5.2 (ADR-0006)** — ✅ **resolved by PR #98.** The parameterization-drift risk was guarded by `tests/test_motion_tracking_equivalence.py`, which asserts the factory + wrappers reproduce the pinned pre-refactor implementations bit-for-bit (`torch.equal`). Scope was held to the jaccard-1.000 trio; the geodesic / anchor rewards (structurally different) were left untouched.
 - **R7 (ADR-0009)** — ✅ **resolved by PRs #103–#106.** The blocking flip was gated on clearing the R0.3 baseline (24 cross-layer imports → 21 after R1 → still 21 through R6, since R2–R6 were intra-package / allowed-direction / intra-`cli` moves that didn't touch the cross-layer baseline). R7.3 cleared the rest: **R7.3a** (`rl.eval_callback → cli._eval`, via moving `eval_task` to `rl`), **R7.3b** (`scene → rl.distributed`, via moving the helpers to `utils` — also clearing `envs → scene → rl`), **R7.3c** (`asset_zoo → utils.download` recognized as legitimate via a contract split), **R7.3d** (`utils.download → cache` removed by moving `CACHE_DIR` to `utils.paths`; the monolithic `layers` contract replaced by directional `forbidden` contracts). Final baseline: **0 violations / 6 kept contracts**, now a required CI gate.
 
@@ -573,29 +583,27 @@ removal (#110), the ADR-0010 size guard (#111), and the first `test_cli.py` spli
 slice (#112). What remains:
 
 1. **ADR review** (local-only — `plans/` is gitignored; see the lesson above).
-   ADR-0001 through 0009 are all `Accepted`. ADR-0010 stays `Proposed`/deferred —
-   its own deliverables (incl. the #111 size guard) are complete; the *split* is
-   intentionally not done until a trigger fires.
+   ADR-0001 through 0009 and **ADR-0011** are all `Accepted`. ADR-0010 stays
+   `Proposed`/deferred — its own deliverables (incl. the #111 size guard) are
+   complete; the *split* is intentionally not done until a trigger fires.
 2. **Follow-up work** (none on a critical path; each is an independent, optional PR):
-   - **Further split `tests/test_cli.py`** — #112 carved the example-robot tests out
-     (1,418 → 1,000 LoC); the residue could partition by CLI concern (core surface /
-     arg-parsing+overrides / distributed+torchrun / routing+picker / profiler). The
-     4 `monkeypatch.setattr("genelab.cli._distributed.os.execvp", …)` string paths
-     stay with the distributed cluster (absolute, so unaffected by the move).
-   - **Reach the ADR-0004 ≤400-LoC target for `cli/__init__.py`** (now ≈645) by
-     extracting the residue ADR-0004 deliberately kept — Typer command callbacks,
-     `_configured_task` / `_resolve_task`, override helpers, help text — as a new
-     concern (its own ADR). The larger of the two; needs an ADR first.
-   - Reconsider ADR-0010 (entity/articulation split) against its recorded trigger
+   - **Reconsider ADR-0010** (entity/articulation split) against its recorded trigger
      criteria when multi-robot work (M3.6) begins. The #111 guard (`UserWarning` at
      700 LoC, hard fail at 1000) is the tripwire that forces that conversation.
+   - **Further `cli/__init__.py` reduction below ≈480** would require relocating the
+     Typer command callbacks via a registration indirection — explicitly judged
+     not worth the churn in ADR-0011 (the ≤400 target was revised to "≈≤480,
+     callbacks retained"). Revisit only if the file grows materially.
 
-**Suggested next slice.** No further R-phase. The lowest-risk remaining follow-up is
-**further partitioning the CLI tests** that #112 left in `test_cli.py` (1,000 LoC,
-61 tests) — pure relocation, no source change, guarded by an unchanged suite total.
-The larger `cli/__init__.py` ≤400-LoC extraction needs its own ADR first. The
-R-phase machinery (snapshots, optional-dep tests, the blocking importlinter gate)
-stays in place to catch any regression.
+   The two big organizational follow-ups are **done**: `test_cli.py` is fully split
+   (#112 + #114) and `cli/__init__.py` is trimmed to 479 LoC (#115). There is no
+   remaining structural cleanup on the books.
+
+**Suggested next slice.** None outstanding — the refactor and its post-R7 cleanup
+are complete. Future work is feature-driven (M1–M3) or the deferred ADR-0010 split
+once its trigger fires. The R-phase machinery (snapshots, optional-dep tests, the
+blocking importlinter gate, the `test_articulation_size` tripwire) stays in place to
+catch regressions.
 
 ### 9.1 Cross-phase rules
 
@@ -867,12 +875,13 @@ enforced.
 9. **Rollback.** Per-PR revert. The moved files become orphans on
    revert; their content moves back inline.
 10. **Completion criteria.** (all three PRs merged)
-    - `cli/__init__.py` ≤ 400 LoC. → ⚠️ **not met: 645 LoC** (1,051 → 900
-      → 775 → 645). All three named modules were extracted, but the ≤400
-      figure was an estimate that didn't account for the residue ADR-0004
-      deliberately keeps in `__init__.py` (10 Typer command callbacks,
-      `_configured_task` / `_resolve_task`, override helpers, `_RunnableTask`,
-      help text). Reaching ≤400 is a documented follow-up (new concern / ADR).
+    - `cli/__init__.py` ≤ 400 LoC. → ⚠️ **target revised** (ADR-0011): R4 landed
+      it at 645 (1,051 → 900 → 775 → 645); #115 later extracted `_help` +
+      `_resolve` to reach **479 LoC**. The ≤400 figure was an estimate that didn't
+      account for the residue ADR-0004 deliberately keeps (10 Typer command
+      callbacks, thin context glue, help text); ADR-0011 revised the target to
+      "≈≤480, command callbacks retained" — going lower needs a registration
+      indirection on the Typer wiring, judged not worth the churn.
     - 3 new files created. → ✅ 3 / 3 (`_distributed.py`, `_multi_seed.py`,
       `_dispatch.py`).
     - `tests/test_cli.py` and `tests/test_multi_seed_cli.py` green. → ✅
