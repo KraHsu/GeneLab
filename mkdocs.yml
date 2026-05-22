@@ -185,6 +185,7 @@ nav:
       - Build an Extension Project: best-practices/extension-projects.md
       - Run RL Experiments: best-practices/rl-experiments.md
       - Reference Runs: best-practices/reference-runs.md
+      - Harden for Sim2Real: best-practices/sim2real.md
       - Debug Common Failures: best-practices/debugging.md
   - Reference:
       - Module Map: reference/module-map.md
