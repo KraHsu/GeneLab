@@ -27,9 +27,7 @@ if TYPE_CHECKING:
     from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
-def body_angular_velocity_penalty(
-    env: EnvContext, asset_cfg: SceneEntityCfg
-) -> torch.Tensor:
+def body_angular_velocity_penalty(env: EnvContext, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     """``Σ ω_xy²`` across the links named by ``asset_cfg`` (typical G1 use: torso only).
 
     mjlab: ``tasks/velocity/mdp/rewards.py::body_angular_velocity_penalty``. With a

@@ -63,9 +63,7 @@ def asset_state(env: "EnvContext", asset_cfg: "SceneEntityCfg | None") -> "Robot
     return resolve_robot_state(env, asset_cfg.name if asset_cfg is not None else "robot")
 
 
-def asset_articulation(
-    env: "EnvContext", asset_cfg: "SceneEntityCfg | None"
-) -> "Articulation":
+def asset_articulation(env: "EnvContext", asset_cfg: "SceneEntityCfg | None") -> "Articulation":
     """:class:`Articulation` for ``asset_cfg``'s entity; ``None`` → primary ``"robot"``."""
     return resolve_articulation(env, asset_cfg.name if asset_cfg is not None else "robot")
 

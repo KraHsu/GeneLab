@@ -15,30 +15,22 @@ if TYPE_CHECKING:
     from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
-def base_lin_vel(
-    env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None
-) -> torch.Tensor:
+def base_lin_vel(env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None) -> torch.Tensor:
     """Body-frame linear velocity of the floating base."""
     return asset_state(env, asset_cfg).root_lin_vel_b
 
 
-def base_ang_vel(
-    env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None
-) -> torch.Tensor:
+def base_ang_vel(env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None) -> torch.Tensor:
     """Body-frame angular velocity of the floating base."""
     return asset_state(env, asset_cfg).root_ang_vel_b
 
 
-def projected_gravity(
-    env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None
-) -> torch.Tensor:
+def projected_gravity(env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None) -> torch.Tensor:
     """Gravity vector projected into the body frame (proxy for IMU orientation)."""
     return asset_state(env, asset_cfg).projected_gravity_b
 
 
-def joint_pos_rel(
-    env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None
-) -> torch.Tensor:
+def joint_pos_rel(env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None) -> torch.Tensor:
     """Joint positions minus default pose.
 
     Mirrors mjlab's default ``joint_pos_rel`` (no bias term). When the env's
@@ -55,9 +47,7 @@ def joint_pos_rel(
     )
 
 
-def joint_vel_rel(
-    env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None
-) -> torch.Tensor:
+def joint_vel_rel(env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None) -> torch.Tensor:
     """Joint velocities (default is zero, so just the raw vel)."""
     return asset_state(env, asset_cfg).joint_vel
 
