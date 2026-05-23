@@ -7,7 +7,7 @@ know what you want to change but need the right import path.
 
 | Module | Use it for | Typical imports |
 |---|---|---|
-| `genelab.lab` | Stable user-facing facade for configs, registries, scene objects, sensors, actuators, terrains, and extension loading. | `TaskCfg`, `ManagerBasedEnvCfg`, `ArticulationCfg`, `SensorCfg`, `register_*` via registries |
+| `genelab.lab` | Stable, snapshot-guarded user-facing facade for configs, registries, scene objects, sensors, actuators, terrains, and extension loading. Public names are resolved lazily on first access. | `TaskCfg`, `ManagerBasedEnvCfg`, `ArticulationCfg`, `SensorCfg`, `register_*` via registries |
 | `genelab` | Lightweight package root. It lazily re-exports a few top-level types without importing torch. | `__version__`, `TaskCfg`, `ManagerBasedEnvCfg` |
 
 Prefer `genelab.lab` in notebooks, downstream tasks, and examples unless a lower-level module is
@@ -26,6 +26,7 @@ documented as the owner of the API you need.
 | Module | Responsibility |
 |---|---|
 | `genelab.configs` | Core dataclasses: `SimulationCfg`, `InteractiveSceneCfg`, `ManagerBasedEnvCfg`, `TaskCfg`, and `apply_overrides`. |
+| `genelab.contracts` | Domain ports for concrete env/scene implementations: `EnvContext`, `SceneContext`, and the canonical `NoiseCfg` base. |
 | `genelab.envs.manager_based_rl_env` | Genesis-backed `ManagerBasedRlEnv` and `ManagerBasedRlEnvCfg`. |
 | `genelab.managers` | Manager and term cfg types for actions, commands, observations, rewards, terminations, events, curricula, and metrics. |
 | `genelab.mdp` | Reusable MDP functions for observations, rewards, terminations, events, curricula, metrics, noise, actions, commands, and domain randomization. |

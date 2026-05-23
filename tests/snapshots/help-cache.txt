@@ -1,0 +1,9 @@
+                                                                                                    
+ Usage: genelab cache [OPTIONS]                                                                     
+                                                                                                    
+ Create project-local simulation cache directories.                                                 
+                                                                                                    
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                      │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+

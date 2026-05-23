@@ -7,13 +7,13 @@ that in turn owns the Genesis ``gs.Scene``, an articulated robot, and any extra 
 
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import torch
 
 from genelab.bridges.base import BridgeCfg
 from genelab.configs import ManagerBasedEnvCfg
-from genelab.entity import Articulation, ArticulationCfg, RobotState
+from genelab.entity import Articulation, ArticulationCfg
 from genelab.managers import (
     ActionManager,
     ActionTermCfg,
@@ -56,6 +56,12 @@ class ManagerBasedRlEnvCfg(ManagerBasedEnvCfg):
     scale_rewards_by_dt: bool = True
 
     robot: ArticulationCfg = field(default_factory=ArticulationCfg)
+    # Multi-robot (ROADMAP M3.6 / ADR-0012, slice S1): when non-empty, ``robots`` spawns
+    # one articulation per entry (keyed by name) and ``robot`` is ignored. When empty, the
+    # env falls back to ``{"robot": robot}`` — so single-robot tasks are unchanged. The
+    # entity named ``"robot"`` (or the first key) is the *primary*, backing the singular
+    # ``env.robot`` / ``env.robot_state`` accessors until they are removed in a later slice.
+    robots: dict[str, ArticulationCfg] = field(default_factory=dict)
 
     actions_cfg: dict[str, ActionTermCfg] = field(default_factory=dict)
     observations_cfg: dict[str, ObservationGroupCfg] = field(default_factory=dict)
@@ -71,6 +77,18 @@ class ManagerBasedRlEnvCfg(ManagerBasedEnvCfg):
     bridges_cfg: dict[str, BridgeCfg] = field(default_factory=dict)
 
 
+def _resolve_entity_cfgs(cfg: ManagerBasedRlEnvCfg) -> dict[str, ArticulationCfg]:
+    """Entities to spawn: ``cfg.robots`` when non-empty, else ``{"robot": cfg.robot}``."""
+    if cfg.robots:
+        return dict(cfg.robots)
+    return {"robot": cfg.robot}
+
+
+def _primary_entity_name(entity_cfgs: dict[str, ArticulationCfg]) -> str:
+    """The primary entity name — ``"robot"`` if present, else the first declared key."""
+    return "robot" if "robot" in entity_cfgs else next(iter(entity_cfgs))
+
+
 class ManagerBasedRlEnv:
     """Genesis-backed manager-based RL environment."""
 
@@ -84,11 +102,19 @@ class ManagerBasedRlEnv:
         self._max_episode_length = max(1, int(math.ceil(cfg.episode_length_s / self._step_dt)))
 
         self._scene = InteractiveScene(cfg.simulation, cfg.scene, device_hint=cfg.device)
-        self._scene.add_entity("robot", cfg.robot)
+        entity_cfgs = _resolve_entity_cfgs(cfg)
+        for name, robot_cfg in entity_cfgs.items():
+            self._scene.add_entity(name, robot_cfg)
         self._scene.build()
         # Genesis may have refined the device string (e.g. ``cuda:0``); pick it up.
         self._device = self._scene.device
-        self._articulation: Articulation = self._scene.articulations["robot"]
+        self._articulations: dict[str, Articulation] = {
+            name: self._scene.articulations[name] for name in entity_cfgs
+        }
+        self._primary_name = _primary_entity_name(entity_cfgs)
+        # ``_articulation`` is the primary entity, backing the singular ``env.robot`` /
+        # ``env.robot_state`` accessors (removed in a later M3.6 slice once terms route by name).
+        self._articulation: Articulation = self._articulations[self._primary_name]
 
         self._episode_length_buf = torch.zeros(
             self._num_envs, dtype=torch.long, device=self._device
@@ -182,49 +208,29 @@ class ManagerBasedRlEnv:
         return self._scene.viewer_closed
 
     @property
-    def articulation(self) -> Articulation:
-        """Wrapper around the Genesis robot entity (Isaac-Lab-style accessors)."""
-        return self._articulation
+    def articulations(self) -> dict[str, Articulation]:
+        """All spawned articulations keyed by name (ROADMAP M3.6 / ADR-0012 S1).
 
-    @property
-    def robot(self) -> Any:
-        """Raw Genesis robot handle. MDP code calls ``env.robot.set_pos(...)`` etc."""
-        return self._articulation.gs_handle
-
-    @property
-    def robot_state(self) -> RobotState:
-        return self._articulation.data
+        Multi-robot terms / sensors select an entity via ``env.articulations[name]``
+        (``name`` from ``SceneEntityCfg.name`` / ``asset_name``). Single-robot tasks have
+        a single ``"robot"`` entry that the singular ``env.robot*`` accessors alias.
+        """
+        return self._articulations
 
     @property
     def sensors(self) -> dict[str, Sensor[Any]]:
         return self._sensors
 
     @property
-    def joint_names(self) -> list[str]:
-        return self._articulation.joint_names
-
-    @property
-    def link_names(self) -> list[str]:
-        return self._articulation.link_names
-
-    @property
-    def body_names(self) -> list[str]:
-        """Alias for ``link_names`` to match mjlab's terminology."""
-        return self._articulation.body_names
-
-    @property
     def env_origins(self) -> torch.Tensor:
         """Per-env world-frame offset ``[num_envs, 3]``; zeros when Genesis uses local frames."""
         return self._scene.env_origins
 
-    @property
-    def default_joint_pos(self) -> torch.Tensor:
-        return self._articulation.default_joint_pos
-
-    @property
-    def joint_pos_limits(self) -> torch.Tensor:
-        """Per-actuated-joint ``(lower, upper)`` limits, shape ``(num_joints, 2)``."""
-        return self._articulation.joint_pos_limits
+    # M3.6 / ADR-0012 S6: the singular entity accessors (``robot`` / ``robot_state`` /
+    # ``articulation``) and the name-table convenience properties (``joint_names`` /
+    # ``link_names`` / ``default_joint_pos`` / ``actuators`` / ``joint_*_limits``) were
+    # removed. Reach an entity by name: ``env.articulations[name]`` (its ``.gs_handle`` /
+    # ``.data`` / ``.joint_names`` / …). Single-robot code uses ``env.articulations["robot"]``.
 
     # ------------------------------------------------------------------ reference state
 
@@ -330,3 +336,13 @@ class ManagerBasedRlEnv:
 
     def close(self) -> None:
         self._scene.close()
+
+
+if TYPE_CHECKING:
+    from typing import cast
+
+    from genelab.contracts import EnvContext
+
+    # ADR-0014: ManagerBasedRlEnv is the adapter for the EnvContext port. This
+    # type-only assignment makes pyright fail CI if the env stops conforming.
+    _env_context_conformance: EnvContext = cast("ManagerBasedRlEnv", ...)

@@ -3,7 +3,7 @@
 A `Bridge` is a small lifecycle object the play loop drives once per step. The four
 hook points are enough to plug arbitrary I/O — keyboard, GUI, ROS2, gRPC, gamepad,
 websocket — into a running env without forking the runner. Each bridge gets the live
-``ManagerBasedRlEnv`` handle so it can read sensor / state buffers and write into
+``EnvContext`` handle so it can read sensor / state buffers and write into
 command / event manager state directly.
 
 Bridges are configured per env: ``ManagerBasedRlEnvCfg.bridges_cfg`` is a
@@ -14,7 +14,7 @@ bridges on the env cfg (not the task) means users who assign a bridge to
 
 Timing inside the play loop:
 
-* ``on_build`` — once, right after ``ManagerBasedRlEnv`` has finished construction.
+* ``on_build`` — once, right after ``EnvContext`` has finished construction.
   Safe place to grab ``env.scene.gs_scene.viewer`` and register keybinds, start a
   GUI thread, open a ROS2 / RPC connection, etc.
 * ``pre_step`` — every iteration, *before* ``policy(obs)``. Bridges that drive
@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @runtime_checkable
@@ -44,10 +44,10 @@ class Bridge(Protocol):
     the Protocol makes the contract greppable and lets type-checkers flag typos.
     """
 
-    def on_build(self, env: "ManagerBasedRlEnv") -> None: ...
-    def pre_step(self, env: "ManagerBasedRlEnv") -> None: ...
-    def post_step(self, env: "ManagerBasedRlEnv") -> None: ...
-    def on_close(self, env: "ManagerBasedRlEnv") -> None: ...
+    def on_build(self, env: "EnvContext") -> None: ...
+    def pre_step(self, env: "EnvContext") -> None: ...
+    def post_step(self, env: "EnvContext") -> None: ...
+    def on_close(self, env: "EnvContext") -> None: ...
 
 
 @dataclass

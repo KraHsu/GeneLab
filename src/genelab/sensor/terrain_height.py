@@ -32,7 +32,7 @@ from genelab.sensor.ray_cast import (
 from genelab.sensor.sensor import Sensor, SensorCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 Reduction = Literal["min", "max", "mean", "none"]
@@ -134,7 +134,7 @@ class TerrainHeightSensor(Sensor[torch.Tensor]):
             for frame_name, offset in zip(frame_link_names, offsets, strict=True)
         ]
 
-    def bind(self, env: "ManagerBasedRlEnv") -> None:
+    def bind(self, env: "EnvContext") -> None:
         super().bind(env)
         for inner in self._inners:
             inner.bind(env)

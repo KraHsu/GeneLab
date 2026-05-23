@@ -19,6 +19,7 @@ import numpy as np
 import torch
 
 from genelab.managers.command_manager import CommandTerm, CommandTermCfg
+from genelab.mdp._helpers import resolve_articulation, resolve_robot_state
 from genelab.utils.math import (
     quat_apply,
     quat_from_euler_xyz,
@@ -29,7 +30,7 @@ from genelab.utils.math import (
 )
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 class MotionLoader:
@@ -109,14 +110,16 @@ class MotionCommand(CommandTerm):
 
     cfg: MotionCommandCfg  # type: ignore[assignment]
 
-    def __init__(self, cfg: MotionCommandCfg, env: "ManagerBasedRlEnv") -> None:
+    def __init__(self, cfg: MotionCommandCfg, env: "EnvContext") -> None:
         super().__init__(cfg, env)
+        self._robot_state = resolve_robot_state(env, cfg.asset_name)
+        articulation = resolve_articulation(env, cfg.asset_name)
         if not cfg.body_names:
             raise ValueError("MotionCommandCfg.body_names must be a non-empty tuple")
         if not cfg.anchor_body_name:
             raise ValueError("MotionCommandCfg.anchor_body_name must be set")
 
-        robot_body_names = env.body_names
+        robot_body_names = articulation.body_names
         try:
             self.robot_anchor_body_index = robot_body_names.index(cfg.anchor_body_name)
         except ValueError as exc:
@@ -157,7 +160,7 @@ class MotionCommand(CommandTerm):
 
         joint_perm: torch.Tensor | None = None
         if cfg.motion_joint_order:
-            robot_joint_names = env.joint_names
+            robot_joint_names = articulation.joint_names
             missing_joints = [n for n in robot_joint_names if n not in cfg.motion_joint_order]
             if missing_joints:
                 raise ValueError(
@@ -231,27 +234,27 @@ class MotionCommand(CommandTerm):
 
     @property
     def robot_anchor_pos_w(self) -> torch.Tensor:
-        return self._env.robot_state.link_pos[:, self.robot_anchor_body_index]
+        return self._robot_state.link_pos[:, self.robot_anchor_body_index]
 
     @property
     def robot_anchor_quat_w(self) -> torch.Tensor:
-        return self._env.robot_state.link_quat_w[:, self.robot_anchor_body_index]
+        return self._robot_state.link_quat_w[:, self.robot_anchor_body_index]
 
     @property
     def robot_body_pos_w(self) -> torch.Tensor:
-        return self._env.robot_state.link_pos[:, self.body_indexes]
+        return self._robot_state.link_pos[:, self.body_indexes]
 
     @property
     def robot_body_quat_w(self) -> torch.Tensor:
-        return self._env.robot_state.link_quat_w[:, self.body_indexes]
+        return self._robot_state.link_quat_w[:, self.body_indexes]
 
     @property
     def robot_body_lin_vel_w(self) -> torch.Tensor:
-        return self._env.robot_state.link_lin_vel_w[:, self.body_indexes]
+        return self._robot_state.link_lin_vel_w[:, self.body_indexes]
 
     @property
     def robot_body_ang_vel_w(self) -> torch.Tensor:
-        return self._env.robot_state.link_ang_vel_w[:, self.body_indexes]
+        return self._robot_state.link_ang_vel_w[:, self.body_indexes]
 
     # ------------------------------------------------------------------ sampling / resets
 

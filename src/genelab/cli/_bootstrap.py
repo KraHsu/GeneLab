@@ -21,7 +21,7 @@ def pin_visible_device_for_rank() -> None:
         ``cuda:0`` and rsl_rl's ``OnPolicyRunner`` requires
         ``device == f"cuda:{LOCAL_RANK}"``;
       * leaves ``RANK`` and ``WORLD_SIZE`` untouched so NCCL rendezvous and
-        ``genelab.rl.distributed.is_main_process`` keep working.
+        ``genelab.utils.distributed.is_main_process`` keep working.
 
     Must run exactly once per worker, before any module imports ``torch``. The
     sole call site is the top of ``genelab/cli/__main__.py``.

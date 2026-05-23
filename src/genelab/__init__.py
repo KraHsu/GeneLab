@@ -2,26 +2,23 @@
 
 from typing import TYPE_CHECKING
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
-    "GenesisBackendCfg",
-    "ManagerBasedEnv",
     "ManagerBasedEnvCfg",
+    "ManagerBasedEnvProtocol",
     "TaskCfg",
     "__version__",
 ]
 
 if TYPE_CHECKING:
-    from genelab.lab import GenesisBackendCfg, ManagerBasedEnv, ManagerBasedEnvCfg, TaskCfg
+    from genelab.lab import ManagerBasedEnvCfg, ManagerBasedEnvProtocol, TaskCfg
 
 
 # Re-export the lab dataclasses lazily so that `import genelab` (and therefore the
 # CLI entry point) does not eagerly drag in torch via `genelab.lab → genelab.actuator`.
 # First access to any of these resolves and caches the real attribute on this module.
-_LAZY_LAB_EXPORTS = frozenset(
-    {"GenesisBackendCfg", "ManagerBasedEnv", "ManagerBasedEnvCfg", "TaskCfg"}
-)
+_LAZY_LAB_EXPORTS = frozenset({"ManagerBasedEnvCfg", "ManagerBasedEnvProtocol", "TaskCfg"})
 
 
 def __getattr__(name: str) -> object:

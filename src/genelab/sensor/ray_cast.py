@@ -25,11 +25,12 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.sensor._entity import entity_articulation, entity_state
 from genelab.sensor.sensor import Sensor, SensorCfg
 from genelab.utils.math import quat_apply, yaw_quat
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
     from genelab.terrains import TerrainImporter
 
 
@@ -253,16 +254,17 @@ class RayCastSensor(Sensor[RayCastData]):
     def num_rays(self) -> int:
         return self._cfg_typed.pattern.num_rays()
 
-    def bind(self, env: "ManagerBasedRlEnv") -> None:
+    def bind(self, env: "EnvContext") -> None:
         super().bind(env)
         if not self._cfg_typed.link_name:
             raise ValueError(f"RayCastSensorCfg(name={self._cfg.name!r}) requires link_name")
+        link_names = entity_articulation(env, self._cfg.entity_name).link_names
         try:
-            self._link_idx = env.link_names.index(self._cfg_typed.link_name)
+            self._link_idx = link_names.index(self._cfg_typed.link_name)
         except ValueError as exc:
             raise ValueError(
                 f"sensor {self._cfg.name!r}: link {self._cfg_typed.link_name!r} not in "
-                f"env.link_names={env.link_names!r}"
+                f"link_names={link_names!r}"
             ) from exc
         self._ray_starts_local, self._ray_dirs_local = self._cfg_typed.pattern.generate(env.device)
         self._link_offset_local = torch.tensor(
@@ -276,7 +278,7 @@ class RayCastSensor(Sensor[RayCastData]):
             and self._ray_dirs_local is not None
             and self._link_offset_local is not None
         )
-        rs = self._env.robot_state
+        rs = entity_state(self._env, self._cfg.entity_name)
         link_pos = rs.link_pos[:, self._link_idx]
         link_quat = rs.link_quat_w[:, self._link_idx]
         rot_q = yaw_quat(link_quat) if self._cfg_typed.attach_yaw_only else link_quat

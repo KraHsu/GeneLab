@@ -111,6 +111,7 @@ plugins:
             Concepts: 核心概念
             Registry: 注册表
             Configs: 配置系统
+            Contracts: 契约/端口
             Managers and MDP terms: Manager 与 MDP term
             MDP terms reference: MDP term 参考
             RL runner: RL runner
@@ -123,6 +124,7 @@ plugins:
             Examples: 示例
             Inverted Pendulum: 倒立摆
             Unitree G1: Unitree G1
+            Franka Pick-and-Place: Franka 抓取放置
             Showcase: 可视化 showcase
             "Rubik's Cube": 魔方
             Wuji Hand: 五指手
@@ -183,6 +185,8 @@ nav:
       - Design a Task: best-practices/task-design.md
       - Build an Extension Project: best-practices/extension-projects.md
       - Run RL Experiments: best-practices/rl-experiments.md
+      - Reference Runs: best-practices/reference-runs.md
+      - Harden for Sim2Real: best-practices/sim2real.md
       - Debug Common Failures: best-practices/debugging.md
   - Reference:
       - Module Map: reference/module-map.md
@@ -198,9 +202,11 @@ nav:
   - Concepts:
       - Registry: concepts/registry.md
       - Configs: concepts/configs.md
+      - Contracts: concepts/contracts.md
       - Managers and MDP terms: concepts/managers.md
       - MDP terms reference: concepts/mdp.md
       - RL runner: concepts/rl-runner.md
+      - Eval and export: concepts/eval-and-export.md
       - Scene and entities: concepts/scene.md
       - Actuators: concepts/actuators.md
       - Sensors: concepts/sensors.md
@@ -212,6 +218,7 @@ nav:
       - Overview: examples/overview.md
       - Inverted Pendulum: examples/inverted-pendulum.md
       - Unitree G1: examples/unitree-g1.md
+      - Franka Pick-and-Place: examples/franka-pick-and-place.md
       - Showcase: examples/showcase.md
       - "Rubik's Cube": examples/rubiks-cube.md
       - Wuji Hand: examples/wuji-hand.md

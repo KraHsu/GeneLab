@@ -8,7 +8,7 @@ re-exported from :mod:`genelab.mdp` (no entry in ``mdp/__init__.py:__all__``);
 external code should keep importing the rewards / metrics functions, not these.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import torch
 
@@ -17,7 +17,69 @@ from genelab.sensor.contact import ContactSensor
 from genelab.utils.math import quat_apply
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.entity import Articulation, RobotState
+    from genelab.contracts import EnvContext
+
+
+def resolve_articulation(env: "EnvContext", name: str) -> "Articulation":
+    """Return the articulation named ``name``, else the primary ``env.articulation``.
+
+    Action / command terms route by ``cfg.asset_name`` (ROADMAP M3.6 / ADR-0012 S2): the
+    named entity when ``env.articulations`` exists and holds ``name``, otherwise the singular
+    primary — so single-robot terms and fake-env tests (which expose only ``env.articulation``)
+    are unchanged.
+    """
+    arts = getattr(env, "articulations", None)
+    if arts is not None and name in arts:
+        return arts[name]
+    # Fallbacks: the singular primary ``env.articulation`` (real env / most fakes), then
+    # ``env`` itself for minimal fakes that expose ``joint_names`` / ``default_joint_pos``
+    # at env level without a full articulation (duck-typed — hence the cast).
+    return cast("Articulation", getattr(env, "articulation", env))
+
+
+def resolve_robot_state(env: "EnvContext", name: str) -> "RobotState":
+    """Return the named entity's ``RobotState``, falling back to ``env.robot_state``.
+
+    The read-only counterpart to :func:`resolve_articulation` for terms that only consume
+    state (e.g. command terms). Falls back to the primary ``env.robot_state`` so fake envs
+    that expose state directly — without a full articulation — keep working.
+    """
+    arts = getattr(env, "articulations", None)
+    if arts is not None and name in arts:
+        return arts[name].data
+    # Fake-env fallback only; the real env always has ``articulations``.
+    return env.robot_state  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def asset_state(env: "EnvContext", asset_cfg: "SceneEntityCfg | None") -> "RobotState":
+    """``RobotState`` for ``asset_cfg``'s entity (M3.6 / ADR-0012 S3); ``None`` → primary.
+
+    Term functions accept an optional ``asset_cfg`` and read state through this so a
+    multi-robot task can point any reward / observation / termination at a specific
+    articulation by name. ``None`` (the single-robot default) resolves to the primary
+    ``"robot"``.
+    """
+    return resolve_robot_state(env, asset_cfg.name if asset_cfg is not None else "robot")
+
+
+def asset_articulation(env: "EnvContext", asset_cfg: "SceneEntityCfg | None") -> "Articulation":
+    """:class:`Articulation` for ``asset_cfg``'s entity; ``None`` → primary ``"robot"``."""
+    return resolve_articulation(env, asset_cfg.name if asset_cfg is not None else "robot")
+
+
+def asset_handle(env: "EnvContext", asset_cfg: "SceneEntityCfg | None") -> Any:
+    """Raw Genesis handle for ``asset_cfg``'s entity (for ``set_pos`` / ``set_dofs_*`` etc.).
+
+    ``env.articulations[name].gs_handle`` when present, else the primary ``env.robot`` — so
+    DR / event terms that write through the handle stay single-robot-correct and fake-env
+    tests (which expose ``env.robot`` directly) are unchanged. ``None`` → primary ``"robot"``.
+    """
+    name = asset_cfg.name if asset_cfg is not None else "robot"
+    arts = getattr(env, "articulations", None)
+    if arts is not None and name in arts:
+        return arts[name].gs_handle
+    return env.robot  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def link_ids(asset_cfg: SceneEntityCfg) -> tuple[int, ...]:
@@ -36,7 +98,7 @@ def link_ids(asset_cfg: SceneEntityCfg) -> tuple[int, ...]:
     return asset_cfg.link_ids
 
 
-def contact_sensor(env: "ManagerBasedRlEnv", sensor_name: str) -> ContactSensor:
+def contact_sensor(env: "EnvContext", sensor_name: str) -> ContactSensor:
     """Look up a :class:`ContactSensor` by name; raise ``TypeError`` if the wrong type."""
     sensor = env.sensors[sensor_name]
     if not isinstance(sensor, ContactSensor):
@@ -46,7 +108,7 @@ def contact_sensor(env: "ManagerBasedRlEnv", sensor_name: str) -> ContactSensor:
     return sensor
 
 
-def command_active(env: "ManagerBasedRlEnv", command_name: str, threshold: float) -> torch.Tensor:
+def command_active(env: "EnvContext", command_name: str, threshold: float) -> torch.Tensor:
     """Returns ``(B,)`` float mask: 1 where ``||cmd_xy|| + |cmd_z| > threshold``, else 0.
 
     mjlab parity: each gait-shaping reward (``feet_clearance`` / ``feet_slip`` /
@@ -64,18 +126,20 @@ def command_active(env: "ManagerBasedRlEnv", command_name: str, threshold: float
 
 
 def site_pos_w(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     indices: list[int],
     offsets: torch.Tensor | None,
+    asset_cfg: "SceneEntityCfg | None" = None,
 ) -> torch.Tensor:
     """World-frame site position for each selected link.
 
     ``site_pos_w = link_pos_w + R_link · offset_local``. With ``offsets=None``
-    this reduces to ``link_pos_w`` — matches the pre-parity behaviour.
+    this reduces to ``link_pos_w`` — matches the pre-parity behaviour. ``indices`` index
+    ``asset_cfg``'s articulation (``None`` → primary).
 
     Returns ``(B, F, 3)`` aligned with ``indices``.
     """
-    rs = env.robot_state
+    rs = asset_state(env, asset_cfg)
     link_pos = rs.link_pos[:, indices]  # (B, F, 3)
     if offsets is None:
         return link_pos
@@ -85,18 +149,20 @@ def site_pos_w(
 
 
 def site_lin_vel_w(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     indices: list[int],
     offsets: torch.Tensor | None,
+    asset_cfg: "SceneEntityCfg | None" = None,
 ) -> torch.Tensor:
     """World-frame linear velocity at each selected link's site.
 
     ``v_site = v_link + ω × (R_link · offset_local)``. With ``offsets=None``
-    this reduces to ``link_lin_vel_w`` — matches the pre-parity behaviour.
+    this reduces to ``link_lin_vel_w`` — matches the pre-parity behaviour. ``indices`` index
+    ``asset_cfg``'s articulation (``None`` → primary).
 
     Returns ``(B, F, 3)`` aligned with ``indices``.
     """
-    rs = env.robot_state
+    rs = asset_state(env, asset_cfg)
     link_lin_vel = rs.link_lin_vel_w[:, indices]  # (B, F, 3)
     if offsets is None:
         return link_lin_vel

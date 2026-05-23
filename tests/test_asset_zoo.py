@@ -19,11 +19,14 @@ from typing import Any
 import pytest
 
 from genelab.asset_zoo import (
+    AllegroHandCfg,
     AnymalCCfg,
     CartpoleCfg,
     FrankaPandaCfg,
     UnitreeG1Cfg,
     UnitreeGo1Cfg,
+    UnitreeH1Cfg,
+    UR10eCfg,
 )
 from genelab.entity import ArticulationCfg
 from genelab.registry import ROBOTS, load_bundled_asset_zoo
@@ -98,6 +101,49 @@ def test_unitree_g1_registered(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cfg.actuators["waist"].armature == pytest.approx(
         2 * cfg.actuators["5020"].armature  # type: ignore[operator]
     )
+
+
+def test_allegro_hand_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_path = FIXTURES_DIR / "cartpole.xml"
+    monkeypatch.setattr("genelab.asset_zoo.allegro_hand.fetch_asset", lambda spec: fake_path)
+    cfg = AllegroHandCfg()
+    assert isinstance(cfg, ArticulationCfg)
+    assert set(cfg.actuators) == {"fingers"}  # one uniform group over all 16 joints
+    assert cfg.foot_link_names == ()  # dexterous hand, no feet
+    fingers = cfg.actuators["fingers"]
+    assert fingers.stiffness == pytest.approx(3.0)
+    assert fingers.effort_limit == pytest.approx(0.5)
+    # The regex spans index/middle/ring/thumb joints.
+    assert fingers.target_names_expr == (r"(ff|mf|rf|th)j[0-3]",)
+    assert ROBOTS.entry("allegro").description.startswith("Wonik Allegro")
+
+
+def test_ur10e_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_path = FIXTURES_DIR / "cartpole.xml"
+    monkeypatch.setattr("genelab.asset_zoo.ur10e.fetch_asset", lambda spec: fake_path)
+    cfg = UR10eCfg()
+    assert isinstance(cfg, ArticulationCfg)
+    assert set(cfg.actuators) == {"base", "elbow", "wrists"}
+    assert cfg.foot_link_names == ()  # fixed-base arm, no feet
+    # Effort limits track the Menagerie size classes (size4 / size3 / size2 forcerange).
+    assert cfg.actuators["base"].effort_limit == pytest.approx(330.0)
+    assert cfg.actuators["elbow"].effort_limit == pytest.approx(150.0)
+    assert cfg.actuators["wrists"].effort_limit == pytest.approx(56.0)
+    assert ROBOTS.entry("ur10e").description.startswith("Universal Robots UR10e")
+
+
+def test_unitree_h1_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_path = FIXTURES_DIR / "cartpole.xml"
+    monkeypatch.setattr("genelab.asset_zoo.unitree_h1.fetch_asset", lambda spec: fake_path)
+    cfg = UnitreeH1Cfg()
+    assert isinstance(cfg, ArticulationCfg)
+    assert set(cfg.actuators) == {"hips_torso", "knees", "ankles", "shoulders", "forearms"}
+    assert cfg.foot_link_names == ("left_ankle_link", "right_ankle_link")
+    # Effort limits track the Menagerie ctrlrange: knees highest, forearms lowest.
+    assert cfg.actuators["knees"].effort_limit == pytest.approx(300.0)
+    assert cfg.actuators["ankles"].effort_limit == pytest.approx(40.0)
+    assert cfg.actuators["forearms"].effort_limit == pytest.approx(18.0)
+    assert ROBOTS.entry("h1").description.startswith("Unitree H1")
 
 
 def test_unitree_go1_registered(monkeypatch: pytest.MonkeyPatch) -> None:

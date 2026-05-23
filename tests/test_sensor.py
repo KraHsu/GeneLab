@@ -12,11 +12,13 @@ from genelab.managers import (
     ObservationManager,
     ObservationTermCfg,
 )
-from genelab.mdp.noise import Gnoise, Unoise
+from genelab.mdp.noise import BiasDrift, CorrelatedNoise, Gnoise, ScaledNoise, Unoise
+from genelab.mdp.observations import joint_force_torque
 from genelab.sensor import (
     BodyVelocitySensorCfg,
     CameraSensorCfg,
     ContactSensorCfg,
+    ForceTorqueSensorCfg,
     FrameTransformerSensorCfg,
     GridPattern,
     HemispherePattern,
@@ -94,6 +96,45 @@ def test_gnoise_has_expected_std() -> None:
     data = torch.zeros(4096, 1)
     noisy = Gnoise(mean=0.0, std=0.5).apply(data)
     assert abs(noisy.std().item() - 0.5) < 0.05
+
+
+def test_scaled_noise_is_multiplicative_and_signal_proportional() -> None:
+    # Degenerate range → exact ×1 (no corruption).
+    data = torch.tensor([[2.0, -4.0]])
+    assert torch.allclose(ScaledNoise(0.0, 0.0).apply(data), data)
+    # Fixed +50% gain → data × 1.5; the perturbation scales with the signal.
+    assert torch.allclose(ScaledNoise(0.5, 0.5).apply(data), data * 1.5)
+
+
+def test_correlated_noise_zero_std_is_identity_and_keeps_state() -> None:
+    noise = CorrelatedNoise(std=0.0, alpha=0.9)
+    data = torch.zeros(4, 3)
+    for _ in range(3):
+        assert torch.allclose(noise.apply(data), data)  # white=0 → state stays 0
+    # Stationary std ≈ std for any alpha (sqrt(1-alpha^2) mixing).
+    torch.manual_seed(0)
+    corr = CorrelatedNoise(std=0.5, alpha=0.8)
+    flat = torch.zeros(20000, 1)
+    last = corr.apply(flat)
+    for _ in range(50):  # let the AR process reach its stationary regime
+        last = corr.apply(flat)
+    assert abs(last.std().item() - 0.5) < 0.1
+
+
+def test_bias_drift_accumulates_and_respects_max_bias() -> None:
+    # No drift → identity, bias stays zero across steps.
+    nodrift = BiasDrift(drift_std=0.0)
+    data = torch.zeros(8, 2)
+    for _ in range(3):
+        assert torch.allclose(nodrift.apply(data), data)
+    # Large drift, clamped: |bias| never exceeds max_bias.
+    torch.manual_seed(0)
+    drift = BiasDrift(drift_std=10.0, max_bias=0.1)
+    flat = torch.zeros(1000, 1)
+    for _ in range(20):
+        out = drift.apply(flat)
+    assert (out.abs() <= 0.1 + 1e-6).all()
+    assert out.abs().mean() > 1e-3  # the bias actually moved off zero
 
 
 def test_observation_pipeline_noise_only_when_corruption_enabled() -> None:
@@ -1038,7 +1079,8 @@ class _FakeGsCamera:
         self,
         rgb: bool = False,
         depth: bool = False,
-        segmentation: bool = False,  # noqa: ARG002
+        segmentation: bool = False,
+        colorize_seg: bool = False,
         normal: bool = False,  # noqa: ARG002
     ) -> tuple[Any, Any, Any, Any]:
         self.render_calls += 1
@@ -1046,7 +1088,14 @@ class _FakeGsCamera:
         w = int(self.kwargs["res"][0])
         rgb_t = torch.zeros(self.num_envs, h, w, 3, dtype=torch.uint8) if rgb else None
         depth_t = torch.full((self.num_envs, h, w), 0.5) if depth else None
-        return rgb_t, depth_t, None, None
+        seg_t = None
+        if segmentation:
+            seg_t = (
+                torch.zeros(self.num_envs, h, w, 3, dtype=torch.uint8)
+                if colorize_seg
+                else torch.ones(self.num_envs, h, w, dtype=torch.int32)
+            )
+        return rgb_t, depth_t, seg_t, None
 
 
 class _FakeGsScene:
@@ -1128,6 +1177,59 @@ def test_camera_render_rgb_only() -> None:
     assert data.depth is None
 
 
+def test_camera_segmentation_index_map() -> None:
+    env = _FakeCameraEnv(num_envs=2)
+    sensor = CameraSensorCfg(
+        name="cam", link_name="head", width=4, height=4, render_segmentation=True
+    ).build()
+    sensor.bind(env)  # type: ignore[arg-type]
+    data = sensor.data
+    assert data.segmentation is not None
+    assert data.segmentation.shape == (2, 4, 4)
+    assert data.segmentation.dtype == torch.int32
+
+
+def test_camera_segmentation_colorized() -> None:
+    env = _FakeCameraEnv(num_envs=2)
+    sensor = CameraSensorCfg(
+        name="cam",
+        link_name="head",
+        width=4,
+        height=4,
+        render_segmentation=True,
+        colorize_segmentation=True,
+    ).build()
+    sensor.bind(env)  # type: ignore[arg-type]
+    data = sensor.data
+    assert data.segmentation is not None
+    assert data.segmentation.shape == (2, 4, 4, 3)
+    assert data.segmentation.dtype == torch.uint8
+
+
+def test_camera_segmentation_off_by_default() -> None:
+    env = _FakeCameraEnv(num_envs=2)
+    sensor = CameraSensorCfg(name="cam", link_name="head", width=4, height=4).build()
+    sensor.bind(env)  # type: ignore[arg-type]
+    assert sensor.data.segmentation is None
+
+
+def test_camera_segmentation_only_config_valid() -> None:
+    env = _FakeCameraEnv(num_envs=2)
+    sensor = CameraSensorCfg(
+        name="cam",
+        link_name="head",
+        width=4,
+        height=4,
+        render_rgb=False,
+        render_depth=False,
+        render_segmentation=True,
+    ).build()
+    sensor.bind(env)  # type: ignore[arg-type]
+    data = sensor.data
+    assert data.rgb is None and data.depth is None
+    assert data.segmentation is not None
+
+
 def test_camera_unknown_link_raises() -> None:
     env = _FakeCameraEnv(num_envs=2, link_names=("base", "torso"))
     sensor = CameraSensorCfg(name="cam", link_name="head").build()
@@ -1135,7 +1237,7 @@ def test_camera_unknown_link_raises() -> None:
         sensor.bind(env)  # type: ignore[arg-type]
     except ValueError as exc:
         assert "head" in str(exc)
-        assert "env.link_names" in str(exc)
+        assert "link_names" in str(exc)
     else:
         raise AssertionError("expected ValueError for unknown link_name")
 
@@ -1329,3 +1431,74 @@ def test_root_angular_momentum_zero_when_get_mass_unavailable() -> None:
     sensor = RootAngularMomentumSensorCfg(name="L").build()
     sensor.bind(env)
     assert torch.all(sensor.data == 0.0)
+
+
+# ---------------------------------------------------------------------- ForceTorqueSensor (M3.5)
+
+
+class _FakeForceRobot:
+    def __init__(self, force: torch.Tensor) -> None:  # (num_envs, total_dofs)
+        self._force = force
+
+    def get_dofs_force(self) -> torch.Tensor:
+        return self._force
+
+
+class _FakeArticulation:
+    def __init__(self, actuated_dof_ids: torch.Tensor, joint_names: list[str]) -> None:
+        self.actuated_dof_ids = actuated_dof_ids
+        # M3.6 S4: the FT sensor resolves joints against the entity's joint_names.
+        self.joint_names = joint_names
+
+
+class _FakeFTEnv:
+    def __init__(
+        self, joint_names: tuple[str, ...], actuated_dof_ids: list[int], force: torch.Tensor
+    ) -> None:
+        self.num_envs = force.shape[0]
+        self.device = "cpu"
+        self.joint_names = list(joint_names)
+        self.articulation = _FakeArticulation(
+            torch.tensor(actuated_dof_ids, dtype=torch.long), list(joint_names)
+        )
+        self.robot = _FakeForceRobot(force)
+        self.sensors: dict[str, object] = {}
+
+
+# 3 actuated joints (j0/j1/j2) sit at global DoFs 2/3/4 (DoFs 0–1 are a floating base).
+_FT_FORCE = torch.tensor([[10.0, 11, 12, 13, 14], [20, 21, 22, 23, 24]])
+
+
+def test_force_torque_sensor_all_joints_slices_actuated_dofs() -> None:
+    env = _FakeFTEnv(("j0", "j1", "j2"), [2, 3, 4], _FT_FORCE)
+    sensor = ForceTorqueSensorCfg(name="ft").build()
+    sensor.bind(env)
+    assert sensor.joint_names == ["j0", "j1", "j2"]
+    assert torch.allclose(sensor.data.force, torch.tensor([[12.0, 13, 14], [22, 23, 24]]))
+
+
+def test_force_torque_sensor_explicit_joint_subset() -> None:
+    env = _FakeFTEnv(("j0", "j1", "j2"), [2, 3, 4], _FT_FORCE)
+    sensor = ForceTorqueSensorCfg(name="ft", joint_names=("j1",)).build()
+    sensor.bind(env)
+    # j1 → global DoF 3.
+    assert torch.allclose(sensor.data.force, torch.tensor([[13.0], [23.0]]))
+
+
+def test_force_torque_sensor_regex_and_obs_term() -> None:
+    env = _FakeFTEnv(("j0", "j1", "j2"), [2, 3, 4], _FT_FORCE)
+    sensor = ForceTorqueSensorCfg(name="ft", joint_names_expr=r"j[02]").build()
+    sensor.bind(env)
+    env.sensors["ft"] = sensor
+    # j0, j2 → global DoFs 2, 4. The obs term returns the same (B, N) tensor.
+    expected = torch.tensor([[12.0, 14], [22, 24]])
+    assert torch.allclose(sensor.data.force, expected)
+    assert torch.allclose(joint_force_torque(env, "ft"), expected)
+
+
+def test_force_torque_sensor_zeros_without_genesis_getter() -> None:
+    env = _FakeFTEnv(("j0", "j1", "j2"), [2, 3, 4], _FT_FORCE)
+    env.robot = object()  # no get_dofs_force
+    sensor = ForceTorqueSensorCfg(name="ft").build()
+    sensor.bind(env)
+    assert torch.allclose(sensor.data.force, torch.zeros(2, 3))

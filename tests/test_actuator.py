@@ -6,6 +6,7 @@ behavioural promise made by the actuator design — regex partitioning, fail-fas
 mis-configured joints, and the three torque models.
 """
 
+from dataclasses import dataclass
 from typing import Any, cast
 
 import pytest
@@ -18,12 +19,17 @@ from genelab.actuator import (  # noqa: E402
     IdealPDActuatorCfg,
     ImplicitPDActuator,
     ImplicitPDActuatorCfg,
+    MlpResidualActuatorCfg,
 )
 from genelab.entity.articulation import Articulation, ArticulationCfg  # noqa: E402
+from genelab.mdp.dr import (  # noqa: E402
+    randomize_actuator_deadzone,
+    randomize_joint_stiffness_damping,
+)
 
 
 class _FakeJoint:
-    """Mimics the subset of ``gs.joints[i]`` that :meth:`Articulation._enumerate_joints_and_links`
+    """Mimics the subset of ``gs.joints[i]`` that ``ArticulationBinder._enumerate_joints_and_links``
     reads. ``dofs_idx_local`` is what Genesis would expose for an MJCF without a free joint."""
 
     def __init__(self, name: str, dof_start: int) -> None:
@@ -242,3 +248,121 @@ def test_dc_motor_saturation_curve() -> None:
     # Reverse braking: tau_pd>0 but q̇<0 → upper bound = brake_limit = 20 → tau = 20 (full).
     tau = actuator.compute(torch.zeros(1, 1), torch.full((1, 1), -5.0), target)
     assert tau is not None and pytest.approx(tau.item(), rel=1e-6) == 20.0
+
+
+# ---------------------------------------------------------------------- MlpResidual (M2.5)
+
+
+def _save_residual_net(tmp_path: Any, weight: list[float], bias: float) -> str:
+    """Save a TorchScript ``Linear(2, 1)`` so residual = w0·pos_err + w1·vel + bias."""
+    lin = torch.nn.Linear(2, 1)
+    with torch.no_grad():
+        lin.weight.copy_(torch.tensor([weight]))
+        lin.bias.copy_(torch.tensor([bias]))
+    path = tmp_path / "residual.pt"
+    torch.jit.save(torch.jit.script(lin), str(path))
+    return str(path)
+
+
+def _mlp_cfg(network_file: str | None, **overrides: Any) -> MlpResidualActuatorCfg:
+    params: dict[str, Any] = dict(
+        target_names_expr=("j0",),
+        stiffness=10.0,
+        damping=1.0,
+        effort_limit=100.0,
+        velocity_limit=10.0,
+        saturation_effort=100.0,
+        network_file=network_file,
+    )
+    params.update(overrides)
+    return MlpResidualActuatorCfg(**params)
+
+
+def test_mlp_residual_adds_net_output_to_dcmotor_base(tmp_path: Any) -> None:
+    # residual = 1·pos_err + 2·vel + 0.5.
+    net = _save_residual_net(tmp_path, weight=[1.0, 2.0], bias=0.5)
+    art, _ = _build_articulation(["j0"], {"all": _mlp_cfg(net)})
+    actuator = art.actuators["all"]
+
+    target = torch.full((1, 1), 1.0)
+    joint_vel = torch.full((1, 1), 2.0)
+    # DCMotor base: tau_pd = 10·1 − 1·2 = 8; derate(v=2)=0.8 → drive cap 80 → base = 8.
+    # residual = 1·(1−0) + 2·2 + 0.5 = 5.5 → effort = 8 + 5.5 = 13.5 (< 100, no clamp).
+    tau = actuator.compute(torch.zeros(1, 1), joint_vel, target)
+    assert tau is not None and pytest.approx(tau.item(), rel=1e-6) == 13.5
+
+
+def test_mlp_residual_without_network_file_is_pure_dcmotor(tmp_path: Any) -> None:
+    art, _ = _build_articulation(["j0"], {"all": _mlp_cfg(None)})
+    actuator = art.actuators["all"]
+    target = torch.full((1, 1), 1.0)
+    tau = actuator.compute(torch.zeros(1, 1), torch.full((1, 1), 2.0), target)
+    assert tau is not None and pytest.approx(tau.item(), rel=1e-6) == 8.0
+
+
+def test_mlp_residual_clamps_corrected_effort_to_budget(tmp_path: Any) -> None:
+    # A large residual_scale drives the corrected effort past the ±effort_limit budget.
+    net = _save_residual_net(tmp_path, weight=[1.0, 2.0], bias=0.5)
+    art, _ = _build_articulation(["j0"], {"all": _mlp_cfg(net, residual_scale=1000.0)})
+    actuator = art.actuators["all"]
+    target = torch.full((1, 1), 1.0)
+    tau = actuator.compute(torch.zeros(1, 1), torch.full((1, 1), 2.0), target)
+    # 8 + 1000·5.5 ≫ 100 → clamped to effort_limit.
+    assert tau is not None and pytest.approx(tau.item(), rel=1e-6) == 100.0
+
+
+# ---------------------------------------------------------------------- DR: gains + deadzone (M2.1)
+
+
+@dataclass
+class _FakeDREnv:
+    """Minimal env surface for the actuator-DR events: actuators + gs handle."""
+
+    actuators: dict[str, Any]
+    robot: Any
+    num_envs: int = 2
+    device: str = "cpu"
+
+
+def test_gain_scale_bypassed_on_subbatch() -> None:
+    """A per-env gain scale only applies when compute gets the full num_envs batch."""
+    cfg = IdealPDActuatorCfg(
+        target_names_expr=("j0",), stiffness=100.0, damping=0.0, effort_limit=1e4
+    )
+    art, _ = _build_articulation(["j0"], {"all": cfg})  # num_envs=2
+    actuator = art.actuators["all"]
+    actuator.set_gain_scale(
+        torch.tensor([0, 1]), torch.tensor([[0.5], [0.5]]), torch.tensor([[1.0], [1.0]])
+    )
+    # Sub-batch (1,1) ≠ num_envs(2): scale is bypassed → tau = 100·(1−0) = 100 (pre-DR).
+    out = actuator.compute(torch.zeros(1, 1), torch.zeros(1, 1), torch.ones(1, 1))
+    assert out is not None and pytest.approx(out.item(), rel=1e-6) == 100.0
+
+
+def test_randomize_joint_stiffness_damping_scales_force_channel_compute() -> None:
+    cfg = IdealPDActuatorCfg(
+        target_names_expr=("j0",), stiffness=100.0, damping=0.0, effort_limit=1e4
+    )
+    art, handle = _build_articulation(["j0"], {"all": cfg})  # num_envs=2
+    env = _FakeDREnv(actuators=art.actuators, robot=handle)
+    # Degenerate range → deterministic 0.5× kp multiplier on every env.
+    randomize_joint_stiffness_damping(
+        env, None, stiffness_range=(0.5, 0.5), damping_range=(1.0, 1.0)
+    )
+    actuator = art.actuators["all"]
+    # Full num_envs=2 batch → per-env scale applies: tau = 100·0.5·(1−0) = 50.
+    out = actuator.compute(torch.zeros(2, 1), torch.zeros(2, 1), torch.ones(2, 1))
+    assert out is not None and torch.allclose(out, torch.full((2, 1), 50.0))
+
+
+def test_randomize_actuator_deadzone_zeros_small_effort() -> None:
+    cfg = IdealPDActuatorCfg(
+        target_names_expr=("j0",), stiffness=1.0, damping=0.0, effort_limit=1e4
+    )
+    art, handle = _build_articulation(["j0"], {"all": cfg})  # num_envs=2
+    env = _FakeDREnv(actuators=art.actuators, robot=handle)
+    randomize_actuator_deadzone(env, None, deadzone_range=(5.0, 5.0))
+    actuator = art.actuators["all"]
+    # |3| < 5 → zeroed; |8| ≥ 5 → kept. (2,1) batch matches num_envs.
+    out = actuator.apply_deadzone(torch.tensor([[3.0], [8.0]]))
+    assert torch.allclose(out, torch.tensor([[0.0], [8.0]]))

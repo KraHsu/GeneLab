@@ -40,6 +40,39 @@ uv run genelab train TASK_ID --gpus 4 --num_envs 4096
 `--num_envs` 表示所有 rank 的总数，必须能被 `--gpus` 整除。每 rank 语义用
 `--num_envs_per_gpu`。
 
+## RL 后端
+
+训练后端由 task 的 agent 配置类型自动选择，无需任何 flag：
+
+| Agent 配置 | 后端 | 算法 |
+|---|---|---|
+| `RslRlOnPolicyRunnerCfg` | `rsl_rl`（默认） | PPO |
+| `SkrlAgentCfg` | `skrl` | PPO、A2C、SAC、TD3、DDPG |
+| `Sb3AgentCfg` | `sb3` | PPO、A2C、SAC、TD3、DDPG（含 HER） |
+
+[skrl](https://skrl.readthedocs.io) 与
+[Stable-Baselines3](https://stable-baselines3.readthedocs.io) 后端为可选项——
+通过 `skrl` / `sb3` extra 安装（本仓库 `uv sync` 已包含两者；下游用户执行
+`pip install genelab[skrl]` 或 `genelab[sb3]`）。算法通过
+`SkrlAgentCfg.algorithm` / `Sb3AgentCfg.algorithm` 选择。
+
+skrl 与 SB3 均以环境 **timestep**（而非 learning iteration）计量训练量，因此对
+这两类 task，`--max_iterations N` 设定的是 timestep 预算。多 GPU（`--gpus`）仅
+RSL-RL 后端支持。
+
+SB3 通过 `stable_baselines3.common.vec_env.VecEnv`（numpy、CPU）训练，因此 SB3
+wrapper 每步都会把观测拷贝到主机内存——这是 SB3 与 GeneLab GPU 向量化环境配合
+的已知开销。Hindsight Experience Replay 通过 `Sb3AgentCfg.her` 为离策略算法提供：
+它暴露目标条件化观测并经由 SB3 的 `HerReplayBuffer` 训练。
+
+```bash
+# 注册为 Sb3AgentCfg 的 task 会走 SB3 后端；Franka 抓取放置示例使用
+# SAC + HER + lift bonus + FSM demo prefill 组合（详见示例页面）。
+GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
+  uv run genelab train GeneLab-Franka-Pick-And-Place-v0 \
+  --gpu --num-envs 32 --max-iterations 2000000
+```
+
 ## 配置 override
 
 task id 后的任何未知选项都会被当作 dotted config override：
