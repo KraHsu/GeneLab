@@ -4,6 +4,18 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 
+class BackendConfig:
+    """Marker base for the agent/runner config an RL backend dispatches on (ADR-0016 step 2).
+
+    Every config ``select_backend`` keys on subclasses this, so the backend registry
+    is typed (``dict[type[BackendConfig], Backend]``) rather than keyed on a bare
+    ``type``. It lives here — not in ``rl/backends/base.py`` — because rsl_rl's dispatch
+    config (``RslRlOnPolicyRunnerCfg``) is defined in this module and ``rl.backends``
+    already imports it; keeping the base here keeps every edge pointing down to
+    ``rl.config`` and avoids a ``config ↔ backends`` import cycle.
+    """
+
+
 @dataclass
 class RslRlModelCfg:
     hidden_dims: tuple[int, ...] = (128, 128, 128)
@@ -38,7 +50,7 @@ class RslRlPpoAlgorithmCfg:
 
 
 @dataclass
-class RslRlBaseRunnerCfg:
+class RslRlBaseRunnerCfg(BackendConfig):
     seed: int = 42
     num_steps_per_env: int = 24
     max_iterations: int = 300
