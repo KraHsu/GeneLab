@@ -52,15 +52,22 @@ GeneLab 的差异化价值：
   **ForceTorque（joint-FT，M3.5 完成）**
 - **Sim rigid 选项（M3.7 完成）**：`SimulationCfg` 暴露 Genesis `RigidOptions` 的 contact / solver /
   constraint-damping 共 8 字段
+- **更多 sub-terrain（M3.2 完成）**：`DiscreteObstacles` / `SteppingStones` / `Fractal`
+- **Terrain curriculum 生效（M3.3 完成）**：`SubTerrainCfg.difficulty` + `curriculum=True` 行难度排序
+- **Camera segmentation（M3.4 完成）**：`CameraSensorCfg.render_segmentation`（object-index / colorized）
+- **多机器人 API（M3.6 完成，ADR-0012 S1–S6）**：`env.articulations[name]` + `SceneEntityCfg.name` /
+  `asset_name` / `SensorCfg.entity_name` 路由；单数 `env.robot*` / name-table 访问器已删除
+- **Benchmark 命令（M3.8 部分）**：`genelab benchmark --suite` + 回归门
 - Recording：NPZ / CSV / video / 实时 PyQt & MPL plots；Teleop bridges：keyboard / DearPyGui
 - torchrun 多卡训练
 - **架构**：`lint-imports` 必过 CI 分层门禁（6/0）；pyright 在 `src/` 上 0 错误（不再几乎全关）
 
-⚠️ **关键缺口**（按 ROI 排序详见 §4）—— **M1、M2 完成；M3 进行中（M3.5 / M3.7 ✅）**，剩余缺口全在 M3：
-- 多机器人 API 缺位（`articulations["robot"]` 硬编码，M3.6 —— 最大一项，**RFC 已起草：ADR-0012**，实现分片待做）
-- Camera 无 segmentation（M3.4）；指尖压力 tactile 阵列待做（M3.5 已交付 joint-FT）
-- Terrain curriculum flag 未生效、sub-terrain 仅 5 种（M3.2 / M3.3）
-- 资产仅 5 个（M3.1，需外部托管 MJCF）；benchmark suite 未建（M3.8）
+⚠️ **关键缺口**（按 ROI 排序详见 §4）—— **M1、M2 完成；M3 几乎完成（M3.2–M3.7 ✅）**。仅剩两项，
+且均受当前环境阻挡（非代码问题）：
+- 资产仅 5 个（M3.1）—— 每个新 asset 需外部托管 MJCF + 固定 md5，本环境无法提供
+- benchmark 真实 reference numbers（M3.8 剩余）—— `genelab benchmark` 命令已落地，但跑 ≥8 个任务
+  的真实数字 + vision 任务端到端需 Genesis runtime + 训练好的 checkpoint（本环境无）
+- 指尖压力 tactile 阵列（M3.5 已交付 joint-FT，6 轴 wrench / tactile 后置）
 
 ---
 
@@ -231,9 +238,10 @@ Genesis 阻挡（`push_robot` ≈ 现有 `push_by_setting_velocity`；`randomize
 
 > **One-liner**: 把 GeneLab 从「能跑 demo」推到「能做严肃 benchmark」。
 
-**状态：进行中 — M3.5（F/T 传感器，PR #126）/ M3.7（SimulationCfg rigid 选项，PR #127）✅；
-其余待做。** 仅有 5 个 asset（anymal_c / cartpole / franka / g1 / go1）。多机器人 API（M3.6）的架构
-前置（R3 + R4）已就位，但功能本身待做（先提 RFC）。M3.1（新资产）在当前环境受阻——每个 asset_zoo
+**状态：几乎完成 — M3.2 / M3.3 / M3.4 / M3.5 / M3.6 / M3.7 ✅（PR #126–#139）。** 多机器人 API
+（M3.6）已按 ADR-0012 的 S1–S6 全部落地。仅剩 M3.1（新资产，需外部托管 MJCF——本环境受阻）与
+M3.8 的真实 reference numbers（`genelab benchmark` 命令已落地，跑数字需 Genesis runtime + checkpoint）。
+原 5 个 asset（anymal_c / cartpole / franka / g1 / go1）。M3.1（新资产）在当前环境受阻——每个 asset_zoo
 机器人需外部托管 MJCF + 固定 md5。
 
 **目标产物**
@@ -279,7 +287,8 @@ Genesis 阻挡（`push_robot` ≈ 现有 `push_by_setting_velocity`；`randomize
 下面是值得做但**不进 M1-M3**的方向。要做的话单独立 milestone。
 
 - **Offline RL / Demo collection 管线**：HDF5 数据集 + `genelab collect` CLI + offline replay buffer adapter。要做需先有个 motivating 用户故事。
-- **MultiAgent / Self-play**：受限于 manager-based env 单 robot 假设，需要 M3.6 多机器人 API 先落地。
+- **MultiAgent / Self-play**：M3.6 多机器人 API 已落地（`env.articulations[name]` + 按名路由），
+  这一前置已解除；剩下的是 per-agent policy / 对抗式 reward 编排。
 - **CleanRL / Tianshou 后端**：后端抽象层做得很干净，接入成本低，但缺少 motivating user。
 - **MLflow / Aim logger**：用户够多再加。
 - **VR / 3D Spacemouse teleop**：研究阶段非关键。
