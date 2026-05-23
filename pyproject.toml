@@ -300,3 +300,47 @@ modules = [
     "genelab.rl.backends.skrl",
     "genelab.rl.backends.rsl_rl",
 ]
+
+# ADR-0014: the contracts band (ports) is dependency-free within genelab — it must
+# not reach up into the domain / rl / cli bands. (Importing torch / stdlib is fine.)
+[[tool.importlinter.contracts]]
+name = "contracts band imports nothing in domain / rl / cli"
+type = "forbidden"
+source_modules = ["genelab.contracts"]
+forbidden_modules = [
+    "genelab.cli",
+    "genelab.rl",
+    "genelab.managers",
+    "genelab.mdp",
+    "genelab.entity",
+    "genelab.sensor",
+    "genelab.actuator",
+    "genelab.terrains",
+    "genelab.asset_zoo",
+    "genelab.scene",
+    "genelab.bridges",
+    "genelab.recording",
+    "genelab.envs",
+]
+
+# ADR-0014: domain terms type-hint against ``contracts.EnvContext`` rather than the
+# concrete env. Runtime imports of ``genelab.envs`` from the domain are forbidden;
+# the remaining ``TYPE_CHECKING`` env hints are excluded globally
+# (``exclude_type_checking_imports``) and are migrated to ``contracts`` in PR 3.2–3.4.
+[[tool.importlinter.contracts]]
+name = "Domain does not import concrete envs at runtime"
+type = "forbidden"
+source_modules = [
+    "genelab.managers",
+    "genelab.mdp",
+    "genelab.entity",
+    "genelab.sensor",
+    "genelab.actuator",
+    "genelab.terrains",
+    "genelab.scene",
+    "genelab.bridges",
+    "genelab.recording",
+]
+forbidden_modules = [
+    "genelab.envs",
+]
