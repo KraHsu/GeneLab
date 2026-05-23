@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from genelab.entity import Articulation, RobotState
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
-def entity_articulation(env: "ManagerBasedRlEnv", name: str) -> "Articulation":
+def entity_articulation(env: "EnvContext", name: str) -> "Articulation":
     """The named :class:`Articulation`, else the primary ``env.articulation``.
 
     Falls back to ``env`` itself when there's no articulation accessor — minimal fake-env
@@ -28,7 +28,7 @@ def entity_articulation(env: "ManagerBasedRlEnv", name: str) -> "Articulation":
     return cast("Articulation", getattr(env, "articulation", env))
 
 
-def entity_state(env: "ManagerBasedRlEnv", name: str) -> "RobotState":
+def entity_state(env: "EnvContext", name: str) -> "RobotState":
     """The named entity's ``RobotState``, else the primary ``env.robot_state``."""
     arts = getattr(env, "articulations", None)
     if arts is not None and name in arts:
@@ -38,7 +38,7 @@ def entity_state(env: "ManagerBasedRlEnv", name: str) -> "RobotState":
     return env.robot_state  # pyright: ignore[reportAttributeAccessIssue]
 
 
-def entity_handle(env: "ManagerBasedRlEnv", name: str) -> Any:
+def entity_handle(env: "EnvContext", name: str) -> Any:
     """The named entity's raw Genesis handle, else the primary ``env.robot``."""
     arts = getattr(env, "articulations", None)
     if arts is not None and name in arts:

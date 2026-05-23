@@ -15,7 +15,7 @@ from genelab.managers.action_manager import ActionTerm, ActionTermCfg
 from genelab.mdp._helpers import resolve_articulation, resolve_robot_state
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -44,7 +44,7 @@ class JointPositionActionCfg(ActionTermCfg):
 class JointPositionAction(ActionTerm):
     cfg: JointPositionActionCfg  # type: ignore[assignment]
 
-    def __init__(self, cfg: JointPositionActionCfg, env: "ManagerBasedRlEnv") -> None:
+    def __init__(self, cfg: JointPositionActionCfg, env: "EnvContext") -> None:
         super().__init__(cfg, env)
         import re
 

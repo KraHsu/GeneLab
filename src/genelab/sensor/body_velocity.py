@@ -14,7 +14,7 @@ from genelab.sensor.sensor import Sensor, SensorCfg
 from genelab.utils.math import quat_apply, quat_apply_inverse
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -43,7 +43,7 @@ class BodyVelocitySensor(Sensor[torch.Tensor]):
         self._offset_local: torch.Tensor | None = None
         self._bias: torch.Tensor | None = None
 
-    def bind(self, env: "ManagerBasedRlEnv") -> None:
+    def bind(self, env: "EnvContext") -> None:
         super().bind(env)
         if not self._cfg_typed.link_name:
             raise ValueError(f"BodyVelocitySensorCfg(name={self._cfg.name!r}) requires link_name")

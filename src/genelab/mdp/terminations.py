@@ -13,16 +13,16 @@ from genelab.mdp._helpers import (
 from genelab.mdp.commands.motion_command import MotionCommand
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
     from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
-def time_out(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def time_out(env: "EnvContext") -> torch.Tensor:
     return env.episode_length_buf >= env.max_episode_length
 
 
 def bad_orientation(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     limit_angle: float = math.radians(70.0),
     asset_cfg: "SceneEntityCfg | None" = None,
 ) -> torch.Tensor:
@@ -36,13 +36,13 @@ def bad_orientation(
 
 
 def root_height_below(
-    env: "ManagerBasedRlEnv", min_height: float, asset_cfg: "SceneEntityCfg | None" = None
+    env: "EnvContext", min_height: float, asset_cfg: "SceneEntityCfg | None" = None
 ) -> torch.Tensor:
     return _asset_state(env, asset_cfg).root_pos[:, 2] < min_height
 
 
 def joint_pos_out_of_limit(
-    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+    env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None
 ) -> torch.Tensor:
     """True for any env where an actuated joint left its position limits.
 
@@ -59,7 +59,7 @@ def joint_pos_out_of_limit(
 
 
 def joint_vel_out_of_limit(
-    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None" = None
+    env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None
 ) -> torch.Tensor:
     """True for any env where an actuated joint exceeds its velocity-limit magnitude.
 
@@ -72,9 +72,7 @@ def joint_vel_out_of_limit(
     return torch.any(speed > limit.unsqueeze(0), dim=-1)
 
 
-def contact_force_limit(
-    env: "ManagerBasedRlEnv", sensor_name: str, max_force: float
-) -> torch.Tensor:
+def contact_force_limit(env: "EnvContext", sensor_name: str, max_force: float) -> torch.Tensor:
     """True for any env where a tracked link's net contact-force magnitude exceeds ``max_force``.
 
     Reads ``force_norm`` ``(B, N)`` from the named :class:`~genelab.sensor.ContactSensor`
@@ -88,20 +86,18 @@ def contact_force_limit(
 # --------------------------------------------------------------------- motion imitation
 
 
-def _motion_command(env: "ManagerBasedRlEnv", command_name: str) -> MotionCommand:
+def _motion_command(env: "EnvContext", command_name: str) -> MotionCommand:
     term = env.command_manager._terms[command_name]  # pyright: ignore[reportPrivateUsage]
     return cast(MotionCommand, term)
 
 
-def bad_anchor_pos_z_only(
-    env: "ManagerBasedRlEnv", command_name: str, threshold: float
-) -> torch.Tensor:
+def bad_anchor_pos_z_only(env: "EnvContext", command_name: str, threshold: float) -> torch.Tensor:
     """True when the robot anchor z drifts further than ``threshold`` from the reference clip."""
     cmd = _motion_command(env, command_name)
     return torch.abs(cmd.anchor_pos_w[:, -1] - cmd.robot_anchor_pos_w[:, -1]) > threshold
 
 
-def bad_anchor_ori(env: "ManagerBasedRlEnv", command_name: str, threshold: float) -> torch.Tensor:
+def bad_anchor_ori(env: "EnvContext", command_name: str, threshold: float) -> torch.Tensor:
     """True when the tilt error between robot anchor and reference exceeds ``threshold``.
 
     Uses the body-frame gravity z-component as a tilt proxy (simpler than a full geodesic
@@ -117,7 +113,7 @@ def bad_anchor_ori(env: "ManagerBasedRlEnv", command_name: str, threshold: float
 
 
 def bad_motion_body_pos_z_only(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     command_name: str,
     threshold: float,
     body_names: tuple[str, ...] | None = None,

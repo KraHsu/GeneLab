@@ -7,12 +7,12 @@ import torch
 from genelab.mdp._helpers import asset_articulation
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
     from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
 def terrain_levels_vel(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | slice | None,
     distance_threshold: float,
     demote_ratio: float = 0.5,
@@ -65,7 +65,7 @@ def terrain_levels_vel(
 
 
 def commands_vel(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | slice | None,
     command_name: str,
     velocity_stages: list[dict[str, Any]],

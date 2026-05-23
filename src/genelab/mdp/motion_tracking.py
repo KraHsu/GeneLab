@@ -15,10 +15,10 @@ from genelab.mdp.commands.motion_command import MotionCommand
 from genelab.utils.math import quat_error_magnitude
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
-def _motion_command(env: "ManagerBasedRlEnv", command_name: str) -> MotionCommand:
+def _motion_command(env: "EnvContext", command_name: str) -> MotionCommand:
     term = env.command_manager._terms[command_name]  # pyright: ignore[reportPrivateUsage]
     return cast(MotionCommand, term)
 
@@ -32,7 +32,7 @@ def _body_index_filter(cmd: MotionCommand, body_names: tuple[str, ...] | None) -
 
 
 def motion_global_anchor_position_error_exp(
-    env: "ManagerBasedRlEnv", command_name: str, std: float
+    env: "EnvContext", command_name: str, std: float
 ) -> torch.Tensor:
     """``exp(-||p_ref - p_robot||^2 / std^2)`` on the anchor body in world frame."""
     cmd = _motion_command(env, command_name)
@@ -41,7 +41,7 @@ def motion_global_anchor_position_error_exp(
 
 
 def motion_global_anchor_orientation_error_exp(
-    env: "ManagerBasedRlEnv", command_name: str, std: float
+    env: "EnvContext", command_name: str, std: float
 ) -> torch.Tensor:
     """Geodesic rotation error on the anchor body, mapped through a Gaussian kernel."""
     cmd = _motion_command(env, command_name)
@@ -57,7 +57,7 @@ _BODY_ERROR_ATTRS: dict[str, tuple[str, str]] = {
 
 
 def motion_body_error_exp(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     command_name: str,
     std: float,
     body_names: tuple[str, ...] | None = None,
@@ -82,7 +82,7 @@ def motion_body_error_exp(
 
 
 def motion_relative_body_position_error_exp(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     command_name: str,
     std: float,
     body_names: tuple[str, ...] | None = None,
@@ -92,7 +92,7 @@ def motion_relative_body_position_error_exp(
 
 
 def motion_relative_body_orientation_error_exp(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     command_name: str,
     std: float,
     body_names: tuple[str, ...] | None = None,
@@ -111,7 +111,7 @@ def motion_relative_body_orientation_error_exp(
 
 
 def motion_global_body_linear_velocity_error_exp(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     command_name: str,
     std: float,
     body_names: tuple[str, ...] | None = None,
@@ -121,7 +121,7 @@ def motion_global_body_linear_velocity_error_exp(
 
 
 def motion_global_body_angular_velocity_error_exp(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     command_name: str,
     std: float,
     body_names: tuple[str, ...] | None = None,

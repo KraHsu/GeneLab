@@ -27,7 +27,7 @@ from genelab.mdp._helpers import resolve_robot_state
 from genelab.mdp.actions._gripper_base import GripperActionBase, GripperActionCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -57,7 +57,7 @@ class ContinuousGripperActionCfg(GripperActionCfg):
 class ContinuousGripperAction(GripperActionBase):
     cfg: ContinuousGripperActionCfg  # type: ignore[assignment]
 
-    def __init__(self, cfg: ContinuousGripperActionCfg, env: ManagerBasedRlEnv) -> None:
+    def __init__(self, cfg: ContinuousGripperActionCfg, env: EnvContext) -> None:
         super().__init__(cfg, env)
         self._robot_state = resolve_robot_state(env, cfg.asset_name)
 

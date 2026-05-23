@@ -9,7 +9,7 @@ from genelab.mdp._helpers import asset_handle
 from genelab.mdp.dr._common import normalise_env_ids, resolve_link_indices
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 def _link_nominal_friction(robot: Any, link_indices: list[int]) -> torch.Tensor | None:
@@ -41,7 +41,7 @@ def _link_nominal_friction(robot: Any, link_indices: list[int]) -> torch.Tensor 
 
 
 def geom_friction(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | None,
     asset_cfg: SceneEntityCfg,
     ranges: tuple[float, float] = (0.5, 1.5),

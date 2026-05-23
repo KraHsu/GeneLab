@@ -10,7 +10,7 @@ from genelab.managers._base import instantiate_class_term
 from genelab.managers.manager_term_cfg import ManagerTermBaseCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 EventMode = Literal["startup", "reset", "interval"]
 
@@ -26,7 +26,7 @@ class EventManager:
     def __init__(
         self,
         cfg: dict[str, EventTermCfg],
-        env: "ManagerBasedRlEnv",
+        env: "EnvContext",
     ) -> None:
         self._env = env
         self.cfg: dict[str, EventTermCfg] = deepcopy(cfg)
