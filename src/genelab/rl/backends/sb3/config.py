@@ -21,6 +21,7 @@ from genelab.rl._algorithm_taxonomy import (
     OFF_POLICY_ALGORITHMS as OFF_POLICY_ALGORITHMS,  # explicit re-export
     ON_POLICY_ALGORITHMS,
 )
+from genelab.rl.config import BackendConfig
 
 Sb3Algorithm = Literal["PPO", "A2C", "SAC", "TD3", "DDPG"]
 
@@ -72,7 +73,7 @@ class Sb3HerCfg:
 
 
 @dataclass
-class Sb3AgentCfg:
+class Sb3AgentCfg(BackendConfig):
     """SB3 runner config. Selected by the backend dispatcher via ``type(agent_cfg)``."""
 
     algorithm: Sb3Algorithm = "PPO"

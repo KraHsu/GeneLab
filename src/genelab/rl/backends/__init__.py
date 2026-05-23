@@ -6,8 +6,6 @@ first use so importing ``genelab.rl`` never pulls in an RL library that the user
 has not installed (the skrl module guards every skrl import).
 """
 
-from typing import Any
-
 from genelab.rl.backends.base import (
     AgentKind,
     Backend,
@@ -15,6 +13,7 @@ from genelab.rl.backends.base import (
     ProfileArgs,
     TrainContext,
 )
+from genelab.rl.config import BackendConfig
 
 __all__ = [
     "AgentKind",
@@ -27,7 +26,7 @@ __all__ = [
     "select_backend",
 ]
 
-_BACKENDS: dict[type, Backend] = {}
+_BACKENDS: dict[type[BackendConfig], Backend] = {}
 _DEFAULT_BACKEND_NAME = "rsl_rl"
 _loaded = False
 
@@ -54,7 +53,7 @@ def _ensure_loaded() -> None:
         importlib.import_module(f"genelab.rl.backends.{name}")
 
 
-def select_backend(agent_cfg: Any) -> Backend:
+def select_backend(agent_cfg: BackendConfig) -> Backend:
     """Return the backend that owns ``type(agent_cfg)``.
 
     Raises ``ValueError`` for an agent config no backend has registered.
