@@ -7,6 +7,7 @@ when ``ROBOTS.get(name)()`` is called (e.g. ``genelab info <name>`` or downstrea
 construction).
 """
 
+from genelab.asset_zoo.allegro_hand import AllegroHandCfg
 from genelab.asset_zoo.anymal_c import AnymalCCfg
 from genelab.asset_zoo.cartpole import CartpoleCfg
 from genelab.asset_zoo.franka import FrankaPandaCfg
@@ -17,6 +18,7 @@ from genelab.asset_zoo.unitree_h1 import UnitreeH1Cfg
 from genelab.asset_zoo.ur10e import UR10eCfg
 
 __all__ = [
+    "AllegroHandCfg",
     "AnymalCCfg",
     "CartpoleCfg",
     "FrankaPandaCfg",
