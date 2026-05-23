@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
+import pytest
 
 from genelab.configs import apply_overrides
 from genelab.registry import TASKS, load_extension_module
@@ -170,12 +171,53 @@ def test_rubiks_robot_registry_writes_turnable_mjcf(tmp_path: Path) -> None:
 
 
 def test_rubiks_env_cfg_inherits_device_default() -> None:
-    """Regression: the Rubiks play scene uses the base ``ManagerBasedEnvCfg`` but is
-    built via ``ManagerBasedRlEnv``, which reads ``cfg.device`` — so the base cfg
-    must carry ``device`` (no longer RL-subclass-only)."""
+    """The Rubiks play scene uses the base ``ManagerBasedEnvCfg``; ``device`` lives on the
+    base cfg (PR #153), so the demo cfg inherits it."""
     from genelab_examples.rubiks.config import RubiksEnvCfg
 
     assert RubiksEnvCfg().device == "cuda"
+
+
+def test_rubiks_play_with_rl_flags_runs_scene_demo(monkeypatch: pytest.MonkeyPatch) -> None:
+    """P8/P9 regression: ``genelab play GeneLab-Rubiks-Play-v0 --agent zero --steps 5`` must
+    run the force-driven scene demo (``RubiksPlayEnv.play``), honoring ``--steps``, and must
+    NOT route through the RL play helper — ``play_task`` → ``build_env`` would crash building
+    ``ManagerBasedRlEnv`` from the non-RL ``RubiksEnvCfg``. This exercises the same dispatch
+    path the CLI uses, with Genesis stubbed out so it runs headless."""
+    from genelab.cli import main
+    from genelab_examples import envs
+
+    captured: dict[str, object] = {}
+
+    def _fake_play(self: envs.RubiksPlayEnv) -> None:
+        captured["steps"] = self.cfg.simulation.steps
+
+    monkeypatch.setattr(envs.RubiksPlayEnv, "play", _fake_play)
+
+    # Patch the real module's attribute (not sys.modules) so the dispatcher's
+    # `from genelab.rl import play_task` resolves to the sentinel while entry-point
+    # extension loading can still `from genelab.rl import RslRlModelCfg`.
+    import genelab.rl as genelab_rl
+
+    def _no_play_task(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("non-RL Rubiks demo must not route through play_task")
+
+    monkeypatch.setattr(genelab_rl, "play_task", _no_play_task)
+
+    main(
+        [
+            "--import",
+            "genelab_examples.tasks",
+            "play",
+            "GeneLab-Rubiks-Play-v0",
+            "--agent",
+            "zero",
+            "--steps",
+            "5",
+        ]
+    )
+
+    assert captured["steps"] == 5
 
 
 def test_rubiks_robot_registry_can_write_welded_mjcf(tmp_path: Path) -> None:
