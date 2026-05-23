@@ -17,7 +17,7 @@ Lifecycle:
 
 import os
 from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import torch
 
@@ -392,3 +392,13 @@ class InteractiveScene:
     def recorder_bridge(self) -> RecorderBridge | None:
         """The recorder bridge if the scene cfg declared any ``recordings``, else ``None``."""
         return self._recorder_bridge
+
+
+if TYPE_CHECKING:
+    from typing import cast
+
+    from genelab.contracts import SceneContext
+
+    # ADR-0014: InteractiveScene is the adapter for the SceneContext port. Type-only
+    # assignment; pyright fails CI if the scene stops conforming.
+    _scene_context_conformance: SceneContext = cast("InteractiveScene", ...)
