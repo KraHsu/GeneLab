@@ -33,7 +33,9 @@ def entity_state(env: "ManagerBasedRlEnv", name: str) -> "RobotState":
     arts = getattr(env, "articulations", None)
     if arts is not None and name in arts:
         return arts[name].data
-    return env.robot_state
+    # Fallback only reached by minimal fake envs that expose ``robot_state`` directly; the
+    # real env always has ``articulations`` (so it never lands here).
+    return env.robot_state  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def entity_handle(env: "ManagerBasedRlEnv", name: str) -> Any:
@@ -41,4 +43,4 @@ def entity_handle(env: "ManagerBasedRlEnv", name: str) -> Any:
     arts = getattr(env, "articulations", None)
     if arts is not None and name in arts:
         return arts[name].gs_handle
-    return env.robot
+    return env.robot  # pyright: ignore[reportAttributeAccessIssue]

@@ -8,6 +8,23 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Multi-robot API complete** (ROADMAP M3.6 / ADR-0012, slices **S5 + S6**) — finishes the
+  multi-robot work (S1–S4 added the routing; S5 was a no-op since S1 kept examples working).
+  - **The flip (breaking):** removed the singular env accessors `env.robot` / `env.robot_state`
+    / `env.articulation` and the name-table convenience properties (`env.joint_names` /
+    `link_names` / `body_names` / `default_joint_pos` / `actuators` / `joint_pos_limits` /
+    `joint_vel_limits`). Reach an entity by name: `env.articulations[name]` and its
+    `.gs_handle` / `.data` / `.joint_names` / `.default_joint_pos` / …
+  - Migrated the last in-repo readers: `mdp.dr._common` + `mdp.commands.motion_command` route
+    via the entity; the resolver fallbacks (`mdp._helpers`, `sensor._entity`) keep the
+    fake-env path; all bundled examples now use `env.articulations["robot"].*`.
+  - Acceptance locked in `tests/test_multi_robot.py` (singular accessors gone; 2-robot cfg
+    resolves both entities + primary selection). The live 2-robot rollout is
+    `genesis_runtime`-gated.
+
+  **Breaking** for downstream code that used `env.robot*` / `env.joint_names` directly —
+  switch to `env.articulations["robot"].*` (no shim; backward-compat was waived for M3.6).
+
 - **Multi-robot sensor routing** (ROADMAP M3.6 / ADR-0012, slice **S4**) — `SensorCfg` gains
   `entity_name: str = "robot"`, so each sensor attaches to / reads from a named scene entity.
   - New `genelab.sensor._entity` (`entity_handle` / `entity_state` / `entity_articulation`)
