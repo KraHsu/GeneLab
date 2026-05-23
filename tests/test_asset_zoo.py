@@ -25,6 +25,7 @@ from genelab.asset_zoo import (
     UnitreeG1Cfg,
     UnitreeGo1Cfg,
     UnitreeH1Cfg,
+    UR10eCfg,
 )
 from genelab.entity import ArticulationCfg
 from genelab.registry import ROBOTS, load_bundled_asset_zoo
@@ -99,6 +100,20 @@ def test_unitree_g1_registered(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cfg.actuators["waist"].armature == pytest.approx(
         2 * cfg.actuators["5020"].armature  # type: ignore[operator]
     )
+
+
+def test_ur10e_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_path = FIXTURES_DIR / "cartpole.xml"
+    monkeypatch.setattr("genelab.asset_zoo.ur10e.fetch_asset", lambda spec: fake_path)
+    cfg = UR10eCfg()
+    assert isinstance(cfg, ArticulationCfg)
+    assert set(cfg.actuators) == {"base", "elbow", "wrists"}
+    assert cfg.foot_link_names == ()  # fixed-base arm, no feet
+    # Effort limits track the Menagerie size classes (size4 / size3 / size2 forcerange).
+    assert cfg.actuators["base"].effort_limit == pytest.approx(330.0)
+    assert cfg.actuators["elbow"].effort_limit == pytest.approx(150.0)
+    assert cfg.actuators["wrists"].effort_limit == pytest.approx(56.0)
+    assert ROBOTS.entry("ur10e").description.startswith("Universal Robots UR10e")
 
 
 def test_unitree_h1_registered(monkeypatch: pytest.MonkeyPatch) -> None:
