@@ -66,12 +66,53 @@ def test_wuji_default_trajectory_is_bundled_with_package_assets() -> None:
 
 
 def test_wuji_env_cfg_inherits_device_default() -> None:
-    """Regression: the Wuji playback scene uses the base ``ManagerBasedEnvCfg`` but is
-    built via ``ManagerBasedRlEnv``, which reads ``cfg.device`` — so the base cfg
-    must carry ``device`` (no longer RL-subclass-only)."""
+    """The Wuji playback scene uses the base ``ManagerBasedEnvCfg``; ``device`` lives on the
+    base cfg (PR #153), so the demo cfg inherits it."""
     from genelab_examples.wuji_hand.config import WujiEnvCfg
 
     assert WujiEnvCfg().device == "cuda"
+
+
+def test_wuji_play_with_rl_flags_runs_scene_demo(monkeypatch: pytest.MonkeyPatch) -> None:
+    """P8/P9 regression: ``genelab play GeneLab-Wuji-Hand-Playback-v0 --agent zero --steps 5``
+    must run the fixed-trajectory scene demo (``WujiHandPlaybackEnv.play``), honoring
+    ``--steps``, and must NOT route through the RL play helper — ``play_task`` → ``build_env``
+    would crash building ``ManagerBasedRlEnv`` from the non-RL ``WujiEnvCfg``. Exercises the
+    same dispatch path the CLI uses, with Genesis stubbed out so it runs headless."""
+    from genelab.cli import main
+    from genelab_examples import envs
+
+    captured: dict[str, object] = {}
+
+    def _fake_play(self: envs.WujiHandPlaybackEnv) -> None:
+        captured["steps"] = self.cfg.simulation.steps
+
+    monkeypatch.setattr(envs.WujiHandPlaybackEnv, "play", _fake_play)
+
+    # Patch the real module's attribute (not sys.modules) so the dispatcher's
+    # `from genelab.rl import play_task` resolves to the sentinel while entry-point
+    # extension loading can still `from genelab.rl import RslRlModelCfg`.
+    import genelab.rl as genelab_rl
+
+    def _no_play_task(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("non-RL Wuji demo must not route through play_task")
+
+    monkeypatch.setattr(genelab_rl, "play_task", _no_play_task)
+
+    main(
+        [
+            "--import",
+            "genelab_examples.tasks",
+            "play",
+            "GeneLab-Wuji-Hand-Playback-v0",
+            "--agent",
+            "zero",
+            "--steps",
+            "5",
+        ]
+    )
+
+    assert captured["steps"] == 5
 
 
 def test_wuji_default_description_assets_are_bundled_with_package_assets() -> None:

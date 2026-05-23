@@ -19,6 +19,13 @@ Policy sources:
 | `random` | Uniform random actions in `[-1, 1]`. |
 | `trained` | Load a checkpoint and use the runner inference policy. |
 
+The policy options (`--agent`, `--checkpoint`, `--num-envs`, `--prof*`) apply only to RL
+tasks — those whose play env config is a `ManagerBasedRlEnvCfg`. Non-RL **scene-playback
+demos** (e.g. `GeneLab-Rubiks-Play-v0`, `GeneLab-Wuji-Hand-Playback-v0`), whose config
+subclasses the base `ManagerBasedEnvCfg`, run their own built-in playback; passing those
+options prints a warning and they are ignored. `--steps` / `--vis` / `--gpu` and dotted
+config overrides still apply to both.
+
 Checkpoint replay:
 
 ```bash
