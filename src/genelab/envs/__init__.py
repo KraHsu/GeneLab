@@ -11,13 +11,13 @@ from genelab.envs.manager_based_rl_env import (
     ManagerBasedRlEnvCfg,
     RobotEntityCfg,
 )
-from genelab.lab import ManagerBasedEnv
+from genelab.lab import ManagerBasedEnvProtocol
 from genelab.registry import ENVS, RegistryEntry, register_env
 
 __all__ = [
     "ENVS",
-    "ManagerBasedEnv",
     "ManagerBasedEnvCfg",
+    "ManagerBasedEnvProtocol",
     "ManagerBasedRlEnv",
     "ManagerBasedRlEnvCfg",
     "RegistryEntry",
