@@ -14,11 +14,13 @@ from genelab.asset_zoo.unitree_g1 import UnitreeG1Cfg
 from genelab.asset_zoo.unitree_g1_motions import g1_lafan1_dance1_subject2
 from genelab.asset_zoo.unitree_go1 import UnitreeGo1Cfg
 from genelab.asset_zoo.unitree_h1 import UnitreeH1Cfg
+from genelab.asset_zoo.ur10e import UR10eCfg
 
 __all__ = [
     "AnymalCCfg",
     "CartpoleCfg",
     "FrankaPandaCfg",
+    "UR10eCfg",
     "UnitreeG1Cfg",
     "UnitreeGo1Cfg",
     "UnitreeH1Cfg",
