@@ -15,21 +15,23 @@ flips the gripper open/closed on the sign of a noisy action every step, which
 makes a stable grasp statistically unreachable.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import torch
 
-from genelab.managers.action_manager import ActionTerm, ActionTermCfg
-from genelab.mdp._helpers import resolve_articulation, resolve_robot_state
-from genelab.mdp.actions._joint_match import match_joints
+from genelab.managers.action_manager import ActionTerm
+from genelab.mdp._helpers import resolve_robot_state
+from genelab.mdp.actions._gripper_base import GripperActionBase, GripperActionCfg
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
 
 @dataclass
-class ContinuousGripperActionCfg(ActionTermCfg):
+class ContinuousGripperActionCfg(GripperActionCfg):
     """One-dim continuous gripper action.
 
     The policy emits a single scalar per env; the term moves the matched finger
@@ -43,9 +45,6 @@ class ContinuousGripperActionCfg(ActionTermCfg):
     group via ``joint_names``.
     """
 
-    joint_names: tuple[str, ...] = (".*",)
-    open_pos: float = 0.04
-    closed_pos: float = 0.0
     speed: float = 0.1
     clip: tuple[float, float] | None = (-1.0, 1.0)
     class_type: type[ActionTerm] | None = None
@@ -55,29 +54,12 @@ class ContinuousGripperActionCfg(ActionTermCfg):
             self.class_type = ContinuousGripperAction
 
 
-class ContinuousGripperAction(ActionTerm):
+class ContinuousGripperAction(GripperActionBase):
     cfg: ContinuousGripperActionCfg  # type: ignore[assignment]
 
-    def __init__(self, cfg: ContinuousGripperActionCfg, env: "ManagerBasedRlEnv") -> None:
+    def __init__(self, cfg: ContinuousGripperActionCfg, env: ManagerBasedRlEnv) -> None:
         super().__init__(cfg, env)
-        self._articulation = resolve_articulation(env, cfg.asset_name)
         self._robot_state = resolve_robot_state(env, cfg.asset_name)
-        matched = match_joints(cfg.joint_names, self._articulation.joint_names)
-        if not matched:
-            raise ValueError(
-                f"ContinuousGripperAction matched zero joints from patterns {cfg.joint_names!r}"
-            )
-        self._joint_indices = torch.tensor(matched, dtype=torch.long, device=self.device)
-        self._raw = torch.zeros(self.num_envs, 1, device=self.device)
-        self._target = torch.zeros(self.num_envs, len(matched), device=self.device)
-
-    @property
-    def action_dim(self) -> int:
-        return 1
-
-    @property
-    def raw_actions(self) -> torch.Tensor:
-        return self._raw
 
     def process_actions(self, actions: torch.Tensor) -> None:
         if self.cfg.clip is not None:
@@ -94,6 +76,3 @@ class ContinuousGripperAction(ActionTerm):
             min=float(self.cfg.closed_pos), max=float(self.cfg.open_pos)
         )
         self._target[:] = target  # broadcast (B, 1) -> (B, n_fingers)
-
-    def apply_actions(self) -> None:
-        self._articulation.write_joint_targets_partial(self._joint_indices, self._target)

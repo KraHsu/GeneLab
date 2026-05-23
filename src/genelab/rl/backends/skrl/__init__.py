@@ -21,7 +21,7 @@ from genelab.rl._helpers import (
     run_play_loop,
     save_run_params,
 )
-from genelab.rl.skrl_config import SkrlAgentCfg
+from genelab.rl.backends.skrl.config import SkrlAgentCfg
 
 
 def _agent_class(algorithm: str) -> tuple[Any, dict[str, Any]]:
@@ -109,7 +109,7 @@ def _build_agent(agent_cfg: SkrlAgentCfg, wrapper: Any, device: Any, log_dir: Pa
     """Build a skrl agent (models + memory + patched cfg) for ``agent_cfg``."""
     from skrl.memories.torch import RandomMemory
 
-    from genelab.rl.skrl_models import build_models
+    from genelab.rl.backends.skrl.models import build_models
 
     if agent_cfg.is_on_policy:
         memory_size = agent_cfg.rollouts
