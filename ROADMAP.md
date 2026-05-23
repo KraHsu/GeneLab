@@ -620,9 +620,13 @@ slice (#112). What remains:
    `Proposed`/deferred — its own deliverables (incl. the #111 size guard) are
    complete; the *split* is intentionally not done until a trigger fires.
 2. **Follow-up work** (none on a critical path; each is an independent, optional PR):
-   - **Reconsider ADR-0010** (entity/articulation split) against its recorded trigger
-     criteria when multi-robot work (M3.6) begins. The #111 guard (`UserWarning` at
-     700 LoC, hard fail at 1000) is the tripwire that forces that conversation.
+   - **ADR-0010** (entity/articulation split) — **reconsidered after M3.6 shipped; still
+     deferred.** M3.6 (multi-robot, ADR-0012 S1–S6) was the nominated trigger, but it landed
+     as *N instances of the single `Articulation` class*, **not a second entity type**, so
+     trigger criterion #1 didn't fire; the file is 577 LoC (< the 700 warn threshold) and no
+     partial-`RobotState` consumer / test pain exists. The split stays deferred until a real
+     second entity type (e.g. soft-body) arrives. The #111 guard (`UserWarning` at 700 LoC,
+     hard fail at 1000) remains the tripwire.
    - **Further `cli/__init__.py` reduction below ≈480** would require relocating the
      Typer command callbacks via a registration indirection — explicitly judged
      not worth the churn in ADR-0011 (the ≤400 target was revised to "≈≤480,
