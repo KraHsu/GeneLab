@@ -9,11 +9,11 @@ from genelab.mdp._helpers import asset_handle
 from genelab.mdp.dr._common import normalise_env_ids, resolve_link_indices
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 def body_com_offset(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | None,
     asset_cfg: SceneEntityCfg,
     ranges: dict[int, tuple[float, float]] | None = None,
@@ -51,7 +51,7 @@ def body_com_offset(
 
 
 def body_mass_offset(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | None,
     asset_cfg: SceneEntityCfg,
     ranges: tuple[float, float] = (-0.5, 0.5),

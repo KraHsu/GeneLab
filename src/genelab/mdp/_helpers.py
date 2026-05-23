@@ -18,10 +18,10 @@ from genelab.utils.math import quat_apply
 
 if TYPE_CHECKING:
     from genelab.entity import Articulation, RobotState
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
-def resolve_articulation(env: "ManagerBasedRlEnv", name: str) -> "Articulation":
+def resolve_articulation(env: "EnvContext", name: str) -> "Articulation":
     """Return the articulation named ``name``, else the primary ``env.articulation``.
 
     Action / command terms route by ``cfg.asset_name`` (ROADMAP M3.6 / ADR-0012 S2): the
@@ -38,7 +38,7 @@ def resolve_articulation(env: "ManagerBasedRlEnv", name: str) -> "Articulation":
     return cast("Articulation", getattr(env, "articulation", env))
 
 
-def resolve_robot_state(env: "ManagerBasedRlEnv", name: str) -> "RobotState":
+def resolve_robot_state(env: "EnvContext", name: str) -> "RobotState":
     """Return the named entity's ``RobotState``, falling back to ``env.robot_state``.
 
     The read-only counterpart to :func:`resolve_articulation` for terms that only consume
@@ -52,7 +52,7 @@ def resolve_robot_state(env: "ManagerBasedRlEnv", name: str) -> "RobotState":
     return env.robot_state  # pyright: ignore[reportAttributeAccessIssue]
 
 
-def asset_state(env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None") -> "RobotState":
+def asset_state(env: "EnvContext", asset_cfg: "SceneEntityCfg | None") -> "RobotState":
     """``RobotState`` for ``asset_cfg``'s entity (M3.6 / ADR-0012 S3); ``None`` → primary.
 
     Term functions accept an optional ``asset_cfg`` and read state through this so a
@@ -63,14 +63,12 @@ def asset_state(env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None") ->
     return resolve_robot_state(env, asset_cfg.name if asset_cfg is not None else "robot")
 
 
-def asset_articulation(
-    env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None"
-) -> "Articulation":
+def asset_articulation(env: "EnvContext", asset_cfg: "SceneEntityCfg | None") -> "Articulation":
     """:class:`Articulation` for ``asset_cfg``'s entity; ``None`` → primary ``"robot"``."""
     return resolve_articulation(env, asset_cfg.name if asset_cfg is not None else "robot")
 
 
-def asset_handle(env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None") -> Any:
+def asset_handle(env: "EnvContext", asset_cfg: "SceneEntityCfg | None") -> Any:
     """Raw Genesis handle for ``asset_cfg``'s entity (for ``set_pos`` / ``set_dofs_*`` etc.).
 
     ``env.articulations[name].gs_handle`` when present, else the primary ``env.robot`` — so
@@ -100,7 +98,7 @@ def link_ids(asset_cfg: SceneEntityCfg) -> tuple[int, ...]:
     return asset_cfg.link_ids
 
 
-def contact_sensor(env: "ManagerBasedRlEnv", sensor_name: str) -> ContactSensor:
+def contact_sensor(env: "EnvContext", sensor_name: str) -> ContactSensor:
     """Look up a :class:`ContactSensor` by name; raise ``TypeError`` if the wrong type."""
     sensor = env.sensors[sensor_name]
     if not isinstance(sensor, ContactSensor):
@@ -110,7 +108,7 @@ def contact_sensor(env: "ManagerBasedRlEnv", sensor_name: str) -> ContactSensor:
     return sensor
 
 
-def command_active(env: "ManagerBasedRlEnv", command_name: str, threshold: float) -> torch.Tensor:
+def command_active(env: "EnvContext", command_name: str, threshold: float) -> torch.Tensor:
     """Returns ``(B,)`` float mask: 1 where ``||cmd_xy|| + |cmd_z| > threshold``, else 0.
 
     mjlab parity: each gait-shaping reward (``feet_clearance`` / ``feet_slip`` /
@@ -128,7 +126,7 @@ def command_active(env: "ManagerBasedRlEnv", command_name: str, threshold: float
 
 
 def site_pos_w(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     indices: list[int],
     offsets: torch.Tensor | None,
     asset_cfg: "SceneEntityCfg | None" = None,
@@ -151,7 +149,7 @@ def site_pos_w(
 
 
 def site_lin_vel_w(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     indices: list[int],
     offsets: torch.Tensor | None,
     asset_cfg: "SceneEntityCfg | None" = None,

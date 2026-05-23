@@ -30,7 +30,7 @@ from genelab.sensor.sensor import Sensor, SensorCfg
 from genelab.utils.math import quat_apply, yaw_quat
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
     from genelab.terrains import TerrainImporter
 
 
@@ -254,7 +254,7 @@ class RayCastSensor(Sensor[RayCastData]):
     def num_rays(self) -> int:
         return self._cfg_typed.pattern.num_rays()
 
-    def bind(self, env: "ManagerBasedRlEnv") -> None:
+    def bind(self, env: "EnvContext") -> None:
         super().bind(env)
         if not self._cfg_typed.link_name:
             raise ValueError(f"RayCastSensorCfg(name={self._cfg.name!r}) requires link_name")

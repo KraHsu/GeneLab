@@ -8,12 +8,12 @@ from genelab.mdp._helpers import asset_articulation
 from genelab.mdp.dr._common import normalise_env_ids
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
     from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
 def randomize_actuator_deadzone(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | None,
     deadzone_range: tuple[float, float] = (0.0, 0.5),
     asset_cfg: "SceneEntityCfg | None" = None,

@@ -19,7 +19,7 @@ from genelab.mdp._helpers import resolve_articulation
 from genelab.mdp.actions._joint_match import match_joints
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -45,7 +45,7 @@ class GripperActionBase(ActionTerm):
 
     cfg: GripperActionCfg  # type: ignore[assignment]
 
-    def __init__(self, cfg: GripperActionCfg, env: ManagerBasedRlEnv) -> None:
+    def __init__(self, cfg: GripperActionCfg, env: EnvContext) -> None:
         super().__init__(cfg, env)
         self._articulation = resolve_articulation(env, cfg.asset_name)
         matched = match_joints(cfg.joint_names, self._articulation.joint_names)

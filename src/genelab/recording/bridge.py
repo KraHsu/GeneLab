@@ -19,8 +19,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
-    from genelab.scene.interactive_scene import InteractiveScene
+    from genelab.contracts import EnvContext, SceneContext
     from genelab.sensor import Sensor
 
 
@@ -51,11 +50,11 @@ class RecorderBridge:
        one recorder uses ``save_on_reset``.
     """
 
-    def __init__(self, scene: "InteractiveScene") -> None:
+    def __init__(self, scene: "SceneContext") -> None:
         self.scene = scene
         self.sensors: dict[str, "Sensor[Any]"] = {}
         self.entities: dict[str, Any] = {}
-        self.env: "ManagerBasedRlEnv | None" = None
+        self.env: "EnvContext | None" = None
         self.handles: list[RecorderHandle] = []
         # Last Genesis global step at which we flushed recorders. Used to no-op
         # back-to-back resets (e.g. the warm-up reset in ``ManagerBasedRlEnv.__init__``
@@ -68,7 +67,7 @@ class RecorderBridge:
     def has_save_on_reset(self) -> bool:
         return any(h.save_on_reset for h in self.handles)
 
-    def bind_env(self, env: "ManagerBasedRlEnv") -> None:
+    def bind_env(self, env: "EnvContext") -> None:
         """Wire the env reference and patch sensor-source recorder rates to control rate.
 
         Snapshots Genesis's current global step as the reset baseline so the warm-up

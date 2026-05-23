@@ -30,7 +30,7 @@ from genelab.sensor._entity import entity_handle
 from genelab.sensor.sensor import Sensor, SensorCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -72,7 +72,7 @@ class SelfContactSensor(Sensor[SelfContactData]):
         self._force_history: torch.Tensor | None = None
         self._history_head: int = 0
 
-    def bind(self, env: "ManagerBasedRlEnv") -> None:
+    def bind(self, env: "EnvContext") -> None:
         super().bind(env)
         self._latest_force = torch.zeros(env.num_envs, device=env.device)
         self._latest_any_above = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)

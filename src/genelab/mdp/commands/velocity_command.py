@@ -10,7 +10,7 @@ from genelab.managers.command_manager import CommandTerm, CommandTermCfg
 from genelab.mdp._helpers import resolve_robot_state
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -81,7 +81,7 @@ class UniformVelocityCommand(CommandTerm):
 
     cfg: UniformVelocityCommandCfg  # type: ignore[assignment]
 
-    def __init__(self, cfg: UniformVelocityCommandCfg, env: "ManagerBasedRlEnv") -> None:
+    def __init__(self, cfg: UniformVelocityCommandCfg, env: "EnvContext") -> None:
         super().__init__(cfg, env)
         self._robot_state = resolve_robot_state(env, cfg.asset_name)
         self._command = torch.zeros(self.num_envs, 3, device=self.device)

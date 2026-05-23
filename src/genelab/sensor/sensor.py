@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, cast
 import torch
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -39,7 +39,7 @@ class Sensor[T](ABC):
 
     def __init__(self, cfg: SensorCfg) -> None:
         self._cfg = cfg
-        self._env: "ManagerBasedRlEnv | None" = None
+        self._env: "EnvContext | None" = None
         self._cached_data: T | None = None
         self._cache_valid: bool = False
 
@@ -68,7 +68,7 @@ class Sensor[T](ABC):
         """
         del gs_scene, entities
 
-    def bind(self, env: "ManagerBasedRlEnv") -> None:
+    def bind(self, env: "EnvContext") -> None:
         """Called once during env construction. Subclasses may cache link indices etc."""
         self._env = env
 

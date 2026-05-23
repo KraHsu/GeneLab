@@ -27,10 +27,10 @@ from genelab.mdp._helpers import (
 )
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
-def mean_action_acc(env: "ManagerBasedRlEnv") -> torch.Tensor:
+def mean_action_acc(env: "EnvContext") -> torch.Tensor:
     """Per-env mean ``|a_t − 2·a_{t-1} + a_{t-2}|`` — discrete action acceleration.
 
     mjlab parity for ``mean_action_acc``. Lower values indicate smoother policy
@@ -58,12 +58,12 @@ def mean_action_acc(env: "ManagerBasedRlEnv") -> torch.Tensor:
 # same value.
 
 
-def _broadcast_scalar(value: torch.Tensor, env: "ManagerBasedRlEnv") -> torch.Tensor:
+def _broadcast_scalar(value: torch.Tensor, env: "EnvContext") -> torch.Tensor:
     """Expand a 0-dim tensor to ``(B,)`` so MetricsManager can accumulate per-env."""
     return value.expand(env.num_envs)
 
 
-def angular_momentum_mean(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
+def angular_momentum_mean(env: "EnvContext", sensor_name: str) -> torch.Tensor:
     """``||L||`` of the root-frame angular momentum.
 
     mjlab logs ``torch.mean(angmom_magnitude)`` (a cross-env scalar) inside the
@@ -75,7 +75,7 @@ def angular_momentum_mean(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.T
     return torch.norm(angmom, dim=-1)
 
 
-def air_time_mean(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
+def air_time_mean(env: "EnvContext", sensor_name: str) -> torch.Tensor:
     """Mean ``current_air_time`` across (env, foot) pairs that are in the air.
 
     Replicates mjlab's ``Metrics/air_time_mean`` in ``feet_air_time``: sum of
@@ -92,7 +92,7 @@ def air_time_mean(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
 
 
 def slip_velocity_mean(
-    env: "ManagerBasedRlEnv", sensor_name: str, asset_cfg: SceneEntityCfg
+    env: "EnvContext", sensor_name: str, asset_cfg: SceneEntityCfg
 ) -> torch.Tensor:
     """Mean ``||v_xy||`` across grounded (env, foot) pairs.
 
@@ -110,7 +110,7 @@ def slip_velocity_mean(
     return _broadcast_scalar(mean, env)
 
 
-def landing_force_mean(env: "ManagerBasedRlEnv", sensor_name: str) -> torch.Tensor:
+def landing_force_mean(env: "EnvContext", sensor_name: str) -> torch.Tensor:
     """Mean ``|F|`` across (env, foot) pairs that just landed.
 
     Replicates mjlab's ``Metrics/landing_force_mean`` in ``soft_landing``:
@@ -138,7 +138,7 @@ class peak_height_mean:
     (``mjlab/.../rewards.py:317``). Broadcasted to ``(B,)`` for MetricsManager.
     """
 
-    def __init__(self, cfg: RewardTermCfg, env: "ManagerBasedRlEnv") -> None:
+    def __init__(self, cfg: RewardTermCfg, env: "EnvContext") -> None:
         asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         indices = list(_link_ids(asset_cfg))
         self._foot_indices: list[int] = indices
@@ -147,7 +147,7 @@ class peak_height_mean:
 
     def __call__(
         self,
-        env: "ManagerBasedRlEnv",
+        env: "EnvContext",
         sensor_name: str,
         asset_cfg: SceneEntityCfg,
     ) -> torch.Tensor:

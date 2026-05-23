@@ -8,12 +8,12 @@ from genelab.managers.manager_term_cfg import ManagerTermBaseCfg
 from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 TCfg = TypeVar("TCfg", bound=ManagerTermBaseCfg)
 
 
-def instantiate_class_term(term_cfg: ManagerTermBaseCfg, env: "ManagerBasedRlEnv") -> None:
+def instantiate_class_term(term_cfg: ManagerTermBaseCfg, env: "EnvContext") -> None:
     """Resolve ``term_cfg`` against ``env``: any :class:`SceneEntityCfg` values inside
     ``params`` get their ``*_ids`` populated, then class funcs get instantiated.
 
@@ -56,7 +56,7 @@ class BaseTermManager(Generic[TCfg]):
     def __init__(
         self,
         cfg: dict[str, TCfg],
-        env: "ManagerBasedRlEnv",
+        env: "EnvContext",
     ) -> None:
         self._env = env
         self.cfg: dict[str, TCfg] = deepcopy(cfg)

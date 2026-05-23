@@ -16,7 +16,7 @@ from genelab.sensor._entity import entity_articulation, entity_handle
 from genelab.sensor.sensor import Sensor, SensorCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -116,7 +116,7 @@ class ContactSensor(Sensor[ContactData]):
     def link_names(self) -> list[str]:
         return list(self._resolved_link_names)
 
-    def bind(self, env: "ManagerBasedRlEnv") -> None:
+    def bind(self, env: "EnvContext") -> None:
         super().bind(env)
         indices, names = _resolve_link_indices(
             self._cfg_typed, entity_articulation(env, self._cfg.entity_name).link_names

@@ -7,7 +7,7 @@ that in turn owns the Genesis ``gs.Scene``, an articulated robot, and any extra 
 
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import torch
 
@@ -336,3 +336,13 @@ class ManagerBasedRlEnv:
 
     def close(self) -> None:
         self._scene.close()
+
+
+if TYPE_CHECKING:
+    from typing import cast
+
+    from genelab.contracts import EnvContext
+
+    # ADR-0014: ManagerBasedRlEnv is the adapter for the EnvContext port. This
+    # type-only assignment makes pyright fail CI if the env stops conforming.
+    _env_context_conformance: EnvContext = cast("ManagerBasedRlEnv", ...)

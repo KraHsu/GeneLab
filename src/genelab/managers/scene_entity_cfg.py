@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -98,7 +98,7 @@ class SceneEntityCfg:
     joint_ids: tuple[int, ...] | None = None
     """Populated by :meth:`resolve` from ``joint_names``. Don't set manually."""
 
-    def _index_source(self, env: "ManagerBasedRlEnv") -> Any:
+    def _index_source(self, env: "EnvContext") -> Any:
         """The object whose ``joint_names`` / ``link_names`` tables back this entity.
 
         ``env.articulations[self.name]`` when the multi-entity accessor exists and holds
@@ -110,7 +110,7 @@ class SceneEntityCfg:
             return arts[self.name]
         return env
 
-    def resolve(self, env: "ManagerBasedRlEnv") -> None:
+    def resolve(self, env: "EnvContext") -> None:
         """Convert configured ``*_names`` into index tuples against the entity's tables.
 
         Idempotent: re-running on an already-resolved cfg is a no-op. Raises

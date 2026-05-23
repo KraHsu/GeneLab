@@ -32,7 +32,7 @@ import torch
 from genelab.bridges.base import BridgeCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 _logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ class KeyboardTwistBridge:
 
     # ------------------------------------------------------------------ lifecycle
 
-    def on_build(self, env: "ManagerBasedRlEnv") -> None:
+    def on_build(self, env: "EnvContext") -> None:
         if env.num_envs != 1:
             _logger.info(
                 "KeyboardTwistBridge: skipping (num_envs=%d, need 1). "
@@ -149,7 +149,7 @@ class KeyboardTwistBridge:
         self._enabled = True
         self._broadcast_hud(viewer)
 
-    def pre_step(self, env: "ManagerBasedRlEnv") -> None:
+    def pre_step(self, env: "EnvContext") -> None:
         if not self._enabled:
             return
         term = env.command_manager.get_term(self.cfg.command_name)
@@ -158,11 +158,11 @@ class KeyboardTwistBridge:
         desired = torch.tensor([self._vx, self._vy, self._wz], device=buf.device, dtype=buf.dtype)
         buf[:] = desired
 
-    def post_step(self, env: "ManagerBasedRlEnv") -> None:
+    def post_step(self, env: "EnvContext") -> None:
         # Read-side teleop has no output stream; subclass if you want one.
         pass
 
-    def on_close(self, env: "ManagerBasedRlEnv") -> None:
+    def on_close(self, env: "EnvContext") -> None:
         # Genesis tears the viewer down with the scene; nothing to release.
         pass
 
