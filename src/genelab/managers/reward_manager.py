@@ -9,7 +9,7 @@ from genelab.managers._base import BaseTermManager
 from genelab.managers.manager_term_cfg import ManagerTermBaseCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -29,7 +29,7 @@ class RewardManager(BaseTermManager[RewardTermCfg]):
     def __init__(
         self,
         cfg: dict[str, RewardTermCfg],
-        env: "ManagerBasedRlEnv",
+        env: "EnvContext",
         *,
         scale_by_dt: bool = True,
     ) -> None:

@@ -1,17 +1,15 @@
-"""Additive noise models for observation corruption (matches mjlab's ``Unoise`` / ``Gnoise``)."""
+"""Additive noise models for observation corruption (matches mjlab's ``Unoise`` / ``Gnoise``).
 
-from abc import ABC, abstractmethod
+The ``NoiseCfg`` base lives in :mod:`genelab.contracts` (ADR-0014, so the observation
+manager can hint it without a ``managers → mdp`` back-edge) and is re-exported here
+alongside the concrete models below.
+"""
+
 from dataclasses import dataclass, field
 
 import torch
 
-
-@dataclass
-class NoiseCfg(ABC):
-    """Base config for additive noise injected into an observation term."""
-
-    @abstractmethod
-    def apply(self, data: torch.Tensor) -> torch.Tensor: ...
+from genelab.contracts import NoiseCfg
 
 
 @dataclass

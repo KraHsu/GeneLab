@@ -36,7 +36,7 @@ from genelab.sensor.sensor import Sensor, SensorCfg
 from genelab.utils.math import matrix_from_quat
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -114,7 +114,7 @@ class CameraSensor(Sensor[CameraData]):
         link = robot_handle.get_link(self._cfg_typed.link_name)
         self._cam = self._allocate_camera(gs_scene, link)
 
-    def bind(self, env: "ManagerBasedRlEnv") -> None:
+    def bind(self, env: "EnvContext") -> None:
         super().bind(env)
         self._validate_cfg()
         link_names = entity_articulation(env, self._cfg_typed.entity_name).link_names

@@ -30,7 +30,7 @@ from genelab.utils.math import (
 )
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 class MotionLoader:
@@ -110,7 +110,7 @@ class MotionCommand(CommandTerm):
 
     cfg: MotionCommandCfg  # type: ignore[assignment]
 
-    def __init__(self, cfg: MotionCommandCfg, env: "ManagerBasedRlEnv") -> None:
+    def __init__(self, cfg: MotionCommandCfg, env: "EnvContext") -> None:
         super().__init__(cfg, env)
         self._robot_state = resolve_robot_state(env, cfg.asset_name)
         articulation = resolve_articulation(env, cfg.asset_name)

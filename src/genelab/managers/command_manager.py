@@ -10,7 +10,7 @@ import torch
 from genelab.managers.manager_term_cfg import ManagerTermBaseCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -22,7 +22,7 @@ class CommandTermCfg(ManagerTermBaseCfg):
 
 
 class CommandTerm(abc.ABC):
-    def __init__(self, cfg: CommandTermCfg, env: "ManagerBasedRlEnv") -> None:
+    def __init__(self, cfg: CommandTermCfg, env: "EnvContext") -> None:
         self.cfg = cfg
         self._env = env
         self._time_left = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
@@ -71,7 +71,7 @@ class CommandManager:
     def __init__(
         self,
         cfg: dict[str, CommandTermCfg],
-        env: "ManagerBasedRlEnv",
+        env: "EnvContext",
     ) -> None:
         self._env = env
         self.cfg: dict[str, CommandTermCfg] = deepcopy(cfg)

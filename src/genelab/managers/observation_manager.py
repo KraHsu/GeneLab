@@ -10,8 +10,7 @@ from genelab.managers._base import instantiate_class_term
 from genelab.managers.manager_term_cfg import ManagerTermBaseCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
-    from genelab.mdp.noise import NoiseCfg
+    from genelab.contracts import EnvContext, NoiseCfg
 
 
 @dataclass
@@ -36,7 +35,7 @@ class ObservationManager:
     def __init__(
         self,
         cfg: dict[str, ObservationGroupCfg],
-        env: "ManagerBasedRlEnv",
+        env: "EnvContext",
     ) -> None:
         self._env = env
         self.cfg: dict[str, ObservationGroupCfg] = deepcopy(cfg)

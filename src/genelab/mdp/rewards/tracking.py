@@ -22,12 +22,12 @@ from genelab.mdp.motion_tracking import (
 )
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
     from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
 def track_linear_velocity_xy_exp(
-    env: ManagerBasedRlEnv,
+    env: EnvContext,
     command_name: str,
     std: float = 0.5,
     asset_cfg: SceneEntityCfg | None = None,
@@ -46,7 +46,7 @@ def track_linear_velocity_xy_exp(
 
 
 def track_angular_velocity_z_exp(
-    env: ManagerBasedRlEnv,
+    env: EnvContext,
     command_name: str,
     std: float = 0.5,
     asset_cfg: SceneEntityCfg | None = None,
