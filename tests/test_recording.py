@@ -274,7 +274,7 @@ def _build_recording_env(tmp_path: Path, save_on_reset: bool = False) -> Any:
         ),
         RecordingCfg(
             name="pole_pos",
-            source=lambda env: env.robot_state.joint_pos[:, 0],
+            source=lambda env: env.articulations["robot"].data.joint_pos[:, 0],
             outputs=(NPZFileCfg(filename=str(tmp_path / "pole_pos.npz")),),
         ),
     )

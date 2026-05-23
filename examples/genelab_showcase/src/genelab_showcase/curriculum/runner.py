@@ -47,7 +47,7 @@ class CurriculumShowcaseRunner(ShowcaseRunner):
         quat = torch.zeros(env_ids.numel(), 4, device=env.device)
         quat[:, 0] = 1.0
         zero_vel = torch.zeros(env_ids.numel(), 3, device=env.device)
-        env.articulation.write_root_state(new_pos, quat, zero_vel, zero_vel, env_ids)
+        env.articulations["robot"].write_root_state(new_pos, quat, zero_vel, zero_vel, env_ids)
 
     def _dump(self, env: "ManagerBasedRlEnv", step: int) -> None:
         root = self.log_root()

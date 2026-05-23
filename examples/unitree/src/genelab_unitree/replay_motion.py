@@ -33,7 +33,7 @@ def main() -> None:
 
     pelvis_idx = G1_MJLAB_BODY_NAMES.index("pelvis")
     joint_perm = torch.tensor(
-        [G1_MJLAB_JOINT_NAMES.index(n) for n in env.joint_names],
+        [G1_MJLAB_JOINT_NAMES.index(n) for n in env.articulations["robot"].joint_names],
         dtype=torch.long,
         device=device,
     )

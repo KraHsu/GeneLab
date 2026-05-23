@@ -29,7 +29,7 @@ class ActuatorShowcaseRunner(ShowcaseRunner):
 
     def _scripted_action(self, env: "ManagerBasedRlEnv", step: int) -> torch.Tensor:
         if self._joint1_idx is None:
-            self._joint1_idx = env.joint_names.index("joint1")
+            self._joint1_idx = env.articulations["robot"].joint_names.index("joint1")
         action = torch.zeros(env.num_envs, env.num_actions, device=env.device)
         phase = 2.0 * math.pi * step / 200.0
         action[:, self._joint1_idx] = math.sin(phase) * 0.8
@@ -39,10 +39,10 @@ class ActuatorShowcaseRunner(ShowcaseRunner):
         if self._joint1_idx is None:
             return
         root = self.log_root()
-        rs = env.robot_state
+        rs = env.articulations["robot"].data
         joint_pos = float(rs.joint_pos[0, self._joint1_idx])
         joint_vel = float(rs.joint_vel[0, self._joint1_idx])
-        default = float(env.default_joint_pos[self._joint1_idx])
+        default = float(env.articulations["robot"].default_joint_pos[self._joint1_idx])
         phase = 2.0 * math.pi * step / 200.0
         # Reconstruct the absolute target: default + action_scale * raw_action.
         # action_scale 0.5 lines up with the IdealPDActuator group in env_cfg.

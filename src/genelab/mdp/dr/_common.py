@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from genelab.managers.scene_entity_cfg import SceneEntityCfg
+from genelab.mdp._helpers import asset_articulation
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
@@ -16,17 +17,18 @@ def resolve_link_indices(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg) ->
     ``asset_cfg.link_names=None`` is the "no selection" state — for DR functions
     that's the natural "act on every link" semantic (mjlab matches this). The
     manager-level resolve pass runs before this is called, so a present
-    ``link_names`` always has matching ``link_ids``.
+    ``link_names`` always has matching ``link_ids``. The "all links" count comes from
+    ``asset_cfg``'s entity (M3.6).
     """
     if asset_cfg.link_ids is None:
-        return list(range(len(env.link_names)))
+        return list(range(len(asset_articulation(env, asset_cfg).link_names)))
     return list(asset_cfg.link_ids)
 
 
 def resolve_joint_indices(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg) -> list[int]:
     """Pull joint indices from a resolved ``SceneEntityCfg``; fall back to every joint."""
     if asset_cfg.joint_ids is None:
-        return list(range(len(env.joint_names)))
+        return list(range(len(asset_articulation(env, asset_cfg).joint_names)))
     return list(asset_cfg.joint_ids)
 
 

@@ -69,7 +69,7 @@ class FrankaPickAndPlaceFsm:
         self._n = env.num_envs
         self._device = env.device
         self._cube_handle = env.scene.rigid_objects[CUBE_ENTITY_NAME].gs_handle
-        self._art = env.articulation
+        self._art = env.articulations["robot"]
         self._hand_idx = self._art.link_names.index(EE_LINK)
         finger_joint_idx = [i for i, n in enumerate(self._art.joint_names) if "finger_joint" in n]
         self._finger_joint_idx = torch.tensor(
