@@ -21,8 +21,8 @@ through dotted overrides; task code can construct or clone them directly.
 |---|---|
 | `SimulationCfg` | `vis`, `gpu`, `steps`, `dt`, `substeps`, `num_envs` |
 | `InteractiveSceneCfg` | `env_spacing`, `sensors`, `mouse_interaction`, `entities`, `terrain`, `batch_render`, `recordings` |
-| `ManagerBasedEnvCfg` | `simulation`, `scene`, and lightweight enabled flags for core manager groups |
-| `ManagerBasedRlEnvCfg` | `decimation`, `episode_length_s`, `device`, `seed`, `robot`, `actions_cfg`, `observations_cfg`, `rewards_cfg`, `terminations_cfg`, `commands_cfg`, `events_cfg`, `curriculum_cfg`, `metrics_cfg`, `bridges_cfg` |
+| `ManagerBasedEnvCfg` | `device`, `simulation`, `scene`, and lightweight enabled flags for core manager groups |
+| `ManagerBasedRlEnvCfg` | `decimation`, `episode_length_s`, `seed`, `robot`, `actions_cfg`, `observations_cfg`, `rewards_cfg`, `terminations_cfg`, `commands_cfg`, `events_cfg`, `curriculum_cfg`, `metrics_cfg`, `bridges_cfg` |
 
 ## Override grammar
 

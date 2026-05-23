@@ -65,6 +65,15 @@ def test_wuji_default_trajectory_is_bundled_with_package_assets() -> None:
     assert DEFAULT_TRAJECTORY.exists()
 
 
+def test_wuji_env_cfg_inherits_device_default() -> None:
+    """Regression: the Wuji playback scene uses the base ``ManagerBasedEnvCfg`` but is
+    built via ``ManagerBasedRlEnv``, which reads ``cfg.device`` — so the base cfg
+    must carry ``device`` (no longer RL-subclass-only)."""
+    from genelab_examples.wuji_hand.config import WujiEnvCfg
+
+    assert WujiEnvCfg().device == "cuda"
+
+
 def test_wuji_default_description_assets_are_bundled_with_package_assets() -> None:
     assert "genelab_examples/wuji_hand/description" in DEFAULT_DESC_DIR.as_posix()
     assert resolve_mjcf_path(DEFAULT_DESC_DIR, "left").exists()
