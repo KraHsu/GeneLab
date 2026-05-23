@@ -19,6 +19,7 @@ from typing import Any
 import pytest
 
 from genelab.asset_zoo import (
+    AllegroHandCfg,
     AnymalCCfg,
     CartpoleCfg,
     FrankaPandaCfg,
@@ -100,6 +101,21 @@ def test_unitree_g1_registered(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cfg.actuators["waist"].armature == pytest.approx(
         2 * cfg.actuators["5020"].armature  # type: ignore[operator]
     )
+
+
+def test_allegro_hand_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_path = FIXTURES_DIR / "cartpole.xml"
+    monkeypatch.setattr("genelab.asset_zoo.allegro_hand.fetch_asset", lambda spec: fake_path)
+    cfg = AllegroHandCfg()
+    assert isinstance(cfg, ArticulationCfg)
+    assert set(cfg.actuators) == {"fingers"}  # one uniform group over all 16 joints
+    assert cfg.foot_link_names == ()  # dexterous hand, no feet
+    fingers = cfg.actuators["fingers"]
+    assert fingers.stiffness == pytest.approx(3.0)
+    assert fingers.effort_limit == pytest.approx(0.5)
+    # The regex spans index/middle/ring/thumb joints.
+    assert fingers.target_names_expr == (r"(ff|mf|rf|th)j[0-3]",)
+    assert ROBOTS.entry("allegro").description.startswith("Wonik Allegro")
 
 
 def test_ur10e_registered(monkeypatch: pytest.MonkeyPatch) -> None:
