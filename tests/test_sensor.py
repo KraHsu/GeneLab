@@ -1237,7 +1237,7 @@ def test_camera_unknown_link_raises() -> None:
         sensor.bind(env)  # type: ignore[arg-type]
     except ValueError as exc:
         assert "head" in str(exc)
-        assert "env.link_names" in str(exc)
+        assert "link_names" in str(exc)
     else:
         raise AssertionError("expected ValueError for unknown link_name")
 
@@ -1445,8 +1445,10 @@ class _FakeForceRobot:
 
 
 class _FakeArticulation:
-    def __init__(self, actuated_dof_ids: torch.Tensor) -> None:
+    def __init__(self, actuated_dof_ids: torch.Tensor, joint_names: list[str]) -> None:
         self.actuated_dof_ids = actuated_dof_ids
+        # M3.6 S4: the FT sensor resolves joints against the entity's joint_names.
+        self.joint_names = joint_names
 
 
 class _FakeFTEnv:
@@ -1456,7 +1458,9 @@ class _FakeFTEnv:
         self.num_envs = force.shape[0]
         self.device = "cpu"
         self.joint_names = list(joint_names)
-        self.articulation = _FakeArticulation(torch.tensor(actuated_dof_ids, dtype=torch.long))
+        self.articulation = _FakeArticulation(
+            torch.tensor(actuated_dof_ids, dtype=torch.long), list(joint_names)
+        )
         self.robot = _FakeForceRobot(force)
         self.sensors: dict[str, object] = {}
 

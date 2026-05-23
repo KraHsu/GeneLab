@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.sensor._entity import entity_articulation, entity_state
 from genelab.sensor.sensor import Sensor, SensorCfg
 from genelab.utils.math import matrix_from_quat, quat_apply_inverse
 
@@ -76,12 +77,13 @@ class IMUSensor(Sensor[IMUData]):
         super().bind(env)
         if not self._cfg_typed.link_name:
             raise ValueError(f"IMUSensorCfg(name={self._cfg.name!r}) requires link_name")
+        link_names = entity_articulation(env, self._cfg.entity_name).link_names
         try:
-            self._link_idx = env.link_names.index(self._cfg_typed.link_name)
+            self._link_idx = link_names.index(self._cfg_typed.link_name)
         except ValueError as exc:
             raise ValueError(
                 f"sensor {self._cfg.name!r}: link {self._cfg_typed.link_name!r} not in "
-                f"env.link_names={env.link_names!r}"
+                f"link_names={link_names!r}"
             ) from exc
         device = env.device
         self._offset_local = torch.tensor(
@@ -121,7 +123,7 @@ class IMUSensor(Sensor[IMUData]):
             and self._bias_lin is not None
             and self._bias_ang is not None
         )
-        rs = self._env.robot_state
+        rs = entity_state(self._env, self._cfg.entity_name)
         link_quat = rs.link_quat_w[:, self._link_idx]
         link_ang_vel_w = rs.link_ang_vel_w[:, self._link_idx]
         link_lin_vel_w = rs.link_lin_vel_w[:, self._link_idx]
@@ -191,7 +193,7 @@ class IMUSensor(Sensor[IMUData]):
             and self._lin_acc_b_buf is not None
             and self._ang_acc_b_buf is not None
         )
-        rs = self._env.robot_state
+        rs = entity_state(self._env, self._cfg.entity_name)
         link_quat = rs.link_quat_w[:, self._link_idx]
         gravity_w = torch.zeros_like(rs.link_lin_vel_w[:, self._link_idx])
         gravity_w[..., 2] = -1.0

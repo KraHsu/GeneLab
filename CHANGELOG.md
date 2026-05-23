@@ -8,6 +8,21 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Multi-robot sensor routing** (ROADMAP M3.6 / ADR-0012, slice **S4**) — `SensorCfg` gains
+  `entity_name: str = "robot"`, so each sensor attaches to / reads from a named scene entity.
+  - New `genelab.sensor._entity` (`entity_handle` / `entity_state` / `entity_articulation`)
+    resolves `env.articulations[entity_name]` with a primary fallback (lives in the sensor
+    layer because `mdp._helpers` imports `sensor.contact` — importing it back would cycle).
+  - Every sensor (`camera`, `force_torque`, `contact`, `self_contact`, `imu`, `ray_cast`,
+    `body_velocity`, `frame_transformer`, `angular_momentum`) now reaches its entity's
+    Genesis handle / `RobotState` / articulation — and resolves its link/joint **indices**
+    against that entity's name tables — via `entity_name`.
+
+  Backward-compatible: `entity_name` defaults to the primary `"robot"`; single-robot scenes
+  are unchanged. Small test-fake updates put `joint_names` on the FT fake articulation
+  (mirroring the real entity). Tested in `tests/test_multi_robot.py` (resolver selection +
+  a `ForceTorqueSensor` routed to a non-primary entity).
+
 - **Multi-robot write-side term routing** (ROADMAP M3.6 / ADR-0012, slice **S3b**) —
   completes the MDP-layer migration started in S3a. Event, DR and curriculum terms now
   route through `asset_cfg` to the named entity instead of the singular accessors:

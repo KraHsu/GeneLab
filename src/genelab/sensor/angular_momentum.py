@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.sensor._entity import entity_articulation, entity_handle, entity_state
 from genelab.sensor.sensor import Sensor, SensorCfg
 
 if TYPE_CHECKING:
@@ -53,12 +54,12 @@ class RootAngularMomentumSensor(Sensor[torch.Tensor]):
 
     def bind(self, env: "ManagerBasedRlEnv") -> None:
         super().bind(env)
-        num_links = len(env.link_names)
+        num_links = len(entity_articulation(env, self._cfg.entity_name).link_names)
         # Masses are static (unless P4's body-mass DR mutates them; we'll need a refresh
         # hook then). Fetch once and broadcast across envs. ``get_links_inertial_mass`` may
         # return (num_links,) or (n_envs, n_links) depending on Genesis version — normalise.
         masses_per_env_links = torch.zeros(env.num_envs, num_links, device=env.device)
-        getter = getattr(env.robot, "get_links_inertial_mass", None)
+        getter = getattr(entity_handle(env, self._cfg.entity_name), "get_links_inertial_mass", None)
         if getter is not None:
             try:
                 m = getter()
@@ -74,7 +75,7 @@ class RootAngularMomentumSensor(Sensor[torch.Tensor]):
 
     def _compute_data(self) -> torch.Tensor:
         assert self._env is not None and self._link_masses is not None
-        state = self._env.robot_state
+        state = entity_state(self._env, self._cfg.entity_name)
         link_pos = state.link_pos  # (B, num_links, 3)
         link_vel = state.link_lin_vel_w  # (B, num_links, 3)
         root_pos = state.root_pos  # (B, 3)

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.sensor._entity import entity_articulation, entity_handle
 from genelab.sensor.sensor import Sensor, SensorCfg
 
 if TYPE_CHECKING:
@@ -82,12 +83,14 @@ class ForceTorqueSensor(Sensor[ForceTorqueData]):
 
     def bind(self, env: "ManagerBasedRlEnv") -> None:
         super().bind(env)
-        local, names = _resolve_joint_indices(self._cfg_typed, env.joint_names)
+        local, names = _resolve_joint_indices(
+            self._cfg_typed, entity_articulation(env, self._cfg.entity_name).joint_names
+        )
         self._resolved_joint_names = names
         local_t = torch.tensor(local, dtype=torch.long, device=env.device)
         # Map joint-list indices → global Genesis DoF ids (``get_dofs_force`` returns
         # every entity DoF, including the floating base).
-        actuated = env.articulation.actuated_dof_ids.to(env.device)
+        actuated = entity_articulation(env, self._cfg.entity_name).actuated_dof_ids.to(env.device)
         self._dof_ids = actuated.index_select(0, local_t)
 
     def _compute_data(self) -> ForceTorqueData:
@@ -95,7 +98,7 @@ class ForceTorqueSensor(Sensor[ForceTorqueData]):
         assert env is not None and self._dof_ids is not None
         n = self._dof_ids.numel()
         zeros = torch.zeros(env.num_envs, n, device=env.device)
-        getter = getattr(env.robot, "get_dofs_force", None)
+        getter = getattr(entity_handle(env, self._cfg.entity_name), "get_dofs_force", None)
         if getter is None:
             return ForceTorqueData(force=zeros)  # Genesis fake / not built — keep usable in tests.
         try:
