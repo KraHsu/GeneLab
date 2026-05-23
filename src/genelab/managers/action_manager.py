@@ -10,7 +10,7 @@ import torch
 from genelab.managers.manager_term_cfg import ManagerTermBaseCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -24,7 +24,7 @@ class ActionTermCfg(ManagerTermBaseCfg):
 class ActionTerm(abc.ABC):
     """Base class for action terms. Subclasses own a slice of the action vector."""
 
-    def __init__(self, cfg: ActionTermCfg, env: "ManagerBasedRlEnv") -> None:
+    def __init__(self, cfg: ActionTermCfg, env: "EnvContext") -> None:
         self.cfg = cfg
         self._env = env
 
@@ -60,7 +60,7 @@ class ActionManager:
     def __init__(
         self,
         cfg: dict[str, ActionTermCfg],
-        env: "ManagerBasedRlEnv",
+        env: "EnvContext",
     ) -> None:
         self._env = env
         self.cfg: dict[str, ActionTermCfg] = deepcopy(cfg)

@@ -9,11 +9,11 @@ from genelab.mdp._helpers import asset_articulation, asset_handle, asset_state
 from genelab.mdp.dr._common import normalise_env_ids, resolve_joint_indices
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 def randomize_joint_stiffness_damping(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | None,
     stiffness_range: tuple[float, float] = (0.8, 1.2),
     damping_range: tuple[float, float] = (0.8, 1.2),
@@ -63,7 +63,7 @@ def randomize_joint_stiffness_damping(
 
 
 def encoder_bias(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | None,
     asset_cfg: SceneEntityCfg,
     bias_range: tuple[float, float] = (-0.015, 0.015),

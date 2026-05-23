@@ -23,7 +23,7 @@ from genelab.mdp._helpers import resolve_articulation, resolve_robot_state
 from genelab.utils.math import axis_angle_from_quat, quat_inv, quat_mul
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -87,7 +87,7 @@ class DifferentialIKActionCfg(ActionTermCfg):
 class DifferentialIKAction(ActionTerm):
     cfg: DifferentialIKActionCfg  # type: ignore[assignment]
 
-    def __init__(self, cfg: DifferentialIKActionCfg, env: "ManagerBasedRlEnv") -> None:
+    def __init__(self, cfg: DifferentialIKActionCfg, env: "EnvContext") -> None:
         super().__init__(cfg, env)
         if not cfg.body_name:
             raise ValueError(

@@ -32,7 +32,7 @@ import torch
 from genelab.bridges.base import BridgeCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 _logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ class DearPyGuiTwistBridge:
 
     # ------------------------------------------------------------------ lifecycle
 
-    def on_build(self, env: "ManagerBasedRlEnv") -> None:
+    def on_build(self, env: "EnvContext") -> None:
         # Teleop only makes sense with a single env — broadcasting the slider
         # state across N envs collapses them onto the same trajectory, which
         # defeats the point of a parallel rollout. Skip silently except for a
@@ -135,7 +135,7 @@ class DearPyGuiTwistBridge:
         self._thread.start()
         self._enabled = True
 
-    def pre_step(self, env: "ManagerBasedRlEnv") -> None:
+    def pre_step(self, env: "EnvContext") -> None:
         if not self._enabled:
             return
         with self._lock:
@@ -145,10 +145,10 @@ class DearPyGuiTwistBridge:
         desired = torch.tensor([vx, vy, wz], device=buf.device, dtype=buf.dtype)
         buf[:] = desired
 
-    def post_step(self, env: "ManagerBasedRlEnv") -> None:
+    def post_step(self, env: "EnvContext") -> None:
         pass
 
-    def on_close(self, env: "ManagerBasedRlEnv") -> None:
+    def on_close(self, env: "EnvContext") -> None:
         if not self._enabled:
             return
         dpg = self._dpg

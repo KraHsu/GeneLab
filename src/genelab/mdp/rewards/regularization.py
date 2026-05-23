@@ -20,16 +20,16 @@ from genelab.mdp._helpers import (
 from genelab.utils.math import quat_apply_inverse
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
     from genelab.managers.reward_manager import RewardTermCfg
     from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
-def action_rate_l2(env: ManagerBasedRlEnv) -> torch.Tensor:
+def action_rate_l2(env: EnvContext) -> torch.Tensor:
     return torch.sum((env.action_manager.action - env.action_manager.prev_action) ** 2, dim=-1)
 
 
-def lin_vel_z_l2(env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
+def lin_vel_z_l2(env: EnvContext, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
     """Penalize vertical base velocity — ``v_z²`` in the base frame.
 
     Discourages bouncing / vertical oscillation in locomotion. Returns the
@@ -39,7 +39,7 @@ def lin_vel_z_l2(env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg | None = None
 
 
 def base_height_l2(
-    env: ManagerBasedRlEnv, target_height: float, asset_cfg: SceneEntityCfg | None = None
+    env: EnvContext, target_height: float, asset_cfg: SceneEntityCfg | None = None
 ) -> torch.Tensor:
     """Penalize squared deviation of base height from ``target_height``.
 
@@ -49,7 +49,7 @@ def base_height_l2(
     return (_asset_state(env, asset_cfg).root_pos[:, 2] - target_height) ** 2
 
 
-def alive_bonus(env: ManagerBasedRlEnv) -> torch.Tensor:
+def alive_bonus(env: EnvContext) -> torch.Tensor:
     """Constant ``+1`` per env per step (pair with a positive weight).
 
     Rewards staying alive so per-step penalties don't make early termination look
@@ -60,7 +60,7 @@ def alive_bonus(env: ManagerBasedRlEnv) -> torch.Tensor:
 
 
 def applied_torque_l2(
-    env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg | None = None
+    env: EnvContext, asset_cfg: SceneEntityCfg | None = None
 ) -> torch.Tensor:
     """Penalize squared realized actuator torque — ``Σⱼ τⱼ²`` over actuated joints.
 
@@ -71,7 +71,7 @@ def applied_torque_l2(
 
 
 def joint_vel_limits(
-    env: ManagerBasedRlEnv, soft_ratio: float = 1.0, asset_cfg: SceneEntityCfg | None = None
+    env: EnvContext, soft_ratio: float = 1.0, asset_cfg: SceneEntityCfg | None = None
 ) -> torch.Tensor:
     """Sum of per-joint speed excursions past ``soft_ratio × joint_vel_limit``.
 
@@ -87,7 +87,7 @@ def joint_vel_limits(
 _joint_acc_l2_warned = False
 
 
-def joint_acc_l2(env: ManagerBasedRlEnv) -> torch.Tensor:
+def joint_acc_l2(env: EnvContext) -> torch.Tensor:
     # Stub: proper joint acceleration needs a prev-step joint_vel buffer; not yet wired.
     # Returns zero so it's safe to include in reward weights without affecting gradients.
     global _joint_acc_l2_warned
@@ -104,14 +104,14 @@ def joint_acc_l2(env: ManagerBasedRlEnv) -> torch.Tensor:
 
 
 def flat_orientation_l2(
-    env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg | None = None
+    env: EnvContext, asset_cfg: SceneEntityCfg | None = None
 ) -> torch.Tensor:
     """Penalise tilt: the xy components of body-frame gravity should be zero."""
     return torch.sum(_asset_state(env, asset_cfg).projected_gravity_b[:, :2] ** 2, dim=-1)
 
 
 def upright_exp(
-    env: ManagerBasedRlEnv,
+    env: EnvContext,
     std: float = 0.45,
     asset_cfg: SceneEntityCfg | None = None,
 ) -> torch.Tensor:
@@ -166,7 +166,7 @@ class variable_posture:
     Reward: ``exp(-mean((joint_pos - default)^2 / std^2))``.
     """
 
-    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRlEnv) -> None:
+    def __init__(self, cfg: RewardTermCfg, env: EnvContext) -> None:
         self._env = env
         params = cfg.params
         default = float(params.get("default_std", 1.0))
@@ -192,7 +192,7 @@ class variable_posture:
 
     def __call__(
         self,
-        env: ManagerBasedRlEnv,
+        env: EnvContext,
         command_name: str,
         std_standing: dict[str, float] | None = None,
         std_walking: dict[str, float] | None = None,
@@ -228,7 +228,7 @@ class variable_posture:
 
 
 def joint_pos_limits(
-    env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg | None = None
+    env: EnvContext, asset_cfg: SceneEntityCfg | None = None
 ) -> torch.Tensor:
     """Sum of per-joint excursions past the actuator's configured limits.
 

@@ -22,13 +22,13 @@ from genelab.mdp._helpers import (
 from genelab.sensor.self_contact import SelfContactSensor
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
     from genelab.managers.reward_manager import RewardTermCfg
     from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
 def body_angular_velocity_penalty(
-    env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg
+    env: EnvContext, asset_cfg: SceneEntityCfg
 ) -> torch.Tensor:
     """``Σ ω_xy²`` across the links named by ``asset_cfg`` (typical G1 use: torso only).
 
@@ -42,7 +42,7 @@ def body_angular_velocity_penalty(
 
 
 def feet_clearance(
-    env: ManagerBasedRlEnv,
+    env: EnvContext,
     asset_cfg: SceneEntityCfg,
     target_height: float,
     command_name: str,
@@ -83,7 +83,7 @@ def feet_clearance(
 
 
 def feet_slip(
-    env: ManagerBasedRlEnv,
+    env: EnvContext,
     sensor_name: str,
     asset_cfg: SceneEntityCfg,
     command_name: str,
@@ -103,7 +103,7 @@ def feet_slip(
 
 
 def soft_landing(
-    env: ManagerBasedRlEnv,
+    env: EnvContext,
     sensor_name: str,
     command_name: str,
     command_threshold: float = 0.05,
@@ -137,7 +137,7 @@ class feet_swing_height:
     prior air phase always starts with a ``first_detached`` reset.
     """
 
-    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRlEnv) -> None:
+    def __init__(self, cfg: RewardTermCfg, env: EnvContext) -> None:
         self._env = env
         asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self._asset_cfg = asset_cfg
@@ -149,7 +149,7 @@ class feet_swing_height:
 
     def __call__(
         self,
-        env: ManagerBasedRlEnv,
+        env: EnvContext,
         sensor_name: str,
         asset_cfg: SceneEntityCfg,
         target_height: float,
@@ -174,7 +174,7 @@ class feet_swing_height:
         return cost * _command_active(env, command_name, command_threshold)
 
 
-def angular_momentum_penalty(env: ManagerBasedRlEnv, sensor_name: str) -> torch.Tensor:
+def angular_momentum_penalty(env: EnvContext, sensor_name: str) -> torch.Tensor:
     """``||L||₂²`` — squared magnitude of root-frame angular momentum.
 
     Reads :class:`~genelab.sensor.RootAngularMomentumSensor`'s ``(B, 3)`` vector
@@ -192,7 +192,7 @@ def angular_momentum_penalty(env: ManagerBasedRlEnv, sensor_name: str) -> torch.
 
 
 def self_collision_cost(
-    env: ManagerBasedRlEnv,
+    env: EnvContext,
     sensor_name: str,
 ) -> torch.Tensor:
     """Count of recent self-contact "hit" frames.
@@ -223,7 +223,7 @@ def self_collision_cost(
 
 
 def feet_air_time(
-    env: ManagerBasedRlEnv,
+    env: EnvContext,
     sensor_name: str,
     threshold_min: float = 0.05,
     threshold_max: float = 0.5,

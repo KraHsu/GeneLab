@@ -8,12 +8,12 @@ from genelab.mdp._helpers import asset_articulation, asset_handle
 from genelab.utils.math import quat_from_euler_xyz, quat_mul
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
     from genelab.managers.scene_entity_cfg import SceneEntityCfg
 
 
 def reset_root_state_uniform(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | None,
     pose_range: dict[str, tuple[float, float]] | None = None,
     velocity_range: dict[str, tuple[float, float]] | None = None,
@@ -87,7 +87,7 @@ def reset_root_state_uniform(
 
 
 def reset_joints_to_default(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | None,
     pos_jitter: float = 0.0,
     vel_jitter: float = 0.0,
@@ -107,7 +107,7 @@ def reset_joints_to_default(
 
 
 def reset_joints_by_offset(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | None,
     position_range: tuple[float, float] = (0.0, 0.0),
     velocity_range: tuple[float, float] = (0.0, 0.0),
@@ -149,7 +149,7 @@ def reset_joints_by_offset(
 
 
 def push_by_setting_velocity(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | None,
     velocity_range: dict[str, tuple[float, float]] | None = None,
     asset_cfg: "SceneEntityCfg | None" = None,
