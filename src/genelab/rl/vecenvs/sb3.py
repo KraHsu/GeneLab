@@ -29,7 +29,7 @@ from genelab.rl.vecenvs._attach_base import attach_optional_base
 
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
-    from genelab.rl.sb3_config import Sb3HerCfg
+    from genelab.rl.backends.sb3.config import Sb3HerCfg
 
 
 def _box(dim: int) -> gymnasium.spaces.Box:

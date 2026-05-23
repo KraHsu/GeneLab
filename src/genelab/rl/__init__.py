@@ -9,8 +9,8 @@ from genelab.rl.config import (
 )
 from genelab.rl.profiler import maybe_profile, profiler_enabled
 from genelab.rl.runner import AgentKind, play_task, train_task
-from genelab.rl.sb3_config import Sb3AgentCfg, Sb3ExperimentCfg, Sb3HerCfg, Sb3PolicyCfg
-from genelab.rl.skrl_config import SkrlAgentCfg, SkrlExperimentCfg, SkrlModelCfg
+from genelab.rl.backends.sb3.config import Sb3AgentCfg, Sb3ExperimentCfg, Sb3HerCfg, Sb3PolicyCfg
+from genelab.rl.backends.skrl.config import SkrlAgentCfg, SkrlExperimentCfg, SkrlModelCfg
 from genelab.rl.vecenv import VecEnvBase
 
 __all__ = [

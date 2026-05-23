@@ -1,6 +1,6 @@
 """Shared algorithm taxonomy for the RL backends.
 
-Both :mod:`genelab.rl.sb3_config` and :mod:`genelab.rl.skrl_config` previously
+Both :mod:`genelab.rl.backends.sb3.config` and :mod:`genelab.rl.backends.skrl.config` previously
 declared their own copies of these two frozensets verbatim. They are the same
 taxonomy — on-policy algorithms learn from a rollout buffer, off-policy
 algorithms learn from a replay buffer — so per ADR-0003 / R2.1 they live here
