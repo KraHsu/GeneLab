@@ -6,7 +6,7 @@
 
 | 模块 | 用途 | 常见导入 |
 |---|---|---|
-| `genelab.lab` | 稳定的用户入口，汇总配置、注册表、scene 对象、传感器、执行器、地形和扩展加载。 | `TaskCfg`、`ManagerBasedEnvCfg`、`ArticulationCfg`、`SensorCfg` |
+| `genelab.lab` | 稳定且有 snapshot guard 的用户入口，汇总配置、注册表、scene 对象、传感器、执行器、地形和扩展加载。公开名称在首次访问时惰性解析。 | `TaskCfg`、`ManagerBasedEnvCfg`、`ArticulationCfg`、`SensorCfg` |
 | `genelab` | 轻量包根。懒加载少量顶层类型，避免导入包根时立刻拉起 torch。 | `__version__`、`TaskCfg`、`ManagerBasedEnvCfg` |
 
 下游任务、notebook 和示例优先从 `genelab.lab` 导入；只有需要明确的低层能力时再进入对应模块。
@@ -24,6 +24,7 @@
 | 模块 | 职责 |
 |---|---|
 | `genelab.configs` | 核心 dataclass：`SimulationCfg`、`InteractiveSceneCfg`、`ManagerBasedEnvCfg`、`TaskCfg` 和 `apply_overrides`。 |
+| `genelab.contracts` | 具体 env / scene 实现的 domain port：`EnvContext`、`SceneContext`，以及 canonical `NoiseCfg` 基类。 |
 | `genelab.envs.manager_based_rl_env` | Genesis 后端的 `ManagerBasedRlEnv` 与 `ManagerBasedRlEnvCfg`。 |
 | `genelab.managers` | action、command、observation、reward、termination、event、curriculum、metric 的 manager 与 term cfg。 |
 | `genelab.mdp` | 可复用的 observation、reward、termination、event、curriculum、metric、noise、action、command、domain randomization 函数。 |

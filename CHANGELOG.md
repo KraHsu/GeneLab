@@ -4,7 +4,29 @@ All notable changes to GeneLab are recorded here.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **Architecture contracts:** added `genelab.contracts` as the public home for
+  `EnvContext`, `SceneContext`, and `NoiseCfg`, so domain terms can type-hint the env/scene
+  surfaces they need without importing concrete runtime implementations.
+- **Typed backend dispatch:** added the `BackendConfig` marker base in `genelab.rl.config`.
+  RL backends now register against `type[BackendConfig]`, and `select_backend(agent_cfg)`
+  dispatches through the typed registry.
+- **Public API guardrails:** made `genelab.lab` a lazy facade and added snapshot coverage for
+  the blessed `lab.__all__` and `extensions.__all__` public surfaces.
+- **MDP package structure:** split rewards into the `mdp/rewards` package while preserving the
+  existing `genelab.mdp` import surface.
+
+### Changed
+
+- **Breaking:** removed `lab.GenesisBackendCfg`.
+- **Breaking:** renamed the environment registration protocol from `lab.ManagerBasedEnv` to
+  `lab.ManagerBasedEnvProtocol`.
+- Moved backend-specific config modules from `genelab.rl.{skrl_config,skrl_models,sb3_config}`
+  to `genelab.rl.backends.{skrl,sb3}.{config,models}`. The `genelab.rl.*Cfg` facades remain
+  available for user code.
+- Moved `NoiseCfg`'s canonical home to `genelab.contracts`; it remains re-exported from the MDP
+  noise module and the public facades.
 
 ## [0.2.0] — 2026-05-23
 

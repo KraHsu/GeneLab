@@ -19,8 +19,9 @@ articulation、rigid object、sensor、terrain importer、recorder bridge 和 vi
 | `RigidObject` | 非关节物体 wrapper。 |
 | `RobotState` | observation、reward、sensor、event 读取的 batched tensor。 |
 
-`ManagerBasedRlEnv` 把配置中的机器人作为 `"robot"` articulation 加入，并暴露
-`env.robot_state`、`env.joint_names`、`env.link_names`、`env.scene` 等便捷属性。
+`ManagerBasedRlEnv` 把配置中的机器人作为 `"robot"` articulation 加入。实时机器人数据通过具名
+entity 表访问，例如用 `env.articulations["robot"].data` 读取 `RobotState`，用
+`env.articulations["robot"].joint_names` 读取关节元数据。环境也暴露 `env.scene` 供 scene 级访问。
 
 ## 为什么需要 wrapper
 

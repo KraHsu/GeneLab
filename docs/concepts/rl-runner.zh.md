@@ -13,8 +13,9 @@
 | `SkrlAgentCfg` | `skrl` | PPO、A2C、SAC、TD3、DDPG |
 | `Sb3AgentCfg` | `sb3` | PPO、A2C、SAC、TD3、DDPG（含 HER） |
 
-后端位于 `genelab.rl.backends`，按配置类型自行注册，`select_backend(agent_cfg)` 负责解析。
-接入另一个库只需新增一个 `Backend`（`train` / `play`）及其 agent 配置 dataclass——分发器和
+后端位于 `genelab.rl.backends`，按配置类型自行注册，`select_backend(agent_cfg)` 通过
+`type[BackendConfig]` 索引的 typed registry 解析。接入另一个库只需新增一个 `Backend`
+（`train` / `play`）及其继承 `genelab.rl.config.BackendConfig` 的 agent 配置 dataclass——分发器和
 CLI 无需改动。
 
 ## 训练流程

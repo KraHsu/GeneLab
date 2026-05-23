@@ -16,8 +16,10 @@ profiling hooks, and distributed launch helpers; the backend owns the learning a
 | `Sb3AgentCfg` | `sb3` | PPO, A2C, SAC, TD3, DDPG (+ HER) |
 
 Backends live under `genelab.rl.backends` and register themselves by config type;
-`select_backend(agent_cfg)` resolves one. Adding another library means adding a `Backend`
-(`train` / `play`) plus its agent-config dataclass — no change to the dispatcher or CLI.
+`select_backend(agent_cfg)` resolves one through a typed registry keyed by
+`type[BackendConfig]`. Adding another library means adding a `Backend` (`train` / `play`) plus an
+agent-config dataclass that subclasses `genelab.rl.config.BackendConfig` — no change to the
+dispatcher or CLI.
 
 ## Training flow
 

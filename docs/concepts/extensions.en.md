@@ -88,10 +88,11 @@ from pathlib import Path
 from genelab.extensions import register_backend
 from genelab.rl.backends import PlayContext, TrainContext
 from genelab.rl.backends.base import InferenceSetup
+from genelab.rl.config import BackendConfig
 
 
 @dataclass
-class EchoAgentCfg:
+class EchoAgentCfg(BackendConfig):
     """The agent-config type this backend owns; tasks set ``cfg.agent`` to an instance."""
 
     max_iterations: int = 10
