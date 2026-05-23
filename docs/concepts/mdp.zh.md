@@ -57,6 +57,9 @@ reward 函数应返回 `(num_envs,)`；termination 函数应返回 `(num_envs,)`
 | Noise | `Unoise`、`Gnoise` |
 | Domain randomization | `mdp.dr.body`、`mdp.dr.joint`、`mdp.dr.geom` |
 
+`NoiseCfg` 的 canonical home 是 `genelab.contracts`，这样 observation manager 可以标注 noise 而无需
+导入 `genelab.mdp`。具体噪声模型仍可从 `genelab.mdp.noise` 和公开 facade 导入。
+
 ## 继续阅读
 
 - [Manager 与 MDP term](managers.md)

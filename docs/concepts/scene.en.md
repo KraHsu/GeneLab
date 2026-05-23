@@ -20,8 +20,10 @@ This separation keeps configs serializable and lets tasks be inspected before Ge
 | `RigidObject` | Non-articulated object wrapper. |
 | `RobotState` | Batched tensors read by observations, rewards, sensors, and events. |
 
-`ManagerBasedRlEnv` adds the configured robot as the `"robot"` articulation and exposes convenient
-properties such as `env.robot_state`, `env.joint_names`, `env.link_names`, and `env.scene`.
+`ManagerBasedRlEnv` adds the configured robot as the `"robot"` articulation. Access live robot data
+through the named entity table, for example `env.articulations["robot"].data` for `RobotState` and
+`env.articulations["robot"].joint_names` for joint metadata. The environment also exposes
+`env.scene` for scene-level access.
 
 ## Why wrappers matter
 

@@ -65,6 +65,10 @@ boolean tensors.
 | Noise | `Unoise`, `Gnoise` |
 | Domain randomization | `mdp.dr.body`, `mdp.dr.joint`, `mdp.dr.geom` |
 
+`NoiseCfg`'s canonical home is `genelab.contracts`, which lets the observation manager type-hint
+noise without importing `genelab.mdp`. Concrete models remain available from `genelab.mdp.noise`
+and the public facades.
+
 ## Where to continue
 
 - [Managers and MDP terms](managers.md)

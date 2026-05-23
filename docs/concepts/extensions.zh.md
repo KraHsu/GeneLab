@@ -80,10 +80,11 @@ from pathlib import Path
 from genelab.extensions import register_backend
 from genelab.rl.backends import PlayContext, TrainContext
 from genelab.rl.backends.base import InferenceSetup
+from genelab.rl.config import BackendConfig
 
 
 @dataclass
-class EchoAgentCfg:
+class EchoAgentCfg(BackendConfig):
     """该后端拥有的 agent-config 类型；任务把 ``cfg.agent`` 设为它的实例。"""
 
     max_iterations: int = 10
