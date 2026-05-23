@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Literal
 
 import torch
 
+from genelab.sensor._entity import entity_articulation, entity_state
 from genelab.sensor.sensor import Sensor, SensorCfg
 from genelab.utils.math import quat_apply, quat_apply_inverse
 
@@ -46,12 +47,13 @@ class BodyVelocitySensor(Sensor[torch.Tensor]):
         super().bind(env)
         if not self._cfg_typed.link_name:
             raise ValueError(f"BodyVelocitySensorCfg(name={self._cfg.name!r}) requires link_name")
+        link_names = entity_articulation(env, self._cfg.entity_name).link_names
         try:
-            self._link_idx = env.link_names.index(self._cfg_typed.link_name)
+            self._link_idx = link_names.index(self._cfg_typed.link_name)
         except ValueError as exc:
             raise ValueError(
                 f"sensor {self._cfg.name!r}: link {self._cfg_typed.link_name!r} not found in "
-                f"env.link_names={env.link_names!r}"
+                f"link_names={link_names!r}"
             ) from exc
         self._offset_local = torch.tensor(
             self._cfg_typed.offset, dtype=torch.float32, device=env.device
@@ -77,7 +79,7 @@ class BodyVelocitySensor(Sensor[torch.Tensor]):
 
     def _compute_data(self) -> torch.Tensor:
         assert self._env is not None and self._offset_local is not None and self._bias is not None
-        rs = self._env.robot_state
+        rs = entity_state(self._env, self._cfg.entity_name)
         link_quat = rs.link_quat_w[:, self._link_idx]
         link_ang_vel_w = rs.link_ang_vel_w[:, self._link_idx]
         if self._cfg_typed.measure == "ang_vel":

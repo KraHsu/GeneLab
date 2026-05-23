@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.sensor._entity import entity_articulation, entity_state
 from genelab.sensor.sensor import Sensor, SensorCfg
 from genelab.utils.math import quat_apply, quat_mul, subtract_frame_transforms
 
@@ -91,20 +92,21 @@ class FrameTransformerSensor(Sensor[FrameTransformerData]):
             raise ValueError(
                 f"FrameTransformerSensorCfg(name={self._cfg.name!r}) requires at least one target frame"
             )
+        link_names = entity_articulation(env, self._cfg.entity_name).link_names
         try:
-            self._source_idx = env.link_names.index(self._cfg_typed.source_link_name)
+            self._source_idx = link_names.index(self._cfg_typed.source_link_name)
         except ValueError as exc:
             raise ValueError(
                 f"sensor {self._cfg.name!r}: source link {self._cfg_typed.source_link_name!r} "
-                f"not in env.link_names={env.link_names!r}"
+                f"not in link_names={link_names!r}"
             ) from exc
         unresolved: list[str] = [
-            t.link_name for t in self._cfg_typed.target_frames if t.link_name not in env.link_names
+            t.link_name for t in self._cfg_typed.target_frames if t.link_name not in link_names
         ]
         if unresolved:
             raise ValueError(
                 f"sensor {self._cfg.name!r}: target link(s) {unresolved!r} not in "
-                f"env.link_names={env.link_names!r}"
+                f"link_names={link_names!r}"
             )
         device = env.device
         self._source_offset_pos = torch.tensor(
@@ -114,7 +116,7 @@ class FrameTransformerSensor(Sensor[FrameTransformerData]):
             self._cfg_typed.source_offset_quat, dtype=torch.float32, device=device
         )
         self._target_indices = torch.tensor(
-            [env.link_names.index(t.link_name) for t in self._cfg_typed.target_frames],
+            [link_names.index(t.link_name) for t in self._cfg_typed.target_frames],
             dtype=torch.long,
             device=device,
         )
@@ -141,7 +143,7 @@ class FrameTransformerSensor(Sensor[FrameTransformerData]):
             and self._target_offsets_pos is not None
             and self._target_offsets_quat is not None
         )
-        rs = self._env.robot_state
+        rs = entity_state(self._env, self._cfg.entity_name)
         b = self._env.num_envs
         n = self._target_indices.shape[0]
 
