@@ -5,10 +5,11 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 from genelab.managers.scene_entity_cfg import SceneEntityCfg
+from genelab.mdp._helpers import asset_handle
 from genelab.mdp.dr._common import normalise_env_ids, resolve_link_indices
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 def _link_nominal_friction(robot: Any, link_indices: list[int]) -> torch.Tensor | None:
@@ -40,7 +41,7 @@ def _link_nominal_friction(robot: Any, link_indices: list[int]) -> torch.Tensor 
 
 
 def geom_friction(
-    env: "ManagerBasedRlEnv",
+    env: "EnvContext",
     env_ids: torch.Tensor | None,
     asset_cfg: SceneEntityCfg,
     ranges: tuple[float, float] = (0.5, 1.5),
@@ -82,7 +83,8 @@ def geom_friction(
         sampled = torch.empty(n_envs, n_links, device=env.device).uniform_(*ranges)
 
     # Translate absolute friction → ratio for Genesis's batched setter.
-    nominal = _link_nominal_friction(env.robot, link_indices)
+    handle = asset_handle(env, asset_cfg)
+    nominal = _link_nominal_friction(handle, link_indices)
     if nominal is None:
         # Fake env (no ``.links`` chain): treat nominal as 1.0 so the ratio
         # passed to ``set_friction_ratio`` is numerically the sampled value.
@@ -92,7 +94,7 @@ def geom_friction(
         nominal = nominal.to(device=sampled.device).clamp(min=1e-6)
         ratio = sampled / nominal.unsqueeze(0)
 
-    setter = getattr(env.robot, "set_friction_ratio", None)
+    setter = getattr(handle, "set_friction_ratio", None)
     if setter is None:
         return
     try:

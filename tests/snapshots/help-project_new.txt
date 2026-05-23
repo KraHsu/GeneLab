@@ -1,0 +1,17 @@
+                                                                                                    
+ Usage: genelab project new [OPTIONS] NAME                                                          
+                                                                                                    
+ Create an external project skeleton.                                                               
+                                                                                                    
+╭─ Arguments ──────────────────────────────────────────────────────────────────────────────────────╮
+│ *    name      TEXT  Directory and distribution name for the new project. [required]             │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
+│ --path     -p      PATH  Parent directory under which the project directory is created.          │
+│                          [default: .]                                                            │
+│ --package          TEXT  Python package name to create. Defaults to a normalized form of NAME.   │
+│ --task-id          TEXT  Initial GeneLab task id. Defaults to <PackageName>-Example-v0.          │
+│ --force                  Overwrite scaffold files when the target directory already exists.      │
+│ --help                   Show this message and exit.                                             │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+

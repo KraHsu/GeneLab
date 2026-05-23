@@ -17,7 +17,7 @@ Lifecycle:
 
 import os
 from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import torch
 
@@ -136,7 +136,7 @@ class InteractiveScene:
 
     def build(self) -> None:
         """Initialize Genesis, spawn every entity, build the parallel scene."""
-        from genelab.rl.distributed import pin_cuda_device
+        from genelab.utils.distributed import pin_cuda_device
 
         pinned = pin_cuda_device()
         if pinned is not None:
@@ -161,6 +161,17 @@ class InteractiveScene:
             dt=float(self._sim_cfg.dt),
             substeps=int(self._sim_cfg.substeps),
         )
+        # Optional rigid-solver tuning (ROADMAP M3.7). The cfg keeps ``integrator`` as a
+        # string (so ``configs`` stays Genesis-free); resolve it to ``gs.integrator.<name>``
+        # here. ``rigid_options`` is only passed when the user set at least one field, so an
+        # untouched config leaves Genesis's defaults exactly as before.
+        rigid_kwargs = self._sim_cfg.rigid_options_kwargs()
+        if "integrator" in rigid_kwargs:
+            name = rigid_kwargs["integrator"]
+            integrator = getattr(gs.integrator, name, None)
+            if integrator is None:
+                raise ValueError(f"SimulationCfg.integrator={name!r} is not a gs.integrator member")
+            rigid_kwargs["integrator"] = integrator
         # ``batch_render=True`` swaps in Genesis's BatchRenderer so attached cameras can
         # emit per-env RGB-D tensors. Default ``None`` keeps the historic Rasterizer path.
         renderer = (
@@ -186,6 +197,8 @@ class InteractiveScene:
             renderer=renderer,
             show_viewer=self._sim_cfg.vis,
         )
+        if rigid_kwargs:
+            scene_kwargs["rigid_options"] = gs.options.RigidOptions(**rigid_kwargs)
         if viewer_options is not None:
             scene_kwargs["viewer_options"] = viewer_options
         self._gs_scene = gs.Scene(**scene_kwargs)
@@ -379,3 +392,13 @@ class InteractiveScene:
     def recorder_bridge(self) -> RecorderBridge | None:
         """The recorder bridge if the scene cfg declared any ``recordings``, else ``None``."""
         return self._recorder_bridge
+
+
+if TYPE_CHECKING:
+    from typing import cast
+
+    from genelab.contracts import SceneContext
+
+    # ADR-0014: InteractiveScene is the adapter for the SceneContext port. Type-only
+    # assignment; pyright fails CI if the scene stops conforming.
+    _scene_context_conformance: SceneContext = cast("InteractiveScene", ...)

@@ -1,16 +1,15 @@
 """Reward manager: weights and sums reward terms per environment per step."""
 
-from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import torch
 
-from genelab.managers._base import instantiate_class_term
+from genelab.managers._base import BaseTermManager
 from genelab.managers.manager_term_cfg import ManagerTermBaseCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -20,7 +19,7 @@ class RewardTermCfg(ManagerTermBaseCfg):
     weight: float = 0.0
 
 
-class RewardManager:
+class RewardManager(BaseTermManager[RewardTermCfg]):
     """Aggregates weighted reward terms.
 
     When ``scale_by_dt`` is True (default) the per-step reward is multiplied by ``dt`` so
@@ -30,36 +29,23 @@ class RewardManager:
     def __init__(
         self,
         cfg: dict[str, RewardTermCfg],
-        env: "ManagerBasedRlEnv",
+        env: "EnvContext",
         *,
         scale_by_dt: bool = True,
     ) -> None:
-        self._env = env
+        # Stash _scale_by_dt before super().__init__ so the object is fully constructed
+        # by the time the base's _post_init hook fires (defensive; compute() is what
+        # actually reads it, not _post_init).
         self._scale_by_dt = scale_by_dt
-        self.cfg: dict[str, RewardTermCfg] = deepcopy(cfg)
-        self._term_names: list[str] = []
-        self._term_cfgs: list[RewardTermCfg] = []
-        for name, term_cfg in self.cfg.items():
-            instantiate_class_term(term_cfg, env)
-            self._term_names.append(name)
-            self._term_cfgs.append(term_cfg)
+        super().__init__(cfg, env)
+
+    def _post_init(self) -> None:
+        """Allocate per-step reward and per-term episode-sum buffers."""
         self._reward_buf = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self._episode_sums: dict[str, torch.Tensor] = {
             name: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
             for name in self._term_names
         }
-
-    @property
-    def num_envs(self) -> int:
-        return self._env.num_envs
-
-    @property
-    def device(self) -> str:
-        return self._env.device
-
-    @property
-    def active_terms(self) -> list[str]:
-        return list(self._term_names)
 
     def reset(self, env_ids: torch.Tensor | slice | None = None) -> dict[str, float]:
         if env_ids is None:

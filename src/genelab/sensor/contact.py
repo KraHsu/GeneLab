@@ -12,10 +12,11 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.sensor._entity import entity_articulation, entity_handle
 from genelab.sensor.sensor import Sensor, SensorCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -115,9 +116,11 @@ class ContactSensor(Sensor[ContactData]):
     def link_names(self) -> list[str]:
         return list(self._resolved_link_names)
 
-    def bind(self, env: "ManagerBasedRlEnv") -> None:
+    def bind(self, env: "EnvContext") -> None:
         super().bind(env)
-        indices, names = _resolve_link_indices(self._cfg_typed, env.link_names)
+        indices, names = _resolve_link_indices(
+            self._cfg_typed, entity_articulation(env, self._cfg.entity_name).link_names
+        )
         self._resolved_link_names = names
         self._link_idx_tensor = torch.tensor(indices, dtype=torch.long, device=env.device)
         if self._cfg_typed.track_air_time:
@@ -239,7 +242,7 @@ class ContactSensor(Sensor[ContactData]):
     def _read_link_forces(self) -> torch.Tensor:
         """Return per-selected-link external contact force ``(num_envs, num_links, 3)``."""
         assert self._env is not None and self._link_idx_tensor is not None
-        robot = self._env.robot
+        robot = entity_handle(self._env, self._cfg.entity_name)
         getter = getattr(robot, "get_links_net_contact_force", None)
         if getter is None:
             # Genesis fake / not built — return zeros so the abstraction stays usable in tests.

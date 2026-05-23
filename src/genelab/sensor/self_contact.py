@@ -26,10 +26,11 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.sensor._entity import entity_handle
 from genelab.sensor.sensor import Sensor, SensorCfg
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -71,7 +72,7 @@ class SelfContactSensor(Sensor[SelfContactData]):
         self._force_history: torch.Tensor | None = None
         self._history_head: int = 0
 
-    def bind(self, env: "ManagerBasedRlEnv") -> None:
+    def bind(self, env: "EnvContext") -> None:
         super().bind(env)
         self._latest_force = torch.zeros(env.num_envs, device=env.device)
         self._latest_any_above = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
@@ -128,7 +129,7 @@ class SelfContactSensor(Sensor[SelfContactData]):
         device = self._env.device
         zero_force = torch.zeros(n, device=device)
         zero_any = torch.zeros(n, dtype=torch.bool, device=device)
-        robot = self._env.robot
+        robot = entity_handle(self._env, self._cfg.entity_name)
         getter = getattr(robot, "get_contacts", None)
         if getter is None:
             return zero_force, zero_any

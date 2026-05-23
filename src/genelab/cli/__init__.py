@@ -1,12 +1,10 @@
 """Unified Typer + Rich command-line entry point for registered GeneLab tasks."""
 
-import os
-import re
-import sys
+import json
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, Final, Protocol, cast
+from typing import Annotated, Final, Literal
 
 import typer
 
@@ -21,25 +19,36 @@ from genelab.cli._argv import (
     split_runner_keys,
 )
 from genelab.cli._completion import complete_any_registry_name, complete_task_names
-from genelab.cli._interactive import (
-    pick_agent_kind,
-    pick_name_interactively,
-    pick_override_path,
-    pick_task_interactively,
+from genelab.cli._dispatch import (
+    _dispatch_play as _dispatch_play,
+    _dispatch_train as _dispatch_train,
+)
+from genelab.cli._distributed import (
+    _extract_log_dir_flag as _extract_log_dir_flag,
+    _has_log_dir_flag as _has_log_dir_flag,
+    _relaunch_under_torchrun as _relaunch_under_torchrun,
+    _resolve_per_rank_num_envs as _resolve_per_rank_num_envs,
+    _strip_distributed_flags as _strip_distributed_flags,
+    _strip_flag_value_pairs as _strip_flag_value_pairs,
+)
+from genelab.cli._multi_seed import (
+    _dispatch_multi_seed_train as _dispatch_multi_seed_train,
+    _parse_seed_list as _parse_seed_list,
+    _resolve_multi_seed_parent as _resolve_multi_seed_parent,
+    _strip_multi_seed_flags as _strip_multi_seed_flags,
 )
 from genelab.cli._prof import prof_app
 from genelab.cli._progress import fetch_progress
 from genelab.cli._render import (
-    iter_overridable_paths,
     render_cache,
     render_entry_info,
     render_main_help,
     render_registry,
 )
+from genelab.cli._help import _PLAY_HELP, _TRAIN_HELP
+from genelab.cli._resolve import _configured_task
 from genelab.cli._scaffold import create_project_skeleton
-from genelab.configs import apply_overrides
 from genelab.registry import (
-    TASKS,
     load_bundled_asset_zoo,
     load_entrypoint_extensions,
     load_extension_module,
@@ -57,14 +66,6 @@ __all__ = [
 ]
 
 
-class _RunnableTask(Protocol):
-    cfg: object
-
-    def play(self) -> None: ...
-
-    def train(self) -> None: ...
-
-
 @dataclass
 class _RootState:
     extension_modules: list[str] = field(default_factory=list)
@@ -75,62 +76,6 @@ class _RegistryKindArg(str, Enum):
     robots = "robots"
     envs = "envs"
     tasks = "tasks"
-
-
-_AGENT_KINDS: Final[frozenset[str]] = frozenset({"zero", "random", "trained"})
-
-_PLAY_RETARGETED_KEYS: Final[tuple[str, ...]] = (
-    "env.simulation.vis",
-    "env.simulation.gpu",
-    "env.simulation.steps",
-    "env.simulation.dt",
-)
-
-
-_RUN_FLAGS_HELP: Final[str] = """\
-Shorthand flags rewritten into env overrides:
-
-\b
-  -v, --vis        Enable the Genesis viewer (env.simulation.vis=true).
-  --gpu            Use the GPU backend (env.simulation.gpu=true).
-  --steps N        Run for N steps. Play: env.simulation.steps=N.
-                   Train: alias for --max_iterations N.
-  --dt SECONDS     Override the sim timestep (env.simulation.dt=SECONDS).
-  --a.b.c VALUE    Set any dotted cfg path.
-
-Runner flags (used when an RL runner is engaged):
-
-\b
-  --num_envs N          Total parallel environments across all ranks.
-                        Must divide evenly by --gpus when both are set.
-  --num_envs_per_gpu N  Per-rank parallel environments. Mutually exclusive
-                        with --num_envs.
-  --agent KIND          one of: zero, random, trained (play only).
-  --checkpoint PATH     Resume from a checkpoint.
-  --seed N              RNG seed.
-  --log_dir PATH        Override the log directory.
-  --max_iterations N    Cap training iterations (train only).
-  --gpus N              Distributed training across N GPUs (train only).
-
-Profiling flags (forwarded to torch.profiler; rank-0 only):
-
-\b
-  --prof                  Enable the profiler (overrides GENELAB_PROFILE).
-  --prof-out PATH         TensorBoard trace directory (GENELAB_PROFILE_OUT).
-  --prof-wait N           Schedule wait steps (GENELAB_PROFILE_WAIT, default 10).
-  --prof-warmup N         Schedule warmup steps (GENELAB_PROFILE_WARMUP, default 5).
-  --prof-active N         Schedule active steps (GENELAB_PROFILE_ACTIVE, default 10).
-  --prof-repeat N         Schedule cycles (GENELAB_PROFILE_REPEAT, default 2).
-  --prof-record-shapes    Record tensor shapes for op input attribution.
-  --prof-with-stack       Capture Python stack traces (high overhead).
-
-Use `genelab info TASK` to see the full overridable path list for a task.
-Use `genelab prof open [DIR]` to launch TensorBoard against a trace directory.
-"""
-
-
-_PLAY_HELP: Final[str] = "Run a registered task.\n\n" + _RUN_FLAGS_HELP
-_TRAIN_HELP: Final[str] = "Train a registered task when a runner exists.\n\n" + _RUN_FLAGS_HELP
 
 
 app = typer.Typer(
@@ -281,6 +226,187 @@ def play_cmd(
 
 
 @app.command(
+    "eval",
+    help=(
+        "Run a deterministic rollout of TASK against CHECKPOINT and write eval.json.\n\n"
+        "Reads ``extras['is_success']`` per-env when the task publishes it; otherwise "
+        "``success_rate`` in the output is ``null``."
+    ),
+    rich_help_panel="Runtime",
+)
+def eval_cmd(
+    ctx: typer.Context,
+    task_id: Annotated[
+        str,
+        typer.Argument(
+            metavar="TASK",
+            help="Registered task id.",
+            autocompletion=complete_task_names,
+        ),
+    ],
+    checkpoint: Annotated[
+        Path,
+        typer.Argument(
+            metavar="CHECKPOINT",
+            help="Trained checkpoint path (rsl_rl/skrl: .pt; sb3: .zip).",
+        ),
+    ],
+    num_envs: Annotated[
+        int,
+        typer.Option("--num-envs", "--num_envs", help="Parallel envs for the rollout."),
+    ] = 64,
+    episodes: Annotated[
+        int,
+        typer.Option("--episodes", help="Minimum complete episodes to collect."),
+    ] = 100,
+    seed: Annotated[
+        int,
+        typer.Option("--seed", help="RNG seed (env-level only; policy is deterministic)."),
+    ] = 0,
+    deterministic: Annotated[
+        bool,
+        typer.Option(
+            "--deterministic/--stochastic",
+            help="Use deterministic policy (default) or sample from the distribution.",
+        ),
+    ] = True,
+    out: Annotated[
+        Path,
+        typer.Option("--out", help="Output JSON path."),
+    ] = Path("eval.json"),
+    max_steps: Annotated[
+        int | None,
+        typer.Option("--max-steps", help="Safety cap on rollout steps."),
+    ] = None,
+) -> None:
+    _load_extensions(_state(ctx))
+    from genelab.rl.eval_task import eval_task
+
+    _result, payload = eval_task(
+        task_id,
+        checkpoint,
+        num_envs=num_envs,
+        episodes=episodes,
+        seed=seed,
+        deterministic=deterministic,
+        max_steps=max_steps,
+        out_path=out,
+    )
+    typer.echo(json.dumps(payload, indent=2))
+
+
+@app.command(
+    "benchmark",
+    help=(
+        "Evaluate a suite of tasks and aggregate reference numbers into one report.\n\n"
+        'SUITE is a JSON list of entries, each ``{"task": ..., "checkpoint": ...}`` '
+        "(optional ``episodes`` / ``seed`` / ``num_envs``). Runs ``eval`` per entry. "
+        "With --reference (a prior report), flags tasks whose ``return_mean`` dropped more "
+        "than --tolerance and exits non-zero — usable as a regression gate."
+    ),
+    rich_help_panel="Runtime",
+)
+def benchmark_cmd(
+    ctx: typer.Context,
+    suite: Annotated[
+        Path,
+        typer.Option("--suite", help="Benchmark suite JSON (list of task/checkpoint entries)."),
+    ],
+    out: Annotated[
+        Path,
+        typer.Option("--out", help="Output report JSON path."),
+    ] = Path("benchmark.json"),
+    reference: Annotated[
+        Path | None,
+        typer.Option("--reference", help="Prior report JSON to compare return_mean against."),
+    ] = None,
+    tolerance: Annotated[
+        float,
+        typer.Option("--tolerance", help="Max fractional return_mean drop before a regression."),
+    ] = 0.1,
+) -> None:
+    _load_extensions(_state(ctx))
+    from genelab.rl.benchmark import load_suite, run_benchmark
+
+    entries = load_suite(suite)
+    ref = json.loads(reference.read_text()) if reference is not None else None
+    report = run_benchmark(entries, out_path=out, reference=ref, tolerance=tolerance)
+    typer.echo(json.dumps(report, indent=2))
+    regressions = report["regressions"]
+    if regressions:
+        tasks = ", ".join(r["task"] for r in regressions)
+        typer.echo(
+            f"benchmark: {len(regressions)} regression(s) beyond tolerance {tolerance}: {tasks}",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
+_EXPORT_FORMATS: Final[tuple[str, ...]] = ("torchscript", "onnx")
+
+
+@app.command(
+    "export",
+    help=(
+        "Export TASK's policy at CHECKPOINT to TorchScript or ONNX.\n\n"
+        "The exported model takes raw obs in and emits actions; per-term scale/clip "
+        "are baked in (deployment side feeds raw, training-shape obs). A sibling "
+        "<OUTPUT>.metadata.json records the obs schema."
+    ),
+    rich_help_panel="Runtime",
+)
+def export_cmd(
+    ctx: typer.Context,
+    task_id: Annotated[
+        str,
+        typer.Argument(
+            metavar="TASK",
+            help="Registered task id.",
+            autocompletion=complete_task_names,
+        ),
+    ],
+    checkpoint: Annotated[
+        Path,
+        typer.Argument(
+            metavar="CHECKPOINT",
+            help="Trained checkpoint path (rsl_rl/skrl: .pt; sb3: .zip).",
+        ),
+    ],
+    format: Annotated[
+        str,
+        typer.Option(
+            "--format",
+            "-f",
+            help=f"Output format. One of {_EXPORT_FORMATS}.",
+        ),
+    ] = "torchscript",
+    out: Annotated[
+        Path,
+        typer.Option("--out", help="Output file path."),
+    ] = Path("policy.ts"),
+    opset: Annotated[
+        int,
+        typer.Option("--opset", help="ONNX opset version (ignored for torchscript)."),
+    ] = 17,
+) -> None:
+    if format not in _EXPORT_FORMATS:
+        raise SystemExit(f"--format must be one of {_EXPORT_FORMATS}; got {format!r}")
+    _load_extensions(_state(ctx))
+    from genelab.cli._export import export_task
+
+    fmt: Literal["torchscript", "onnx"] = "torchscript" if format == "torchscript" else "onnx"
+    written = export_task(
+        task_id,
+        checkpoint,
+        format=fmt,
+        output=out,
+        opset=opset,
+    )
+    typer.echo(f"wrote {written}")
+    typer.echo(f"wrote {written.with_suffix(written.suffix + '.metadata.json')}")
+
+
+@app.command(
     "train",
     help=_TRAIN_HELP,
     rich_help_panel="Runtime",
@@ -302,6 +428,12 @@ def train_cmd(
     if task_id is not None:
         tokens = [task_id, *tokens]
     task, runner_args, prof_args = _configured_task(tokens, command="train")
+    if "seeds" in runner_args:
+        try:
+            _dispatch_multi_seed_train(task, tokens, runner_args)
+        except NotImplementedError as exc:
+            raise SystemExit(str(exc)) from exc
+        return
     try:
         _dispatch_train(task, runner_args, prof_args)
     except NotImplementedError as exc:
@@ -369,322 +501,6 @@ def _load_extensions(state: _RootState) -> None:
         load_entrypoint_extensions()
     for module_name in state.extension_modules:
         load_extension_module(module_name)
-
-
-def _configured_task(
-    tokens: list[str], *, command: str
-) -> tuple[_RunnableTask, dict[str, str], dict[str, str]]:
-    try:
-        task_id, overrides = parse_run_args(tokens)
-    except SystemExit as exc:
-        if str(exc) != "missing task id":
-            raise
-        picked = pick_task_interactively()
-        if picked is None:
-            raise
-        task_id, overrides = parse_run_args([*tokens, picked])
-
-    task = _resolve_task(task_id)
-
-    # In train mode, ``--steps N`` is the short form for ``--max_iterations N``.
-    # ``env.simulation.steps`` is not consumed by ``train_task`` / ``ManagerBasedRlEnv``
-    # (episodes are governed by ``episode_length_s``), so leaving the override on the env
-    # cfg would silently no-op and the user would see iterations counted to the cfg
-    # default (e.g. 0/30000) instead of stopping at N.
-    if command == "train" and "env.simulation.steps" in overrides:
-        if "max_iterations" in overrides:
-            raise SystemExit(
-                "--steps and --max_iterations conflict in train mode: drop one. "
-                "(--steps is the short form for --max_iterations.)"
-            )
-        overrides["max_iterations"] = overrides.pop("env.simulation.steps")
-
-    runner_args = split_runner_keys(overrides)
-    prof_args = split_prof_keys(overrides)
-
-    # In play mode, retarget the short --vis / --gpu / --steps / --dt shortcuts at the
-    # task's play_env when one is configured. Keeps `genelab play TASK --vis` working
-    # without forcing users to spell `play_env.simulation.vis`.
-    if command == "play" and getattr(task.cfg, "play_env", None) is not None:
-        for short_key in _PLAY_RETARGETED_KEYS:
-            if short_key in overrides:
-                overrides[short_key.replace("env.", "play_env.", 1)] = overrides.pop(short_key)
-
-    _apply_overrides_interactively(task.cfg, overrides)
-    return task, runner_args, prof_args
-
-
-def _resolve_task(task_id: str) -> _RunnableTask:
-    try:
-        with fetch_progress():
-            return cast(_RunnableTask, TASKS.get(task_id))
-    except KeyError as exc:
-        picked = pick_name_interactively(TASKS.names(), f"Unknown task {task_id!r}. Pick one:")
-        if picked is None or picked == task_id:
-            raise SystemExit(str(exc)) from exc
-        with fetch_progress():
-            return cast(_RunnableTask, TASKS.get(picked))
-
-
-_UNKNOWN_PATH_RE: Final[re.Pattern[str]] = re.compile(r"unknown override path: '([^']+)'")
-
-
-def _apply_overrides_interactively(cfg: object, overrides: dict[str, str]) -> None:
-    """Apply overrides; on an unknown path, prompt the user for a correction.
-
-    Coercion errors (e.g. ``int('abc')``) still exit immediately — those need a
-    new value, not a new key.
-    """
-    while True:
-        try:
-            apply_overrides(cfg, overrides)
-            return
-        except ValueError as exc:
-            msg = str(exc)
-            match = _UNKNOWN_PATH_RE.search(msg)
-            if match is None:
-                raise SystemExit(msg) from exc
-            bad_path = match.group(1)
-            override_key = _override_key_for(bad_path, overrides)
-            if override_key is None:
-                raise SystemExit(msg) from exc
-            candidates = [path for path, _, _ in iter_overridable_paths(cfg)]
-            picked = pick_override_path(bad_path, candidates)
-            if picked is None or picked == bad_path:
-                raise SystemExit(msg) from exc
-            overrides[picked] = overrides.pop(override_key)
-
-
-def _override_key_for(bad_path: str, overrides: dict[str, str]) -> str | None:
-    """Return the ``overrides`` key whose ``apply_overrides`` target equals ``bad_path``."""
-    from genelab.configs import resolve_override_alias
-
-    if bad_path in overrides:
-        return bad_path
-    for key in overrides:
-        if resolve_override_alias(key) == bad_path:
-            return key
-    return None
-
-
-def _parse_bool(raw: str | None) -> bool | None:
-    if raw is None:
-        return None
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _parse_int(raw: str | None) -> int | None:
-    return int(raw) if raw is not None else None
-
-
-def _parse_path(raw: str | None) -> Path | None:
-    return Path(raw) if raw is not None else None
-
-
-def _coerce_prof_kwargs(prof_args: dict[str, str]) -> dict[str, Any]:
-    """Translate the raw string dict produced by ``split_prof_keys`` into typed kwargs."""
-    return {
-        "prof": _parse_bool(prof_args.get("prof")),
-        "prof_out": _parse_path(prof_args.get("prof_out")),
-        "prof_wait": _parse_int(prof_args.get("prof_wait")),
-        "prof_warmup": _parse_int(prof_args.get("prof_warmup")),
-        "prof_active": _parse_int(prof_args.get("prof_active")),
-        "prof_repeat": _parse_int(prof_args.get("prof_repeat")),
-        "prof_record_shapes": _parse_bool(prof_args.get("prof_record_shapes")),
-        "prof_with_stack": _parse_bool(prof_args.get("prof_with_stack")),
-    }
-
-
-def _dispatch_play(
-    task: _RunnableTask, runner_args: dict[str, str], prof_args: dict[str, str]
-) -> None:
-    task_cfg = getattr(task, "cfg", None)
-    agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
-    checkpoint_raw = runner_args.get("checkpoint")
-    agent_raw = runner_args.get("agent")
-    if agent_raw is not None and agent_raw not in _AGENT_KINDS:
-        picked_agent = pick_agent_kind()
-        if picked_agent is None or picked_agent not in _AGENT_KINDS:
-            raise SystemExit(f"--agent must be one of {{zero, random, trained}}; got {agent_raw!r}")
-        agent_raw = picked_agent
-        runner_args["agent"] = picked_agent
-    # play is always single-process; either flag is accepted but mapped through the same
-    # resolver so the mutual-exclusion guard fires on misuse.
-    num_envs_per_rank = _resolve_per_rank_num_envs(runner_args, gpus=1)
-    if (
-        checkpoint_raw is None
-        and num_envs_per_rank is None
-        and agent_raw is None
-        and agent_cfg is None
-        and not prof_args
-    ):
-        task.play()
-        return
-    from genelab.rl import AgentKind, play_task
-
-    task_id = getattr(task_cfg, "name", None)
-    if not isinstance(task_id, str):
-        raise SystemExit("task config is missing 'name'; cannot route through RL play helper")
-    play_task(
-        task_id,
-        checkpoint=Path(checkpoint_raw) if checkpoint_raw is not None else None,
-        num_envs=num_envs_per_rank,
-        agent=cast("AgentKind | None", agent_raw),
-        **_coerce_prof_kwargs(prof_args),
-    )
-
-
-def _dispatch_train(
-    task: _RunnableTask, runner_args: dict[str, str], prof_args: dict[str, str]
-) -> None:
-    task_cfg = getattr(task, "cfg", None)
-    agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
-    if agent_cfg is None:
-        task.train()
-        return
-    from genelab.rl import RslRlOnPolicyRunnerCfg, train_task
-
-    if not isinstance(agent_cfg, RslRlOnPolicyRunnerCfg):
-        raise SystemExit(
-            f"task agent cfg has unsupported type {type(agent_cfg).__name__}; "
-            "expected RslRlOnPolicyRunnerCfg"
-        )
-    task_id = getattr(task_cfg, "name", None)
-    if not isinstance(task_id, str):
-        raise SystemExit("task config is missing 'name'; cannot route through RL train helper")
-
-    gpus_raw = runner_args.pop("gpus", None)
-    gpus = int(gpus_raw) if gpus_raw is not None else 1
-    num_envs_per_rank = _resolve_per_rank_num_envs(runner_args, gpus=gpus)
-    if gpus > 1 and "TORCHELASTIC_RUN_ID" not in os.environ:
-        _relaunch_under_torchrun(gpus, agent_cfg, runner_args, num_envs_per_rank, task_id=task_id)
-        return
-
-    max_iter_raw = runner_args.get("max_iterations")
-    seed_raw = runner_args.get("seed")
-    log_dir_raw = runner_args.get("log_dir")
-    train_task(
-        task_id,
-        agent_cfg,
-        num_envs=num_envs_per_rank,
-        max_iterations=int(max_iter_raw) if max_iter_raw is not None else None,
-        seed=int(seed_raw) if seed_raw is not None else None,
-        log_dir=Path(log_dir_raw) if log_dir_raw is not None else None,
-        **_coerce_prof_kwargs(prof_args),
-    )
-
-
-def _resolve_per_rank_num_envs(runner_args: dict[str, str], *, gpus: int) -> int | None:
-    """Pop ``num_envs`` / ``num_envs_per_gpu`` from ``runner_args`` and return per-rank N.
-
-    ``--num-envs N`` is interpreted as the **total** across all ranks: ``N // gpus``
-    becomes the per-rank count and ``N`` must be divisible by ``gpus``.
-    ``--num-envs-per-gpu M`` is verbatim per-rank. Passing both is a hard error so users
-    don't quietly get one or the other's semantics. Returns ``None`` when neither flag
-    was set so callers can defer to the cfg default.
-    """
-    total_raw = runner_args.pop("num_envs", None)
-    per_gpu_raw = runner_args.pop("num_envs_per_gpu", None)
-    if total_raw is not None and per_gpu_raw is not None:
-        raise SystemExit(
-            "--num-envs and --num-envs-per-gpu are mutually exclusive; pass exactly "
-            "one (or neither, to use the task's cfg default)."
-        )
-    if per_gpu_raw is not None:
-        return int(per_gpu_raw)
-    if total_raw is None:
-        return None
-    total = int(total_raw)
-    if gpus <= 0:
-        raise SystemExit(f"--gpus must be a positive integer (got {gpus})")
-    if total % gpus != 0:
-        raise SystemExit(
-            f"--num-envs {total} is not divisible by --gpus {gpus}; pick a multiple "
-            f"of {gpus} or use --num-envs-per-gpu instead."
-        )
-    return total // gpus
-
-
-def _relaunch_under_torchrun(
-    gpus: int,
-    agent_cfg: Any,
-    runner_args: dict[str, str],
-    num_envs_per_rank: int | None,
-    *,
-    task_id: str,
-) -> None:
-    """Re-exec the current ``train`` invocation under torchrun.
-
-    The parent precomputes the log directory and forwards it via ``--log-dir`` so all
-    ranks land in the same directory (avoiding per-rank timestamp drift). The original
-    argv is forwarded verbatim minus the ``--gpus`` / ``--num-envs`` / ``--num-envs-per-gpu``
-    tokens; if either env-count flag was set, an authoritative ``--num-envs-per-gpu N``
-    is injected so each worker sees the parent-resolved per-rank value. The resolved
-    ``task_id`` is also injected when missing from the forwarded argv — otherwise a
-    parent-side interactive pick would force every torchrun worker back into the
-    questionary picker, producing repeated CPR-probe warnings (and a blocked launch).
-    """
-    from genelab.rl.runner import resolve_log_dir
-
-    log_root_raw = runner_args.get("log_dir")
-    log_root = Path(log_root_raw) if log_root_raw else Path("logs") / "rsl_rl"
-    log_dir = resolve_log_dir(log_root, agent_cfg.experiment_name, agent_cfg.run_name)
-
-    inner = _strip_distributed_flags(sys.argv[1:])
-    if task_id not in inner:
-        try:
-            insert_at = inner.index("train") + 1
-        except ValueError:
-            insert_at = 0
-        inner.insert(insert_at, task_id)
-    if num_envs_per_rank is not None:
-        inner += ["--num-envs-per-gpu", str(num_envs_per_rank)]
-    if not _has_log_dir_flag(inner):
-        inner += ["--log-dir", str(log_dir)]
-
-    cmd = [
-        sys.executable,
-        "-m",
-        "torch.distributed.run",
-        "--standalone",
-        f"--nproc_per_node={gpus}",
-        "-m",
-        "genelab.cli",
-        *inner,
-    ]
-    os.execvp(cmd[0], cmd)
-
-
-_STRIPPABLE_DISTRIBUTED_FLAGS: Final[frozenset[str]] = frozenset(
-    {"--gpus", "--num-envs", "--num_envs", "--num-envs-per-gpu", "--num_envs_per_gpu"}
-)
-
-
-def _strip_distributed_flags(tokens: list[str]) -> list[str]:
-    """Drop ``--gpus`` / ``--num-envs`` / ``--num-envs-per-gpu`` (and the ``_``-spelt forms),
-    in both ``--flag value`` and ``--flag=value`` shapes, from a forwarded argv slice."""
-    out: list[str] = []
-    skip_next = False
-    for tok in tokens:
-        if skip_next:
-            skip_next = False
-            continue
-        if tok in _STRIPPABLE_DISTRIBUTED_FLAGS:
-            skip_next = True
-            continue
-        if any(tok.startswith(f"{flag}=") for flag in _STRIPPABLE_DISTRIBUTED_FLAGS):
-            continue
-        out.append(tok)
-    return out
-
-
-def _has_log_dir_flag(tokens: list[str]) -> bool:
-    for t in tokens:
-        if t in {"--log-dir", "--log_dir"}:
-            return True
-        if t.startswith("--log-dir=") or t.startswith("--log_dir="):
-            return True
-    return False
 
 
 def main(argv: list[str] | None = None) -> None:

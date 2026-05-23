@@ -25,6 +25,12 @@ jobs:
       - run: uv sync --extra torch-cpu
       - run: uv run ruff check
       - run: uv run ruff format --check
+      # Layering contracts (ROADMAP §9 PR R0.3 → R7.3d / ADR-0009). Required as of
+      # R7.3d: the baseline is clean (6 contracts, 0 violations), so this gate now
+      # blocks merges that introduce a cross-layer import. See pyproject.toml
+      # [tool.importlinter] and tests/test_importlinter_configured.py.
+      - name: Architecture lint (import-linter)
+        run: uv run lint-imports
 
   typecheck:
     runs-on: ubuntu-latest

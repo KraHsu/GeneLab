@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 
+from genelab.rl.vecenvs._attach_base import attach_optional_base
+
 if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
@@ -82,20 +84,9 @@ class RslRlVecEnvWrapper:
         self.env.close()
 
 
-def _attach_rsl_rl_base() -> None:
-    """Make ``RslRlVecEnvWrapper`` a subclass of ``rsl_rl.env.VecEnv`` if RSL-RL is installed."""
-    try:
-        from rsl_rl.env import VecEnv as _RslVecEnv
-    except ImportError:
-        return
-    global RslRlVecEnvWrapper
-
-    class _RslRlVecEnvWrapper(RslRlVecEnvWrapper, _RslVecEnv):  # type: ignore[misc]
-        pass
-
-    _RslRlVecEnvWrapper.__name__ = "RslRlVecEnvWrapper"
-    _RslRlVecEnvWrapper.__qualname__ = "RslRlVecEnvWrapper"
-    RslRlVecEnvWrapper = _RslRlVecEnvWrapper  # type: ignore[misc]
-
-
-_attach_rsl_rl_base()
+attach_optional_base(
+    base_module="rsl_rl.env",
+    base_attr="VecEnv",
+    wrapper_name="RslRlVecEnvWrapper",
+    caller_globals=globals(),
+)

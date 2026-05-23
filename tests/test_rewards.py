@@ -14,13 +14,18 @@ import torch
 from genelab.managers.reward_manager import RewardTermCfg
 from genelab.managers.scene_entity_cfg import SceneEntityCfg
 from genelab.mdp.rewards import (
+    alive_bonus,
     angular_momentum_penalty,
+    applied_torque_l2,
+    base_height_l2,
     body_angular_velocity_penalty,
     feet_air_time,
     feet_clearance,
     feet_slip,
     feet_swing_height,
     joint_pos_limits,
+    joint_vel_limits,
+    lin_vel_z_l2,
     self_collision_cost,
     soft_landing,
     track_angular_velocity_z_exp,
@@ -69,7 +74,10 @@ class _FakeRobotState:
     projected_gravity_b: torch.Tensor | None = None
     root_lin_vel_b: torch.Tensor | None = None
     root_ang_vel_b: torch.Tensor | None = None
+    root_pos: torch.Tensor | None = None
     joint_pos: torch.Tensor | None = None
+    joint_vel: torch.Tensor | None = None
+    applied_torque: torch.Tensor | None = None
 
 
 class _FakeCommandManager:
@@ -104,6 +112,8 @@ class _FakeRewardEnv:
     # ``Articulation.joint_pos_limits``. Populated lazily so tests that don't
     # touch ``joint_pos_limits`` don't need to wire it.
     joint_pos_limits: torch.Tensor | None = None
+    # Per-actuated-joint velocity-limit magnitude (``Articulation.joint_vel_limits``).
+    joint_vel_limits: torch.Tensor | None = None
 
     @property
     def command_manager(self) -> _FakeCommandManager:
@@ -150,6 +160,7 @@ def _make_env(
     # Root body-frame velocities + joint position scaffolding for tracking / limit tests.
     root_lin_vel_b = torch.zeros(num_envs, 3)
     root_ang_vel_b = torch.zeros(num_envs, 3)
+    root_pos = torch.zeros(num_envs, 3)
     joint_pos = torch.zeros(num_envs, 1)
     state = _FakeRobotState(
         link_pos=link_pos,
@@ -159,7 +170,10 @@ def _make_env(
         projected_gravity_b=projected_gravity_b,
         root_lin_vel_b=root_lin_vel_b,
         root_ang_vel_b=root_ang_vel_b,
+        root_pos=root_pos,
         joint_pos=joint_pos,
+        joint_vel=torch.zeros(num_envs, 1),
+        applied_torque=torch.zeros(num_envs, 1),
     )
     command = torch.tensor(command_xyz, dtype=torch.float).unsqueeze(0).expand(num_envs, -1).clone()
     return _FakeRewardEnv(
@@ -791,3 +805,51 @@ def test_self_collision_cost_rejects_wrong_sensor_type() -> None:
         assert "SelfContactSensor" in str(exc)
     else:
         raise AssertionError("expected TypeError for non-SelfContactSensor wiring")
+
+
+# --------------------------------------------------------------------- base hard-constraints (M2.4)
+
+
+def test_lin_vel_z_l2_penalizes_vertical_velocity_only() -> None:
+    env = _make_env(num_envs=2)
+    assert env.robot_state.root_lin_vel_b is not None
+    env.robot_state.root_lin_vel_b[:, 2] = torch.tensor([0.5, -2.0])
+    torch.testing.assert_close(lin_vel_z_l2(env), torch.tensor([0.25, 4.0]))
+    # x / y base velocity is ignored — only the vertical component is penalized.
+    env.robot_state.root_lin_vel_b[:, :2] = 9.0
+    torch.testing.assert_close(lin_vel_z_l2(env), torch.tensor([0.25, 4.0]))
+
+
+def test_base_height_l2_squared_deviation_from_target() -> None:
+    env = _make_env(num_envs=2)
+    assert env.robot_state.root_pos is not None
+    env.robot_state.root_pos[:, 2] = torch.tensor([0.9, 1.3])
+    torch.testing.assert_close(base_height_l2(env, target_height=1.0), torch.tensor([0.01, 0.09]))
+
+
+def test_alive_bonus_is_constant_ones_per_env() -> None:
+    env = _make_env(num_envs=3)
+    out = alive_bonus(env)
+    assert out.shape == (3,)
+    torch.testing.assert_close(out, torch.ones(3))
+
+
+def test_applied_torque_l2_sums_squared_torque() -> None:
+    env = _make_env(num_envs=2)
+    env.robot_state.applied_torque = torch.tensor([[1.0, -2.0], [0.0, 3.0]])
+    torch.testing.assert_close(applied_torque_l2(env), torch.tensor([5.0, 9.0]))
+
+
+def test_joint_vel_limits_penalizes_excursion_past_limit() -> None:
+    env = _make_env(num_envs=2)
+    env.robot_state.joint_vel = torch.tensor([[1.0, -3.0], [0.5, 2.0]])
+    env.joint_vel_limits = torch.tensor([2.0, 2.0])
+    # |q̇| − limit, clamped at 0: env0 = 0 + (3−2) = 1; env1 = 0 + 0 = 0.
+    torch.testing.assert_close(joint_vel_limits(env), torch.tensor([1.0, 0.0]))
+
+
+def test_joint_vel_limits_inert_at_infinite_limit() -> None:
+    env = _make_env(num_envs=1)
+    env.robot_state.joint_vel = torch.tensor([[100.0, -50.0]])
+    env.joint_vel_limits = torch.tensor([float("inf"), float("inf")])
+    torch.testing.assert_close(joint_vel_limits(env), torch.tensor([0.0]))

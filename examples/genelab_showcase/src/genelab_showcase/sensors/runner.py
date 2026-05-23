@@ -37,7 +37,7 @@ class SensorsShowcaseRunner(ShowcaseRunner):
         # (7 arm + 2 finger). Drive joint1 with a slow sine; leave others at default.
         action = torch.zeros(env.num_envs, env.num_actions, device=env.device)
         if self._joint1_idx is None:
-            self._joint1_idx = env.joint_names.index("joint1")
+            self._joint1_idx = env.articulations["robot"].joint_names.index("joint1")
         # period ≈ 4 s with dt 0.02 (decimation 2 × physics 0.01) → 200 steps.
         phase = 2.0 * math.pi * step / 200.0
         action[:, self._joint1_idx] = math.sin(phase) * 0.5

@@ -41,7 +41,7 @@ from typing import Protocol
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from genelab.cache import CACHE_DIR
+from genelab.utils.paths import CACHE_DIR
 
 _ASSET_ROOT = CACHE_DIR / "assets"
 _CHUNK_SIZE = 1 << 16  # 64 KiB

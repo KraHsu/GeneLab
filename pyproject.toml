@@ -1,6 +1,6 @@
 [project]
 name = "genelab"
-version = "0.1.0"
+version = "0.2.0"
 description = "Isaac Lab API for RL and robotics research powered by Genesis."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -24,6 +24,19 @@ rl = [
     "rsl_rl_lib>=5.2.0",
     "gymnasium>=1.0",
     "tensorboard>=2.20.0",
+]
+# Optional second RL backend. ``genelab.rl.backends.skrl`` guards every skrl
+# import, so this extra is only needed to train/play tasks with a ``SkrlAgentCfg``.
+# Pinned ``<2`` until the skrl 2.0 model API is validated against GeneLab.
+skrl = [
+    "skrl>=1.4.0,<2",
+]
+# Optional third RL backend. ``genelab.rl.backends.sb3`` guards every SB3 import,
+# so this extra is only needed to train/play tasks with an ``Sb3AgentCfg``. SB3
+# 2.x is required (1.x targets the old ``gym`` API rather than ``gymnasium``).
+sb3 = [
+    "stable-baselines3>=2.0.0",
+    "gymnasium>=1.0",
 ]
 # Live plot backends for ``genelab.recording``. PyQt plots use pyqtgraph + PyQt5;
 # Matplotlib plots use matplotlib. File-only recordings (NPZ/CSV/Video) don't need
@@ -62,6 +75,7 @@ dev = [
     "pytest>=8.0.0",
     "pyright>=1.1.390",
     "ruff>=0.8.0",
+    "import-linter>=2.11",
 ]
 # Mirrors of the `rl` / `recording` / `teleop` / `docs` extras so they get
 # installed by default in this checkout (via `default-groups`) without forcing
@@ -72,6 +86,13 @@ rl = [
     "rsl_rl_lib>=5.2.0",
     "gymnasium>=1.0",
     "tensorboard>=2.20.0",
+]
+skrl = [
+    "skrl>=1.4.0,<2",
+]
+sb3 = [
+    "stable-baselines3>=2.0.0",
+    "gymnasium>=1.0",
 ]
 recording = [
     "pyqtgraph>=0.13",
@@ -100,7 +121,7 @@ packages = ["src/genelab"]
 [tool.uv]
 # These groups install on every `uv sync` / `uv run` in this checkout, so daily
 # dev only needs to pick a torch extra (e.g. `uv sync --extra torch-cu126`).
-default-groups = ["dev", "rl", "recording", "teleop", "docs"]
+default-groups = ["dev", "rl", "skrl", "sb3", "recording", "teleop", "docs"]
 conflicts = [
     [
         { extra = "torch-cpu" },
@@ -159,5 +180,167 @@ src = ["src"]
 
 [tool.pytest.ini_options]
 addopts = ["-ra"]
-pythonpath = ["examples/genelab_examples/src", "examples/unitree/src", "examples/inverted_pendulum/src", "examples/genelab_showcase/src"]
+pythonpath = ["examples/genelab_examples/src", "examples/unitree/src", "examples/inverted_pendulum/src", "examples/genelab_showcase/src", "examples/franka_pick_and_place/src"]
 testpaths = ["tests"]
+
+# Layering contracts (ROADMAP §9 PR R0.3 / ADR-0009).
+#
+# Currently runs in CI as a non-required step (`continue-on-error: true`).
+# Lint-only mode is the explicit choice for R0–R6: every R-phase that lands
+# trims the baseline violation list, and R7 (ADR-0009 §"R7 — flip to blocking")
+# converts this job to a required check once the list is empty.
+#
+# ``exclude_type_checking_imports`` skips ``if TYPE_CHECKING: from ... import``
+# blocks. The manager-based MDP design intentionally has domain modules
+# import ``ManagerBasedRlEnv`` under that guard for parameter type hints; this
+# is not an architectural violation, so we filter it out at the graph level
+# rather than waiving each via ``ignore_imports``.
+[tool.importlinter]
+root_packages = ["genelab"]
+exclude_type_checking_imports = true
+
+# Domain modules must not reach UP into cli / rl. (After R7.3a + R7.3b this is clean.)
+[[tool.importlinter.contracts]]
+name = "Domain modules are below cli / rl"
+type = "forbidden"
+source_modules = [
+    "genelab.managers",
+    "genelab.mdp",
+    "genelab.entity",
+    "genelab.sensor",
+    "genelab.actuator",
+    "genelab.terrains",
+    "genelab.asset_zoo",
+    "genelab.scene",
+    "genelab.bridges",
+    "genelab.recording",
+    "genelab.envs",
+]
+forbidden_modules = [
+    "genelab.cli",
+    "genelab.rl",
+]
+
+# Term logic must not trigger asset downloads. ``asset_zoo`` is the deliberate
+# exception: it is the asset catalog, so fetching assets via ``utils.download``
+# (a downward domain -> utils import) is its purpose (ADR-0009 / R7.3c).
+[[tool.importlinter.contracts]]
+name = "Domain (except asset_zoo) does not import utils.download"
+type = "forbidden"
+source_modules = [
+    "genelab.managers",
+    "genelab.mdp",
+    "genelab.entity",
+    "genelab.sensor",
+    "genelab.actuator",
+    "genelab.terrains",
+    "genelab.scene",
+    "genelab.bridges",
+    "genelab.recording",
+    "genelab.envs",
+]
+forbidden_modules = [
+    "genelab.utils.download",
+]
+
+# ADR-0001 / R1: this contract reports violations until the cycle is broken.
+[[tool.importlinter.contracts]]
+name = "rl.backends does not import rl.runner"
+type = "forbidden"
+source_modules = ["genelab.rl.backends"]
+forbidden_modules = ["genelab.rl.runner"]
+
+# The band ordering (cli > rl > domain > config-band > utils) is enforced with
+# directional ``forbidden`` contracts rather than a single ``layers`` contract: a
+# ``layers`` contract lists the 11 domain packages as pipe-separated siblings, which
+# importlinter treats as mutually *independent* — that wrongly forbids the legitimate
+# intra-domain imports a manager-based env relies on (envs -> scene, mdp -> managers,
+# entity -> actuator, …). The contracts below capture "no band imports a band above
+# it" while leaving intra-band imports free (ADR-0009 / ROADMAP §9 R7.3d).
+
+# rl sits below cli.
+[[tool.importlinter.contracts]]
+name = "rl is below cli"
+type = "forbidden"
+source_modules = ["genelab.rl"]
+forbidden_modules = ["genelab.cli"]
+
+# Infrastructure (configs / registry / cache / utils) is the bottom of the stack and
+# must not reach up into rl, cli, or any domain package.
+[[tool.importlinter.contracts]]
+name = "Infrastructure modules do not import up"
+type = "forbidden"
+source_modules = [
+    "genelab.configs",
+    "genelab.registry",
+    "genelab.cache",
+    "genelab.utils",
+]
+forbidden_modules = [
+    "genelab.cli",
+    "genelab.rl",
+    "genelab.managers",
+    "genelab.mdp",
+    "genelab.entity",
+    "genelab.sensor",
+    "genelab.actuator",
+    "genelab.terrains",
+    "genelab.asset_zoo",
+    "genelab.scene",
+    "genelab.bridges",
+    "genelab.recording",
+    "genelab.envs",
+]
+
+[[tool.importlinter.contracts]]
+name = "RL backends do not import each other"
+type = "independence"
+modules = [
+    "genelab.rl.backends.sb3",
+    "genelab.rl.backends.skrl",
+    "genelab.rl.backends.rsl_rl",
+]
+
+# ADR-0014: the contracts band (ports) is dependency-free within genelab — it must
+# not reach up into the domain / rl / cli bands. (Importing torch / stdlib is fine.)
+[[tool.importlinter.contracts]]
+name = "contracts band imports nothing in domain / rl / cli"
+type = "forbidden"
+source_modules = ["genelab.contracts"]
+forbidden_modules = [
+    "genelab.cli",
+    "genelab.rl",
+    "genelab.managers",
+    "genelab.mdp",
+    "genelab.entity",
+    "genelab.sensor",
+    "genelab.actuator",
+    "genelab.terrains",
+    "genelab.asset_zoo",
+    "genelab.scene",
+    "genelab.bridges",
+    "genelab.recording",
+    "genelab.envs",
+]
+
+# ADR-0014: domain terms type-hint against ``contracts.EnvContext`` rather than the
+# concrete env. Runtime imports of ``genelab.envs`` from the domain are forbidden;
+# the remaining ``TYPE_CHECKING`` env hints are excluded globally
+# (``exclude_type_checking_imports``) and are migrated to ``contracts`` in PR 3.2–3.4.
+[[tool.importlinter.contracts]]
+name = "Domain does not import concrete envs at runtime"
+type = "forbidden"
+source_modules = [
+    "genelab.managers",
+    "genelab.mdp",
+    "genelab.entity",
+    "genelab.sensor",
+    "genelab.actuator",
+    "genelab.terrains",
+    "genelab.scene",
+    "genelab.bridges",
+    "genelab.recording",
+]
+forbidden_modules = [
+    "genelab.envs",
+]

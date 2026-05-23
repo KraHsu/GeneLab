@@ -13,17 +13,12 @@ option (no current consumer). Add either back if needed — the manager's
 internal layout was designed with those extensions in mind.
 """
 
-from copy import deepcopy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import torch
 
-from genelab.managers._base import instantiate_class_term
+from genelab.managers._base import BaseTermManager
 from genelab.managers.manager_term_cfg import ManagerTermBaseCfg
-
-if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
 
 @dataclass
@@ -36,7 +31,7 @@ class MetricsTermCfg(ManagerTermBaseCfg):
     """
 
 
-class MetricsManager:
+class MetricsManager(BaseTermManager[MetricsTermCfg]):
     """Aggregates per-step diagnostic metrics; reports per-env means at reset.
 
     Per-env step counter tracks how many compute() calls happened per env. At
@@ -44,19 +39,8 @@ class MetricsManager:
     across the reset envs, then zeros the accumulators for those envs only.
     """
 
-    def __init__(
-        self,
-        cfg: dict[str, MetricsTermCfg],
-        env: "ManagerBasedRlEnv",
-    ) -> None:
-        self._env = env
-        self.cfg: dict[str, MetricsTermCfg] = deepcopy(cfg)
-        self._term_names: list[str] = []
-        self._term_cfgs: list[MetricsTermCfg] = []
-        for name, term_cfg in self.cfg.items():
-            instantiate_class_term(term_cfg, env)
-            self._term_names.append(name)
-            self._term_cfgs.append(term_cfg)
+    def _post_init(self) -> None:
+        """Allocate per-term episode-sum buffers and the per-env step counter."""
         self._episode_sums: dict[str, torch.Tensor] = {
             name: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
             for name in self._term_names
@@ -65,18 +49,6 @@ class MetricsManager:
         # reset. Stays in sync with episode_length because compute() is invoked once
         # per env step alongside reward_manager.compute().
         self._step_count = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
-
-    @property
-    def num_envs(self) -> int:
-        return self._env.num_envs
-
-    @property
-    def device(self) -> str:
-        return self._env.device
-
-    @property
-    def active_terms(self) -> list[str]:
-        return list(self._term_names)
 
     def compute(self) -> None:
         """Evaluate every term and accumulate into the per-env episode sums."""

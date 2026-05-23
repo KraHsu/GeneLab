@@ -37,6 +37,63 @@ class SimulationCfg:
     # raise ``decimation`` if that's not what you want.
     render_fps: int | None = 60
 
+    # --- Genesis rigid-solver options (ROADMAP M3.7) ---------------------------------------
+    # All optional; ``None`` = "use the Genesis default". Mapped to ``gs.options.RigidOptions``
+    # by :class:`~genelab.scene.InteractiveScene`, which only passes ``rigid_options`` to
+    # ``gs.Scene`` when at least one is set — so an unset config keeps the historic behaviour
+    # byte-for-byte. (Genesis exposes no continuous-collision-detection / CCD knob.)
+    enable_self_collision: bool | None = None  # RigidOptions.enable_self_collision
+    enable_joint_limit: bool | None = None  # RigidOptions.enable_joint_limit
+    max_collision_pairs: int | None = None  # RigidOptions.max_collision_pairs
+    solver_iterations: int | None = None  # RigidOptions.iterations (constraint solver)
+    ls_iterations: int | None = None  # RigidOptions.ls_iterations (line search)
+    solver_tolerance: float | None = None  # RigidOptions.tolerance
+    constraint_timeconst: float | None = (
+        None  # RigidOptions.constraint_timeconst (stiffness/damping)
+    )
+    integrator: str | None = (
+        None  # gs.integrator.<name>: Euler / implicitfast / approximate_implicitfast
+    )
+
+    def rigid_options_kwargs(self) -> dict[str, Any]:
+        """Map the *set* rigid-solver fields to ``gs.options.RigidOptions`` kwargs.
+
+        Returns only the fields the user set (skips ``None``), keyed by the Genesis
+        ``RigidOptions`` parameter names. ``integrator`` stays a string here — the scene
+        resolves it to ``gs.integrator.<name>`` so ``configs`` stays Genesis-free (invariant
+        #5). An empty dict means the scene won't pass ``rigid_options`` at all.
+        """
+        mapping: dict[str, Any] = {
+            "enable_self_collision": self.enable_self_collision,
+            "enable_joint_limit": self.enable_joint_limit,
+            "max_collision_pairs": self.max_collision_pairs,
+            "iterations": self.solver_iterations,
+            "ls_iterations": self.ls_iterations,
+            "tolerance": self.solver_tolerance,
+            "constraint_timeconst": self.constraint_timeconst,
+            "integrator": self.integrator,
+        }
+        return {k: v for k, v in mapping.items() if v is not None}
+
+    @staticmethod
+    def play_retargeted_keys() -> tuple[str, ...]:
+        """Override paths the CLI rewrites ``env.`` → ``play_env.`` in play mode.
+
+        The ``--vis`` / ``--gpu`` / ``--steps`` / ``--dt`` shorthand flags expand
+        to ``env.simulation.<field>`` overrides. When a task defines a separate
+        ``play_env``, ``genelab play TASK --vis`` should target *that* env, so the
+        CLI retargets these keys onto ``play_env.simulation.<field>``. Owning the
+        list here (rather than as a private constant in ``cli/__init__.py``) keeps
+        the set of play-retargetable simulation overrides next to the fields
+        themselves (ADR-0005 / R3.2).
+        """
+        return (
+            "env.simulation.vis",
+            "env.simulation.gpu",
+            "env.simulation.steps",
+            "env.simulation.dt",
+        )
+
 
 @dataclass
 class InteractiveSceneCfg:

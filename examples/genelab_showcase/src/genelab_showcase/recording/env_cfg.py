@@ -32,7 +32,7 @@ def _joint1_pos(env: object) -> object:
     # ``env`` is the live ``ManagerBasedRlEnv``. ``robot_state.joint_pos`` is a
     # ``(num_envs, n_joints)`` tensor; the env_idx squeeze on the RecordingCfg
     # reduces it to a single scalar per sample.
-    return env.robot_state.joint_pos[:, 0]  # type: ignore[attr-defined]
+    return env.articulations["robot"].data.joint_pos[:, 0]  # type: ignore[attr-defined]
 
 
 def recording_showcase_env_cfg() -> ManagerBasedRlEnvCfg:

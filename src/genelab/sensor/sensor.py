@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, cast
 import torch
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -20,6 +20,10 @@ class SensorCfg(ABC):
     """Backend-agnostic sensor configuration. Subclasses describe what to sense and how."""
 
     name: str = ""
+    # Which scene entity the sensor attaches to / reads from (ROADMAP M3.6 / ADR-0012 S4).
+    # Defaults to the primary ``"robot"``; multi-robot scenes set it per sensor (e.g.
+    # ``"robot_b"``). Resolved via ``genelab.sensor._entity`` with a primary fallback.
+    entity_name: str = "robot"
 
     @abstractmethod
     def build(self) -> "Sensor[Any]": ...
@@ -35,7 +39,7 @@ class Sensor[T](ABC):
 
     def __init__(self, cfg: SensorCfg) -> None:
         self._cfg = cfg
-        self._env: "ManagerBasedRlEnv | None" = None
+        self._env: "EnvContext | None" = None
         self._cached_data: T | None = None
         self._cache_valid: bool = False
 
@@ -59,12 +63,12 @@ class Sensor[T](ABC):
 
         ``entities`` maps entity names to the :class:`~genelab.entity.Articulation` /
         :class:`~genelab.entity.RigidObject` wrappers spawned on ``gs_scene``. Use
-        ``entities["robot"].gs_handle`` to reach the raw Genesis handle when the sensor
-        needs to attach to a link.
+        ``entities[self.cfg.entity_name].gs_handle`` to reach the raw Genesis handle when the
+        sensor needs to attach to a link (``entity_name`` defaults to the primary ``"robot"``).
         """
         del gs_scene, entities
 
-    def bind(self, env: "ManagerBasedRlEnv") -> None:
+    def bind(self, env: "EnvContext") -> None:
         """Called once during env construction. Subclasses may cache link indices etc."""
         self._env = env
 

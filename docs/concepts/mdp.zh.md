@@ -7,10 +7,31 @@
 | 区域 | 公开组件 |
 |---|---|
 | Actions | `JointPositionActionCfg`、`JointPositionAction` |
+| Cartesian actions | `DifferentialIKActionCfg`、`DifferentialIKAction`、`BinaryGripperActionCfg`、`BinaryGripperAction` |
 | 速度命令 | `UniformVelocityCommandCfg`、`UniformVelocityCommand` |
 | Motion 命令 | `MotionCommandCfg`、`MotionCommand`、`MotionLoader` |
 
 action 把策略输出转换为仿真控制。command 持有 observation 和 reward 可读取的采样目标。
+
+### Action terms
+
+| Term | Action dim | 说明 |
+|---|---:|---|
+| `JointPositionAction` | 匹配到的关节数 | 把 policy 输出映射为选中关节的 joint-position target。 |
+| `DifferentialIKAction` | 3 或 6 | 用 damped-least-squares Jacobian IK 把末端 delta 转成手臂关节目标。 |
+| `BinaryGripperAction` | 1 | 从一个 scalar action 把匹配到的手指关节切到 open 或 closed 目标。 |
+
+`DifferentialIKActionCfg.body_name` 选择要控制的 link，`joint_names` 选择参与 IK 求解的手臂关节。
+当 `use_orientation=False` 时，policy 输出 `(dx, dy, dz)`；当 `use_orientation=True` 时，policy 输出
+`(dx, dy, dz, droll, dpitch, dyaw)`，其中姿态部分是 axis-angle delta。`scale` 限制每个 control step
+的物理 delta，`damping` 用来正则化 IK 求解，`max_delta_joint` 用来限制每个关节的单步更新。
+
+使用 `DifferentialIKAction` 前，机器人 articulation 必须设置 `requires_jac_and_ik=True`，否则 Genesis
+不会分配求解器需要的 Jacobian 数据。
+
+`BinaryGripperActionCfg` 使用 `threshold` 在 `closed_pos` 与 `open_pos` 之间切换。它通常和 Cartesian
+手臂 term 组合使用；例如 Franka Cartesian 抓取放置任务把 `DifferentialIKAction(body_name="hand")`
+和 `BinaryGripperAction` 组合成 4 维 `(dx, dy, dz, gripper)` action space。
 
 ## Observations
 
@@ -36,8 +57,12 @@ reward 函数应返回 `(num_envs,)`；termination 函数应返回 `(num_envs,)`
 | Noise | `Unoise`、`Gnoise` |
 | Domain randomization | `mdp.dr.body`、`mdp.dr.joint`、`mdp.dr.geom` |
 
+`NoiseCfg` 的 canonical home 是 `genelab.contracts`，这样 observation manager 可以标注 noise 而无需
+导入 `genelab.mdp`。具体噪声模型仍可从 `genelab.mdp.noise` 和公开 facade 导入。
+
 ## 继续阅读
 
 - [Manager 与 MDP term](managers.md)
+- [Franka 抓取放置](../examples/franka-pick-and-place.md)
 - [设计任务](../best-practices/task-design.md)
 - [API 参考](../api/reference.md)

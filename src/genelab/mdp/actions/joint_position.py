@@ -12,9 +12,10 @@ from typing import TYPE_CHECKING
 import torch
 
 from genelab.managers.action_manager import ActionTerm, ActionTermCfg
+from genelab.mdp._helpers import resolve_articulation, resolve_robot_state
 
 if TYPE_CHECKING:
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.contracts import EnvContext
 
 
 @dataclass
@@ -43,11 +44,15 @@ class JointPositionActionCfg(ActionTermCfg):
 class JointPositionAction(ActionTerm):
     cfg: JointPositionActionCfg  # type: ignore[assignment]
 
-    def __init__(self, cfg: JointPositionActionCfg, env: "ManagerBasedRlEnv") -> None:
+    def __init__(self, cfg: JointPositionActionCfg, env: "EnvContext") -> None:
         super().__init__(cfg, env)
         import re
 
-        joint_names = env.joint_names
+        # Route to the entity named by ``cfg.asset_name`` (M3.6 / ADR-0012 S2); the joint
+        # indices, scale, defaults and write all target that one articulation.
+        self._articulation = resolve_articulation(env, cfg.asset_name)
+        self._robot_state = resolve_robot_state(env, cfg.asset_name)
+        joint_names = self._articulation.joint_names
         matched: list[int] = []
         for pat in cfg.joint_names:
             try:
@@ -65,14 +70,16 @@ class JointPositionAction(ActionTerm):
         self._joint_indices = torch.tensor(matched, dtype=torch.long, device=self.device)
 
         if cfg.scale is None:
-            self._scale = env.articulation.action_scale_tensor.index_select(0, self._joint_indices)
+            self._scale = self._articulation.action_scale_tensor.index_select(
+                0, self._joint_indices
+            )
         elif isinstance(cfg.scale, dict):
-            scale = env.articulation.build_per_joint_tensor(cfg.scale, default=1.0)
+            scale = self._articulation.build_per_joint_tensor(cfg.scale, default=1.0)
             self._scale = scale[self._joint_indices]
         else:
             self._scale = torch.full((len(matched),), float(cfg.scale), device=self.device)
 
-        default = env.default_joint_pos[self._joint_indices]
+        default = self._articulation.default_joint_pos[self._joint_indices]
         self._default = default if cfg.use_default_offset else torch.zeros_like(default)
 
         self._raw = torch.zeros(self.num_envs, len(matched), device=self.device)
@@ -94,10 +101,10 @@ class JointPositionAction(ActionTerm):
         # from the policy's nominal command. ``mdp.joint_pos_rel`` returns the
         # raw ``joint_pos − default`` (no bias) so the policy actually sees the
         # offset and must learn to compensate — that's the sim2real hardening.
-        encoder_bias = self._env.robot_state.encoder_bias.index_select(1, self._joint_indices)
+        encoder_bias = self._robot_state.encoder_bias.index_select(1, self._joint_indices)
         self._target = (
             self._default.unsqueeze(0) + self._scale.unsqueeze(0) * actions - encoder_bias
         )
 
     def apply_actions(self) -> None:
-        self._env.articulation.write_joint_targets_partial(self._joint_indices, self._target)
+        self._articulation.write_joint_targets_partial(self._joint_indices, self._target)
