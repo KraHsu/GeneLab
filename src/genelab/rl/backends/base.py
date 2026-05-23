@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
     from genelab.bridges.base import Bridge
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.rl.config import BackendConfig
 
 AgentKind = Literal["zero", "random", "trained"]
 
@@ -134,7 +135,15 @@ class Backend(Protocol):
     """One RL library. Implementations register themselves via ``register_backend``."""
 
     name: str
-    cfg_type: type
+
+    @property
+    def cfg_type(self) -> "type[BackendConfig]":
+        """The ``BackendConfig`` subclass this backend is dispatched on.
+
+        Read-only (a property) so a concrete ``cfg_type = SkrlAgentCfg`` class attribute
+        satisfies it covariantly — a mutable attribute would be invariant on the type arg.
+        """
+        ...
 
     def train(self, ctx: TrainContext) -> Path:
         """Train the task in ``ctx`` and return the log directory."""
