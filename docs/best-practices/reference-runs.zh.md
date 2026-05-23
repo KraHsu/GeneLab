@@ -4,14 +4,6 @@
 收敛步数、wall-clock 预算 — 用同一份 config 跑 `clone → train → eval`，应该
 落到的数。
 
-> **状态 — 2026-05-21**：五张表全部用 M1.7 reference batch 真实数据填好
-> （8×H200、Genesis 0.4.7、`QD_GRAPH=0`）。G1 eval 必须 `QT_QPA_PLATFORM=
-> offscreen` 才能跑（launcher 自己的 eval 一开始死在 Genesis init — cv2/Qt
-> + tracking play_env 的 `episode_length_s = 1e9` 死循环，commit `a561ba0`
-> 已 clamp 到 30 s 修掉）。Franka 在 commit `40a6194` 的 fix 下重跑（env
-> `num_envs` 2048 → 64、SAC `gradient_steps = 8`），success_rate 从
-> 0.04–0.11（没真训）涨到 0.89–1.00（收敛）。
-
 ## Reference 任务
 
 这五个任务覆盖 GeneLab 内置的 locomotion + manipulation 两条线：
@@ -22,17 +14,13 @@
 | `GeneLab-Double-Inverted-Pendulum-v0` | rsl_rl PPO | 300 iter × 4096 envs | 难一些的 cartpole。 |
 | `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 平地速度跟踪。 |
 | `Genelab-Tracking-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 平地动作跟踪。 |
-| `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 2048 envs | 目标条件抓取；需要离线 demo 预填（见下方协议）。 |
-
-> **注**：dev 把 Franka example 收敛到唯一 SAC+HER 配置。早先的
-> `Cartesian-v0` / `skrl-v0` / `sb3-v0` / `sb3-her-v0` 变体已经不再注册，
-> 故意不收在这套里。
+| `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 64 envs | 目标条件抓取；需要离线 demo 预填（见下方协议）。 |
 
 ## 复现协议
 
 ### 通用路径（4 / 5 任务）
 
-Cartpole + G1 都是 rsl_rl PPO，复现就用 multi-seed CLI 直接来：
+Cartpole + G1 都是 rsl_rl PPO，复现就用 multi-seed CLI：
 
 ```bash
 # 1. 三个 seed 训练（cartpole 大小可以 parallel=3；G1 单卡用 parallel=1 防 OOM）。
@@ -80,8 +68,8 @@ for s in 1 2 3; do
 done
 ```
 
-Franka 任务**目前无法**通过 `genelab export` 导出 —— HER 的 `Dict` 观测在
-M1.3 限制清单里。去掉这个限制是后续 M 系列 follow-up。
+Franka 任务**目前无法**通过 `genelab export` 导出。导出目前只支持 flat-tensor
+观测，而 SAC+HER 使用 goal-conditioned `Dict` 观测。
 
 ### 硬件
 
@@ -132,8 +120,8 @@ GPU vectorized 慢很多。
 | 3 | 138.122 | 0.007 | 30 000 | ~20.9 h | 216.0 s |
 
 Eval `length_mean = 1500.0`。Tracking play_env 默认 `episode_length_s =
-1e9` 是为 viewer 无限 playback 设的；`genelab eval` 把它 clamp 到 30 s（commit
-`a561ba0`），所以 30 s × 50 Hz = 1500 步/ep，全部撞 cap 不 terminate。
+1e9` 是为 viewer 无限 playback 设的；`genelab eval` 把它 clamp 到 30 s，
+所以 30 s × 50 Hz = 1500 步/ep，全部撞 cap 不 terminate。
 三 seed 之间标准差非常紧 —— 收敛策略在 30 s 窗口内稳定跟随 motion clip。
 `success_rate` 为 `null`。
 
@@ -148,14 +136,6 @@ Eval `length_mean = 1500.0`。Tracking play_env 默认 `episode_length_s =
 Eval `length_mean = 100.0`（固定 episode length）。三 seed 平均
 `success_rate ≈ 0.963 ± 0.052`；两个完美 seed 表示策略完全收敛，0.89 那个
 seed 在比较难的 goal pose 上还会差 ~11 % episode（末端朝向 drift）。
-
-这几行覆盖了首批 M1.7 时的"异常未收敛"标注。根因不是 SB3 内部 bug，而是这个
-example 自己的配置错配：env 设 `num_envs = 2048`，但 SAC 默认
-`gradient_steps = 1`，2 M timestep 预算总共只跑了不到 1 000 次 SGD 更新。
-commit `40a6194` 把 `num_envs` 降到 64（HER 的 replay buffer 是按整 episode
-存的，巨量并行只会浪费 buffer 容量），并 pin `gradient_steps = 8`，每个
-rollout 都真正训到 policy。更长的写明放在 `franka_pick_and_place_sb3_cfg`
-的 cfg docstring 里。
 
 ## 训练曲线
 
@@ -189,8 +169,7 @@ run 跑完之前这一节有意留空 —— 上面的 schema 就是 PR 填进�
 
 ## 本文档不是
 
-- **不是** benchmark suite —— 那是 M3.8（`genelab benchmark`）。
-- **不是** 排行榜。这里的数字是 GeneLab 自己的复现 sanity check；社区数据
-  走 benchmark suite。
+- **不是** benchmark suite 或排行榜。这里的数字是 GeneLab 自己的复现 sanity
+  check。
 - **不是** 调参指南。看 `best-practices/rl-experiments` 了解 curriculum / DR
   / reward weight 的选择 —— 那些是这些数字的上游。

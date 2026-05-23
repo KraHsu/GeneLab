@@ -1,7 +1,7 @@
 # 如何为 Sim2Real 加固策略
 
 这份指南是部署配方：**训练时该启用哪些域随机化（DR）和噪声、导出时该 dump 什么、
-部署端该如何对齐策略。** 假设你已能训练和回放一个 task（见《运行 RL 实验》）。
+部署端该如何对齐策略。** 假设已有可训练和回放的 task（见《运行 RL 实验》）。
 
 目标是让策略在不接触真机的前提下，扛住现实差距——不准的惯量、摩擦、PD 增益、传感器
 偏置和执行器缺陷。
@@ -10,7 +10,7 @@
 
 DR 事件挂在 `events_cfg` 上，遵循 [`EventTermCfg`](../reference/configuration.md) 的调用约定。
 用 `mode="startup"` 每个 episode **采样一次**；用 `mode="interval"` 在 **episode 中途**
-采样（M2.2）。
+采样。
 
 | DR 事件（`genelab.mdp.dr` / `mdp.events`） | 扰动对象 |
 |---|---|
@@ -111,10 +111,27 @@ IMU 传感器自带每-env 偏置——在 `IMUSensorCfg` 上设 `bias_range_lin
 
 ## 4. 建模执行器差距（可选）
 
-当你有真机力矩跟踪日志时，用 `MlpResidualActuator`——`DCMotorActuator` 基座加一个作用在
+有真机力矩跟踪日志时，用 `MlpResidualActuator`——`DCMotorActuator` 基座加一个作用在
 `[pos_error, joint_vel]` 上的 TorchScript 残差。残差网络在下游训练，把
 `MlpResidualActuatorCfg.network_file` 指向保存的 `.pt`。不给文件时退化为普通
 `DCMotorActuator`。
+
+```python
+from genelab.actuator import MlpResidualActuatorCfg
+
+robot_cfg.actuators["drive"] = MlpResidualActuatorCfg(
+    target_names_expr=(".*_joint",),
+    stiffness=35.0,
+    damping=0.8,
+    effort_limit=80.0,
+    velocity_limit=25.0,
+    saturation_effort=80.0,
+    network_file="assets/actuators/drive_residual.pt",
+    residual_scale=0.25,
+)
+```
+
+TorchScript 的输入/输出约定和字段说明见 [执行器](../concepts/actuators.md)。
 
 ## 5. 导出无依赖的策略
 
@@ -144,7 +161,7 @@ uv run genelab export TASK_ID logs/.../model_best.pt --format onnx --out policy.
 ## 7. 上线前验证
 
 * `genelab eval TASK_ID model_best.pt --episodes 100` 拿确定性的 return / success-rate 数字，
-  与你的《Reference Runs》对比。
-* 把 `metadata.json` 的 obs term 顺序和你的硬件 obs 拼装做 diff——顺序或 scale 错位的 obs 向量
+  与《Reference Runs》对比。
+* 把 `metadata.json` 的 obs term 顺序和硬件 obs 拼装做 diff——顺序或 scale 错位的 obs 向量
   是最常见的隐性部署故障。
 * 在纯 `torch` 进程里抽查导出模型（加载、喂零 obs、确认动作形状与 `metadata.json` 一致）。

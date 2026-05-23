@@ -11,6 +11,12 @@
     "Noto Serif SC", serif;
 }
 
+@media screen and (min-width: 76.25em) {
+  .md-grid {
+    max-width: 78rem;
+  }
+}
+
 [data-md-color-scheme="default"] {
   --md-primary-fg-color: #5b6cff;
   --md-primary-fg-color--light: #8a96ff;

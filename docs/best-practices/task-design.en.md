@@ -27,8 +27,8 @@ Use `env` for training defaults and `play_env` for human inspection.
 | `env` | Many envs, viewer off, curriculum and disturbances on, training sensors only. |
 | `play_env` | One env, viewer on, mouse/bridge controls on, reduced randomization, optional plots. |
 
-Do not make users remember long overrides just to open a viewer. `genelab play TASK --vis` should
-work with the task's play config.
+Do not make other people remember long overrides just to open a viewer.
+`genelab play TASK --vis` should work with the task's play config.
 
 ## 3. Put robot construction behind a factory
 

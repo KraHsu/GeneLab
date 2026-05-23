@@ -155,6 +155,7 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+      toc_depth: 1-2
   - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true

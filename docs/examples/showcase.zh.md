@@ -1,6 +1,6 @@
 # Showcase
 
-`examples/genelab_showcase` 包含面向单个框架能力的聚焦任务。当你想看某个子系统的可运行示例，而不是完整机器人任务时，用它。
+`examples/genelab_showcase` 包含面向单个框架能力的聚焦任务。需要查看某个子系统的可运行示例，而不是完整机器人任务时，用它。
 
 ## 能力
 
