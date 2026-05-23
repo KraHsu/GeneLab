@@ -53,11 +53,40 @@ def test_cli_routes_agent_through_play_task(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setitem(__import__("sys").modules, "genelab.rl", fake_rl)
 
     cli_module.main(
-        ["--import", "tests.fake_extension", "play", "External-Fake-Task-v0", "--agent", "random"]
+        ["--import", "tests.fake_extension", "play", "External-Fake-RL-Task-v0", "--agent", "random"]
     )
 
-    assert captured["task_id"] == "External-Fake-Task-v0"
+    assert captured["task_id"] == "External-Fake-RL-Task-v0"
     assert captured["agent"] == "random"
+
+
+def test_play_non_rl_task_ignores_rl_flags_and_runs_demo(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """P8/P9 regression: a non-RL scene-playback task (env cfg is a base
+    ``ManagerBasedEnvCfg``) must run its own ``task.play()`` even when RL-only flags like
+    ``--agent`` are passed — routing it through ``play_task`` → ``build_env`` would crash
+    constructing ``ManagerBasedRlEnv`` from a cfg with no RL surface."""
+    from genelab import cli as cli_module
+
+    # Patch the real module's attribute (not sys.modules) so the dispatcher's
+    # `from genelab.rl import play_task` resolves to the sentinel while entry-point
+    # extension loading can still `from genelab.rl import RslRlModelCfg`.
+    import genelab.rl as genelab_rl
+
+    def _fake_play(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("non-RL task must not route through the RL play helper")
+
+    monkeypatch.setattr(genelab_rl, "play_task", _fake_play)
+
+    cli_module.main(
+        ["--import", "tests.fake_extension", "play", "External-Fake-Task-v0", "--agent", "zero"]
+    )
+
+    out = capsys.readouterr()
+    assert "played External-Fake-Task-v0" in out.out
+    assert "non-RL scene-playback task" in out.err
+    assert "--agent" in out.err
 
 
 def test_core_namespaces_do_not_import_example_objects() -> None:
@@ -210,7 +239,7 @@ def test_play_invalid_agent_falls_back_to_picker(
             "--import",
             "tests.fake_extension",
             "play",
-            "External-Fake-Task-v0",
+            "External-Fake-RL-Task-v0",
             "--agent",
             "bogus",
         ]
@@ -273,3 +302,14 @@ def test_play_unknown_override_path_exits_without_picker(
             ]
         )
     assert "env.simulation.step" in str(excinfo.value)
+
+
+def test_build_env_rejects_non_rl_cfg() -> None:
+    """Defense-in-depth backstop for P8/P9: handing the RL env builder a non-RL cfg fails
+    with a clear TypeError naming the required surface, not a cryptic AttributeError deep
+    inside ``ManagerBasedRlEnv.__init__``."""
+    from genelab.configs import ManagerBasedEnvCfg
+    from genelab.rl.runner import build_env
+
+    with pytest.raises(TypeError, match="ManagerBasedRlEnvCfg"):
+        build_env(ManagerBasedEnvCfg())

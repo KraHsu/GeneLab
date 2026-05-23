@@ -146,13 +146,13 @@ def test_play_task_argument_preserves_dashed_runner_flags(
             "--import",
             "tests.fake_extension",
             "play",
-            "External-Fake-Task-v0",
+            "External-Fake-RL-Task-v0",
             "--num-envs",
             "8",
         ]
     )
 
-    assert captured["task_id"] == "External-Fake-Task-v0"
+    assert captured["task_id"] == "External-Fake-RL-Task-v0"
     assert captured["num_envs"] == 8
 
 
