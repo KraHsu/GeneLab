@@ -143,6 +143,7 @@ class EventManagerCfg:
 class ManagerBasedEnvCfg:
     """Base shape for Isaac Lab-style manager-based environments."""
 
+    device: str = "cuda"
     simulation: SimulationCfg = field(default_factory=SimulationCfg)
     scene: InteractiveSceneCfg = field(default_factory=InteractiveSceneCfg)
     actions: ActionManagerCfg = field(default_factory=ActionManagerCfg)
