@@ -16,6 +16,7 @@ from genelab.rl._algorithm_taxonomy import (
     OFF_POLICY_ALGORITHMS as OFF_POLICY_ALGORITHMS,  # explicit re-export
     ON_POLICY_ALGORITHMS,
 )
+from genelab.rl.config import BackendConfig
 
 SkrlAlgorithm = Literal["PPO", "A2C", "SAC", "TD3", "DDPG"]
 
@@ -48,7 +49,7 @@ class SkrlExperimentCfg:
 
 
 @dataclass
-class SkrlAgentCfg:
+class SkrlAgentCfg(BackendConfig):
     """skrl runner config. Selected by the backend dispatcher via ``type(agent_cfg)``."""
 
     algorithm: SkrlAlgorithm = "PPO"
