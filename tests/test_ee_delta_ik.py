@@ -332,6 +332,24 @@ def test_binary_gripper_action_dim_is_one() -> None:
     assert term.action_dim == 1
 
 
+def test_binary_gripper_matches_only_finger_joints() -> None:
+    # Construction (shared GripperActionBase.__init__): the regex resolves the two
+    # finger joints and sizes the per-joint target buffer to them.
+    env, _ = _franka_like_fake_env()
+    cfg = BinaryGripperActionCfg(joint_names=(r"^finger_joint.*$",))
+    term = BinaryGripperAction(cfg, env)  # type: ignore[arg-type]
+    assert term._joint_indices.numel() == 2  # noqa: SLF001
+    assert term._target.shape == (env.num_envs, 2)  # noqa: SLF001
+
+
+def test_binary_gripper_zero_match_raises() -> None:
+    # Zero-joint guard in the shared base; the message names the concrete subclass.
+    env, _ = _franka_like_fake_env()
+    cfg = BinaryGripperActionCfg(joint_names=("does_not_exist",))
+    with pytest.raises(ValueError, match="BinaryGripperAction matched zero joints"):
+        BinaryGripperAction(cfg, env)  # type: ignore[arg-type]
+
+
 # ----------------------------------------------------------------- ContinuousGripperAction
 
 
@@ -364,6 +382,15 @@ def test_continuous_gripper_clamps_to_range() -> None:
     assert torch.allclose(term._target, torch.full((1, 2), 0.04), atol=1e-6)  # noqa: SLF001
     term.process_actions(torch.tensor([[-5.0]]))  # clipped to -1.0 → -0.08 → clamp 0.0
     assert torch.allclose(term._target, torch.zeros(1, 2), atol=1e-6)  # noqa: SLF001
+
+
+def test_continuous_gripper_zero_match_raises() -> None:
+    # Same shared guard as Binary, but the message must name *this* subclass —
+    # confirms the deduped base uses ``type(self).__name__``.
+    env, _ = _franka_like_fake_env()
+    cfg = ContinuousGripperActionCfg(joint_names=("does_not_exist",))
+    with pytest.raises(ValueError, match="ContinuousGripperAction matched zero joints"):
+        ContinuousGripperAction(cfg, env)  # type: ignore[arg-type]
 
 
 # --------------------------------------------------- DifferentialIKAction: lock_orientation
