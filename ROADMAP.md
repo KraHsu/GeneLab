@@ -245,7 +245,7 @@ Genesis 阻挡（`push_robot` ≈ 现有 `push_by_setting_velocity`；`randomize
 | ❌ M3.3 | Terrain curriculum 真生效 | `TerrainGeneratorCfg.curriculum=True` 时按 mdp/curriculums 的进度自动调难度 |
 | ❌ M3.4 | Camera segmentation + point cloud | 暴露 Genesis 的 semantic/instance ID 通道 |
 | ✅ M3.5 | F/T sensor + tactile array | `ForceTorqueSensor`（per-joint 反作用力矩，PR #126）；6 轴 wrench / 指尖压力阵列后置 |
-| 🚧 M3.6 | 多机器人 API | **RFC 已起草（ADR-0012，explicit-routing 设计）**；实现拆为 S1–S6 分片待做。manager 层启用已存在但未消费的 `SceneEntityCfg.name` / `asset_name` 绑定，env 用 `env.articulation(name)` 取代 `["robot"]` 硬编码（破坏性，~82 term 点 + 所有 examples 需迁移） |
+| ✅ M3.6 | 多机器人 API | **ADR-0012 实现完成（S1–S6）**。env 持 `articulations` dict；`SceneEntityCfg.name` / `asset_name` / `SensorCfg.entity_name` 路由到具名实体；S6 删除单数 `env.robot*` + name-table 访问器（破坏性），统一 `env.articulations[name].*`。验收：`tests/test_multi_robot.py`（live 2-robot rollout Genesis-gated） |
 | ✅ M3.7 | SimulationCfg 字段扩展 | 暴露 Genesis `RigidOptions`：contact / solver / constraint-damping 共 8 字段（PR #127）。CCD：Genesis 无对应 knob，N/A |
 | 🚧 M3.8 | Benchmark suite | **`genelab benchmark --suite suite.json` 命令 + suite/report schema + 回归门（`--reference`/`--tolerance`）已落地**（rl/benchmark.py，mock 单测）。剩「≥8 个任务 + 真实 reference numbers + vision 任务端到端」待 Genesis runtime + checkpoint + asset（受阻，同 M3.1） |
 

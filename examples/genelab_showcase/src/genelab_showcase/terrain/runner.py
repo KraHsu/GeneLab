@@ -25,7 +25,7 @@ class TerrainShowcaseRunner(ShowcaseRunner):
     def _dump(self, env: "ManagerBasedRlEnv", step: int) -> None:
         root = self.log_root()
         ray = cast("RayCastData", env.sensors["pelvis_height"].data)
-        rs = env.robot_state
+        rs = env.articulations["robot"].data
         root_z = float(rs.root_pos[0, 2])
         dists = ray.distances[0]
         with (root / "terrain.log").open("a", encoding="utf-8") as fh:

@@ -19,7 +19,7 @@ import numpy as np
 import torch
 
 from genelab.managers.command_manager import CommandTerm, CommandTermCfg
-from genelab.mdp._helpers import resolve_robot_state
+from genelab.mdp._helpers import resolve_articulation, resolve_robot_state
 from genelab.utils.math import (
     quat_apply,
     quat_from_euler_xyz,
@@ -113,12 +113,13 @@ class MotionCommand(CommandTerm):
     def __init__(self, cfg: MotionCommandCfg, env: "ManagerBasedRlEnv") -> None:
         super().__init__(cfg, env)
         self._robot_state = resolve_robot_state(env, cfg.asset_name)
+        articulation = resolve_articulation(env, cfg.asset_name)
         if not cfg.body_names:
             raise ValueError("MotionCommandCfg.body_names must be a non-empty tuple")
         if not cfg.anchor_body_name:
             raise ValueError("MotionCommandCfg.anchor_body_name must be set")
 
-        robot_body_names = env.body_names
+        robot_body_names = articulation.body_names
         try:
             self.robot_anchor_body_index = robot_body_names.index(cfg.anchor_body_name)
         except ValueError as exc:
@@ -159,7 +160,7 @@ class MotionCommand(CommandTerm):
 
         joint_perm: torch.Tensor | None = None
         if cfg.motion_joint_order:
-            robot_joint_names = env.joint_names
+            robot_joint_names = articulation.joint_names
             missing_joints = [n for n in robot_joint_names if n not in cfg.motion_joint_order]
             if missing_joints:
                 raise ValueError(

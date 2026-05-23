@@ -13,7 +13,7 @@ import torch
 
 from genelab.bridges.base import BridgeCfg
 from genelab.configs import ManagerBasedEnvCfg
-from genelab.entity import Articulation, ArticulationCfg, RobotState
+from genelab.entity import Articulation, ArticulationCfg
 from genelab.managers import (
     ActionManager,
     ActionTermCfg,
@@ -218,65 +218,19 @@ class ManagerBasedRlEnv:
         return self._articulations
 
     @property
-    def articulation(self) -> Articulation:
-        """Primary-entity wrapper (Isaac-Lab-style accessors).
-
-        Backed by ``articulations[<primary>]`` (``"robot"`` or the first declared entity).
-        Slated for removal once M3.6 routes every term by name; use ``articulations[name]``
-        for non-primary entities.
-        """
-        return self._articulation
-
-    @property
-    def robot(self) -> Any:
-        """Raw Genesis robot handle. MDP code calls ``env.robot.set_pos(...)`` etc."""
-        return self._articulation.gs_handle
-
-    @property
-    def robot_state(self) -> RobotState:
-        return self._articulation.data
-
-    @property
     def sensors(self) -> dict[str, Sensor[Any]]:
         return self._sensors
-
-    @property
-    def actuators(self) -> dict[str, Any]:
-        """Named actuator groups on the robot articulation (for DR events that
-        randomize per-actuator gains / deadzone — see ``genelab.mdp.dr``)."""
-        return self._articulation.actuators
-
-    @property
-    def joint_names(self) -> list[str]:
-        return self._articulation.joint_names
-
-    @property
-    def link_names(self) -> list[str]:
-        return self._articulation.link_names
-
-    @property
-    def body_names(self) -> list[str]:
-        """Alias for ``link_names`` to match mjlab's terminology."""
-        return self._articulation.body_names
 
     @property
     def env_origins(self) -> torch.Tensor:
         """Per-env world-frame offset ``[num_envs, 3]``; zeros when Genesis uses local frames."""
         return self._scene.env_origins
 
-    @property
-    def default_joint_pos(self) -> torch.Tensor:
-        return self._articulation.default_joint_pos
-
-    @property
-    def joint_pos_limits(self) -> torch.Tensor:
-        """Per-actuated-joint ``(lower, upper)`` limits, shape ``(num_joints, 2)``."""
-        return self._articulation.joint_pos_limits
-
-    @property
-    def joint_vel_limits(self) -> torch.Tensor:
-        """Per-actuated-joint velocity-limit magnitude (rad/s), shape ``(num_joints,)``."""
-        return self._articulation.joint_vel_limits
+    # M3.6 / ADR-0012 S6: the singular entity accessors (``robot`` / ``robot_state`` /
+    # ``articulation``) and the name-table convenience properties (``joint_names`` /
+    # ``link_names`` / ``default_joint_pos`` / ``actuators`` / ``joint_*_limits``) were
+    # removed. Reach an entity by name: ``env.articulations[name]`` (its ``.gs_handle`` /
+    # ``.data`` / ``.joint_names`` / …). Single-robot code uses ``env.articulations["robot"]``.
 
     # ------------------------------------------------------------------ reference state
 

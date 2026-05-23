@@ -43,11 +43,11 @@ def _poles_state(env: "ManagerBasedRlEnv") -> dict[str, object]:
     vertical: if pole_1 is tilted by α and pole_2's joint reads 0, pole_2 is
     also tilted by α in world frame.
     """
-    i1 = env.joint_names.index(POLE_1_JOINT)
-    i2 = env.joint_names.index(POLE_2_JOINT)
+    i1 = env.articulations["robot"].joint_names.index(POLE_1_JOINT)
+    i2 = env.articulations["robot"].joint_names.index(POLE_2_JOINT)
     return {
-        "angle (rad)": env.robot_state.joint_pos[0, [i1, i2]],
-        "ang_vel (rad/s)": env.robot_state.joint_vel[0, [i1, i2]],
+        "angle (rad)": env.articulations["robot"].data.joint_pos[0, [i1, i2]],
+        "ang_vel (rad/s)": env.articulations["robot"].data.joint_vel[0, [i1, i2]],
     }
 
 
