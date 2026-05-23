@@ -169,6 +169,15 @@ def test_rubiks_robot_registry_writes_turnable_mjcf(tmp_path: Path) -> None:
     assert "<equality>" not in text
 
 
+def test_rubiks_env_cfg_inherits_device_default() -> None:
+    """Regression: the Rubiks play scene uses the base ``ManagerBasedEnvCfg`` but is
+    built via ``ManagerBasedRlEnv``, which reads ``cfg.device`` — so the base cfg
+    must carry ``device`` (no longer RL-subclass-only)."""
+    from genelab_examples.rubiks.config import RubiksEnvCfg
+
+    assert RubiksEnvCfg().device == "cuda"
+
+
 def test_rubiks_robot_registry_can_write_welded_mjcf(tmp_path: Path) -> None:
     load_extension_module("genelab_examples.tasks")
     task = TASKS.get("GeneLab-Rubiks-Play-v0")
