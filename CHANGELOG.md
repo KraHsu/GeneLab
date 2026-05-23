@@ -8,6 +8,15 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **UR10e asset** (ROADMAP M3.1) — `asset_zoo/ur10e.py` registers the `ur10e` 6-DoF
+  industrial arm (MuJoCo Menagerie source), a fixed-base manipulation arm complementing the
+  Franka. Three implicit-PD actuator groups follow the Menagerie `size4`/`size3`/`size2`
+  motor classes (effort ±330 / ±150 / ±56 N·m from the upstream `forcerange`, damping
+  10 / 5 / 2); moderate position-control stiffness (300 / 150 / 80, tune per task). Home pose =
+  the Menagerie `home` keyframe. MJCF mirrored to `genelab-assets`
+  (`universal_robots_ur10e/…tar.gz`, md5-pinned). Smoke-tested in `tests/test_asset_zoo.py`
+  (live spawn needs a Genesis runtime). Bundled robot count to 7.
+
 - **Unitree H1 asset** (ROADMAP M3.1) — `asset_zoo/unitree_h1.py` registers the `h1`
   19-DoF humanoid (MuJoCo Menagerie source, BSD-3). Five implicit-PD actuator groups
   partitioned by hardware torque limit (hips/torso ±200, knees ±300, ankles ±40, shoulder
