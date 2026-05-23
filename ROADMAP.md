@@ -58,16 +58,17 @@ GeneLab 的差异化价值：
 - **多机器人 API（M3.6 完成，ADR-0012 S1–S6）**：`env.articulations[name]` + `SceneEntityCfg.name` /
   `asset_name` / `SensorCfg.entity_name` 路由；单数 `env.robot*` / name-table 访问器已删除
 - **Benchmark 命令（M3.8 部分）**：`genelab benchmark --suite` + 回归门
+- **8 个 asset_zoo robots（M3.1 完成）**：anymal_c / cartpole / franka / g1 / go1 / **h1** /
+  **ur10e** / **allegro**，覆盖 locomotion / arm / dexterous（blob 托管于 `genelab-assets`、md5 验证）
 - Recording：NPZ / CSV / video / 实时 PyQt & MPL plots；Teleop bridges：keyboard / DearPyGui
 - torchrun 多卡训练
 - **架构**：`lint-imports` 必过 CI 分层门禁（6/0）；pyright 在 `src/` 上 0 错误（不再几乎全关）
 
-⚠️ **关键缺口**（按 ROI 排序详见 §4）—— **M1、M2 完成；M3 几乎完成（M3.2–M3.7 ✅）**。仅剩两项，
-且均受当前环境阻挡（非代码问题）：
-- 资产仅 5 个（M3.1）—— 每个新 asset 需外部托管 MJCF + 固定 md5，本环境无法提供
+⚠️ **关键缺口**（详见 §4）—— **M1、M2、M3.1–M3.7 全部完成。** 唯一剩余项受当前环境阻挡（非代码问题）：
 - benchmark 真实 reference numbers（M3.8 剩余）—— `genelab benchmark` 命令已落地，但跑 ≥8 个任务
-  的真实数字 + vision 任务端到端需 Genesis runtime + 训练好的 checkpoint（本环境无）
-- 指尖压力 tactile 阵列（M3.5 已交付 joint-FT，6 轴 wrench / tactile 后置）
+  的真实数字 + vision 任务端到端需 Genesis GPU runtime + 训练好的 checkpoint（本环境无）。同理：新 asset
+  的 live-spawn、多机器人 2-robot rollout、任何实际训练都 Genesis-gated。
+- 可选扩展：6 轴 wrench / 指尖压力 tactile（M3.5 已交付 joint-FT）；ADR-0010 拆分（待第二实体类型）。
 
 ---
 
@@ -238,20 +239,19 @@ Genesis 阻挡（`push_robot` ≈ 现有 `push_by_setting_velocity`；`randomize
 
 > **One-liner**: 把 GeneLab 从「能跑 demo」推到「能做严肃 benchmark」。
 
-**状态：几乎完成 — M3.2 / M3.3 / M3.4 / M3.5 / M3.6 / M3.7 ✅（PR #126–#139）。** 多机器人 API
-（M3.6）已按 ADR-0012 的 S1–S6 全部落地。仅剩 M3.1（新资产，需外部托管 MJCF——本环境受阻）与
-M3.8 的真实 reference numbers（`genelab benchmark` 命令已落地，跑数字需 Genesis runtime + checkpoint）。
-原 5 个 asset（anymal_c / cartpole / franka / g1 / go1）。M3.1（新资产）在当前环境受阻——每个 asset_zoo
-机器人需外部托管 MJCF + 固定 md5。
+**状态：M3.1–M3.7 ✅ 完成（PR #126–#144）；仅 M3.8 的真实数字待跑。** 多机器人 API（M3.6）按
+ADR-0012 的 S1–S6 全部落地；M3.1 新增 H1 / UR10e / Allegro 三个 asset（zoo 5 → 8，blob 已托管 + md5
+验证）。**唯一剩余**：M3.8 的真实 reference numbers——`genelab benchmark` 命令已落地，但跑 ≥8 个任务的
+真实数字 + vision 任务端到端需要 Genesis GPU runtime + 训练好的 checkpoint（本环境无，非代码问题）。
 
 **目标产物**
 
 | # | 交付 | 说明 |
 |---|---|---|
-| ❌ M3.1 | 资产扩充 | 至少 +3 个：A1 / H1 / UR10 / Allegro 任二（按下游需求） |
-| ❌ M3.2 | 更多 sub-terrain | gaps / stepping stones / discrete obstacles / mesh import |
-| ❌ M3.3 | Terrain curriculum 真生效 | `TerrainGeneratorCfg.curriculum=True` 时按 mdp/curriculums 的进度自动调难度 |
-| ❌ M3.4 | Camera segmentation + point cloud | 暴露 Genesis 的 semantic/instance ID 通道 |
+| ✅ M3.1 | 资产扩充 | +3：**Unitree H1**（19-DoF 人形, #141）/ **UR10e**（6-DoF 工业臂, #142）/ **Allegro**（16-DoF 灵巧手, #144）。均 Menagerie 镜像，blob 托管于 `genelab-assets`、md5 端到端验证；live spawn 仍 Genesis-gated。zoo 5 → 8 robots，覆盖 locomotion / arm / dexterous |
+| ✅ M3.2 | 更多 sub-terrain | `DiscreteObstacles` / `SteppingStones` / `Fractal`（#129）。「gaps」无 Genesis 分支、mesh import 是 `height_field` 另一路径——均后置 |
+| ✅ M3.3 | Terrain curriculum 真生效 | `SubTerrainCfg.difficulty` + `curriculum=True` 行难度排序（#130），配合 `mdp.terrain_levels_vel` |
+| ✅ M3.4 | Camera segmentation | `CameraSensorCfg.render_segmentation`（object-index / colorized，#131）。point cloud（depth+intrinsics 反投影）后置 |
 | ✅ M3.5 | F/T sensor + tactile array | `ForceTorqueSensor`（per-joint 反作用力矩，PR #126）；6 轴 wrench / 指尖压力阵列后置 |
 | ✅ M3.6 | 多机器人 API | **ADR-0012 实现完成（S1–S6）**。env 持 `articulations` dict；`SceneEntityCfg.name` / `asset_name` / `SensorCfg.entity_name` 路由到具名实体；S6 删除单数 `env.robot*` + name-table 访问器（破坏性），统一 `env.articulations[name].*`。验收：`tests/test_multi_robot.py`（live 2-robot rollout Genesis-gated） |
 | ✅ M3.7 | SimulationCfg 字段扩展 | 暴露 Genesis `RigidOptions`：contact / solver / constraint-damping 共 8 字段（PR #127）。CCD：Genesis 无对应 knob，N/A |
