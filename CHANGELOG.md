@@ -8,6 +8,14 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Allegro Hand asset** (ROADMAP M3.1) — `asset_zoo/allegro_hand.py` registers the `allegro`
+  16-DoF dexterous hand (Wonik Allegro, MuJoCo Menagerie right-hand variant) — the first
+  **dexterous-manipulation** robot in the zoo. One uniform implicit-PD actuator group over all
+  16 finger joints (`(ff|mf|rf|th)j[0-3]`) with the Isaac Lab AllegroHand gains (stiffness 3.0,
+  damping 0.1, ~0.5 N·m effort); open-hand rest pose; fixed base. MJCF mirrored to
+  `genelab-assets` (`wonik_allegro/…tar.gz`, md5-pinned). Smoke-tested in `tests/test_asset_zoo.py`
+  (live spawn needs a Genesis runtime). Bundled robot count to 8.
+
 - **UR10e asset** (ROADMAP M3.1) — `asset_zoo/ur10e.py` registers the `ur10e` 6-DoF
   industrial arm (MuJoCo Menagerie source), a fixed-base manipulation arm complementing the
   Franka. Three implicit-PD actuator groups follow the Menagerie `size4`/`size3`/`size2`
