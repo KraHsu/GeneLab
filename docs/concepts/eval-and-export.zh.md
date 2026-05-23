@@ -14,7 +14,7 @@
 
 ## `genelab eval`
 
-跑 vectorized deterministic rollout，按 ROADMAP §M1.1 的 schema 写一份 JSON：
+跑 vectorized deterministic rollout，并按下面的 schema 写一份 JSON：
 
 ```bash
 genelab eval GeneLab-Inverted-Pendulum-v0 logs/rsl_rl/exp1/.../model_500.pt \
@@ -71,8 +71,7 @@ genelab train GeneLab-Inverted-Pendulum-v0 \
 - 每个 chunk 走 backend 的正常 train lifecycle，会关闭并重建 Genesis env。短
   任务把 `--eval-every` 设到 ≥ 50，让 Genesis 初始化时间被摊薄。
 - Off-policy 算法（skrl / sb3 的 SAC / TD3 / DDPG）每 chunk 重载 checkpoint
-  会丢 replay buffer，sample efficiency 下降但仍能收敛。后端原生 callback API
-  跟踪在 ROADMAP M2。
+  会丢 replay buffer，sample efficiency 下降但仍能收敛。
 - `best_model.<ext>` 复用来源 backend 的 checkpoint 格式（`rsl_rl` / `skrl`
   用 `.pt`，`sb3` 用 `.zip`）。meta 文件记录来源 iter、eval seed、episode
   数、return 统计。
@@ -156,5 +155,5 @@ actor 通过 backend 各自的小 shim 取出来，包成统一的调用形态�
 - 字典 observation（SB3 + HER）暂不支持导出。仅支持单一 group 的 flat tensor
   obs。
 - Recurrent policy（rsl_rl 设置 `rnn_type`）暂不支持 —— 导出的模型没有 hidden
-  state 槽。跟在 ROADMAP follow-up。
+  state 槽。
 - 导出的模型不应用 `ObservationTermCfg.noise` —— noise 只在训练时启用。

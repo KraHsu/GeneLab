@@ -1,7 +1,7 @@
 # Eval and Export
 
 This page covers GeneLab's research-reproducibility tooling under
-`genelab.rl.evaluator` / `eval_callback` / `exporter`, surfaced as three new
+`genelab.rl.evaluator` / `eval_callback` / `exporter`, surfaced as three
 CLIs that close the **train → eval → export** loop:
 
 | Command | Purpose | Output |
@@ -16,8 +16,8 @@ in `genelab.rl.backends.base`), so they work identically against the `rsl_rl`,
 
 ## `genelab eval`
 
-Runs a vectorized deterministic rollout and writes a JSON summary in the schema
-documented under ROADMAP §M1.1:
+Runs a vectorized deterministic rollout and writes a JSON summary with this
+schema:
 
 ```bash
 genelab eval GeneLab-Inverted-Pendulum-v0 logs/rsl_rl/exp1/.../model_500.pt \
@@ -79,8 +79,7 @@ Caveats:
   amortized.
 - For off-policy algorithms (SAC / TD3 / DDPG via `skrl` or `sb3`), reloading
   from a checkpoint between chunks loses the replay buffer. Sample efficiency
-  degrades but training still converges. A backend-native callback API is
-  tracked under ROADMAP M2.
+  degrades but training still converges.
 - `best_model.<ext>` reuses the source backend's checkpoint format (`.pt` for
   `rsl_rl` / `skrl`, `.zip` for `sb3`). The metadata file records the source
   iteration, eval seed, episodes, and return statistics.
@@ -167,6 +166,6 @@ shape is uniform:
 - Dict observations (e.g. SB3 + HER) are not yet supported by export. Single-
   group flat-tensor obs only.
 - Recurrent policies (rsl_rl `rnn_type` set) are not yet supported — the
-  exported model has no hidden-state slot. Tracked under ROADMAP follow-ups.
+  exported model has no hidden-state slot.
 - The exported model does **not** apply observation noise from `ObservationTermCfg.noise`;
   noise is part of training only.

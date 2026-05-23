@@ -60,8 +60,8 @@ class SimulationCfg:
 
         Returns only the fields the user set (skips ``None``), keyed by the Genesis
         ``RigidOptions`` parameter names. ``integrator`` stays a string here — the scene
-        resolves it to ``gs.integrator.<name>`` so ``configs`` stays Genesis-free (invariant
-        #5). An empty dict means the scene won't pass ``rigid_options`` at all.
+        resolves it to ``gs.integrator.<name>`` so ``configs`` stays Genesis-free. An empty
+        dict means the scene won't pass ``rigid_options`` at all.
         """
         mapping: dict[str, Any] = {
             "enable_self_collision": self.enable_self_collision,
