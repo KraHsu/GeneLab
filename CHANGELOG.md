@@ -8,6 +8,15 @@ trajectory so breaking changes can land in any minor release until the 1.0 stabi
 
 ### Added
 
+- **Unitree H1 asset** (ROADMAP M3.1) — `asset_zoo/unitree_h1.py` registers the `h1`
+  19-DoF humanoid (MuJoCo Menagerie source, BSD-3). Five implicit-PD actuator groups
+  partitioned by hardware torque limit (hips/torso ±200, knees ±300, ankles ±40, shoulder
+  pitch/roll ±40, shoulder-yaw/elbow ±18 N·m), stiffness/damping mirroring Isaac Lab's
+  `H1_CFG`; knees-bent home pose. Joint names follow the Menagerie convention (no `_joint`
+  suffix); feet are `*_ankle_link`. The MJCF blob is mirrored into the `genelab-assets` repo
+  (`unitree_h1/unitree_h1.tar.gz`, md5-pinned). Registry smoke-tested in `tests/test_asset_zoo.py`
+  (the live spawn needs a Genesis runtime). Brings the bundled robot count to 6.
+
 - **Multi-robot API complete** (ROADMAP M3.6 / ADR-0012, slices **S5 + S6**) — finishes the
   multi-robot work (S1–S4 added the routing; S5 was a no-op since S1 kept examples working).
   - **The flip (breaking):** removed the singular env accessors `env.robot` / `env.robot_state`
