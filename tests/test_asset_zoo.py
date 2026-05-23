@@ -24,6 +24,7 @@ from genelab.asset_zoo import (
     FrankaPandaCfg,
     UnitreeG1Cfg,
     UnitreeGo1Cfg,
+    UnitreeH1Cfg,
 )
 from genelab.entity import ArticulationCfg
 from genelab.registry import ROBOTS, load_bundled_asset_zoo
@@ -98,6 +99,20 @@ def test_unitree_g1_registered(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cfg.actuators["waist"].armature == pytest.approx(
         2 * cfg.actuators["5020"].armature  # type: ignore[operator]
     )
+
+
+def test_unitree_h1_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_path = FIXTURES_DIR / "cartpole.xml"
+    monkeypatch.setattr("genelab.asset_zoo.unitree_h1.fetch_asset", lambda spec: fake_path)
+    cfg = UnitreeH1Cfg()
+    assert isinstance(cfg, ArticulationCfg)
+    assert set(cfg.actuators) == {"hips_torso", "knees", "ankles", "shoulders", "forearms"}
+    assert cfg.foot_link_names == ("left_ankle_link", "right_ankle_link")
+    # Effort limits track the Menagerie ctrlrange: knees highest, forearms lowest.
+    assert cfg.actuators["knees"].effort_limit == pytest.approx(300.0)
+    assert cfg.actuators["ankles"].effort_limit == pytest.approx(40.0)
+    assert cfg.actuators["forearms"].effort_limit == pytest.approx(18.0)
+    assert ROBOTS.entry("h1").description.startswith("Unitree H1")
 
 
 def test_unitree_go1_registered(monkeypatch: pytest.MonkeyPatch) -> None:
