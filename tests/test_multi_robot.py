@@ -196,3 +196,32 @@ def test_force_torque_sensor_routes_to_named_entity() -> None:
     sensor.bind(env)  # type: ignore[arg-type]
     assert sensor.joint_names == ["jb0", "jb1"]  # resolved against robot_b
     assert torch.allclose(sensor.data.force, force_b[:, [1, 2]])  # robot_b's dofs from its handle
+
+
+# ---------------------------------------------------------------- S6: flip + acceptance
+
+
+def test_singular_entity_accessors_removed() -> None:
+    """The flip (ADR-0012 S6): the singular entity accessors are gone — reach by name."""
+    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
+    for removed in ("robot", "robot_state", "articulation", "joint_names", "default_joint_pos"):
+        assert not hasattr(ManagerBasedRlEnv, removed), f"env.{removed} should be removed (M3.6 S6)"
+    # The name-keyed accessor remains.
+    assert hasattr(ManagerBasedRlEnv, "articulations")
+
+
+def test_two_robot_cfg_wiring() -> None:
+    """A 2-robot env cfg resolves both entities; primary is the first when no 'robot' key.
+
+    The actual ``scene.build`` is genesis_runtime-gated; this locks the cfg → entity
+    resolution that the build consumes (the acceptance gate's headless-verifiable half).
+    """
+    a, b = ArticulationCfg(), ArticulationCfg()
+    cfg = ManagerBasedRlEnvCfg(robots={"robot_a": a, "robot_b": b})
+    resolved = _resolve_entity_cfgs(cfg)
+    assert list(resolved) == ["robot_a", "robot_b"]
+    assert _primary_entity_name(resolved) == "robot_a"  # no "robot" key → first declared
+    # A SceneEntityCfg / sensor entity_name selecting "robot_b" routes to that entity
+    # (resolver behaviour already covered above); here we assert the wiring is consistent.
+    assert resolved["robot_b"] is b

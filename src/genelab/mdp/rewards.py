@@ -228,13 +228,14 @@ class variable_posture:
         self._std_running = self._build_std(std_running, default)
 
     def _build_std(self, mapping: dict[str, float], default: float) -> torch.Tensor:
-        out = torch.full((len(self._env.joint_names),), default, device=self._env.device)
+        joint_names = _asset_articulation(self._env, None).joint_names
+        out = torch.full((len(joint_names),), default, device=self._env.device)
         for pattern, value in mapping.items():
             try:
                 regex = re.compile(pattern)
             except re.error:
                 regex = re.compile(re.escape(pattern))
-            for i, name in enumerate(self._env.joint_names):
+            for i, name in enumerate(joint_names):
                 if regex.fullmatch(name) or regex.search(name):
                     out[i] = float(value)
         return out

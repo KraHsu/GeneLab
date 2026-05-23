@@ -48,7 +48,8 @@ def resolve_robot_state(env: "ManagerBasedRlEnv", name: str) -> "RobotState":
     arts = getattr(env, "articulations", None)
     if arts is not None and name in arts:
         return arts[name].data
-    return env.robot_state
+    # Fake-env fallback only; the real env always has ``articulations``.
+    return env.robot_state  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def asset_state(env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None") -> "RobotState":
@@ -80,7 +81,7 @@ def asset_handle(env: "ManagerBasedRlEnv", asset_cfg: "SceneEntityCfg | None") -
     arts = getattr(env, "articulations", None)
     if arts is not None and name in arts:
         return arts[name].gs_handle
-    return env.robot
+    return env.robot  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def link_ids(asset_cfg: SceneEntityCfg) -> tuple[int, ...]:

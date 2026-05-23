@@ -37,7 +37,7 @@ _EE_INDEX_CACHE: dict[int, int] = {}
 def _ee_index(env: "ManagerBasedRlEnv") -> int:
     cached = _EE_INDEX_CACHE.get(id(env))
     if cached is None:
-        cached = env.articulation.link_names.index(EE_LINK)
+        cached = env.articulations["robot"].link_names.index(EE_LINK)
         _EE_INDEX_CACHE[id(env)] = cached
     return cached
 
@@ -69,7 +69,7 @@ def _cube_pos(env: "ManagerBasedRlEnv") -> torch.Tensor:
 
 
 def _ee_pos(env: "ManagerBasedRlEnv") -> torch.Tensor:
-    return env.robot_state.link_pos[:, _ee_index(env), :]
+    return env.articulations["robot"].data.link_pos[:, _ee_index(env), :]
 
 
 # ----------------------------------------------------------------- observations

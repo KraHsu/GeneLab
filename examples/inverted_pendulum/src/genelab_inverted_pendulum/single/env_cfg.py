@@ -38,10 +38,10 @@ def _pole_state(env: "ManagerBasedRlEnv") -> dict[str, object]:
     zero used by ``pole_upright`` / ``pole_angle_l2`` rewards. Output dict keys match
     the PyQtPlotCfg labels-dict keys so each becomes its own subplot.
     """
-    idx = env.joint_names.index(POLE_JOINT)
+    idx = env.articulations["robot"].joint_names.index(POLE_JOINT)
     return {
-        "angle (rad)": env.robot_state.joint_pos[0, idx : idx + 1],
-        "ang_vel (rad/s)": env.robot_state.joint_vel[0, idx : idx + 1],
+        "angle (rad)": env.articulations["robot"].data.joint_pos[0, idx : idx + 1],
+        "ang_vel (rad/s)": env.articulations["robot"].data.joint_vel[0, idx : idx + 1],
     }
 
 
