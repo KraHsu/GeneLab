@@ -25,7 +25,7 @@ from genelab.rl._helpers import (
     run_play_loop,
     save_run_params,
 )
-from genelab.rl.sb3_config import Sb3AgentCfg
+from genelab.rl.backends.sb3.config import Sb3AgentCfg
 
 _ACTIVATIONS = ("elu", "relu", "tanh", "gelu", "selu", "leaky_relu")
 
