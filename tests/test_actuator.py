@@ -29,7 +29,7 @@ from genelab.mdp.dr import (  # noqa: E402
 
 
 class _FakeJoint:
-    """Mimics the subset of ``gs.joints[i]`` that :meth:`Articulation._enumerate_joints_and_links`
+    """Mimics the subset of ``gs.joints[i]`` that ``ArticulationBinder._enumerate_joints_and_links``
     reads. ``dofs_idx_local`` is what Genesis would expose for an MJCF without a free joint."""
 
     def __init__(self, name: str, dof_start: int) -> None:
