@@ -72,9 +72,7 @@ def joint_vel_out_of_limit(
     return torch.any(speed > limit.unsqueeze(0), dim=-1)
 
 
-def contact_force_limit(
-    env: "EnvContext", sensor_name: str, max_force: float
-) -> torch.Tensor:
+def contact_force_limit(env: "EnvContext", sensor_name: str, max_force: float) -> torch.Tensor:
     """True for any env where a tracked link's net contact-force magnitude exceeds ``max_force``.
 
     Reads ``force_norm`` ``(B, N)`` from the named :class:`~genelab.sensor.ContactSensor`
@@ -93,9 +91,7 @@ def _motion_command(env: "EnvContext", command_name: str) -> MotionCommand:
     return cast(MotionCommand, term)
 
 
-def bad_anchor_pos_z_only(
-    env: "EnvContext", command_name: str, threshold: float
-) -> torch.Tensor:
+def bad_anchor_pos_z_only(env: "EnvContext", command_name: str, threshold: float) -> torch.Tensor:
     """True when the robot anchor z drifts further than ``threshold`` from the reference clip."""
     cmd = _motion_command(env, command_name)
     return torch.abs(cmd.anchor_pos_w[:, -1] - cmd.robot_anchor_pos_w[:, -1]) > threshold

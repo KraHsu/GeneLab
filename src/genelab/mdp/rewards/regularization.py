@@ -59,9 +59,7 @@ def alive_bonus(env: EnvContext) -> torch.Tensor:
     return torch.ones(env.num_envs, device=env.device)
 
 
-def applied_torque_l2(
-    env: EnvContext, asset_cfg: SceneEntityCfg | None = None
-) -> torch.Tensor:
+def applied_torque_l2(env: EnvContext, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
     """Penalize squared realized actuator torque — ``Σⱼ τⱼ²`` over actuated joints.
 
     Reads ``robot_state.applied_torque`` (Genesis control force, refreshed each step).
@@ -103,9 +101,7 @@ def joint_acc_l2(env: EnvContext) -> torch.Tensor:
     return torch.zeros(rs.joint_vel.shape[0], device=rs.joint_vel.device)
 
 
-def flat_orientation_l2(
-    env: EnvContext, asset_cfg: SceneEntityCfg | None = None
-) -> torch.Tensor:
+def flat_orientation_l2(env: EnvContext, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
     """Penalise tilt: the xy components of body-frame gravity should be zero."""
     return torch.sum(_asset_state(env, asset_cfg).projected_gravity_b[:, :2] ** 2, dim=-1)
 
@@ -227,9 +223,7 @@ class variable_posture:
         return torch.exp(-torch.mean((error * error) / (std * std), dim=-1))
 
 
-def joint_pos_limits(
-    env: EnvContext, asset_cfg: SceneEntityCfg | None = None
-) -> torch.Tensor:
+def joint_pos_limits(env: EnvContext, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
     """Sum of per-joint excursions past the actuator's configured limits.
 
     mjlab parity (``envs/mdp/rewards.py::joint_pos_limits``):
