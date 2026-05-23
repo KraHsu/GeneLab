@@ -53,7 +53,14 @@ def test_cli_routes_agent_through_play_task(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setitem(__import__("sys").modules, "genelab.rl", fake_rl)
 
     cli_module.main(
-        ["--import", "tests.fake_extension", "play", "External-Fake-RL-Task-v0", "--agent", "random"]
+        [
+            "--import",
+            "tests.fake_extension",
+            "play",
+            "External-Fake-RL-Task-v0",
+            "--agent",
+            "random",
+        ]
     )
 
     assert captured["task_id"] == "External-Fake-RL-Task-v0"
