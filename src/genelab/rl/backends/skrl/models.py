@@ -23,7 +23,7 @@ from skrl.models.torch import DeterministicMixin, GaussianMixin, Model
 if TYPE_CHECKING:
     import gymnasium
 
-    from genelab.rl.skrl_config import SkrlModelCfg
+    from genelab.rl.backends.skrl.config import SkrlModelCfg
     from genelab.rl.vecenvs.skrl import GenelabSkrlWrapper
 
 _ACTIVATIONS = {
