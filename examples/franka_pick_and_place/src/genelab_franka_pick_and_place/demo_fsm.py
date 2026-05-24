@@ -97,13 +97,13 @@ class FrankaPickAndPlaceFsm:
         return pos.to(self._device)
 
     def _ee_pos(self) -> torch.Tensor:
-        return self._env.robot_state.link_pos[:, self._hand_idx, :]
+        return self._art.data.link_pos[:, self._hand_idx, :]
 
     def _goal_pos(self) -> torch.Tensor:
         return getattr(self._env, _GOAL_ATTR)
 
     def _gripper_width(self) -> torch.Tensor:
-        return self._env.robot_state.joint_pos.index_select(1, self._finger_joint_idx).mean(dim=1)
+        return self._art.data.joint_pos.index_select(1, self._finger_joint_idx).mean(dim=1)
 
     # -- main step -----------------------------------------------------------
 
