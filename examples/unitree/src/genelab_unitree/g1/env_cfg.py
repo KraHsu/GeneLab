@@ -202,6 +202,10 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             dt=0.002,
             substeps=1,
             vis=play,
+            # Run Genesis on the GPU. ``SimulationCfg.gpu`` defaults to False (CPU
+            # backend); without this the G1 humanoid physics runs entirely on CPU —
+            # GPU idle, ~30x slower per step (~1480 ms vs ~50 ms / step @1024 envs).
+            gpu=True,
         ),
         scene=InteractiveSceneCfg(
             env_spacing=(2.5, 2.5),
