@@ -49,7 +49,13 @@ def curriculum_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
     return ManagerBasedRlEnvCfg(
         simulation=SimulationCfg(
             num_envs=16,
-            dt=0.005,
+            # The known-good G1 tasks (Velocity-Flat / Tracking-Flat) run this robot
+            # at dt=0.002 because the Genesis rigid solver is unstable for the G1 at
+            # dt=0.005 (constraint forces diverge to NaN even from a clean stance).
+            # Match them: dt=0.002 + decimation=10 keeps the control rate at 50 Hz, so
+            # the curriculum/teleport schedule and the 2 s episode (100 control steps)
+            # are unchanged.
+            dt=0.002,
             substeps=1,
             steps=400,
             vis=False,
@@ -59,7 +65,7 @@ def curriculum_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
             env_spacing=(6.0, 6.0),
             terrain=terrain,
         ),
-        decimation=4,
+        decimation=10,
         episode_length_s=2.0,
         device="cuda",
         robot=robot_cfg,

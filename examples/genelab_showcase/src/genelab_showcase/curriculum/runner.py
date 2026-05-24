@@ -41,13 +41,19 @@ class CurriculumShowcaseRunner(ShowcaseRunner):
         if terrain is None:
             return
         env_ids = torch.arange(_HALF_TELEPORT, device=env.device)
+        robot = env.articulations["robot"]
         spawn = terrain.spawn_pos[env_ids]
         new_pos = spawn.clone()
         new_pos[:, 1] += _TELEPORT_DISTANCE
+        # Seat the base at standing height above the surface at the teleport target;
+        # spawn_pos carries only the cell's planar origin (z = terrain root), so a bare
+        # write would bury the robot in the height field and explode the contact solver.
+        stand_height = float(robot.cfg.init_pos[2])
+        new_pos[:, 2] = terrain.surface_height_at(new_pos) + stand_height + 0.1
         quat = torch.zeros(env_ids.numel(), 4, device=env.device)
         quat[:, 0] = 1.0
         zero_vel = torch.zeros(env_ids.numel(), 3, device=env.device)
-        env.articulations["robot"].write_root_state(new_pos, quat, zero_vel, zero_vel, env_ids)
+        robot.write_root_state(new_pos, quat, zero_vel, zero_vel, env_ids)
 
     def _dump(self, env: "ManagerBasedRlEnv", step: int) -> None:
         root = self.log_root()
