@@ -7,8 +7,9 @@ tests but exercises the full GeneLab train/play path.
 
 | Task id | Description |
 |---|---|
-| `GeneLab-Inverted-Pendulum-v0` | Single pole balancing. |
-| `GeneLab-Double-Inverted-Pendulum-v0` | Two-link pole balancing. |
+| `GeneLab-Inverted-Pendulum-v0` | Single pole balancing (rsl_rl PPO). |
+| `GeneLab-Double-Inverted-Pendulum-v0` | Two-link pole balancing (rsl_rl PPO). |
+| `GeneLab-Inverted-Pendulum-Skrl-v0` | Single pole balancing — same env, **skrl** PPO backend. |
 
 ## Install and list
 
@@ -30,7 +31,15 @@ PYTHONPATH=examples/inverted_pendulum/src \
 uv run genelab play GeneLab-Inverted-Pendulum-v0 --steps 64
 uv run genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 500
 uv run genelab train GeneLab-Inverted-Pendulum-v0 --num_envs 64 --max_iterations 2
+
+# Same env, skrl PPO backend (selected purely by the agent cfg type):
+uv run genelab train GeneLab-Inverted-Pendulum-Skrl-v0 --num_envs 64 --max_iterations 4800
+# skrl names checkpoints agent_<timesteps>.pt under the run's checkpoints/ dir:
+uv run genelab eval GeneLab-Inverted-Pendulum-Skrl-v0 logs/skrl/inverted_pendulum_skrl/<run>/checkpoints/agent_<N>.pt
 ```
+
+> `genelab train` for the skrl task needs the optional `skrl` dependency
+> installed; registering and listing the task does not.
 
 ## Code entry points
 

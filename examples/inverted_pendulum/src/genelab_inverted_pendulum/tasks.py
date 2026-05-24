@@ -21,9 +21,11 @@ from genelab_inverted_pendulum.single import (
     get_inverted_pendulum_robot_cfg,
     inverted_pendulum_env_cfg,
     inverted_pendulum_ppo_runner_cfg,
+    inverted_pendulum_skrl_agent_cfg,
 )
 
 INVERTED_PENDULUM_TASK_ID = "GeneLab-Inverted-Pendulum-v0"
+INVERTED_PENDULUM_SKRL_TASK_ID = "GeneLab-Inverted-Pendulum-Skrl-v0"
 DOUBLE_PENDULUM_TASK_ID = "GeneLab-Double-Inverted-Pendulum-v0"
 ROBOT_NAME_SINGLE = "inverted-pendulum"
 ROBOT_NAME_DOUBLE = "double-inverted-pendulum"
@@ -67,6 +69,40 @@ class InvertedPendulumTask:
 
         agent = self.cfg.agent
         if not isinstance(agent, RslRlOnPolicyRunnerCfg):
+            raise TypeError(f"agent cfg has unexpected type {type(agent).__name__}")
+        train_task(self.cfg.name, agent)
+
+
+class InvertedPendulumSkrlTask:
+    """Single inverted-pendulum trained by the **skrl** PPO backend.
+
+    Reuses the same env/robot as :class:`InvertedPendulumTask`; only the agent cfg
+    differs (``SkrlAgentCfg`` instead of ``RslRlOnPolicyRunnerCfg``), which is what
+    routes it to the skrl backend. Exists so ``genelab train/play/eval/export``
+    exercise skrl at runtime.
+    """
+
+    def __init__(self) -> None:
+        self.cfg = TaskCfg(
+            name=INVERTED_PENDULUM_SKRL_TASK_ID,
+            env_name=ENV_NAME_SINGLE,
+            robot_name=ROBOT_NAME_SINGLE,
+            env=inverted_pendulum_env_cfg(play=False),
+            play_env=inverted_pendulum_env_cfg(play=True),
+            agent=inverted_pendulum_skrl_agent_cfg(),
+            trainable=True,
+        )
+
+    def play(self) -> None:
+        from genelab.rl import play_task
+
+        play_task(self.cfg.name, checkpoint=None)
+
+    def train(self) -> None:
+        from genelab.rl import SkrlAgentCfg, train_task
+
+        agent = self.cfg.agent
+        if not isinstance(agent, SkrlAgentCfg):
             raise TypeError(f"agent cfg has unexpected type {type(agent).__name__}")
         train_task(self.cfg.name, agent)
 
@@ -139,6 +175,18 @@ def register() -> None:
                 f"genelab play {INVERTED_PENDULUM_TASK_ID} --agent trained "
                 "--checkpoint PATH/model.pt",
                 f"genelab train {INVERTED_PENDULUM_TASK_ID} --num_envs 4096 --max_iterations 100",
+            ],
+        )
+    if INVERTED_PENDULUM_SKRL_TASK_ID not in TASKS:
+        register_task(
+            INVERTED_PENDULUM_SKRL_TASK_ID,
+            InvertedPendulumSkrlTask,
+            description="skrl PPO inverted-pendulum balancing (single pole).",
+            cfg_type=TaskCfg,
+            examples=[
+                f"genelab play {INVERTED_PENDULUM_SKRL_TASK_ID} --vis",
+                f"genelab train {INVERTED_PENDULUM_SKRL_TASK_ID} --num_envs 4096 --max_iterations 4800",
+                f"genelab eval {INVERTED_PENDULUM_SKRL_TASK_ID} PATH/checkpoints/agent_<N>.pt",
             ],
         )
     if DOUBLE_PENDULUM_TASK_ID not in TASKS:
