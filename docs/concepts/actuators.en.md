@@ -52,6 +52,14 @@ falling back to plain `DCMotorActuator` behavior.
 model. `effort_limit` or `saturation_effort` must define the final torque budget; the residual output
 is clamped back into that budget after it is added.
 
+For a runnable example, `GeneLab-MlpResidual-Actuator-Showcase-v0` (in `examples/genelab_showcase`)
+drives the Franka arm with an `MlpResidualActuator` whose tiny TorchScript residual is generated on
+first use:
+
+```bash
+uv run genelab play GeneLab-MlpResidual-Actuator-Showcase-v0 --steps 5
+```
+
 ## Design guidance
 
 Keep actuator grouping aligned with robot mechanics. Avoid one giant actuator if arm, hand, and base

@@ -55,3 +55,11 @@ class ActuatorShowcaseRunner(ShowcaseRunner):
                 f"step={step:04d}  target={target:.4f}  actual={joint_pos:.4f}  "
                 f"error={error:+.4f}  joint1_vel={joint_vel:+.4f}\n"
             )
+
+
+class MlpResidualActuatorShowcaseRunner(ActuatorShowcaseRunner):
+    """Same scripted joint-1 sweep + tracking dump, but the arm runs on an
+    ``MlpResidualActuator`` (DC-motor base + TorchScript residual). Distinct log slug
+    so its ``tracking.log`` does not collide with the IdealPD actuator showcase."""
+
+    task_slug = "mlp_residual_actuator"
