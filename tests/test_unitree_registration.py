@@ -54,3 +54,18 @@ def test_g1_asset_zoo_cfg_resolves_fetched_mjcf() -> None:
         "ankle",
     }
     assert all(cfg.action_scale > 0 for cfg in entity_cfg.actuators.values())
+
+
+def test_g1_tasks_run_simulation_on_gpu_backend() -> None:
+    """Guard against the CPU-backend perf regression: both G1 humanoid tasks must
+    set ``simulation.gpu=True``. ``SimulationCfg.gpu`` defaults to False (gs.cpu),
+    which silently ran G1 physics on CPU — GPU idle, ~30x slower per step. Train and
+    play cfgs are both checked (play renders, which also needs the GPU backend)."""
+    load_extension_module("genelab_unitree.tasks")
+    for task_id in (
+        "Genelab-Velocity-Flat-Unitree-G1-v0",
+        "Genelab-Tracking-Flat-Unitree-G1-v0",
+    ):
+        task = TASKS.get(task_id)
+        assert task.cfg.env.simulation.gpu is True, f"{task_id}: train env not on GPU backend"
+        assert task.cfg.play_env.simulation.gpu is True, f"{task_id}: play env not on GPU backend"
