@@ -333,3 +333,100 @@ def test_export_onnx_smoke(tmp_path: Path) -> None:
     meta = json.loads(meta_path.read_text())
     assert meta["format"] == "onnx"
     assert meta["opset"] == 17
+
+
+def _fake_runner(alg: Any) -> Any:
+    class _Runner:
+        pass
+
+    runner = _Runner()
+    runner.alg = alg
+    return runner
+
+
+def test_extract_rsl_rl_actor_new_layout(tmp_path: Path) -> None:
+    """Current rsl_rl exposes the actor on ``alg._raw_actor`` as an ``MLPModel``.
+
+    Regression for the ``backend 'rsl_rl' did not expose an actor module`` failure:
+    the extractor must source the actor from ``alg`` directly (not the removed
+    ``alg.actor_critic``) and return a flat ``forward(obs) -> action`` module the
+    exporter can serialize.
+    """
+    pytest.importorskip("rsl_rl")
+    from tensordict import TensorDict
+
+    from genelab.rl.backends.rsl_rl import _extract_rsl_rl_actor
+    from genelab.rl.exporter import ExportConfig, export_policy
+    from rsl_rl.models.mlp_model import MLPModel
+
+    obs = TensorDict({"policy": torch.zeros(1, 4)}, batch_size=[1])
+    actor = MLPModel(
+        obs,
+        {"actor": ["policy"]},
+        "actor",
+        output_dim=3,
+        hidden_dims=(8,),
+        obs_normalization=True,
+        distribution_cfg={"class_name": "GaussianDistribution"},
+    )
+
+    class _Alg:
+        pass
+
+    alg = _Alg()
+    alg._raw_actor = actor
+
+    module, in_dim = _extract_rsl_rl_actor(_fake_runner(alg), num_obs=99)
+    assert in_dim == 4  # derived from the model, not the num_obs fallback
+    # The returned module takes a flat obs tensor (not a TensorDict) and is
+    # deterministic — the contract the exporter bakes normalization around.
+    actions = module(torch.zeros(2, 4))
+    assert actions.shape == (2, 3)
+
+    terms = {"a": _FakeTermCfg(dim=2, scale=1.0), "b": _FakeTermCfg(dim=2, scale=1.0)}
+    out = tmp_path / "policy.ts"
+    export_policy(
+        task_id="Rsl-Task-v0",
+        env=_FakeEnv(terms),
+        checkpoint=Path("/tmp/fake.pt"),
+        actor=module,
+        actor_input_dim=in_dim,
+        action_dim=3,
+        policy_group="policy",
+        cfg=ExportConfig(format="torchscript", output=out),
+    )
+    assert out.exists()
+    assert out.with_suffix(out.suffix + ".metadata.json").exists()
+    loaded = torch.jit.load(str(out))
+    assert loaded(torch.zeros(5, 4)).shape == (5, 3)
+
+
+def test_extract_rsl_rl_actor_legacy_layout() -> None:
+    """Older rsl_rl kept the actor under ``alg.actor_critic.actor`` — still supported."""
+    actor = _linear_actor(in_dim=6, out_dim=2)
+
+    class _ActorCritic:
+        def __init__(self, actor: Any) -> None:
+            self.actor = actor
+
+    class _Alg:
+        def __init__(self, ac: Any) -> None:
+            self.actor_critic = ac
+
+    from genelab.rl.backends.rsl_rl import _extract_rsl_rl_actor
+
+    module, in_dim = _extract_rsl_rl_actor(_fake_runner(_Alg(_ActorCritic(actor))), num_obs=99)
+    assert module is actor
+    assert in_dim == 6  # first Linear's in_features, not the fallback
+
+
+def test_extract_rsl_rl_actor_missing_returns_none() -> None:
+    """No actor anywhere -> ``(None, num_obs)`` so the caller can raise a clear error."""
+    from genelab.rl.backends.rsl_rl import _extract_rsl_rl_actor
+
+    class _Alg:
+        pass
+
+    module, in_dim = _extract_rsl_rl_actor(_fake_runner(_Alg()), num_obs=7)
+    assert module is None
+    assert in_dim == 7
