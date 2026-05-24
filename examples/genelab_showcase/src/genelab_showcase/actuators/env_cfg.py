@@ -12,12 +12,18 @@ Diff vs ``genelab.asset_zoo.FrankaPandaCfg``:
 """
 
 from genelab import mdp
-from genelab.actuator import IdealPDActuatorCfg, ImplicitPDActuatorCfg
+from genelab.actuator import (
+    IdealPDActuatorCfg,
+    ImplicitPDActuatorCfg,
+    MlpResidualActuatorCfg,
+)
 from genelab.asset_zoo import FrankaPandaCfg
 from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
 from genelab.managers import EventTermCfg, TerminationTermCfg
 from genelab.mdp.actions.joint_position import JointPositionActionCfg
+
+from genelab_showcase.actuators.residual_net import residual_net_path
 
 
 def actuator_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
@@ -81,3 +87,31 @@ def actuator_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
             ),
         },
     )
+
+
+def mlp_residual_actuator_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
+    """Franka arm on an :class:`MlpResidualActuator`: DC-motor torque base + a learned residual.
+
+    Identical to :func:`actuator_showcase_env_cfg` except the seven arm joints use an
+    ``MlpResidualActuatorCfg``. ``network_file`` points at a tiny TorchScript net
+    (generated under ``CACHE_DIR``) applying a small velocity-damping residual, and
+    ``residual_scale > 0``, so the MLP-residual code path runs — not the DC-motor
+    fallback. The residual is tiny relative to the 87 Nm effort budget, so the only
+    observable change from the DC-motor base is the loaded correction.
+    """
+
+    cfg = actuator_showcase_env_cfg()
+    # Swap only the arm group; the hand keeps the base showcase's ImplicitPD. The
+    # factory materializes the residual net to CACHE_DIR and points network_file at it.
+    cfg.robot.actuators["panda_arm"] = MlpResidualActuatorCfg(
+        target_names_expr=(r"^joint[1-7]$",),
+        stiffness=400.0,
+        damping=80.0,
+        effort_limit=87.0,
+        velocity_limit=2.175,
+        saturation_effort=87.0,
+        action_scale=0.5,
+        network_file=residual_net_path(),
+        residual_scale=1.0,
+    )
+    return cfg
