@@ -1,4 +1,4 @@
-"""Sensors showcase env: Franka + CameraSensor + IMUSensor + FrameTransformerSensor."""
+"""Sensors showcase env: Franka + Camera + IMU + FrameTransformer + ForceTorque sensors."""
 
 import math
 
@@ -10,6 +10,7 @@ from genelab.managers import EventTermCfg, TerminationTermCfg
 from genelab.mdp.actions.joint_position import JointPositionActionCfg
 from genelab.sensor import (
     CameraSensorCfg,
+    ForceTorqueSensorCfg,
     FrameTransformerSensorCfg,
     IMUSensorCfg,
     TargetFrameCfg,
@@ -71,6 +72,12 @@ def sensors_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
                         TargetFrameCfg(link_name="hand", name="hand"),
                         TargetFrameCfg(link_name="link7", name="link7"),
                     ),
+                ),
+                # Per-joint reaction force/torque on the 7 actuated arm joints — the
+                # ones the scripted joint1 sweep drives. ``data.force`` is (num_envs, 7).
+                ForceTorqueSensorCfg(
+                    name="arm_joint_ft",
+                    joint_names_expr=r"^joint[1-7]$",
                 ),
             ),
         ),
