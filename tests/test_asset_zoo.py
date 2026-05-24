@@ -225,9 +225,7 @@ def test_fetch_asset_md5_mismatch(
     assert cached == []
 
 
-def test_fetch_asset_timeout_fails_fast(
-    asset_root: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_fetch_asset_timeout_fails_fast(asset_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A stalled/blocked download surfaces a clear AssetDownloadError, not a hang.
 
     Regression: ``urlopen`` was called without a timeout, so a missing network /
