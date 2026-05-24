@@ -31,6 +31,17 @@ uv run genelab play TASK_ID \
   --checkpoint logs/rsl_rl/<experiment>/<run>/model_300.pt
 ```
 
+!!! note "无显示器服务器上的 trained 回放"
+    可训练 task 的 play env 默认启用 Genesis viewer（`vis=play`），因此
+    `play --agent trained` 会尝试开窗口，在无显示器的机器上会以
+    `No display detected` 报错。传入 `--headless`（与 `--vis` 互斥）强制
+    `env.simulation.vis=false`：
+
+    ```bash
+    uv run genelab play TASK_ID --agent trained \
+      --checkpoint <ckpt> --headless
+    ```
+
 ## Train
 
 ```bash

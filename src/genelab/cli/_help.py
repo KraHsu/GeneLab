@@ -16,6 +16,9 @@ Shorthand flags rewritten into env overrides:
 
 \b
   -v, --vis        Enable the Genesis viewer (env.simulation.vis=true).
+  --headless       Force no viewer (env.simulation.vis=false); mutually
+                   exclusive with --vis. Use for `play --agent trained` on a
+                   server with no display (its play_env enables the viewer).
   --gpu            Use the GPU backend (env.simulation.gpu=true).
   --steps N        Run for N steps. Play: env.simulation.steps=N.
                    Train: alias for --max_iterations N.
