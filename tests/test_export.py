@@ -34,24 +34,27 @@ class _FakeTermCfg:
 
 
 class _FakeObsManager:
-    """Mimics ``ObservationManager``: ``cfg`` dict + ``compute()`` returning groups."""
+    """Mimics ``ObservationManager``: ``cfg`` dict + ``compute()`` returning groups.
 
-    def __init__(self, group_name: str, terms: dict[str, _FakeTermCfg]) -> None:
+    Takes a mapping of group name -> term dict, so it serves both single-group
+    (flat) and multi-group (goal-conditioned HER) export tests.
+    """
+
+    def __init__(self, groups: dict[str, dict[str, _FakeTermCfg]]) -> None:
         class _Group:
             def __init__(self, terms: dict[str, _FakeTermCfg]) -> None:
                 self.terms = terms
 
-        self.cfg = {group_name: _Group(terms)}
-        self._group_name = group_name
-        self._dim = sum(t._dim for t in terms.values())
+        self.cfg = {name: _Group(terms) for name, terms in groups.items()}
+        self._dims = {name: sum(t._dim for t in terms.values()) for name, terms in groups.items()}
 
     def compute(self) -> dict[str, torch.Tensor]:
-        return {self._group_name: torch.zeros(1, self._dim)}
+        return {name: torch.zeros(1, dim) for name, dim in self._dims.items()}
 
 
 class _FakeEnv:
-    def __init__(self, terms: dict[str, _FakeTermCfg]) -> None:
-        self.observation_manager = _FakeObsManager("policy", terms)
+    def __init__(self, groups: dict[str, dict[str, _FakeTermCfg]]) -> None:
+        self.observation_manager = _FakeObsManager(groups)
 
     def close(self) -> None: ...
 
@@ -72,7 +75,7 @@ def test_export_torchscript_smoke(tmp_path: Path) -> None:
         "joint_pos": _FakeTermCfg(dim=2, scale=1.0, clip=None),
         "joint_vel": _FakeTermCfg(dim=2, scale=0.5, clip=(-2.0, 2.0)),
     }
-    env = _FakeEnv(terms)
+    env = _FakeEnv({"policy": terms})
     actor = _linear_actor(in_dim=4, out_dim=3)
 
     out = tmp_path / "policy.ts"
@@ -103,7 +106,7 @@ def test_export_metadata_schema(tmp_path: Path) -> None:
         "joint_pos": _FakeTermCfg(dim=2, scale=1.0, clip=None),
         "joint_vel": _FakeTermCfg(dim=2, scale=0.5, clip=(-2.0, 2.0)),
     }
-    env = _FakeEnv(terms)
+    env = _FakeEnv({"policy": terms})
     actor = _linear_actor(in_dim=4, out_dim=3)
 
     out = tmp_path / "policy.ts"
@@ -138,7 +141,7 @@ def test_export_normalization_baked(tmp_path: Path) -> None:
     from genelab.rl.exporter import ExportConfig, export_policy
 
     terms = {"x": _FakeTermCfg(dim=3, scale=0.5, clip=None)}
-    env = _FakeEnv(terms)
+    env = _FakeEnv({"policy": terms})
 
     # Actor that just returns the input as-is so we can read back the scaled obs.
     class _Identity(torch.nn.Module):
@@ -168,7 +171,7 @@ def test_export_clip_baked(tmp_path: Path) -> None:
     from genelab.rl.exporter import ExportConfig, export_policy
 
     terms = {"x": _FakeTermCfg(dim=2, scale=None, clip=(-1.0, 1.0))}
-    env = _FakeEnv(terms)
+    env = _FakeEnv({"policy": terms})
 
     class _Identity(torch.nn.Module):
         def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -196,7 +199,7 @@ def test_export_no_backend_dependency_leak(tmp_path: Path) -> None:
     from genelab.rl.exporter import ExportConfig, export_policy
 
     terms = {"x": _FakeTermCfg(dim=4, scale=1.0, clip=None)}
-    env = _FakeEnv(terms)
+    env = _FakeEnv({"policy": terms})
     actor = _linear_actor(in_dim=4, out_dim=2)
     out = tmp_path / "policy.ts"
     export_policy(
@@ -256,8 +259,8 @@ def test_export_task_forces_headless_vis(tmp_path: Path, monkeypatch: Any) -> No
         total_action_dim = 3
 
     class _Env(_FakeEnv):
-        def __init__(self, terms: dict[str, _FakeTermCfg]) -> None:
-            super().__init__(terms)
+        def __init__(self, groups: dict[str, dict[str, _FakeTermCfg]]) -> None:
+            super().__init__(groups)
             self.action_manager = _ActionManager()
 
     actor = _linear_actor(in_dim=4, out_dim=3)
@@ -267,7 +270,7 @@ def test_export_task_forces_headless_vis(tmp_path: Path, monkeypatch: Any) -> No
 
     def _build_env(cfg: Any) -> _Env:
         captured["vis"] = cfg.simulation.vis
-        return _Env(terms)
+        return _Env({"policy": terms})
 
     class _Backend:
         name = "fake"
@@ -312,7 +315,7 @@ def test_export_onnx_smoke(tmp_path: Path) -> None:
     from genelab.rl.exporter import ExportConfig, export_policy
 
     terms = {"x": _FakeTermCfg(dim=4, scale=1.0, clip=None)}
-    env = _FakeEnv(terms)
+    env = _FakeEnv({"policy": terms})
     actor = _linear_actor(in_dim=4, out_dim=2)
     out = tmp_path / "policy.onnx"
     export_policy(
@@ -387,7 +390,7 @@ def test_extract_rsl_rl_actor_new_layout(tmp_path: Path) -> None:
     out = tmp_path / "policy.ts"
     export_policy(
         task_id="Rsl-Task-v0",
-        env=_FakeEnv(terms),
+        env=_FakeEnv({"policy": terms}),
         checkpoint=Path("/tmp/fake.pt"),
         actor=module,
         actor_input_dim=in_dim,
@@ -430,3 +433,128 @@ def test_extract_rsl_rl_actor_missing_returns_none() -> None:
     module, in_dim = _extract_rsl_rl_actor(_fake_runner(_Alg()), num_obs=7)
     assert module is None
     assert in_dim == 7
+
+
+# -- SB3 goal-conditioned (SAC+HER) Dict-obs export -------------------------------
+
+
+def _franka_style_env() -> _FakeEnv:
+    """Fake env with the Franka SAC+HER groups: policy(5) / achieved_goal(2) / desired_goal(2)."""
+    return _FakeEnv(
+        {
+            "policy": {
+                "a": _FakeTermCfg(dim=2, scale=1.0),
+                "b": _FakeTermCfg(dim=3, scale=0.5),
+            },
+            "achieved_goal": {"ag": _FakeTermCfg(dim=2)},
+            "desired_goal": {"dg": _FakeTermCfg(dim=2)},
+        }
+    )
+
+
+def _tiny_her_sac_model() -> Any:
+    """A tiny SB3 SAC ``MultiInputPolicy`` on a Dict-obs env (no Genesis needed).
+
+    Mirrors the Franka SAC+HER obs layout: ``observation``(5) / ``achieved_goal``(2)
+    / ``desired_goal``(2). Imported function-locally so SB3 (and transitively cv2)
+    stays out of pytest collection — see ``tests/test_sb3_pipeline.py``.
+    """
+    pytest.importorskip("stable_baselines3")
+    import gymnasium
+    import numpy as np
+    from stable_baselines3 import SAC
+
+    class _TinyGoalEnv(gymnasium.Env):
+        def __init__(self) -> None:
+            self.observation_space = gymnasium.spaces.Dict(
+                {
+                    "observation": gymnasium.spaces.Box(-1.0, 1.0, (5,), np.float32),
+                    "achieved_goal": gymnasium.spaces.Box(-1.0, 1.0, (2,), np.float32),
+                    "desired_goal": gymnasium.spaces.Box(-1.0, 1.0, (2,), np.float32),
+                }
+            )
+            self.action_space = gymnasium.spaces.Box(-1.0, 1.0, (3,), np.float32)
+
+        def _obs(self) -> dict[str, Any]:
+            return {k: self.observation_space[k].sample() * 0 for k in self.observation_space}
+
+        def reset(self, *, seed: Any = None, options: Any = None) -> tuple[Any, dict[str, Any]]:
+            super().reset(seed=seed)
+            return self._obs(), {}
+
+        def step(self, action: Any) -> tuple[Any, float, bool, bool, dict[str, Any]]:
+            return self._obs(), 0.0, False, True, {}
+
+    return SAC(
+        "MultiInputPolicy", _TinyGoalEnv(), buffer_size=100, learning_starts=1000, device="cpu"
+    )
+
+
+def test_extract_sb3_actor_dict_obs_reconstructs_dict() -> None:
+    """Regression for ``Expected dict, got Tensor``: the sb3 actor wrapper must take
+    a flat tensor (concat of the HER sub-spaces) and rebuild the Dict the SAC actor
+    needs, matching ``policy._predict`` on the equivalent Dict."""
+    from genelab.rl.backends.sb3 import _extract_sb3_actor
+
+    model = _tiny_her_sac_model()
+    actor, in_dim = _extract_sb3_actor(model)
+    assert in_dim == 9  # observation(5) + achieved_goal(2) + desired_goal(2)
+
+    flat = torch.randn(4, 9)
+    with torch.no_grad():
+        exported = actor(flat)
+        ref = model.policy._predict(
+            {
+                "observation": flat[:, 0:5],
+                "achieved_goal": flat[:, 5:7],
+                "desired_goal": flat[:, 7:9],
+            },
+            deterministic=True,
+        )
+    assert exported.shape == (4, 3)
+    assert torch.allclose(exported, ref, atol=1e-5)
+
+
+@pytest.mark.parametrize("fmt", ["torchscript", "onnx"])
+def test_export_sb3_dict_obs_end_to_end(tmp_path: Path, fmt: str) -> None:
+    """Full goal-conditioned export: a flat-input ``.ts`` / ``.onnx`` + metadata that
+    records the per-group offsets, loadable and runnable on a flat sample obs."""
+    if fmt == "onnx":
+        pytest.importorskip("onnx")
+    from genelab.rl.backends.sb3 import _extract_sb3_actor
+    from genelab.rl.exporter import ExportConfig, export_policy
+
+    model = _tiny_her_sac_model()
+    actor, in_dim = _extract_sb3_actor(model)
+    out = tmp_path / f"policy.{'ts' if fmt == 'torchscript' else 'onnx'}"
+    written = export_policy(
+        task_id="Franka-Pick-And-Place-v0",
+        env=_franka_style_env(),
+        checkpoint=Path("/tmp/fake.zip"),
+        actor=actor,
+        actor_input_dim=in_dim,
+        action_dim=3,
+        policy_group="policy",
+        goal_groups=["achieved_goal", "desired_goal"],
+        cfg=ExportConfig(format=fmt, output=out, opset=17),
+    )
+    assert written == out
+    assert out.exists()
+    meta_path = out.with_suffix(out.suffix + ".metadata.json")
+    meta = json.loads(meta_path.read_text())
+    assert meta["obs_dim"] == 9
+    groups = meta["obs_groups"]
+    assert (groups["policy"]["start"], groups["policy"]["dim"]) == (0, 5)
+    assert (groups["achieved_goal"]["start"], groups["achieved_goal"]["dim"]) == (5, 2)
+    assert (groups["desired_goal"]["start"], groups["desired_goal"]["dim"]) == (7, 2)
+
+    if fmt == "torchscript":
+        loaded = torch.jit.load(str(out))
+        actions = loaded(torch.zeros(6, 9))
+        assert actions.shape == (6, 3)
+        assert bool(torch.isfinite(actions).all())
+    else:
+        import onnx
+
+        model_onnx = onnx.load(str(out))
+        onnx.checker.check_model(model_onnx)
