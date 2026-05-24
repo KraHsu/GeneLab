@@ -36,6 +36,7 @@ These flags are accepted after the task id for `play` and `train`.
 | Flag | Description |
 |---|---|
 | `--vis`, `-v` | Enable the Genesis viewer. |
+| `--headless` | Force no viewer (`env.simulation.vis=false`); mutually exclusive with `--vis`. Needed for `play --agent trained` on a display-less server, whose play env enables the viewer by default. |
 | `--gpu` | Use the Genesis GPU backend. |
 | `--steps N` | In `play`, rollout steps. In `train`, short form for `--max_iterations N`. |
 | `--dt X` | Override simulator timestep. |

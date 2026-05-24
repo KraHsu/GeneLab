@@ -33,6 +33,17 @@ uv run genelab play TASK_ID \
   --checkpoint logs/rsl_rl/<experiment>/<run>/model_300.pt
 ```
 
+!!! note "Trained playback on a headless server"
+    Trainable tasks enable the Genesis viewer in their play env (`vis=play`), so
+    `play --agent trained` opens a window by default and aborts with
+    `No display detected` on a display-less machine. Pass `--headless` (mutually
+    exclusive with `--vis`) to force `env.simulation.vis=false`:
+
+    ```bash
+    uv run genelab play TASK_ID --agent trained \
+      --checkpoint <ckpt> --headless
+    ```
+
 ## Train
 
 ```bash
