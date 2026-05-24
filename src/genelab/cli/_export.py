@@ -45,6 +45,10 @@ def export_task(
 
     env_cfg = resolve_env_cfg(task_id, play=True)
     env_cfg.simulation.num_envs = int(num_envs)
+    # Export only probes obs shapes — it never renders. Force ``vis=False`` so
+    # tasks whose ``play_env`` was configured for viewer playback still export
+    # on CI / remote servers without a display.
+    env_cfg.simulation.vis = False
     env = build_env(env_cfg)
 
     backend = select_backend(agent_cfg)
