@@ -228,6 +228,16 @@ class SkrlBackend:
 
                     wrapper.step = _step_with_profiler  # type: ignore[method-assign]
                 trainer.train()
+            # Always write a final checkpoint. skrl only checkpoints every
+            # ``checkpoint_interval`` steps and never guarantees the final step;
+            # with ``"auto"`` the interval is ``timesteps // 10`` (== 0 for a short
+            # smoke run like ``--max-iterations 2``), so otherwise a run could finish
+            # with no checkpoint to eval/play. Mirrors rsl_rl's ``OnPolicyRunner.learn``
+            # final ``model_{it}.pt`` save; re-writing an already-saved final step is a
+            # harmless overwrite of identical data.
+            if is_main_process():
+                (Path(agent.experiment_dir) / "checkpoints").mkdir(parents=True, exist_ok=True)
+                agent.write_checkpoint(timestep=timesteps, timesteps=timesteps)
         finally:
             env.close()
             shutdown_process_group()
