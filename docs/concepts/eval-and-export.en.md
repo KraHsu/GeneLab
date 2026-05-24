@@ -154,8 +154,11 @@ actions = sess.run(None, {"obs": raw_obs.astype("float32")})[0]
 The actor is extracted via a backend-specific shim and wrapped so the call
 shape is uniform:
 
-- `rsl_rl`: prefers `runner.alg.actor_critic.actor` when it is a clean MLP;
-  otherwise falls back to `act_inference`.
+- `rsl_rl`: takes the actor module off the algorithm directly
+  (`alg._raw_actor`, falling back to `alg.actor`) and uses its `as_jit()` export
+  wrapper, which exposes a flat `forward(obs) -> deterministic action` with the
+  learned obs normalizer baked in. Older releases that kept the actor under
+  `alg.actor_critic.actor` (or only `act_inference`) are still supported.
 - `skrl`: wraps `agent.policy.act` and returns the deterministic mean (the
   `mean_actions` key) for `GaussianMixin` policies.
 - `sb3`: wraps `model.policy._predict(obs, deterministic=True)`, which is
