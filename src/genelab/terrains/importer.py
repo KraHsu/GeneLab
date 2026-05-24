@@ -86,6 +86,22 @@ class TerrainImporter:
         """World-frame position of the (0, 0) corner of the height field."""
         return tuple(self.cfg.pos)  # type: ignore[return-value]
 
+    def surface_height_at(self, positions: torch.Tensor) -> torch.Tensor:
+        """World-frame surface height under each ``(x, y)`` in ``positions``.
+
+        ``positions`` is ``(..., >=2)``; only the first two columns (world x / y) are
+        read. Returns a ``(...)`` tensor of world z by nearest-cell lookup into the
+        height field. Used by terrain spawn placement so a robot is seated on the
+        surface rather than at the flat terrain-root height.
+        """
+        hf = self.heightfield_tensor(device=str(positions.device))
+        ox, oy, oz = self.terrain_origin
+        hscale = self.horizontal_scale
+        vscale = self.vertical_scale
+        ix = ((positions[..., 0] - ox) / hscale).long().clamp(0, hf.shape[0] - 1)
+        iy = ((positions[..., 1] - oy) / hscale).long().clamp(0, hf.shape[1] - 1)
+        return hf[ix, iy].to(dtype=positions.dtype) * vscale + oz
+
     # ------------------------------------------------------------------ pass-throughs
 
     @property
