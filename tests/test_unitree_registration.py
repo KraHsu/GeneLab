@@ -58,9 +58,10 @@ def test_g1_asset_zoo_cfg_resolves_fetched_mjcf() -> None:
 
 def test_g1_tasks_run_simulation_on_gpu_backend() -> None:
     """Guard against the CPU-backend perf regression: both G1 humanoid tasks must
-    set ``simulation.gpu=True``. ``SimulationCfg.gpu`` defaults to False (gs.cpu),
-    which silently ran G1 physics on CPU — GPU idle, ~30x slower per step. Train and
-    play cfgs are both checked (play renders, which also needs the GPU backend)."""
+    keep the GPU backend (``simulation.gpu=True``; ``None`` would also resolve to GPU
+    since ``device='cuda'``, but G1 pins it explicitly). The original regression ran
+    G1 physics on CPU — GPU idle, ~30x slower per step. Train and play cfgs are both
+    checked (play renders, which also needs the GPU backend)."""
     load_extension_module("genelab_unitree.tasks")
     for task_id in (
         "Genelab-Velocity-Flat-Unitree-G1-v0",

@@ -23,7 +23,11 @@ class SimulationCfg:
     """Genesis runtime / sim-loop settings (decoupled from scene composition)."""
 
     vis: bool = False
-    gpu: bool = False
+    # Genesis backend selector. ``None`` (default) follows the env's ``device``
+    # (``cuda*`` -> GPU, else CPU) so a ``device="cuda"`` env runs the sim on the GPU
+    # without a separate opt-in — avoiding the footgun where an unset ``gpu`` left the
+    # whole sim on CPU (GPU idle, ~50x slower). ``True`` / ``False`` force the backend.
+    gpu: bool | None = None
     steps: int = 240
     dt: float = 0.01
     substeps: int = 4
