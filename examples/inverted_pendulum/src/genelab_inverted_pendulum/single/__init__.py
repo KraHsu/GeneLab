@@ -12,6 +12,7 @@ from genelab_inverted_pendulum.single.constants import (
 )
 from genelab_inverted_pendulum.single.env_cfg import inverted_pendulum_env_cfg
 from genelab_inverted_pendulum.single.ppo_cfg import inverted_pendulum_ppo_runner_cfg
+from genelab_inverted_pendulum.single.skrl_cfg import inverted_pendulum_skrl_agent_cfg
 from genelab_inverted_pendulum.single.robot import (
     InvertedPendulumRobotCfg,
     get_inverted_pendulum_robot_cfg,
@@ -30,4 +31,5 @@ __all__ = [
     "get_inverted_pendulum_robot_cfg",
     "inverted_pendulum_env_cfg",
     "inverted_pendulum_ppo_runner_cfg",
+    "inverted_pendulum_skrl_agent_cfg",
 ]

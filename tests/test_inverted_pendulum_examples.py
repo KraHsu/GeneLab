@@ -1,6 +1,13 @@
 """Registration smoke test for the inverted-pendulum extension."""
 
+from pathlib import Path
+from typing import Any
+
+import pytest
+
 from genelab.registry import ENVS, ROBOTS, TASKS, load_extension_module
+
+SKRL_TASK_ID = "GeneLab-Inverted-Pendulum-Skrl-v0"
 
 
 def test_inverted_pendulum_extension_registers() -> None:
@@ -8,9 +15,107 @@ def test_inverted_pendulum_extension_registers() -> None:
 
     assert "GeneLab-Inverted-Pendulum-v0" in TASKS.names()
     assert "GeneLab-Double-Inverted-Pendulum-v0" in TASKS.names()
+    assert SKRL_TASK_ID in TASKS.names()
 
     assert "inverted-pendulum" in ROBOTS.names()
     assert "double-inverted-pendulum" in ROBOTS.names()
 
     assert "inverted-pendulum-env" in ENVS.names()
     assert "double-inverted-pendulum-env" in ENVS.names()
+
+
+def test_inverted_pendulum_skrl_task_uses_skrl_agent_cfg() -> None:
+    """The skrl task reuses the single-pendulum env but carries a ``SkrlAgentCfg``,
+    which is what routes it to the skrl backend (and what ``genelab info`` shows)."""
+    from genelab.rl import SkrlAgentCfg
+
+    load_extension_module("genelab_inverted_pendulum.tasks")
+    task = TASKS.get(SKRL_TASK_ID)
+    assert isinstance(task.cfg.agent, SkrlAgentCfg)
+    assert task.cfg.agent.algorithm == "PPO"
+    assert task.cfg.trainable is True
+    # Reuses the single-pendulum env / robot (no new env registered).
+    assert task.cfg.env_name == "inverted-pendulum-env"
+    assert task.cfg.robot_name == "inverted-pendulum"
+
+
+class _FakeObsManager:
+    def compute(self) -> dict[str, Any]:
+        import torch
+
+        return {"policy": torch.zeros(4, 7), "critic": torch.zeros(4, 11)}
+
+
+class _FakeActionManager:
+    total_action_dim = 1  # single inverted pendulum drives one cart actuator
+
+
+class _FakeEnv:
+    """Minimal env satisfying the skrl wrapper + trainer contract (no Genesis)."""
+
+    num_envs = 4
+    device = "cpu"
+    max_episode_length = 100
+
+    def __init__(self) -> None:
+        self.observation_manager = _FakeObsManager()
+        self.action_manager = _FakeActionManager()
+
+    def reset(self) -> Any:
+        return self.observation_manager.compute(), {}
+
+    def step(self, _actions: Any) -> Any:
+        import torch
+
+        obs = self.observation_manager.compute()
+        done = torch.zeros(self.num_envs, dtype=torch.bool)
+        return obs, torch.zeros(self.num_envs), done, done, {}
+
+    def close(self) -> None:
+        pass
+
+
+def test_inverted_pendulum_skrl_train_eval_roundtrip(tmp_path: Path) -> None:
+    """Drive the real skrl backend with the task's cfg: a short train writes a
+    checkpoint (final-save guarantees one even at ``timesteps=2``), and the eval
+    inference setup loads it back into a runnable policy. Skipped without skrl."""
+    pytest.importorskip("torch")
+    pytest.importorskip("skrl")
+    import torch
+
+    from genelab.rl.backends.base import PlayContext, ProfileArgs, TrainContext
+    from genelab.rl.backends.skrl import SkrlBackend
+    from genelab_inverted_pendulum.single import inverted_pendulum_skrl_agent_cfg
+
+    cfg = inverted_pendulum_skrl_agent_cfg()
+    backend = SkrlBackend()
+    backend.train(
+        TrainContext(
+            task_id=SKRL_TASK_ID,
+            env=_FakeEnv(),
+            env_cfg=None,
+            agent_cfg=cfg,
+            max_iterations=2,
+            seed=0,
+            log_dir=tmp_path,
+        )
+    )
+    checkpoints = sorted((tmp_path / "checkpoints").glob("*.pt"))
+    assert checkpoints, "skrl train wrote no checkpoint"
+
+    setup = backend.make_inference_setup(
+        PlayContext(
+            task_id=SKRL_TASK_ID,
+            env=_FakeEnv(),
+            env_cfg=None,
+            agent_cfg=cfg,
+            checkpoint=checkpoints[0],
+            kind="trained",
+            deterministic=True,
+            max_steps=None,
+            bridges=[],
+            profile=ProfileArgs(),
+        )
+    )
+    actions = setup.policy(torch.zeros(4, 7))
+    assert actions.shape[0] == 4
