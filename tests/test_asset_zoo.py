@@ -225,6 +225,32 @@ def test_fetch_asset_md5_mismatch(
     assert cached == []
 
 
+def test_fetch_asset_timeout_fails_fast(
+    asset_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stalled/blocked download surfaces a clear AssetDownloadError, not a hang.
+
+    Regression: ``urlopen`` was called without a timeout, so a missing network /
+    required proxy made asset fetches (and thus ``genelab list/train``) hang
+    forever. ``_download_to`` now passes a timeout and maps the resulting
+    ``TimeoutError`` to ``AssetDownloadError`` with a remediation hint.
+    """
+    seen: dict[str, object] = {}
+
+    def _raise_timeout(*args: object, **kwargs: object) -> object:
+        seen.update(kwargs)
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr("genelab.utils.download.urlopen", _raise_timeout)
+    spec = AssetSpec(
+        name="slow", url="http://10.255.255.1/asset.bin", md5="0" * 32, filename="slow.bin"
+    )
+    with pytest.raises(AssetDownloadError, match="GENELAB_DOWNLOAD_TIMEOUT"):
+        fetch_asset(spec)
+    # urlopen must be invoked with an explicit (non-None) timeout.
+    assert seen.get("timeout")
+
+
 def test_fetch_asset_cache_hit(
     asset_root: Path, fake_http_server: tuple[str, _ServerState]
 ) -> None:
