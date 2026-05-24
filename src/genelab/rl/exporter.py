@@ -12,6 +12,7 @@ so deployers know which raw-obs layout to feed.
 
 import datetime as dt
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -36,38 +37,65 @@ class _TermSpec:
     clip: tuple[float, float] | None
 
 
+@dataclass
+class _GroupSpec:
+    """Flat-obs layout of one observation group within the concatenated input."""
+
+    name: str
+    start: int
+    dim: int
+    terms: list[_TermSpec]
+
+
 _BIG = 1.0e30  # finite stand-in for ±inf in TorchScript / ONNX-friendly clamps
 
 
-def _resolve_policy_group_specs(env: Any, group_name: str) -> tuple[list[_TermSpec], int]:
-    """Return ``([term_spec, ...], total_obs_dim)`` for ``group_name``.
+def _resolve_obs_specs(
+    env: Any, groups: Sequence[str]
+) -> tuple[list[_TermSpec], int, list[_GroupSpec]]:
+    """Return ``(flat_term_specs, total_obs_dim, group_specs)`` for ``groups``.
+
+    Resolves each group's terms in order with a *global* cursor, so term ``start`` /
+    ``end`` are offsets into the single flat obs tensor that concatenates the groups
+    (`[groups[0], groups[1], ...]`). Goal-conditioned (SAC+HER) policies pass the
+    policy group plus the achieved/desired-goal groups here so the exported model
+    takes one flat tensor and reconstructs the Dict the SB3 actor expects.
 
     Probes the env once to read each term's tensor width — the observation manager
     only materializes shapes during ``compute``, so we go through it instead of
     introspecting cfg.
     """
     obs_dict = env.observation_manager.compute()
-    if group_name not in obs_dict:
-        raise SystemExit(
-            f"obs group {group_name!r} not produced by env; available: {sorted(obs_dict)}"
-        )
-    group_cfg = env.observation_manager.cfg[group_name]
     specs: list[_TermSpec] = []
+    group_specs: list[_GroupSpec] = []
     cursor = 0
-    for term_name, term_cfg in group_cfg.terms.items():
-        value = term_cfg.func(env, **term_cfg.params)
-        width = int(value.shape[-1]) if value.dim() > 1 else 1
-        specs.append(
-            _TermSpec(
+    for group_name in groups:
+        if group_name not in obs_dict:
+            raise SystemExit(
+                f"obs group {group_name!r} not produced by env; available: {sorted(obs_dict)}"
+            )
+        group_cfg = env.observation_manager.cfg[group_name]
+        group_start = cursor
+        group_terms: list[_TermSpec] = []
+        for term_name, term_cfg in group_cfg.terms.items():
+            value = term_cfg.func(env, **term_cfg.params)
+            width = int(value.shape[-1]) if value.dim() > 1 else 1
+            spec = _TermSpec(
                 name=term_name,
                 start=cursor,
                 end=cursor + width,
                 scale=term_cfg.scale,
                 clip=term_cfg.clip,
             )
+            specs.append(spec)
+            group_terms.append(spec)
+            cursor += width
+        group_specs.append(
+            _GroupSpec(
+                name=group_name, start=group_start, dim=cursor - group_start, terms=group_terms
+            )
         )
-        cursor += width
-    return specs, cursor
+    return specs, cursor, group_specs
 
 
 def _build_exported_module(actor: "nn.Module", specs: list[_TermSpec], obs_dim: int) -> Any:
@@ -110,8 +138,7 @@ def _build_exported_module(actor: "nn.Module", specs: list[_TermSpec], obs_dim: 
 def _metadata(
     task_id: str,
     checkpoint: Path,
-    group_name: str,
-    specs: list[_TermSpec],
+    group_specs: list[_GroupSpec],
     obs_dim: int,
     action_dim: int,
     cfg: ExportConfig,
@@ -121,9 +148,14 @@ def _metadata(
     return {
         "task": task_id,
         "checkpoint": str(checkpoint),
+        # One entry per group, in the order they are concatenated into the flat
+        # ``obs`` input. ``start`` is the group's offset into that flat tensor;
+        # term ``start`` is the term's (global) flat-obs offset.
+        "obs_dim": obs_dim,
         "obs_groups": {
-            group_name: {
-                "dim": obs_dim,
+            g.name: {
+                "start": g.start,
+                "dim": g.dim,
                 "terms": [
                     {
                         "name": s.name,
@@ -132,9 +164,10 @@ def _metadata(
                         "scale": s.scale,
                         "clip": list(s.clip) if s.clip is not None else None,
                     }
-                    for s in specs
+                    for s in g.terms
                 ],
             }
+            for g in group_specs
         },
         "action_dim": action_dim,
         "action_range": [-1.0, 1.0],
@@ -155,16 +188,22 @@ def export_policy(
     actor_input_dim: int,
     action_dim: int,
     policy_group: str,
+    goal_groups: Sequence[str] = (),
     cfg: ExportConfig,
 ) -> Path:
     """Serialize ``actor`` (with baked per-term obs normalization) to ``cfg.output``.
+
+    ``goal_groups`` are extra observation groups concatenated after ``policy_group``
+    into the single flat ``obs`` input — used by goal-conditioned (SAC+HER) policies
+    whose actor consumes a ``Dict`` of ``observation`` + ``achieved_goal`` +
+    ``desired_goal``; the actor module reconstructs that Dict from the flat tensor.
 
     Writes a sibling ``<output>.metadata.json`` describing the obs schema. Returns
     the path to the serialized model file.
     """
     import torch
 
-    specs, obs_dim = _resolve_policy_group_specs(env, policy_group)
+    specs, obs_dim, group_specs = _resolve_obs_specs(env, [policy_group, *goal_groups])
     if actor_input_dim and obs_dim != actor_input_dim:
         # Don't hard-fail — the backend may have a deeper preprocessing layer; just
         # warn so the user can compare shapes against the metadata.
@@ -202,6 +241,12 @@ def export_policy(
                 output_names=["actions"],
                 dynamic_axes={"obs": {0: "batch"}, "actions": {0: "batch"}},
                 opset_version=cfg.opset,
+                # Use the legacy TorchScript-based exporter (matches the torchscript
+                # trace path above). The torch.export-based default (torch>=2.9)
+                # can't trace SB3 SAC's ``Normal`` distribution construction inside
+                # ``_predict`` (data-dependent guard error); the legacy tracer
+                # handles every backend's actor.
+                dynamo=False,
             )
     else:
         raise SystemExit(f"unknown export format {cfg.format!r}; use torchscript or onnx")
@@ -209,8 +254,7 @@ def export_policy(
     meta = _metadata(
         task_id=task_id,
         checkpoint=checkpoint,
-        group_name=policy_group,
-        specs=specs,
+        group_specs=group_specs,
         obs_dim=obs_dim,
         action_dim=action_dim,
         cfg=cfg,

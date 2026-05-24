@@ -428,6 +428,13 @@ class Sb3Backend:
             env.close()
 
 
+# Canonical key order of the goal-conditioned (HER) Dict observation. The exporter
+# concatenates the policy + achieved-goal + desired-goal groups into one flat tensor
+# in this order, and ``_Sb3DictActor`` splits it back into the Dict the SB3 actor
+# expects — so the two must agree on the order.
+_HER_OBS_KEYS = ("observation", "achieved_goal", "desired_goal")
+
+
 def _extract_sb3_actor(model: Any) -> tuple[Any, int]:
     """Return ``(nn.Module, in_dim)`` for the deterministic actor of a loaded SB3 model.
 
@@ -435,7 +442,16 @@ def _extract_sb3_actor(model: Any) -> tuple[Any, int]:
     forward for both on-policy (PPO/A2C) and off-policy (SAC/TD3/DDPG) algorithms.
     Wraps it in a small ``nn.Module`` so TorchScript / ONNX see a single
     ``forward(obs) -> actions`` shape.
+
+    For goal-conditioned (SAC+HER) policies the observation space is a ``Dict``
+    (``observation`` / ``achieved_goal`` / ``desired_goal``) and the actor's
+    ``CombinedExtractor`` consumes all keys, so a flat tensor is rejected by SB3's
+    ``preprocess_obs``. ``_Sb3DictActor`` takes the flat concatenation of those
+    sub-spaces (in :data:`_HER_OBS_KEYS` order) and rebuilds the Dict before calling
+    the policy, keeping the uniform flat ``forward(obs) -> actions`` export contract.
     """
+    import gymnasium
+    import torch
     import torch.nn as nn
 
     policy = getattr(model, "policy", None)
@@ -443,6 +459,33 @@ def _extract_sb3_actor(model: Any) -> tuple[Any, int]:
         return None, 0  # type: ignore[return-value]
 
     obs_space = getattr(model, "observation_space", None)
+
+    if isinstance(obs_space, gymnasium.spaces.Dict):
+        keys = [k for k in _HER_OBS_KEYS if k in obs_space.spaces]
+        if not keys:  # non-HER Dict layout we don't recognize
+            keys = list(obs_space.spaces.keys())
+        sizes = []
+        for k in keys:
+            shape = obs_space.spaces[k].shape
+            sizes.append(int(shape[-1]) if shape else 0)
+
+        class _Sb3DictActor(nn.Module):
+            def __init__(self, sb3_policy: Any, keys: list[str], sizes: list[int]) -> None:
+                super().__init__()
+                self.sb3_policy = sb3_policy
+                self.keys = keys
+                self.sizes = sizes
+
+            def forward(self, obs: "torch.Tensor") -> Any:
+                parts: dict[str, torch.Tensor] = {}
+                cursor = 0
+                for key, size in zip(self.keys, self.sizes):
+                    parts[key] = obs[:, cursor : cursor + size]
+                    cursor += size
+                return self.sb3_policy._predict(parts, deterministic=True)
+
+        return _Sb3DictActor(policy, keys, sizes), int(sum(sizes))
+
     in_dim = 0
     if obs_space is not None and hasattr(obs_space, "shape") and obs_space.shape:
         in_dim = int(obs_space.shape[-1])
