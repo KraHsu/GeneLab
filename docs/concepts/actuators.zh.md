@@ -47,6 +47,13 @@ TorchScript 模块接收最后一维为 `[target_pos - joint_pos, joint_vel]` �
 `velocity_limit` 是必填项，因为 `MlpResidualActuatorCfg` 继承 DC motor 的 torque-speed 模型。
 `effort_limit` 或 `saturation_effort` 必须定义最终力矩预算；残差叠加后会被重新 clamp 回这个预算。
 
+可运行示例见 `GeneLab-MlpResidual-Actuator-Showcase-v0`（位于 `examples/genelab_showcase`）：用
+`MlpResidualActuator` 驱动 Franka 手臂，其微小的 TorchScript 残差网络在首次使用时自动生成：
+
+```bash
+uv run genelab play GeneLab-MlpResidual-Actuator-Showcase-v0 --steps 5
+```
+
 ## 设计建议
 
 执行器分组应贴合机器人机构。若手臂、手、底座关节需要不同增益、限制或 action scale，不要放进一个巨大的 actuator。

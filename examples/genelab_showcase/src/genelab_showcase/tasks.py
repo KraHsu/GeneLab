@@ -1,4 +1,4 @@
-"""Showcase task registrations: seven play-only TaskCfgs.
+"""Showcase task registrations: eight play-only TaskCfgs.
 
 Each task is a thin wrapper around a :class:`~genelab_showcase.runner.ShowcaseRunner`
 subclass. The factory is the task class itself (matching the
@@ -19,8 +19,14 @@ from genelab.configs import TaskCfg
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
 from genelab.registry import TASKS, register_task
 
-from genelab_showcase.actuators.env_cfg import actuator_showcase_env_cfg
-from genelab_showcase.actuators.runner import ActuatorShowcaseRunner
+from genelab_showcase.actuators.env_cfg import (
+    actuator_showcase_env_cfg,
+    mlp_residual_actuator_showcase_env_cfg,
+)
+from genelab_showcase.actuators.runner import (
+    ActuatorShowcaseRunner,
+    MlpResidualActuatorShowcaseRunner,
+)
 from genelab_showcase.contact.env_cfg import contact_showcase_env_cfg
 from genelab_showcase.contact.runner import ContactShowcaseRunner
 from genelab_showcase.curriculum.env_cfg import curriculum_showcase_env_cfg
@@ -41,6 +47,7 @@ CONTACT_TASK_ID = "GeneLab-Contact-Showcase-v0"
 TERRAIN_TASK_ID = "GeneLab-Terrain-Showcase-v0"
 CURRICULUM_TASK_ID = "GeneLab-Curriculum-Showcase-v0"
 ACTUATOR_TASK_ID = "GeneLab-Actuator-Showcase-v0"
+MLP_RESIDUAL_ACTUATOR_TASK_ID = "GeneLab-MlpResidual-Actuator-Showcase-v0"
 RECORDING_TASK_ID = "GeneLab-Recording-Showcase-v0"
 
 
@@ -124,6 +131,14 @@ class ActuatorShowcaseTask(_ShowcaseTaskBase):
     env_factory = staticmethod(actuator_showcase_env_cfg)
 
 
+class MlpResidualActuatorShowcaseTask(_ShowcaseTaskBase):
+    task_id = MLP_RESIDUAL_ACTUATOR_TASK_ID
+    env_name = "mlp-residual-actuator-showcase-env"
+    robot_name = "franka"
+    runner_cls = MlpResidualActuatorShowcaseRunner
+    env_factory = staticmethod(mlp_residual_actuator_showcase_env_cfg)
+
+
 class RecordingShowcaseTask(_ShowcaseTaskBase):
     task_id = RECORDING_TASK_ID
     env_name = "recording-showcase-env"
@@ -139,6 +154,7 @@ _TASK_CLASSES: tuple[type[_ShowcaseTaskBase], ...] = (
     TerrainShowcaseTask,
     CurriculumShowcaseTask,
     ActuatorShowcaseTask,
+    MlpResidualActuatorShowcaseTask,
     RecordingShowcaseTask,
 )
 
@@ -152,12 +168,15 @@ _DESCRIPTIONS: dict[str, str] = {
     TERRAIN_TASK_ID: "Unitree G1 dropped on a 1×5 row of the five built-in sub-terrains.",
     CURRICULUM_TASK_ID: "Unitree G1 on a 5×5 RandomRough grid driven by terrain_levels_vel.",
     ACTUATOR_TASK_ID: "Franka with IdealPDActuator on the arm (force-channel control).",
+    MLP_RESIDUAL_ACTUATOR_TASK_ID: (
+        "Franka with MlpResidualActuator on the arm (DC-motor base + TorchScript residual)."
+    ),
     RECORDING_TASK_ID: "Franka with live PyQt/MPL plots and NPZ/CSV data dumps from an IMU.",
 }
 
 
 def register() -> None:
-    """Register all seven showcase tasks. Idempotent under repeated imports."""
+    """Register all eight showcase tasks. Idempotent under repeated imports."""
 
     for cls in _TASK_CLASSES:
         if cls.task_id in TASKS:
