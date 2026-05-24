@@ -127,7 +127,5 @@ def test_play_task_caps_scripted_agent_at_simulation_steps(
 
     from pathlib import Path
 
-    runner.play_task(
-        "Unregistered-Task-v0", env_cfg=cfg, agent="trained", checkpoint=Path("x.pt")
-    )
+    runner.play_task("Unregistered-Task-v0", env_cfg=cfg, agent="trained", checkpoint=Path("x.pt"))
     assert captured["max_steps"] is None
