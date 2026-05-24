@@ -228,6 +228,85 @@ print("OK")
     assert "OK" in completed.stdout
 
 
+def test_export_task_forces_headless_vis(tmp_path: Path, monkeypatch: Any) -> None:
+    """Regression: ``genelab export`` must force ``vis=False``.
+
+    Trainable tasks set ``simulation.vis=play`` so their play_env opens the
+    viewer; export never renders, so building that env on a display-less CI /
+    server otherwise raises ``GenesisException: No display detected``. Drive the
+    real ``export_task`` with the env build monkeypatched out (no Genesis runtime)
+    and assert (a) the cfg handed to ``build_env`` has the viewer off and (b) the
+    artifact + metadata are produced.
+    """
+    from genelab.cli import _export
+    from genelab.rl import backends
+    from genelab.rl.backends.base import InferenceSetup
+
+    class _Sim:
+        num_envs = 1
+        vis = True  # as a trainable task's play_env configures it
+
+    class _EnvCfg:
+        def __init__(self) -> None:
+            self.simulation = _Sim()
+
+    env_cfg = _EnvCfg()
+
+    class _ActionManager:
+        total_action_dim = 3
+
+    class _Env(_FakeEnv):
+        def __init__(self, terms: dict[str, _FakeTermCfg]) -> None:
+            super().__init__(terms)
+            self.action_manager = _ActionManager()
+
+    actor = _linear_actor(in_dim=4, out_dim=3)
+    terms = {"a": _FakeTermCfg(dim=2, scale=1.0), "b": _FakeTermCfg(dim=2, scale=1.0)}
+
+    captured: dict[str, Any] = {}
+
+    def _build_env(cfg: Any) -> _Env:
+        captured["vis"] = cfg.simulation.vis
+        return _Env(terms)
+
+    class _Backend:
+        name = "fake"
+
+        def make_inference_setup(self, _ctx: Any) -> InferenceSetup:
+            return InferenceSetup(
+                wrapper=None,
+                adapter=None,
+                policy=lambda o: o,
+                actor_module=actor,
+                actor_input_dim=4,
+            )
+
+    class _Task:
+        class cfg:
+            agent = object()
+
+    class _Registry:
+        def get(self, _task_id: str) -> _Task:
+            return _Task()
+
+    monkeypatch.setattr(_export, "ensure_project_cache", lambda: None)
+    monkeypatch.setattr(_export, "resolve_env_cfg", lambda task_id, play: env_cfg)
+    monkeypatch.setattr(_export, "build_env", _build_env)
+    monkeypatch.setattr(_export, "TASKS", _Registry())
+    monkeypatch.setattr(backends, "select_backend", lambda _agent_cfg: _Backend())
+
+    out = tmp_path / "policy.ts"
+    written = _export.export_task(
+        "Fake-Task-v0", Path("/tmp/fake.pt"), format="torchscript", output=out
+    )
+
+    assert captured["vis"] is False
+    assert env_cfg.simulation.vis is False
+    assert written == out
+    assert out.exists()
+    assert out.with_suffix(out.suffix + ".metadata.json").exists()
+
+
 def test_export_onnx_smoke(tmp_path: Path) -> None:
     pytest.importorskip("onnx")
     from genelab.rl.exporter import ExportConfig, export_policy
