@@ -143,8 +143,10 @@ actions = sess.run(None, {"obs": raw_obs.astype("float32")})[0]
 
 actor 通过 backend 各自的小 shim 取出来，包成统一的调用形态：
 
-- `rsl_rl`：优先用 `runner.alg.actor_critic.actor`（当它是干净的 MLP 时）；
-  否则 fallback 到 `act_inference`。
+- `rsl_rl`：直接从算法对象取 actor 模块（`alg._raw_actor`，没有则退回
+  `alg.actor`），并用它的 `as_jit()` 导出包装——后者暴露扁平的
+  `forward(obs) -> 确定性动作`，且已把学到的 obs normalizer 烘焙进去。仍兼容把
+  actor 放在 `alg.actor_critic.actor`（或只有 `act_inference`）的旧版本。
 - `skrl`：包 `agent.policy.act`，对 `GaussianMixin` policy 返回 deterministic
   mean（`mean_actions` key）。
 - `sb3`：包 `model.policy._predict(obs, deterministic=True)`，对 PPO / A2C /
