@@ -1,4 +1,4 @@
-"""Sensors-showcase runner: scripted joint-1 sweep, dumps RGB+depth+IMU+FrameTx."""
+"""Sensors-showcase runner: scripted joint-1 sweep, dumps RGB+depth+IMU+FrameTx+joint-FT."""
 
 import math
 from typing import TYPE_CHECKING, cast
@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv, ManagerBasedRlEnvCfg
     from genelab.sensor import (
         CameraData,
+        ForceTorqueData,
         FrameTransformerData,
         IMUData,
     )
@@ -23,7 +24,8 @@ class SensorsShowcaseRunner(ShowcaseRunner):
 
     * ``rgb_<step>.png`` — wrist-camera RGB (160×120, uint8)
     * ``depth_<step>.png`` — wrist-camera depth visualised as 16-bit gray
-    * ``frame.log`` — append-only text record of IMU and FrameTransformer state
+    * ``frame.log`` — append-only text record of IMU, FrameTransformer, and
+      joint force/torque state
     """
 
     task_slug = "sensors"
@@ -48,6 +50,7 @@ class SensorsShowcaseRunner(ShowcaseRunner):
         cam = cast("CameraData", env.sensors["hand_camera"].data)
         imu = cast("IMUData", env.sensors["hand_imu"].data)
         ft = cast("FrameTransformerData", env.sensors["hand_in_base"].data)
+        joint_ft = cast("ForceTorqueData", env.sensors["arm_joint_ft"].data)
 
         if cam.rgb is not None:
             _save_rgb(cam.rgb, root / f"rgb_{step:04d}.png")
@@ -61,10 +64,12 @@ class SensorsShowcaseRunner(ShowcaseRunner):
             ang = imu.ang_acc_b[0].tolist()
             hand_pos = ft.target_pos_source[0, 0].tolist()
             link7_pos = ft.target_pos_source[0, 1].tolist()
+            arm_joint_force = joint_ft.force[0].tolist()
             fh.write(
                 f"step={step:04d}  "
                 f"imu_q={ori}  imu_lin_acc={lin}  imu_ang_acc={ang}  "
-                f"hand_in_base={hand_pos}  link7_in_base={link7_pos}\n"
+                f"hand_in_base={hand_pos}  link7_in_base={link7_pos}  "
+                f"arm_joint_force={arm_joint_force}\n"
             )
 
 

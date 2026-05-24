@@ -1,4 +1,4 @@
-"""Showcase task registrations: six play-only TaskCfgs.
+"""Showcase task registrations: seven play-only TaskCfgs.
 
 Each task is a thin wrapper around a :class:`~genelab_showcase.runner.ShowcaseRunner`
 subclass. The factory is the task class itself (matching the
@@ -144,7 +144,9 @@ _TASK_CLASSES: tuple[type[_ShowcaseTaskBase], ...] = (
 
 
 _DESCRIPTIONS: dict[str, str] = {
-    SENSORS_TASK_ID: "Franka with CameraSensor + IMUSensor + FrameTransformerSensor.",
+    SENSORS_TASK_ID: (
+        "Franka with CameraSensor + IMUSensor + FrameTransformerSensor + ForceTorqueSensor."
+    ),
     RAYCAST_TASK_ID: "Franka with RayCastSensor in three patterns (grid / ring / hemisphere).",
     CONTACT_TASK_ID: "Unitree G1 with ContactSensor air-time tracking on both feet.",
     TERRAIN_TASK_ID: "Unitree G1 dropped on a 1×5 row of the five built-in sub-terrains.",
@@ -155,7 +157,7 @@ _DESCRIPTIONS: dict[str, str] = {
 
 
 def register() -> None:
-    """Register all six showcase tasks. Idempotent under repeated imports."""
+    """Register all seven showcase tasks. Idempotent under repeated imports."""
 
     for cls in _TASK_CLASSES:
         if cls.task_id in TASKS:

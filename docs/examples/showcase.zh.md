@@ -6,7 +6,7 @@
 
 | 区域 | 展示内容 |
 |---|---|
-| 传感器 | Body velocity、IMU-like state、contact、ray-cast、terrain height。 |
+| 传感器 | Body velocity、IMU-like state、contact、ray-cast、terrain height、joint force/torque。 |
 | 接触 | 接触力、air time、landing 和 slip metric。 |
 | 地形 | 生成式地形网格和 height scan。 |
 | Curriculum | terrain-level progression。 |
