@@ -162,21 +162,43 @@ class RslRlBackend:
 def _extract_rsl_rl_actor(runner: Any, num_obs: int) -> tuple[Any, int]:
     """Return ``(nn.Module, in_dim)`` extracting the deterministic actor from a loaded runner.
 
-    Prefers ``runner.alg.actor_critic.actor`` if it is a pure ``nn.Module`` (the common
-    MLP case). Otherwise wraps ``actor_critic.act_inference`` in a small ``nn.Module``
-    adapter so TorchScript / ONNX still see a single ``forward(obs) -> actions`` shape.
+    Current rsl_rl stores the actor on ``alg`` directly (``_raw_actor`` aliases the
+    uncompiled module; ``actor`` may be a ``torch.compile`` wrapper). The actor is an
+    ``MLPModel`` whose own ``forward`` expects a ``TensorDict`` and self-normalizes, so
+    we use its ``as_jit()`` export wrapper which exposes the flat
+    ``forward(obs) -> deterministic action`` contract (with the learned obs normalizer
+    baked in) that the exporter consumes.
+
+    Falls back to the legacy ``alg.actor_critic.actor`` / ``act_inference`` path for
+    older rsl_rl releases.
     """
     import torch.nn as nn
 
-    ac = getattr(getattr(runner, "alg", None), "actor_critic", None)
-    if ac is None:
-        return None, num_obs  # type: ignore[return-value]
-    actor = getattr(ac, "actor", None)
+    alg = getattr(runner, "alg", None)
+    actor = getattr(alg, "_raw_actor", None)
+    if not isinstance(actor, nn.Module):
+        actor = getattr(alg, "actor", None)
     if isinstance(actor, nn.Module):
+        as_jit = getattr(actor, "as_jit", None)
+        if callable(as_jit):
+            exportable = as_jit()
+            in_dim = int(getattr(actor, "obs_dim", num_obs) or num_obs)
+            return exportable, in_dim
         for m in actor.modules():
             if isinstance(m, nn.Linear):
                 return actor, m.in_features
         return actor, num_obs
+
+    # Legacy rsl_rl: actor lived under ``alg.actor_critic``.
+    ac = getattr(alg, "actor_critic", None)
+    if ac is None:
+        return None, num_obs  # type: ignore[return-value]
+    legacy_actor = getattr(ac, "actor", None)
+    if isinstance(legacy_actor, nn.Module):
+        for m in legacy_actor.modules():
+            if isinstance(m, nn.Linear):
+                return legacy_actor, m.in_features
+        return legacy_actor, num_obs
 
     class _RslRlActor(nn.Module):
         def __init__(self, actor_critic: Any) -> None:
