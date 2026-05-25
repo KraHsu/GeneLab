@@ -83,6 +83,26 @@ goal-conditioned `Dict` observation.
 One CUDA GPU (≥ 12 GB VRAM) for training. CPU-only eval works for the
 deterministic rollout step but is much slower than GPU-vectorized.
 
+!!! warning "Run the sim on the GPU backend"
+    `SimulationCfg.gpu` defaults to **`False` (CPU backend)**. With the CPU backend the
+    physics steps on the CPU while the policy/tensors sit on the GPU, leaving the GPU idle
+    and training **~50–100× slower** (contact-heavy tasks like G1 go from a few s to hundreds
+    of s per iteration). Bundled trainable tasks set `gpu=True`; **custom tasks must do the
+    same**. If `nvidia-smi` shows your training GPU near 0 % during steps, this is almost
+    certainly why.
+
+!!! note "Hopper (H100/H200) and multi-GPU caveats"
+    - On **Hopper (SM 90)** you must set `QD_GRAPH=0` (Genesis ships no SM 90 `graph_do_while`
+      fatbin); this disables CUDA-graph batching and badly slows **contact-heavy** sims. Prefer
+      a non-Hopper GPU (Ada / Ampere) for locomotion reproduction.
+    - Multi-GPU (`genelab train --gpus N`) gives **little speedup for G1** (per-step cost +
+      PCIe all-reduce dominate). For a multi-seed sweep, run **one seed per GPU** rather than
+      one seed across many GPUs.
+    - RL training at 4096 envs is largely **CPU-bound** and wants the whole host; running many
+      such trainings concurrently on one box oversubscribes the CPU and slows them
+      super-linearly. Wall-clock suffers but rewards are deterministic, so reproduced numbers
+      are unaffected by contention.
+
 ## Reference numbers
 
 ### `GeneLab-Inverted-Pendulum-v0`

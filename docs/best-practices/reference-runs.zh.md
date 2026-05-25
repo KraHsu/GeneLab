@@ -76,6 +76,21 @@ Franka 任务**目前无法**通过 `genelab export` 导出。导出目前只支
 训练用一块 CUDA GPU（≥ 12 GB VRAM）。Deterministic eval 用 CPU 能跑但比
 GPU vectorized 慢很多。
 
+!!! warning "仿真必须跑在 GPU 后端"
+    `SimulationCfg.gpu` 默认是 **`False`（CPU 后端）**。CPU 后端下物理在 CPU 上步进、而
+    policy/张量在 GPU 上，导致 **GPU 全程空闲、训练慢 ~50–100×**（G1 这类接触多的任务从
+    几秒/迭代变成几百秒/迭代）。自带的可训练任务都设了 `gpu=True`；**自定义任务也必须设**。
+    若训练时 `nvidia-smi` 看到 GPU 占用接近 0%，基本就是这个原因。
+
+!!! note "Hopper（H100/H200）与多卡注意事项"
+    - **Hopper（SM 90）** 上必须设 `QD_GRAPH=0`（Genesis 没有 SM 90 的 `graph_do_while`
+      fatbin）；这会关掉 CUDA-graph 批处理，严重拖慢**接触多**的仿真。复现 locomotion 建议用
+      非 Hopper 卡（Ada / Ampere）。
+    - 多卡（`genelab train --gpus N`）对 **G1 几乎不提速**（每步固定开销 + PCIe all-reduce
+      主导）。多 seed 复现请**一卡一个 seed**，而不是一个 seed 摊到多卡。
+    - 4096 envs 的 RL 训练基本是 **CPU 受限**、要吃满整机；同机并发多个这种训练会过订阅 CPU、
+      超线性变慢。墙钟会变差，但奖励是确定性的，所以复现数值不受并发影响。
+
 ## Reference 数字
 
 ### `GeneLab-Inverted-Pendulum-v0`
