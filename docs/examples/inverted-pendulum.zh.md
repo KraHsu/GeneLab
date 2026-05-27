@@ -14,27 +14,27 @@
 
 ```bash
 uv pip install -e examples/inverted_pendulum
-uv run genelab list tasks
+genelab list tasks
 ```
 
 不安装时：
 
 ```bash
 PYTHONPATH=examples/inverted_pendulum/src \
-  uv run genelab --import genelab_inverted_pendulum.tasks list tasks
+  genelab --import genelab_inverted_pendulum.tasks list tasks
 ```
 
 ## 运行
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 --steps 64
-uv run genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 500
-uv run genelab train GeneLab-Inverted-Pendulum-v0 --num_envs 64 --max_iterations 2
+genelab play GeneLab-Inverted-Pendulum-v0 --steps 64
+genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 500
+genelab train GeneLab-Inverted-Pendulum-v0 --num_envs 64 --max_iterations 2
 
 # 同一个 env，skrl PPO 后端（仅由 agent cfg 类型选择）：
-uv run genelab train GeneLab-Inverted-Pendulum-Skrl-v0 --num_envs 64 --max_iterations 4800
+genelab train GeneLab-Inverted-Pendulum-Skrl-v0 --num_envs 64 --max_iterations 4800
 # skrl 的 checkpoint 命名为 agent_<timesteps>.pt，位于该 run 的 checkpoints/ 目录下：
-uv run genelab eval GeneLab-Inverted-Pendulum-Skrl-v0 logs/skrl/inverted_pendulum_skrl/<run>/checkpoints/agent_<N>.pt
+genelab eval GeneLab-Inverted-Pendulum-Skrl-v0 logs/skrl/inverted_pendulum_skrl/<run>/checkpoints/agent_<N>.pt
 ```
 
 > skrl 任务的 `genelab train` 需要安装可选依赖 `skrl`；注册与列出任务则不需要。

@@ -15,27 +15,27 @@ tests but exercises the full GeneLab train/play path.
 
 ```bash
 uv pip install -e examples/inverted_pendulum
-uv run genelab list tasks
+genelab list tasks
 ```
 
 Without installation:
 
 ```bash
 PYTHONPATH=examples/inverted_pendulum/src \
-  uv run genelab --import genelab_inverted_pendulum.tasks list tasks
+  genelab --import genelab_inverted_pendulum.tasks list tasks
 ```
 
 ## Run
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 --steps 64
-uv run genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 500
-uv run genelab train GeneLab-Inverted-Pendulum-v0 --num_envs 64 --max_iterations 2
+genelab play GeneLab-Inverted-Pendulum-v0 --steps 64
+genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 500
+genelab train GeneLab-Inverted-Pendulum-v0 --num_envs 64 --max_iterations 2
 
 # Same env, skrl PPO backend (selected purely by the agent cfg type):
-uv run genelab train GeneLab-Inverted-Pendulum-Skrl-v0 --num_envs 64 --max_iterations 4800
+genelab train GeneLab-Inverted-Pendulum-Skrl-v0 --num_envs 64 --max_iterations 4800
 # skrl names checkpoints agent_<timesteps>.pt under the run's checkpoints/ dir:
-uv run genelab eval GeneLab-Inverted-Pendulum-Skrl-v0 logs/skrl/inverted_pendulum_skrl/<run>/checkpoints/agent_<N>.pt
+genelab eval GeneLab-Inverted-Pendulum-Skrl-v0 logs/skrl/inverted_pendulum_skrl/<run>/checkpoints/agent_<N>.pt
 ```
 
 > `genelab train` for the skrl task needs the optional `skrl` dependency

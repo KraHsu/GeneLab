@@ -6,22 +6,22 @@ override paths.
 ## List registries
 
 ```bash
-uv run genelab list robots
-uv run genelab list envs
-uv run genelab list tasks
+genelab list robots
+genelab list envs
+genelab list tasks
 ```
 
 If an extension is not installed, import it explicitly:
 
 ```bash
 PYTHONPATH=examples/inverted_pendulum/src \
-  uv run genelab --import genelab_inverted_pendulum.tasks list tasks
+  genelab --import genelab_inverted_pendulum.tasks list tasks
 ```
 
 ## Inspect a task
 
 ```bash
-uv run genelab info GeneLab-Inverted-Pendulum-v0
+genelab info GeneLab-Inverted-Pendulum-v0
 ```
 
 The task view includes:
@@ -35,7 +35,7 @@ The task view includes:
 ## Use copied override paths
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 \
+genelab play GeneLab-Inverted-Pendulum-v0 \
   --env.rewards_cfg.pole_upright.weight 4.0
 ```
 

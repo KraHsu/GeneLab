@@ -140,7 +140,7 @@ field notes.
 ## 5. Export a dependency-free policy
 
 ```bash
-uv run genelab export TASK_ID logs/.../model_best.pt --format onnx --out policy.onnx
+genelab export TASK_ID logs/.../model_best.pt --format onnx --out policy.onnx
 ```
 
 The export writes `policy.onnx` (a pure `nn.Module`, no rsl_rl/skrl/sb3) **and**

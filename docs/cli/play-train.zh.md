@@ -5,9 +5,9 @@
 ## Play
 
 ```bash
-uv run genelab play TASK_ID --steps 128
-uv run genelab play TASK_ID --vis --steps 500
-uv run genelab play TASK_ID --agent random --steps 128
+genelab play TASK_ID --steps 128
+genelab play TASK_ID --vis --steps 500
+genelab play TASK_ID --agent random --steps 128
 ```
 
 策略来源：
@@ -27,7 +27,7 @@ uv run genelab play TASK_ID --agent random --steps 128
 checkpoint 回放：
 
 ```bash
-uv run genelab play TASK_ID \
+genelab play TASK_ID \
   --checkpoint logs/rsl_rl/<experiment>/<run>/model_300.pt
 ```
 
@@ -38,20 +38,20 @@ uv run genelab play TASK_ID \
     `env.simulation.vis=false`：
 
     ```bash
-    uv run genelab play TASK_ID --agent trained \
+    genelab play TASK_ID --agent trained \
       --checkpoint <ckpt> --headless
     ```
 
 ## Train
 
 ```bash
-uv run genelab train TASK_ID --num_envs 4096 --max_iterations 300
+genelab train TASK_ID --num_envs 4096 --max_iterations 300
 ```
 
 分布式训练：
 
 ```bash
-uv run genelab train TASK_ID --gpus 4 --num_envs 4096
+genelab train TASK_ID --gpus 4 --num_envs 4096
 ```
 
 `--num_envs` 表示所有 rank 的总数，必须能被 `--gpus` 整除。每 rank 语义用
@@ -86,7 +86,7 @@ wrapper 每步都会把观测拷贝到主机内存——这是 SB3 与 GeneLab G
 # 注册为 Sb3AgentCfg 的 task 会走 SB3 后端；Franka 抓取放置示例使用
 # SAC + HER + lift bonus + FSM demo prefill 组合（详见示例页面）。
 GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
-  uv run genelab train GeneLab-Franka-Pick-And-Place-v0 \
+  genelab train GeneLab-Franka-Pick-And-Place-v0 \
   --gpu --num-envs 32 --max-iterations 2000000
 ```
 
@@ -95,7 +95,7 @@ GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
 task id 后的任何未知选项都会被当作 dotted config override：
 
 ```bash
-uv run genelab play TASK_ID \
+genelab play TASK_ID \
   --env.simulation.dt 0.005 \
   --env.rewards_cfg.action_rate.weight -0.01
 ```

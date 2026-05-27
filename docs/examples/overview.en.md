@@ -20,7 +20,7 @@ code to `src/genelab/`.
 uv pip install -e examples/inverted_pendulum
 uv pip install -e examples/genelab_examples
 uv pip install -e examples/franka_pick_and_place
-uv run genelab list tasks
+genelab list tasks
 ```
 
 Install Unitree only when needed:

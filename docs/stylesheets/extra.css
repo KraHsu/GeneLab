@@ -402,19 +402,21 @@
   color: var(--md-primary-fg-color);
 }
 
-/* Numbered cards */
-.md-typeset .gl-cards.grid.cards > ul {
+/* Numbered cards.
+   Material puts `display: grid` on the `.grid` div and sets the inner <ul> to
+   `display: contents`, so the <ul> is transparent to layout — column and gap
+   overrides MUST target the `.grid` div, not `> ul` (setting them on the <ul>
+   is silently ignored). The homepage has exactly four numbered cards: pin them
+   to a balanced 2x2 on desktop and a single column on narrow screens. The
+   default auto-fit grid reflows to an awkward 3 + 1 inside the widened (78rem)
+   content container. */
+.md-typeset .gl-cards.grid.cards {
   gap: 0.9rem;
-  /* Single column by default (narrow viewports). The 2x2 desktop layout is set
-     in the media query below. */
   grid-template-columns: 1fr;
 }
 
-/* The homepage has exactly four numbered cards. Pin them to a balanced 2x2 on
-   wider screens — the default auto-fit grid reflows to an awkward 3 + 1 inside
-   the widened (78rem) content container. */
 @media screen and (min-width: 60em) {
-  .md-typeset .gl-cards.grid.cards > ul {
+  .md-typeset .gl-cards.grid.cards {
     grid-template-columns: repeat(2, 1fr);
   }
 }

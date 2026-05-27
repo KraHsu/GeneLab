@@ -3,7 +3,7 @@
 GeneLab exposes one console script:
 
 ```bash
-uv run genelab [global options] <command> [command options]
+genelab [global options] <command> [command options]
 ```
 
 ## Global options

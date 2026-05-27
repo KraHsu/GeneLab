@@ -3,7 +3,7 @@
 GeneLab 暴露一个命令行脚本：
 
 ```bash
-uv run genelab [全局选项] <命令> [命令选项]
+genelab [全局选项] <命令> [命令选项]
 ```
 
 ## 全局选项

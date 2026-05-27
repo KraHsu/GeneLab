@@ -14,14 +14,14 @@ GeneLab scales to humanoid locomotion and motion imitation.
 
 ```bash
 uv pip install -e examples/unitree
-uv run genelab list tasks
+genelab list tasks
 ```
 
 ## Velocity tracking
 
 ```bash
-uv run genelab play Genelab-Velocity-Flat-Unitree-G1-v0 --vis --steps 500
-uv run genelab train Genelab-Velocity-Flat-Unitree-G1-v0 \
+genelab play Genelab-Velocity-Flat-Unitree-G1-v0 --vis --steps 500
+genelab train Genelab-Velocity-Flat-Unitree-G1-v0 \
   --num_envs 4096 \
   --max_iterations 1500
 ```
@@ -29,15 +29,15 @@ uv run genelab train Genelab-Velocity-Flat-Unitree-G1-v0 \
 Replay:
 
 ```bash
-uv run genelab play Genelab-Velocity-Flat-Unitree-G1-v0 \
+genelab play Genelab-Velocity-Flat-Unitree-G1-v0 \
   --checkpoint logs/rsl_rl/g1_velocity_flat/<run>/model_1500.pt
 ```
 
 ## Motion imitation
 
 ```bash
-uv run python -m genelab_unitree.replay_motion
-uv run genelab train Genelab-Tracking-Flat-Unitree-G1-v0 \
+python -m genelab_unitree.replay_motion
+genelab train Genelab-Tracking-Flat-Unitree-G1-v0 \
   --num_envs 4096 \
   --max_iterations 30000
 ```

@@ -19,14 +19,14 @@ Action 向量为 `(dx, dy, dz, gripper)`——七个手臂关节上的
 
 ```bash
 uv pip install -e examples/franka_pick_and_place
-uv run genelab list tasks | grep Franka
+genelab list tasks | grep Franka
 ```
 
 不安装时：
 
 ```bash
 PYTHONPATH=examples/franka_pick_and_place/src \
-  uv run genelab --import genelab_franka_pick_and_place.tasks list tasks
+  genelab --import genelab_franka_pick_and_place.tasks list tasks
 ```
 
 第一次运行会下载 Franka MJCF 资产并构建 Genesis kernel cache。
@@ -34,7 +34,7 @@ PYTHONPATH=examples/franka_pick_and_place/src \
 ## Smoke 训练
 
 ```bash
-uv run genelab train GeneLab-Franka-Pick-And-Place-v0 \
+genelab train GeneLab-Franka-Pick-And-Place-v0 \
   --gpu --num-envs 16 --max-iterations 2000
 ```
 
@@ -53,12 +53,12 @@ HER 单独无法学会抬起方块——sparse goal reward 在空中目标区域
 
 ```bash
 # 1. 收集 demo（num-envs 32 大约一分钟）。
-uv run python -m genelab_franka_pick_and_place.collect_demos \
+python -m genelab_franka_pick_and_place.collect_demos \
   --num-envs 32 --steps 6400 --out /tmp/franka_pp_demos.npz
 
 # 2. 带 demo prefill 训练。
 GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
-  uv run genelab train GeneLab-Franka-Pick-And-Place-v0 \
+  genelab train GeneLab-Franka-Pick-And-Place-v0 \
   --gpu --num-envs 32 --max-iterations 2000000
 ```
 
@@ -75,7 +75,7 @@ GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
 ## 回放 checkpoint
 
 ```bash
-uv run genelab play GeneLab-Franka-Pick-And-Place-v0 \
+genelab play GeneLab-Franka-Pick-And-Place-v0 \
   --checkpoint logs/sb3/franka_pick_and_place/<run>/model.zip \
   --steps 200
 ```

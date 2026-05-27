@@ -6,10 +6,10 @@
 
 ```bash
 uv sync --extra torch-cpu
-uv run genelab cache
-uv run pytest
-uv run ruff check
-uv run pyright
+genelab cache
+pytest
+ruff check
+pyright
 ```
 
 开发 GPU 工作流时，用一个 CUDA extra 替代 `torch-cpu`。
@@ -37,10 +37,10 @@ uv run pyright
 ## PR 前
 
 ```bash
-uv run pytest
-uv run ruff check
-uv run pyright
-uv run mkdocs build --strict
+pytest
+ruff check
+pyright
+mkdocs build --strict
 ```
 
 docs-only 改动也要跑 MkDocs strict 构建。

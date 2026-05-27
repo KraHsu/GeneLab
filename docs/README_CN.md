@@ -32,15 +32,19 @@
 ## 🚀 快速开始
 
 ```bash
-uv sync --extra torch-cu128                 # 按你的 CUDA 选 torch extra（见下）
-uv run genelab cache                        # 创建本地 仿真 / 绘图 缓存目录
-uv run genelab list tasks                   # 看看注册了哪些任务
-uv run genelab train GeneLab-Inverted-Pendulum-v0 --max_iterations 150
-uv run genelab play  GeneLab-Inverted-Pendulum-v0 --vis
+uv sync --extra torch-cu128          # 按你的 CUDA 选 torch extra（见下）
+source .venv/bin/activate            # Windows：.venv\Scripts\activate
+genelab cache                        # 创建本地 仿真 / 绘图 缓存目录
+genelab list tasks                   # 看看注册了哪些任务
+genelab train GeneLab-Inverted-Pendulum-v0 --max_iterations 150
+genelab play  GeneLab-Inverted-Pendulum-v0 --vis
 ```
 
-> `uv sync` 创建项目 venv 并安装 GeneLab + `uv.lock` 锁定的依赖。`uv run …` 在该 venv 内执行；
-> 裸 `genelab` 命令只有在激活 `.venv` 后才可用。
+> `uv sync` 创建项目 venv 并安装 GeneLab + `uv.lock` 锁定的依赖。文档统一使用**裸 `genelab`**
+> （以及裸 `python`），而**不是** `uv run genelab`。`uv run` 会在每次执行前重新同步环境，而
+> `torch-*` extra 之间互斥、且不在默认同步集合中，于是每次 `uv run` 都会卸载并重装 torch、并改写
+> 你选定的 extra。请先激活 `.venv`（如上），或者——若不想激活——给一次性命令加上 `uv run --no-sync`
+> 前缀来跳过这次重新同步。
 
 ## 📦 安装
 
@@ -68,15 +72,15 @@ uv sync --extra torch-cpu        # 上面四选一
 ## 🖥️ CLI
 
 ```bash
-uv run genelab --help
-uv run genelab list robots          # 已注册的机器人
-uv run genelab list envs            # 已注册的环境
-uv run genelab list tasks           # 已注册的任务
-uv run genelab info  <task>         # 任务详情 + 可覆盖的配置路径
-uv run genelab train <task> …       # 训练（后端由任务的 agent 配置决定）
-uv run genelab play  <task> …       # rollout：--agent zero | random | trained
-uv run genelab eval  <task> <ckpt>  # 确定性评估 → eval.json
-uv run genelab export <task> <ckpt> # 导出策略 → TorchScript / ONNX
+genelab --help
+genelab list robots          # 已注册的机器人
+genelab list envs            # 已注册的环境
+genelab list tasks           # 已注册的任务
+genelab info  <task>         # 任务详情 + 可覆盖的配置路径
+genelab train <task> …       # 训练（后端由任务的 agent 配置决定）
+genelab play  <task> …       # rollout：--agent zero | random | trained
+genelab eval  <task> <ckpt>  # 确定性评估 → eval.json
+genelab export <task> <ckpt> # 导出策略 → TorchScript / ONNX
 ```
 
 ## 🧩 核心 API
@@ -95,7 +99,7 @@ uv run genelab export <task> <ckpt> # 导出策略 → TorchScript / ONNX
 生成一个新脚手架：
 
 ```bash
-uv run genelab project new my_robot_project
+genelab project new my_robot_project
 ```
 
 最小模板见 [`examples/external_project/`](../examples/external_project/README.md)。
@@ -103,17 +107,17 @@ uv run genelab project new my_robot_project
 ## ✅ 验证
 
 ```bash
-uv run python -c "import genelab, genesis; print(genelab.__version__, genesis.__version__)"
-uv run python -c "from genelab.lab import ManagerBasedEnvCfg; print(ManagerBasedEnvCfg.__name__)"
-uv run pytest
-uv run ruff check && uv run ruff format --check
-uv run pyright
+python -c "import genelab, genesis; print(genelab.__version__, genesis.__version__)"
+python -c "from genelab.lab import ManagerBasedEnvCfg; print(ManagerBasedEnvCfg.__name__)"
+pytest
+ruff check && ruff format --check
+pyright
 ```
 
 同步某个 `torch-*` extra 后，验证选中的 PyTorch 构建：
 
 ```bash
-uv run python -c "import torch; print(torch.__version__, torch.version.cuda)"
+python -c "import torch; print(torch.__version__, torch.version.cuda)"
 ```
 
 ## 🛠️ 故障排查
@@ -148,7 +152,7 @@ This SM (90) may not be included in the fatbin
 
 ```bash
 export QD_GRAPH=0                     # 整个会话
-QD_GRAPH=0 uv run genelab train …     # 或只针对单条命令
+QD_GRAPH=0 genelab train …     # 或只针对单条命令
 ```
 
 注意：`QD_GRAPH=0` 会关掉 CUDA-graph 批处理，明显拖慢**接触多**的仿真 ——

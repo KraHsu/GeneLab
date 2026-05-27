@@ -5,22 +5,22 @@
 ## 列出注册表
 
 ```bash
-uv run genelab list robots
-uv run genelab list envs
-uv run genelab list tasks
+genelab list robots
+genelab list envs
+genelab list tasks
 ```
 
 如果扩展尚未安装，显式导入：
 
 ```bash
 PYTHONPATH=examples/inverted_pendulum/src \
-  uv run genelab --import genelab_inverted_pendulum.tasks list tasks
+  genelab --import genelab_inverted_pendulum.tasks list tasks
 ```
 
 ## 查看任务
 
 ```bash
-uv run genelab info GeneLab-Inverted-Pendulum-v0
+genelab info GeneLab-Inverted-Pendulum-v0
 ```
 
 任务视图包括：
@@ -34,7 +34,7 @@ uv run genelab info GeneLab-Inverted-Pendulum-v0
 ## 使用复制出的 override 路径
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 \
+genelab play GeneLab-Inverted-Pendulum-v0 \
   --env.rewards_cfg.pole_upright.weight 4.0
 ```
 

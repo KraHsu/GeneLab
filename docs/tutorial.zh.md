@@ -38,7 +38,7 @@ CLI
 
 ```bash
 uv sync --extra torch-cpu
-uv run genelab --version
+genelab --version
 ```
 
 如果有 NVIDIA GPU，把 `torch-cpu` 换成与驱动匹配的 `torch-cu126`、`torch-cu128` 或
@@ -53,7 +53,7 @@ genelab 0.1.0
 初始化 Genesis 和绘图库需要的项目本地缓存：
 
 ```bash
-uv run genelab cache
+genelab cache
 ```
 
 如果安装失败或 torch 版本不对，先看 [安装](getting-started/installation.md)。
@@ -64,16 +64,16 @@ GeneLab 的核心包只提供框架。机器人、环境和任务由内置资产
 注册表：
 
 ```bash
-uv run genelab list robots
-uv run genelab list envs
-uv run genelab list tasks
+genelab list robots
+genelab list envs
+genelab list tasks
 ```
 
 应看到内置资产库的机器人，以及已通过 entry point 发现的示例任务。若任务列表为空，
 说明示例扩展没有被安装或发现；可以显式导入倒立摆扩展：
 
 ```bash
-uv run genelab --import genelab_inverted_pendulum.tasks list tasks
+genelab --import genelab_inverted_pendulum.tasks list tasks
 ```
 
 注册表是 GeneLab 的第一层架构边界：
@@ -89,13 +89,13 @@ uv run genelab --import genelab_inverted_pendulum.tasks list tasks
 先用短 rollout 验证任务可以构造并走完几步：
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 --steps 32
+genelab play GeneLab-Inverted-Pendulum-v0 --steps 32
 ```
 
 如果在本地桌面环境中运行，可以打开 Genesis viewer：
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 500
+genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 500
 ```
 
 这一步经过的路径是：
@@ -111,7 +111,7 @@ uv run genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 500
 用 `info` 查看任务元信息和可覆盖路径：
 
 ```bash
-uv run genelab info GeneLab-Inverted-Pendulum-v0
+genelab info GeneLab-Inverted-Pendulum-v0
 ```
 
 重点看输出里的 `Overridable cfg paths`。CLI 的每个 `--a.b.c VALUE` 都会落到
@@ -120,7 +120,7 @@ uv run genelab info GeneLab-Inverted-Pendulum-v0
 试着改仿真步长和 episode 步数：
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 \
+genelab play GeneLab-Inverted-Pendulum-v0 \
   --steps 128 \
   --env.simulation.dt 0.005
 ```
@@ -180,7 +180,7 @@ events_cfg={
 VecEnv、写日志和 checkpoint：
 
 ```bash
-uv run genelab train GeneLab-Inverted-Pendulum-v0 \
+genelab train GeneLab-Inverted-Pendulum-v0 \
   --num_envs 64 \
   --max_iterations 2
 ```
@@ -202,7 +202,7 @@ model_*.pt
 回放训练好的策略时传入 checkpoint：
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 \
+genelab play GeneLab-Inverted-Pendulum-v0 \
   --agent trained \
   --checkpoint logs/rsl_rl/<experiment>/<run>/model_*.pt
 ```
@@ -214,7 +214,7 @@ uv run genelab play GeneLab-Inverted-Pendulum-v0 \
 GeneLab 推荐把真实项目放在独立 Python 包里，而不是直接改 `src/genelab/`。生成一个项目骨架：
 
 ```bash
-uv run genelab project new my_robot_project
+genelab project new my_robot_project
 ```
 
 骨架会包含：
@@ -240,14 +240,14 @@ my_robot_project = "my_robot_project.tasks:register"
 
 ```bash
 uv pip install -e my_robot_project
-uv run genelab list tasks
+genelab list tasks
 ```
 
 如果暂时不安装，也可以显式导入：
 
 ```bash
 PYTHONPATH=my_robot_project/src \
-  uv run genelab --import my_robot_project.tasks list tasks
+  genelab --import my_robot_project.tasks list tasks
 ```
 
 ## 8. 继续到 Unitree G1
@@ -259,7 +259,7 @@ Unitree G1 示例使用同一套架构，但换成了人形机器人、更大的
 
 ```bash
 uv pip install -e examples/unitree
-uv run genelab list tasks
+genelab list tasks
 ```
 
 应看到：
@@ -272,7 +272,7 @@ Genelab-Tracking-Flat-Unitree-G1-v0
 训练前先做可视化 smoke test：
 
 ```bash
-uv run genelab play Genelab-Velocity-Flat-Unitree-G1-v0 --vis --steps 500
+genelab play Genelab-Velocity-Flat-Unitree-G1-v0 --vis --steps 500
 ```
 
 两个 Unitree 任务展示 GeneLab 的进阶能力：

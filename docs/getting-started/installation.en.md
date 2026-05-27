@@ -18,7 +18,6 @@ From the repository root:
 
 ```bash
 uv sync --extra torch-cpu
-uv run genelab --version
 ```
 
 Choose exactly one PyTorch extra:
@@ -36,10 +35,50 @@ Refresh an existing torch install:
 uv sync --reinstall-package torch --extra torch-cu128
 ```
 
+## Run commands
+
+The rest of these docs invoke the CLI as a **bare `genelab`** (and a bare `python`) — *not*
+`uv run genelab`.
+
+!!! warning "Why not `uv run`?"
+
+    `uv run` performs an implicit `uv sync` before **every** command. The PyTorch builds ship as
+    mutually-exclusive extras (`torch-cpu` / `torch-cu126` / `torch-cu128` / `torch-cu130`) that are
+    **not** part of the default sync set, so each `uv run` uninstalls and reinstalls torch and
+    rewrites the extra you selected above — slow, and it can silently flip your CUDA build. Use one
+    of the two ways below instead.
+
+=== "Activate the venv (recommended)"
+
+    Activate once per shell, then run bare commands as shown throughout the docs:
+
+    ```bash
+    source .venv/bin/activate      # Windows: .venv\Scripts\activate
+    genelab --version
+    ```
+
+=== "Use uv without re-syncing"
+
+    Prefer not to activate? Skip the implicit sync on every call with `--no-sync`:
+
+    ```bash
+    uv run --no-sync genelab --version
+    ```
+
+    (Anywhere the docs write `genelab …` or `python …`, read it as `uv run --no-sync genelab …`.)
+
+!!! note "Why `uv sync` and `uv pip install` keep the `uv` prefix"
+
+    Only `uv run` is the footgun — it re-resolves the project and reconciles the venv before
+    *executing*. `uv sync` is the one deliberate sync where **you** choose the torch build, and
+    `uv pip install -e …` is `uv`'s pip-compatible installer: it installs into the active venv
+    without re-resolving the project or touching extras, so it never reinstalls torch. Both are
+    safe to keep.
+
 ## Create local caches
 
 ```bash
-uv run genelab cache
+genelab cache
 ```
 
 The command creates writable project-local cache directories and points `XDG_CACHE_HOME` and
@@ -48,10 +87,10 @@ The command creates writable project-local cache directories and points `XDG_CAC
 ## Verify imports
 
 ```bash
-uv run python -c "import genelab; print(genelab.__version__)"
-uv run python -c "from genelab.lab import TaskCfg; print(TaskCfg.__name__)"
-uv run python -c "import torch; print(torch.__version__, torch.version.cuda)"
-uv run python -c "import genesis; print(genesis.__version__)"
+python -c "import genelab; print(genelab.__version__)"
+python -c "from genelab.lab import TaskCfg; print(TaskCfg.__name__)"
+python -c "import torch; print(torch.__version__, torch.version.cuda)"
+python -c "import genesis; print(genesis.__version__)"
 ```
 
 ## Install example extensions
@@ -61,7 +100,7 @@ The core package is a framework; tasks are registered by extensions.
 ```bash
 uv pip install -e examples/inverted_pendulum
 uv pip install -e examples/genelab_examples
-uv run genelab list tasks
+genelab list tasks
 ```
 
 Install Unitree only when you want the larger humanoid examples:

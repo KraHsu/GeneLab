@@ -7,10 +7,10 @@ an extension package instead.
 
 ```bash
 uv sync --extra torch-cpu
-uv run genelab cache
-uv run pytest
-uv run ruff check
-uv run pyright
+genelab cache
+pytest
+ruff check
+pyright
 ```
 
 Pick one CUDA extra instead of `torch-cpu` when developing GPU workflows.
@@ -39,10 +39,10 @@ into task guides.
 ## Before a PR
 
 ```bash
-uv run pytest
-uv run ruff check
-uv run pyright
-uv run mkdocs build --strict
+pytest
+ruff check
+pyright
+mkdocs build --strict
 ```
 
 For docs-only changes, still run the MkDocs strict build.
