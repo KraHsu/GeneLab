@@ -405,6 +405,18 @@
 /* Numbered cards */
 .md-typeset .gl-cards.grid.cards > ul {
   gap: 0.9rem;
+  /* Single column by default (narrow viewports). The 2x2 desktop layout is set
+     in the media query below. */
+  grid-template-columns: 1fr;
+}
+
+/* The homepage has exactly four numbered cards. Pin them to a balanced 2x2 on
+   wider screens — the default auto-fit grid reflows to an awkward 3 + 1 inside
+   the widened (78rem) content container. */
+@media screen and (min-width: 60em) {
+  .md-typeset .gl-cards.grid.cards > ul {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .md-typeset .gl-cards.grid.cards > ul > li {
