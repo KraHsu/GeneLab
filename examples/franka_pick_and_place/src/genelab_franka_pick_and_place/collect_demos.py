@@ -37,6 +37,10 @@ from genelab.registry import load_extension_module
 if TYPE_CHECKING:
     import torch
 
+    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
+    from genelab_franka_pick_and_place.demo_fsm import FrankaPickAndPlaceFsm
+
 
 def _to_numpy(t: "torch.Tensor") -> np.ndarray:
     # ``.cpu()`` of a CUDA tensor copies into a fresh CPU buffer, but the
@@ -56,37 +60,16 @@ def _her_obs(obs_dict: dict[str, "torch.Tensor"]) -> dict[str, np.ndarray]:
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--num-envs", type=int, default=64)
-    parser.add_argument(
-        "--steps",
-        type=int,
-        default=1000,
-        help="Total env steps to collect (per env, so total transitions = steps x num_envs).",
-    )
-    parser.add_argument("--episode-length-s", type=float, default=5.0)
-    parser.add_argument("--out", type=Path, default=Path("franka_pp_demos.npz"))
-    parser.add_argument("--seed", type=int, default=42)
-    args = parser.parse_args()
+def collect(
+    env: "ManagerBasedRlEnv", fsm: "FrankaPickAndPlaceFsm", steps: int
+) -> dict[str, np.ndarray]:
+    """Roll the FSM through ``env`` for ``steps`` and return the stacked transition arrays.
 
+    The result maps the ten ``HerReplayBuffer``-prefill keys to ``(steps, num_envs, …)``
+    arrays. Kept free of env construction / file I/O so it can be exercised against a
+    lightweight fake env without a Genesis runtime.
+    """
     import torch
-
-    ensure_project_cache()
-    load_extension_module("genelab_franka_pick_and_place.tasks")
-    task = TASKS.get("GeneLab-Franka-Pick-And-Place-v0")
-    env_cfg = task.cfg.env
-    env_cfg.simulation.num_envs = int(args.num_envs)
-    env_cfg.simulation.vis = False
-    env_cfg.episode_length_s = float(args.episode_length_s)
-    env_cfg.seed = int(args.seed)
-
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
-
-    from genelab_franka_pick_and_place.demo_fsm import FrankaPickAndPlaceFsm
-
-    env = ManagerBasedRlEnv(env_cfg)
-    fsm = FrankaPickAndPlaceFsm(env)
 
     obs_dict, _ = env.reset()
     cur_obs = _her_obs(obs_dict)
@@ -97,7 +80,7 @@ def main() -> None:
 
     start = time.time()
     completed_episodes = 0
-    for t in range(int(args.steps)):
+    for t in range(int(steps)):
         action = fsm.step()
         obs_dict, reward, terminated, truncated, _ = env.step(action)
         nxt = _her_obs(obs_dict)
@@ -124,18 +107,18 @@ def main() -> None:
         if (t + 1) % 200 == 0:
             elapsed = time.time() - start
             print(
-                f"  step {t + 1:>5}/{args.steps}  "
+                f"  step {t + 1:>5}/{steps}  "
                 f"episodes done={completed_episodes}  "
                 f"fps={(t + 1) * env.num_envs / max(elapsed, 1e-6):.0f}"
             )
 
     total = time.time() - start
     print(
-        f"collected {args.steps} steps x {env.num_envs} envs = {args.steps * env.num_envs} transitions in {total:.1f}s"
+        f"collected {steps} steps x {env.num_envs} envs = {steps * env.num_envs} transitions in {total:.1f}s"
     )
     print(f"complete episodes captured: {completed_episodes}")
 
-    out: dict[str, np.ndarray] = {
+    return {
         "obs_observation": np.stack(obs_obs).astype(np.float32),
         "obs_achieved_goal": np.stack(obs_ag).astype(np.float32),
         "obs_desired_goal": np.stack(obs_dg).astype(np.float32),
@@ -147,10 +130,48 @@ def main() -> None:
         "dones": np.stack(dones).astype(np.bool_),
         "truncateds": np.stack(truncateds).astype(np.bool_),
     }
-    args.out.parent.mkdir(parents=True, exist_ok=True)
+
+
+def save_demos(out: dict[str, np.ndarray], path: Path) -> None:
+    """Write the collected transition arrays to ``path`` as compressed ``.npz``."""
+    path.parent.mkdir(parents=True, exist_ok=True)
     # pyright's numpy stub for ``savez_compressed`` confuses kwarg-spread with the
     # ``allow_pickle`` keyword; the call is canonical numpy usage.
-    np.savez_compressed(args.out, **out)  # pyright: ignore[reportArgumentType]
+    np.savez_compressed(path, **out)  # pyright: ignore[reportArgumentType]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--num-envs", type=int, default=64)
+    parser.add_argument(
+        "--steps",
+        type=int,
+        default=1000,
+        help="Total env steps to collect (per env, so total transitions = steps x num_envs).",
+    )
+    parser.add_argument("--episode-length-s", type=float, default=5.0)
+    parser.add_argument("--out", type=Path, default=Path("franka_pp_demos.npz"))
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+
+    ensure_project_cache()
+    load_extension_module("genelab_franka_pick_and_place.tasks")
+    task = TASKS.get("GeneLab-Franka-Pick-And-Place-v0")
+    env_cfg = task.cfg.env
+    env_cfg.simulation.num_envs = int(args.num_envs)
+    env_cfg.simulation.vis = False
+    env_cfg.episode_length_s = float(args.episode_length_s)
+    env_cfg.seed = int(args.seed)
+
+    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
+    from genelab_franka_pick_and_place.demo_fsm import FrankaPickAndPlaceFsm
+
+    env = ManagerBasedRlEnv(env_cfg)
+    fsm = FrankaPickAndPlaceFsm(env)
+
+    out = collect(env, fsm, int(args.steps))
+    save_demos(out, args.out)
     print(f"saved {args.out} ({args.out.stat().st_size / 1e6:.1f} MB)")
 
 

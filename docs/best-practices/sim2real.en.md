@@ -11,7 +11,7 @@ sensor bias, and actuator imperfections — without being trained on the real ro
 
 DR events are wired into `events_cfg` and follow the
 [`EventTermCfg`](../reference/configuration.md) calling convention. Sample **once per
-episode** with `mode="startup"`; sample **mid-episode** with `mode="interval"` (M2.2).
+episode** with `mode="startup"`; sample **mid-episode** with `mode="interval"`.
 
 | DR event (`genelab.mdp.dr` / `mdp.events`) | What it perturbs |
 |---|---|
@@ -118,6 +118,24 @@ When you have real torque-tracking logs, use `MlpResidualActuator` — a `DCMoto
 plus a TorchScript residual on `[pos_error, joint_vel]`. Train the residual net downstream and
 point `MlpResidualActuatorCfg.network_file` at the saved `.pt`. With no file it degrades to a
 plain `DCMotorActuator`.
+
+```python
+from genelab.actuator import MlpResidualActuatorCfg
+
+robot_cfg.actuators["drive"] = MlpResidualActuatorCfg(
+    target_names_expr=(".*_joint",),
+    stiffness=35.0,
+    damping=0.8,
+    effort_limit=80.0,
+    velocity_limit=25.0,
+    saturation_effort=80.0,
+    network_file="assets/actuators/drive_residual.pt",
+    residual_scale=0.25,
+)
+```
+
+See [Actuators](../concepts/actuators.md) for the TorchScript input/output contract and the full
+field notes.
 
 ## 5. Export a dependency-free policy
 

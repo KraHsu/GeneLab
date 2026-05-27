@@ -7,11 +7,11 @@ when you want a runnable example of one subsystem without reading a full robot t
 
 | Area | Demonstrates |
 |---|---|
-| Sensors | Body velocity, IMU-like state, contact, ray-cast, terrain height. |
+| Sensors | Body velocity, IMU-like state, contact, ray-cast, terrain height, joint force/torque. |
 | Contact | Contact forces, air time, landing and slip metrics. |
 | Terrain | Generated terrain grids and height scans. |
 | Curriculum | Terrain-level progression. |
-| Actuators | Switching actuator models and action behavior. |
+| Actuators | Switching actuator models (IdealPD, MLP-residual) and action behavior. |
 | Recording | Live plots, files, and video-oriented recording configs. |
 
 ## Run

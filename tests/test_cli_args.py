@@ -45,6 +45,25 @@ def test_cli_run_args_accept_flags_after_task() -> None:
     }
 
 
+def test_cli_headless_flag_forces_vis_false() -> None:
+    from genelab.cli import parse_run_args
+
+    task_id, overrides = parse_run_args(
+        ["GeneLab-Inverted-Pendulum-v0", "--agent", "trained", "--headless"]
+    )
+
+    assert task_id == "GeneLab-Inverted-Pendulum-v0"
+    assert overrides["env.simulation.vis"] == "false"
+
+
+@pytest.mark.parametrize("order", [["--vis", "--headless"], ["--headless", "--vis"]])
+def test_cli_vis_and_headless_are_mutually_exclusive(order: list[str]) -> None:
+    from genelab.cli import parse_run_args
+
+    with pytest.raises(SystemExit, match="mutually exclusive"):
+        parse_run_args(["GeneLab-Rubiks-Play-v0", *order])
+
+
 def test_cli_parses_agent_flag_value() -> None:
     from genelab.cli import parse_run_args
 
@@ -146,13 +165,13 @@ def test_play_task_argument_preserves_dashed_runner_flags(
             "--import",
             "tests.fake_extension",
             "play",
-            "External-Fake-Task-v0",
+            "External-Fake-RL-Task-v0",
             "--num-envs",
             "8",
         ]
     )
 
-    assert captured["task_id"] == "External-Fake-Task-v0"
+    assert captured["task_id"] == "External-Fake-RL-Task-v0"
     assert captured["num_envs"] == 8
 
 

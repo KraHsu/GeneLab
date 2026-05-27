@@ -125,6 +125,10 @@ def franka_pick_and_place_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             dt=0.01,
             substeps=2,
             vis=play,
+            # Run Genesis on the GPU. ``SimulationCfg.gpu`` defaults to False (CPU
+            # backend); without this the sim runs on CPU with the policy/tensors on
+            # cuda — GPU idle and far slower (same regression fixed for G1).
+            gpu=True,
         ),
         scene=InteractiveSceneCfg(
             env_spacing=(2.0, 2.0),

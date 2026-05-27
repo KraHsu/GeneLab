@@ -19,12 +19,30 @@ Policy sources:
 | `random` | Uniform random actions in `[-1, 1]`. |
 | `trained` | Load a checkpoint and use the runner inference policy. |
 
+The policy options (`--agent`, `--checkpoint`, `--num-envs`, `--prof*`) apply only to RL
+tasks — those whose play env config is a `ManagerBasedRlEnvCfg`. Non-RL **scene-playback
+demos** (e.g. `GeneLab-Rubiks-Play-v0`, `GeneLab-Wuji-Hand-Playback-v0`), whose config
+subclasses the base `ManagerBasedEnvCfg`, run their own built-in playback; passing those
+options prints a warning and they are ignored. `--steps` / `--vis` / `--gpu` and dotted
+config overrides still apply to both.
+
 Checkpoint replay:
 
 ```bash
 uv run genelab play TASK_ID \
   --checkpoint logs/rsl_rl/<experiment>/<run>/model_300.pt
 ```
+
+!!! note "Trained playback on a headless server"
+    Trainable tasks enable the Genesis viewer in their play env (`vis=play`), so
+    `play --agent trained` opens a window by default and aborts with
+    `No display detected` on a display-less machine. Pass `--headless` (mutually
+    exclusive with `--vis`) to force `env.simulation.vis=false`:
+
+    ```bash
+    uv run genelab play TASK_ID --agent trained \
+      --checkpoint <ckpt> --headless
+    ```
 
 ## Train
 

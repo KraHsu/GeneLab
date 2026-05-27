@@ -36,3 +36,12 @@ def test_franka_pick_and_place_task_is_goal_conditioned() -> None:
     assert task.cfg.env.scene.entities["cube"].friction == 1.0
     assert task.cfg.env.robot.actuators["panda_arm"].stiffness == 2000.0
     assert task.cfg.env.robot.actuators["panda_hand"].velocity_limit == 1.0
+
+
+def test_franka_pick_and_place_runs_on_gpu_backend() -> None:
+    """Guard against the CPU-backend perf regression: ``SimulationCfg.gpu`` defaults
+    to False (gs.cpu), which would run the sim on CPU while tensors sit on cuda."""
+    load_extension_module("genelab_franka_pick_and_place.tasks")
+    task = TASKS.get("GeneLab-Franka-Pick-And-Place-v0")
+    assert task.cfg.env.simulation.gpu is True
+    assert task.cfg.play_env.simulation.gpu is True

@@ -23,7 +23,11 @@ class SimulationCfg:
     """Genesis runtime / sim-loop settings (decoupled from scene composition)."""
 
     vis: bool = False
-    gpu: bool = False
+    # Genesis backend selector. ``None`` (default) follows the env's ``device``
+    # (``cuda*`` -> GPU, else CPU) so a ``device="cuda"`` env runs the sim on the GPU
+    # without a separate opt-in — avoiding the footgun where an unset ``gpu`` left the
+    # whole sim on CPU (GPU idle, ~50x slower). ``True`` / ``False`` force the backend.
+    gpu: bool | None = None
     steps: int = 240
     dt: float = 0.01
     substeps: int = 4
@@ -60,8 +64,8 @@ class SimulationCfg:
 
         Returns only the fields the user set (skips ``None``), keyed by the Genesis
         ``RigidOptions`` parameter names. ``integrator`` stays a string here — the scene
-        resolves it to ``gs.integrator.<name>`` so ``configs`` stays Genesis-free (invariant
-        #5). An empty dict means the scene won't pass ``rigid_options`` at all.
+        resolves it to ``gs.integrator.<name>`` so ``configs`` stays Genesis-free. An empty
+        dict means the scene won't pass ``rigid_options`` at all.
         """
         mapping: dict[str, Any] = {
             "enable_self_collision": self.enable_self_collision,
@@ -143,6 +147,7 @@ class EventManagerCfg:
 class ManagerBasedEnvCfg:
     """Base shape for Isaac Lab-style manager-based environments."""
 
+    device: str = "cuda"
     simulation: SimulationCfg = field(default_factory=SimulationCfg)
     scene: InteractiveSceneCfg = field(default_factory=InteractiveSceneCfg)
     actions: ActionManagerCfg = field(default_factory=ActionManagerCfg)

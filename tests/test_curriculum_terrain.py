@@ -6,6 +6,7 @@ runs ``init_per_env_state``).
 """
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import numpy as np
 import torch
@@ -40,9 +41,15 @@ class _FakeRobotState:
     root_pos: torch.Tensor
 
 
+_STAND_HEIGHT = 0.8
+
+
 class _FakeArticulation:
     def __init__(self, root_pos: torch.Tensor) -> None:
         self.data = _FakeRobotState(root_pos=root_pos)
+        # ``terrain_levels_vel`` reads ``cfg.init_pos[2]`` to reseat the base at
+        # standing height above the sampled surface.
+        self.cfg = SimpleNamespace(init_pos=(0.0, 0.0, _STAND_HEIGHT))
         self.written: list[
             tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
         ] = []
@@ -109,10 +116,13 @@ def test_terrain_levels_vel_promotes_when_walked_exceeds_threshold() -> None:
     assert len(env.articulation.written) == 1
     wrote_pos, _, _, _, wrote_ids = env.articulation.written[0]
     assert torch.equal(wrote_ids, torch.tensor([0, 1, 2]))
-    # Env 0's new spawn moved to a row-1 cell; envs 1 and 2 stay on row 0.
+    # Env 0's new spawn moved to a row-1 cell; envs 1 and 2 keep their planar cell.
     assert wrote_pos[0, 0] != spawn[0, 0] or wrote_pos[0, 1] != spawn[0, 1]
-    assert torch.allclose(wrote_pos[1], spawn[1])
-    assert torch.allclose(wrote_pos[2], spawn[2])
+    assert torch.allclose(wrote_pos[1, :2], spawn[1, :2])
+    assert torch.allclose(wrote_pos[2, :2], spawn[2, :2])
+    # Base z is reseated at standing height above the (flat, zero) surface, not the
+    # bare cell origin (z=0) which would bury the robot. Default spawn_clearance=0.1.
+    assert torch.allclose(wrote_pos[:, 2], torch.full((3,), _STAND_HEIGHT + 0.1))
 
 
 def test_terrain_levels_vel_demotes_partially_walked_envs() -> None:

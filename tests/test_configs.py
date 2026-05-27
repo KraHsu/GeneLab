@@ -22,6 +22,15 @@ def test_play_retargeted_keys_exact_set() -> None:
     )
 
 
+def test_base_env_cfg_has_device_field() -> None:
+    """``device`` lives on the base cfg so non-RL envs (Rubiks/Wuji play scenes)
+    constructed via ``ManagerBasedRlEnv`` can read ``cfg.device``."""
+    from genelab.configs import ManagerBasedEnvCfg
+
+    assert "device" in ManagerBasedEnvCfg.__dataclass_fields__
+    assert ManagerBasedEnvCfg().device == "cuda"
+
+
 def test_play_retargeted_keys_target_real_simulation_fields() -> None:
     """Every retargeted key names an actual ``SimulationCfg`` field (no stale paths)."""
     fields = SimulationCfg.__dataclass_fields__

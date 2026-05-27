@@ -60,6 +60,26 @@ and defaults.
     options:
       show_if_no_docstring: true
 
+::: genelab.actuator.actuator_base
+    options:
+      show_if_no_docstring: true
+
+::: genelab.actuator.implicit_pd
+    options:
+      show_if_no_docstring: true
+
+::: genelab.actuator.ideal_pd
+    options:
+      show_if_no_docstring: true
+
+::: genelab.actuator.dc_motor
+    options:
+      show_if_no_docstring: true
+
+::: genelab.actuator.mlp_residual
+    options:
+      show_if_no_docstring: true
+
 ## Sensors
 
 ::: genelab.sensor

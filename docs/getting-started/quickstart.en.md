@@ -23,7 +23,7 @@ PYTHONPATH=examples/inverted_pendulum/src \
 uv run genelab info GeneLab-Inverted-Pendulum-v0
 ```
 
-Copy override paths from the printed config tree instead of guessing.
+Copy override paths from the printed config tree instead of guessing blindly.
 
 ## 3. Play
 

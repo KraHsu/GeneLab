@@ -1,7 +1,8 @@
 # How to Build an Extension Project
 
-Use an extension project when your robot, task, or experiment should live outside `src/genelab/`.
-This is the normal shape for downstream research code.
+In most cases, your robot, task, or experiment should not live directly under `src/genelab/`.
+Use an extension project instead. This is the recommended shape for downstream GeneLab research
+code.
 
 ## 1. Generate a scaffold
 
