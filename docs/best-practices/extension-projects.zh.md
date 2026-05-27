@@ -5,7 +5,7 @@
 ## 1. 生成骨架
 
 ```bash
-uv run genelab project new my_robot_project
+genelab project new my_robot_project
 ```
 
 生成的包结构：
@@ -62,14 +62,14 @@ my_robot_project = "my_robot_project.tasks:register"
 
 ```bash
 uv pip install -e my_robot_project
-uv run genelab list tasks
+genelab list tasks
 ```
 
 临时实验使用显式导入：
 
 ```bash
 PYTHONPATH=my_robot_project/src \
-  uv run genelab --import my_robot_project.tasks list tasks
+  genelab --import my_robot_project.tasks list tasks
 ```
 
 ## 5. 验证包边界
@@ -77,10 +77,10 @@ PYTHONPATH=my_robot_project/src \
 从包目录外运行：
 
 ```bash
-uv run python -c "import my_robot_project"
-uv run genelab list tasks
-uv run genelab info MyProject-Example-v0
-uv run genelab play MyProject-Example-v0 --steps 3
+python -c "import my_robot_project"
+genelab list tasks
+genelab info MyProject-Example-v0
+genelab play MyProject-Example-v0 --steps 3
 ```
 
 ## 预期结果

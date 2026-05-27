@@ -13,14 +13,14 @@ GeneLab-Rubiks-Play-v0
 
 ```bash
 uv pip install -e examples/genelab_examples
-uv run genelab play GeneLab-Rubiks-Play-v0 --vis --steps 500
+genelab play GeneLab-Rubiks-Play-v0 --vis --steps 500
 ```
 
 Useful overrides:
 
 ```bash
-uv run genelab play GeneLab-Rubiks-Play-v0 --env.robot.cubie_size 0.04
-uv run genelab play GeneLab-Rubiks-Play-v0 --env.robot.welded true
+genelab play GeneLab-Rubiks-Play-v0 --env.robot.cubie_size 0.04
+genelab play GeneLab-Rubiks-Play-v0 --env.robot.welded true
 ```
 
 ## Shows

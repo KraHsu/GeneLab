@@ -136,7 +136,7 @@ TorchScript 的输入/输出约定和字段说明见 [执行器](../concepts/act
 ## 5. 导出无依赖的策略
 
 ```bash
-uv run genelab export TASK_ID logs/.../model_best.pt --format onnx --out policy.onnx
+genelab export TASK_ID logs/.../model_best.pt --format onnx --out policy.onnx
 ```
 
 导出会写出 `policy.onnx`（纯 `nn.Module`，无 rsl_rl/skrl/sb3）**以及**

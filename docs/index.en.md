@@ -28,7 +28,7 @@ package layout and CLI for downstream robotics projects.
     <i></i><i></i><i></i>
     <span class="gl-terminal__title">~/genelab</span>
   </div>
-<pre><span class="gl-prompt">$</span> uv run genelab list tasks
+<pre><span class="gl-prompt">$</span> genelab list tasks
 
   Registered tasks <span class="gl-comment">(4 discovered)</span>
   ──────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ package layout and CLI for downstream robotics projects.
   <span class="gl-key">Genelab-Velocity-Flat-Unitree-G1-v0</span>   trainable
   <span class="gl-key">Genelab-Tracking-Flat-Unitree-G1-v0</span>   trainable
 
-<span class="gl-prompt">$</span> uv run genelab play GeneLab-Inverted-Pendulum-v0 --vis
+<span class="gl-prompt">$</span> genelab play GeneLab-Inverted-Pendulum-v0 --vis
 </pre>
 </div>
 

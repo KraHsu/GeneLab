@@ -7,10 +7,10 @@
 任何长任务前先跑：
 
 ```bash
-uv run genelab info TASK_ID
-uv run genelab play TASK_ID --agent zero --steps 32
-uv run genelab play TASK_ID --agent random --steps 64
-uv run genelab train TASK_ID --num_envs 64 --max_iterations 2
+genelab info TASK_ID
+genelab play TASK_ID --agent zero --steps 32
+genelab play TASK_ID --agent random --steps 64
+genelab train TASK_ID --num_envs 64 --max_iterations 2
 ```
 
 这会检查注册表加载、env 构造、action 维度、observation group、reward、termination 和 runner 接线。
@@ -26,7 +26,7 @@ uv run genelab train TASK_ID --num_envs 64 --max_iterations 2
 checkpoint 回放：
 
 ```bash
-uv run genelab play TASK_ID \
+genelab play TASK_ID \
   --agent trained \
   --checkpoint logs/rsl_rl/<experiment>/<run>/model_300.pt
 ```
@@ -38,13 +38,13 @@ uv run genelab play TASK_ID \
 单进程：
 
 ```bash
-uv run genelab train TASK_ID --num_envs 4096
+genelab train TASK_ID --num_envs 4096
 ```
 
 分布式：
 
 ```bash
-uv run genelab train TASK_ID --gpus 4 --num_envs 4096
+genelab train TASK_ID --gpus 4 --num_envs 4096
 ```
 
 `--gpus 4` 时，`--num_envs 4096` 表示总数 4096，每个 rank 1024。想直接指定每个 rank
@@ -66,12 +66,12 @@ logs/rsl_rl/<experiment>/<timestamp-or-run>/
 ## 5. 先 profile 短 run
 
 ```bash
-uv run genelab train TASK_ID \
+genelab train TASK_ID \
   --prof \
   --prof-active 3 \
   --prof-repeat 1 \
   --max_iterations 10
-uv run genelab prof open logs/torch_profile
+genelab prof open logs/torch_profile
 ```
 
 profiler trace 增长很快。先用小 active 窗口确认体量，再扩大。

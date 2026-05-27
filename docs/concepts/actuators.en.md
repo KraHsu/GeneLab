@@ -57,7 +57,7 @@ drives the Franka arm with an `MlpResidualActuator` whose tiny TorchScript resid
 first use:
 
 ```bash
-uv run genelab play GeneLab-MlpResidual-Actuator-Showcase-v0 --steps 5
+genelab play GeneLab-MlpResidual-Actuator-Showcase-v0 --steps 5
 ```
 
 ## Design guidance

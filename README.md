@@ -34,15 +34,20 @@ lightweight simulation backend — no USD/Kit, no vendor lock-in.
 ## 🚀 Quickstart
 
 ```bash
-uv sync --extra torch-cu128                 # pick the torch extra for your CUDA (see below)
-uv run genelab cache                        # create local sim / plot cache dirs
-uv run genelab list tasks                   # see what's registered
-uv run genelab train GeneLab-Inverted-Pendulum-v0 --max_iterations 150
-uv run genelab play  GeneLab-Inverted-Pendulum-v0 --vis
+uv sync --extra torch-cu128          # pick the torch extra for your CUDA (see below)
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+genelab cache                        # create local sim / plot cache dirs
+genelab list tasks                   # see what's registered
+genelab train GeneLab-Inverted-Pendulum-v0 --max_iterations 150
+genelab play  GeneLab-Inverted-Pendulum-v0 --vis
 ```
 
 > `uv sync` builds the project venv and installs GeneLab + the deps pinned by `uv.lock`.
-> `uv run …` runs inside that venv; a bare `genelab` command works only after activating `.venv`.
+> The docs use a **bare `genelab`** (and bare `python`), *not* `uv run genelab`. `uv run`
+> re-syncs the environment before every command, and because the `torch-*` extras are mutually
+> exclusive and outside the default sync set, each `uv run` uninstalls and reinstalls torch and
+> rewrites the extra you picked. Activate `.venv` once (as above), or — if you'd rather not
+> activate — prefix one-off commands with `uv run --no-sync` to skip that re-sync.
 
 ## 📦 Installation
 
@@ -71,15 +76,15 @@ uv sync --extra torch-cpu        # one of the above
 ## 🖥️ CLI
 
 ```bash
-uv run genelab --help
-uv run genelab list robots          # registered robots
-uv run genelab list envs            # registered environments
-uv run genelab list tasks           # registered tasks
-uv run genelab info  <task>         # task detail + overridable cfg paths
-uv run genelab train <task> …       # train (backend chosen by the task's agent cfg)
-uv run genelab play  <task> …       # rollout: --agent zero | random | trained
-uv run genelab eval  <task> <ckpt>  # deterministic eval → eval.json
-uv run genelab export <task> <ckpt> # export policy → TorchScript / ONNX
+genelab --help
+genelab list robots          # registered robots
+genelab list envs            # registered environments
+genelab list tasks           # registered tasks
+genelab info  <task>         # task detail + overridable cfg paths
+genelab train <task> …       # train (backend chosen by the task's agent cfg)
+genelab play  <task> …       # rollout: --agent zero | random | trained
+genelab eval  <task> <ckpt>  # deterministic eval → eval.json
+genelab export <task> <ckpt> # export policy → TorchScript / ONNX
 ```
 
 ## 🧩 Core API
@@ -98,7 +103,7 @@ Downstream projects live in their own Python packages and register robots, envir
 tasks through GeneLab's registry and extension hooks. Scaffold a fresh one:
 
 ```bash
-uv run genelab project new my_robot_project
+genelab project new my_robot_project
 ```
 
 The minimal template lives at [`examples/external_project/`](examples/external_project/README.md).
@@ -106,17 +111,17 @@ The minimal template lives at [`examples/external_project/`](examples/external_p
 ## ✅ Verification
 
 ```bash
-uv run python -c "import genelab, genesis; print(genelab.__version__, genesis.__version__)"
-uv run python -c "from genelab.lab import ManagerBasedEnvCfg; print(ManagerBasedEnvCfg.__name__)"
-uv run pytest
-uv run ruff check && uv run ruff format --check
-uv run pyright
+python -c "import genelab, genesis; print(genelab.__version__, genesis.__version__)"
+python -c "from genelab.lab import ManagerBasedEnvCfg; print(ManagerBasedEnvCfg.__name__)"
+pytest
+ruff check && ruff format --check
+pyright
 ```
 
 After syncing a `torch-*` extra, verify the selected PyTorch build:
 
 ```bash
-uv run python -c "import torch; print(torch.__version__, torch.version.cuda)"
+python -c "import torch; print(torch.__version__, torch.version.cuda)"
 ```
 
 ## 🛠️ Troubleshooting
@@ -152,7 +157,7 @@ Disable graph dispatch:
 
 ```bash
 export QD_GRAPH=0                     # for the session
-QD_GRAPH=0 uv run genelab train …     # or for a single command
+QD_GRAPH=0 genelab train …     # or for a single command
 ```
 
 Note: `QD_GRAPH=0` disables CUDA-graph batching and noticeably slows **contact-heavy** sims —

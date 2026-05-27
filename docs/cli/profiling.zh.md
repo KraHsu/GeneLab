@@ -5,7 +5,7 @@ GeneLab 通过 `genelab.rl.maybe_profile` 把 profiler 标志转发给 `torch.pr
 ## 启用 profiling
 
 ```bash
-uv run genelab train TASK_ID \
+genelab train TASK_ID \
   --prof \
   --prof-active 3 \
   --prof-repeat 1 \
@@ -15,7 +15,7 @@ uv run genelab train TASK_ID \
 打开 trace：
 
 ```bash
-uv run genelab prof open logs/torch_profile
+genelab prof open logs/torch_profile
 ```
 
 ## 参数

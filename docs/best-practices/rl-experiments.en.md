@@ -7,10 +7,10 @@ This guide describes the practical flow for training and replaying GeneLab tasks
 Run these before any long job:
 
 ```bash
-uv run genelab info TASK_ID
-uv run genelab play TASK_ID --agent zero --steps 32
-uv run genelab play TASK_ID --agent random --steps 64
-uv run genelab train TASK_ID --num_envs 64 --max_iterations 2
+genelab info TASK_ID
+genelab play TASK_ID --agent zero --steps 32
+genelab play TASK_ID --agent random --steps 64
+genelab train TASK_ID --num_envs 64 --max_iterations 2
 ```
 
 This checks registry loading, env construction, action dimensions, observation groups, rewards,
@@ -27,7 +27,7 @@ terminations, and runner wiring.
 Checkpoint playback:
 
 ```bash
-uv run genelab play TASK_ID \
+genelab play TASK_ID \
   --agent trained \
   --checkpoint logs/rsl_rl/<experiment>/<run>/model_300.pt
 ```
@@ -39,13 +39,13 @@ Passing `--checkpoint` defaults `--agent` to `trained`.
 Single process:
 
 ```bash
-uv run genelab train TASK_ID --num_envs 4096
+genelab train TASK_ID --num_envs 4096
 ```
 
 Distributed:
 
 ```bash
-uv run genelab train TASK_ID --gpus 4 --num_envs 4096
+genelab train TASK_ID --gpus 4 --num_envs 4096
 ```
 
 With `--gpus 4`, `--num_envs 4096` means 4096 total, 1024 per rank. Use
@@ -68,12 +68,12 @@ scripted comparison.
 ## 5. Profile short runs first
 
 ```bash
-uv run genelab train TASK_ID \
+genelab train TASK_ID \
   --prof \
   --prof-active 3 \
   --prof-repeat 1 \
   --max_iterations 10
-uv run genelab prof open logs/torch_profile
+genelab prof open logs/torch_profile
 ```
 
 Profiler traces grow quickly. Start with a small active window and increase only after confirming

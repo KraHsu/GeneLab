@@ -7,7 +7,7 @@ runner.
 ## Command model
 
 ```bash
-uv run genelab [global options] <command> [arguments]
+genelab [global options] <command> [arguments]
 ```
 
 | Area | Commands |
@@ -33,7 +33,7 @@ Runtime commands accept unknown `--a.b.c VALUE` options after the task id. The C
 `apply_overrides`.
 
 ```bash
-uv run genelab play TASK_ID --env.simulation.dt 0.005
+genelab play TASK_ID --env.simulation.dt 0.005
 ```
 
 Use `genelab info TASK_ID` to list valid paths.
