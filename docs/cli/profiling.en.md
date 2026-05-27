@@ -5,7 +5,7 @@ GeneLab forwards profiler flags to `torch.profiler` through `genelab.rl.maybe_pr
 ## Enable profiling
 
 ```bash
-uv run genelab train TASK_ID \
+genelab train TASK_ID \
   --prof \
   --prof-active 3 \
   --prof-repeat 1 \
@@ -15,7 +15,7 @@ uv run genelab train TASK_ID \
 Open traces:
 
 ```bash
-uv run genelab prof open logs/torch_profile
+genelab prof open logs/torch_profile
 ```
 
 ## Flags

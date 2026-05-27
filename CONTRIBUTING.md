@@ -6,8 +6,8 @@ GeneLab uses [uv](https://github.com/astral-sh/uv) and requires Python `>=3.12`.
 
 ```bash
 uv sync --extra torch-cpu     # or: torch-cu126 / torch-cu128 / torch-cu130
-uv run genelab --help         # smoke-test the CLI
-uv run genelab cache          # create project-local .cache dirs for Genesis / Matplotlib
+genelab --help         # smoke-test the CLI
+genelab cache          # create project-local .cache dirs for Genesis / Matplotlib
 ```
 
 The example extension under `examples/genelab_examples/` is on `pytest`'s `pythonpath`, so the test suite can import from it without installation.
@@ -35,15 +35,15 @@ Docs live under `docs/` and are built by MkDocs Material with the `mkdocs-static
 - **Admonitions over blockquotes.** Use `!!! warning "Title"` / `!!! tip "Title"` / `!!! note "Title"` for callouts; reserve `>` blockquotes for actual quotations.
 - **Stable explicit anchors** for headings that contain non-ASCII characters, numbered prefixes, or wording likely to change. Append `{ #stable-id }` to the heading, e.g. `## 5. Advanced: end-to-end RL on Unitree G1 { #unitree-g1 }`. Cross-link to the slug, not the auto-generated one.
 - **CJK + ASCII spacing in `.zh.md`.** Leave one space between Chinese characters and adjacent ASCII words, numbers, or inline code (`运行 \`uv sync\``, not `运行\`uv sync\``).
-- **`mkdocs build --strict` must pass.** Run `uv run mkdocs build --strict` before opening a doc-touching PR — mkdocs is included by default in `uv sync`. The flag fails the build on any unresolved relative link or anchor.
+- **`mkdocs build --strict` must pass.** Run `mkdocs build --strict` before opening a doc-touching PR — mkdocs is included by default in `uv sync`. The flag fails the build on any unresolved relative link or anchor.
 
 ## Checks before opening a PR
 
 ```bash
-uv run ruff check          # lint
-uv run ruff format --check # formatting (run `uv run ruff format` to fix)
-uv run pyright             # strict type-check on src/genelab
-uv run pytest              # full test suite
+ruff check          # lint
+ruff format --check # formatting (run `ruff format` to fix)
+pyright             # strict type-check on src/genelab
+pytest              # full test suite
 ```
 
 All four must pass — CI enforces the same set as required status checks on every PR.

@@ -5,7 +5,7 @@
 ## 用法
 
 ```bash
-uv run genelab project new my_robot_project
+genelab project new my_robot_project
 ```
 
 选项：
@@ -35,8 +35,8 @@ my_robot_project/
 
 ```bash
 uv pip install -e my_robot_project
-uv run genelab list tasks
-uv run genelab play MyRobotProject-Example-v0 --steps 3
+genelab list tasks
+genelab play MyRobotProject-Example-v0 --steps 3
 ```
 
 ## 另见

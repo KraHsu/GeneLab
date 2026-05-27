@@ -48,7 +48,7 @@ done
 # 1. 用脚本化 FSM 收 demo（一次性，与 seed 无关）。
 #    --num-envs 必须和任务 train num_envs 一致（当前 64）；prefill loader
 #    会断言 shape 对齐。
-uv run python -m genelab_franka_pick_and_place.collect_demos \
+python -m genelab_franka_pick_and_place.collect_demos \
     --num-envs 64 --steps 1000 \
     --out logs/reference/franka-pp/demos.npz
 

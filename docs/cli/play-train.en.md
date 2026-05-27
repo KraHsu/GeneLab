@@ -6,9 +6,9 @@ task provides an agent config.
 ## Play
 
 ```bash
-uv run genelab play TASK_ID --steps 128
-uv run genelab play TASK_ID --vis --steps 500
-uv run genelab play TASK_ID --agent random --steps 128
+genelab play TASK_ID --steps 128
+genelab play TASK_ID --vis --steps 500
+genelab play TASK_ID --agent random --steps 128
 ```
 
 Policy sources:
@@ -29,7 +29,7 @@ config overrides still apply to both.
 Checkpoint replay:
 
 ```bash
-uv run genelab play TASK_ID \
+genelab play TASK_ID \
   --checkpoint logs/rsl_rl/<experiment>/<run>/model_300.pt
 ```
 
@@ -40,20 +40,20 @@ uv run genelab play TASK_ID \
     exclusive with `--vis`) to force `env.simulation.vis=false`:
 
     ```bash
-    uv run genelab play TASK_ID --agent trained \
+    genelab play TASK_ID --agent trained \
       --checkpoint <ckpt> --headless
     ```
 
 ## Train
 
 ```bash
-uv run genelab train TASK_ID --num_envs 4096 --max_iterations 300
+genelab train TASK_ID --num_envs 4096 --max_iterations 300
 ```
 
 For distributed training:
 
 ```bash
-uv run genelab train TASK_ID --gpus 4 --num_envs 4096
+genelab train TASK_ID --gpus 4 --num_envs 4096
 ```
 
 `--num_envs` is total across ranks and must divide evenly by `--gpus`. Use
@@ -91,7 +91,7 @@ goal-conditioned observation and trains through SB3's `HerReplayBuffer`.
 # An Sb3AgentCfg routes through the SB3 backend; the Franka pick-and-place task
 # is SAC + HER + lift bonus + FSM demo prefill (see its example page).
 GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
-  uv run genelab train GeneLab-Franka-Pick-And-Place-v0 \
+  genelab train GeneLab-Franka-Pick-And-Place-v0 \
   --gpu --num-envs 32 --max-iterations 2000000
 ```
 
@@ -100,7 +100,7 @@ GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
 Any unknown option after the task id is treated as a dotted config override:
 
 ```bash
-uv run genelab play TASK_ID \
+genelab play TASK_ID \
   --env.simulation.dt 0.005 \
   --env.rewards_cfg.action_rate.weight -0.01
 ```

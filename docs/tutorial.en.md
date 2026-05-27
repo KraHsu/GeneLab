@@ -40,7 +40,7 @@ From the repository root, sync dependencies:
 
 ```bash
 uv sync --extra torch-cpu
-uv run genelab --version
+genelab --version
 ```
 
 If you have an NVIDIA GPU, replace `torch-cpu` with the matching `torch-cu126`, `torch-cu128`, or
@@ -55,7 +55,7 @@ genelab 0.1.0
 Create project-local cache directories used by Genesis and plotting backends:
 
 ```bash
-uv run genelab cache
+genelab cache
 ```
 
 If dependency sync fails or torch is wrong, read [Installation](getting-started/installation.md).
@@ -66,16 +66,16 @@ The core `genelab` package provides the framework. Robots, environments, and tas
 the asset zoo or extension packages. List the three registries:
 
 ```bash
-uv run genelab list robots
-uv run genelab list envs
-uv run genelab list tasks
+genelab list robots
+genelab list envs
+genelab list tasks
 ```
 
 You should see bundled asset-zoo robots and any example tasks discovered through entry points. If
 the task list is empty, explicitly import the inverted pendulum extension:
 
 ```bash
-uv run genelab --import genelab_inverted_pendulum.tasks list tasks
+genelab --import genelab_inverted_pendulum.tasks list tasks
 ```
 
 The registries are the first architecture boundary:
@@ -91,13 +91,13 @@ The registries are the first architecture boundary:
 Start with a short rollout to verify construction and stepping:
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 --steps 32
+genelab play GeneLab-Inverted-Pendulum-v0 --steps 32
 ```
 
 On a local desktop, open the Genesis viewer:
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 500
+genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 500
 ```
 
 This step follows this path:
@@ -113,7 +113,7 @@ This step follows this path:
 Use `info` to inspect task metadata and overridable paths:
 
 ```bash
-uv run genelab info GeneLab-Inverted-Pendulum-v0
+genelab info GeneLab-Inverted-Pendulum-v0
 ```
 
 Look for `Overridable cfg paths`. Every CLI `--a.b.c VALUE` is applied to a dataclass field under
@@ -122,7 +122,7 @@ Look for `Overridable cfg paths`. Every CLI `--a.b.c VALUE` is applied to a data
 Change the timestep and rollout length:
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 \
+genelab play GeneLab-Inverted-Pendulum-v0 \
   --steps 128 \
   --env.simulation.dt 0.005
 ```
@@ -182,7 +182,7 @@ The inverted pendulum task ships with an RSL-RL runner config. Run a tiny traini
 RL pipeline can construct the env, wrap it as a VecEnv, and write logs/checkpoints:
 
 ```bash
-uv run genelab train GeneLab-Inverted-Pendulum-v0 \
+genelab train GeneLab-Inverted-Pendulum-v0 \
   --num_envs 64 \
   --max_iterations 2
 ```
@@ -204,7 +204,7 @@ model_*.pt
 Replay a trained policy by passing a checkpoint:
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 \
+genelab play GeneLab-Inverted-Pendulum-v0 \
   --agent trained \
   --checkpoint logs/rsl_rl/<experiment>/<run>/model_*.pt
 ```
@@ -217,7 +217,7 @@ GeneLab expects real projects to live in their own Python packages rather than u
 `src/genelab/`. Generate a scaffold:
 
 ```bash
-uv run genelab project new my_robot_project
+genelab project new my_robot_project
 ```
 
 The scaffold contains:
@@ -243,14 +243,14 @@ Install it as editable and the CLI discovers it automatically:
 
 ```bash
 uv pip install -e my_robot_project
-uv run genelab list tasks
+genelab list tasks
 ```
 
 Without installing, import it explicitly:
 
 ```bash
 PYTHONPATH=my_robot_project/src \
-  uv run genelab --import my_robot_project.tasks list tasks
+  genelab --import my_robot_project.tasks list tasks
 ```
 
 ## 8. Continue to Unitree G1
@@ -262,7 +262,7 @@ Install the extension:
 
 ```bash
 uv pip install -e examples/unitree
-uv run genelab list tasks
+genelab list tasks
 ```
 
 You should see:
@@ -275,7 +275,7 @@ Genelab-Tracking-Flat-Unitree-G1-v0
 Run a visual smoke test before training:
 
 ```bash
-uv run genelab play Genelab-Velocity-Flat-Unitree-G1-v0 --vis --steps 500
+genelab play Genelab-Velocity-Flat-Unitree-G1-v0 --vis --steps 500
 ```
 
 The two Unitree tasks demonstrate the advanced side of GeneLab:

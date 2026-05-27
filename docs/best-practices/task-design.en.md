@@ -79,10 +79,10 @@ Keep corruption, scale, and clip settings in the term cfg so they are visible th
 Before long training, run:
 
 ```bash
-uv run genelab info TASK_ID
-uv run genelab play TASK_ID --steps 32
-uv run genelab play TASK_ID --agent random --steps 64
-uv run genelab train TASK_ID --num_envs 64 --max_iterations 2
+genelab info TASK_ID
+genelab play TASK_ID --steps 32
+genelab play TASK_ID --agent random --steps 64
+genelab train TASK_ID --num_envs 64 --max_iterations 2
 ```
 
 This catches registration, scene construction, action dimension, observation shape, reward, and
