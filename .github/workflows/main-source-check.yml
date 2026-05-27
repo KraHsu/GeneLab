@@ -11,16 +11,16 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Ensure PR head is dev or dev/*
+      - name: Ensure PR head is dev or a hotfix branch
         env:
           HEAD_REF: ${{ github.head_ref }}
         run: |
           case "$HEAD_REF" in
-            dev|dev/*)
+            dev|dev/*|hotfix|hotfix/*)
               echo "OK: PR head '$HEAD_REF' is allowed to target main."
               ;;
             *)
-              echo "::error::Only 'dev' or 'dev/*' branches may be merged into main. PR head was '$HEAD_REF'."
+              echo "::error::Only 'dev' / 'dev/*' (normal release) or 'hotfix' / 'hotfix/*' (urgent fix) branches may be merged into main. PR head was '$HEAD_REF'."
               exit 1
               ;;
           esac
