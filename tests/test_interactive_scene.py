@@ -8,10 +8,34 @@ without it.
 
 from typing import Any
 
+import pytest
+
 from genelab.actuator import ImplicitPDActuatorCfg
 from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.entity import ArticulationCfg, RigidObjectCfg
 from genelab.scene import InteractiveScene
+from genelab.scene.interactive_scene import _resolve_use_gpu
+
+
+@pytest.mark.parametrize(
+    ("gpu", "device", "expected"),
+    [
+        # ``None`` follows the device — the default that removes the CPU-backend footgun.
+        (None, "cuda", True),
+        (None, "cuda:0", True),
+        (None, "cpu", False),
+        # Explicit flags override the device.
+        (True, "cpu", True),
+        (False, "cuda", False),
+    ],
+)
+def test_resolve_use_gpu(gpu: bool | None, device: str, expected: bool) -> None:
+    assert _resolve_use_gpu(gpu, device) is expected
+
+
+def test_simulation_cfg_gpu_defaults_to_none() -> None:
+    """Default ``gpu=None`` => backend follows ``device`` (no silent CPU fallback)."""
+    assert SimulationCfg().gpu is None
 
 
 def test_interactive_scene_two_articulations_and_rigid_object(genesis_runtime: Any) -> None:

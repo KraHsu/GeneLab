@@ -142,8 +142,15 @@ def resolve_env_cfg(task_id: str, play: bool) -> Any:
 
 
 def build_env(env_cfg: Any) -> "ManagerBasedRlEnv":
-    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv, ManagerBasedRlEnvCfg
 
+    if not isinstance(env_cfg, ManagerBasedRlEnvCfg):
+        raise TypeError(
+            f"build_env requires a ManagerBasedRlEnvCfg (the RL env surface: decimation, "
+            f"episode_length_s, actions_cfg, …); got {type(env_cfg).__name__}, which subclasses "
+            f"the non-RL base ManagerBasedEnvCfg. Scene-playback demos must run their own "
+            f".play() — they are not routed through the RL play helper. See P8/P9."
+        )
     return ManagerBasedRlEnv(env_cfg)
 
 

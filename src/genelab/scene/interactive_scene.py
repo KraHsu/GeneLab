@@ -66,6 +66,18 @@ def _patch_pyrender_save_filename() -> None:
     _pyrender_save_patch_applied = True
 
 
+def _resolve_use_gpu(gpu: bool | None, device: str) -> bool:
+    """Resolve the Genesis backend choice.
+
+    ``gpu`` ``True`` / ``False`` force GPU / CPU; ``None`` follows ``device`` —
+    ``cuda*`` runs the sim on the GPU, anything else on CPU. This keeps a
+    ``device="cuda"`` env on the GPU backend without a separate opt-in.
+    """
+    if gpu is not None:
+        return gpu
+    return "cuda" in str(device).lower()
+
+
 class InteractiveScene:
     """Owns the Genesis scene and the entity wrappers attached to it."""
 
@@ -154,7 +166,8 @@ class InteractiveScene:
 
         gs_init = getattr(gs, "init", None)
         if gs_init is not None and not getattr(gs, "_initialized", False):
-            backend = gs.gpu if self._sim_cfg.gpu else gs.cpu  # type: ignore[attr-defined]
+            use_gpu = _resolve_use_gpu(self._sim_cfg.gpu, self._device)
+            backend = gs.gpu if use_gpu else gs.cpu  # type: ignore[attr-defined]
             gs.init(backend=backend, logging_level="warning")
 
         sim_options = gs.options.SimOptions(

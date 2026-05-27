@@ -15,6 +15,7 @@ _EXPECTED_TASK_IDS: tuple[str, ...] = (
     "GeneLab-Terrain-Showcase-v0",
     "GeneLab-Curriculum-Showcase-v0",
     "GeneLab-Actuator-Showcase-v0",
+    "GeneLab-MlpResidual-Actuator-Showcase-v0",
     "GeneLab-Recording-Showcase-v0",
 )
 

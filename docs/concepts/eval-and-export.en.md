@@ -1,7 +1,7 @@
 # Eval and Export
 
 This page covers GeneLab's research-reproducibility tooling under
-`genelab.rl.evaluator` / `eval_callback` / `exporter`, surfaced as three new
+`genelab.rl.evaluator` / `eval_callback` / `exporter`, surfaced as three
 CLIs that close the **train → eval → export** loop:
 
 | Command | Purpose | Output |
@@ -16,8 +16,8 @@ in `genelab.rl.backends.base`), so they work identically against the `rsl_rl`,
 
 ## `genelab eval`
 
-Runs a vectorized deterministic rollout and writes a JSON summary in the schema
-documented under ROADMAP §M1.1:
+Runs a vectorized deterministic rollout and writes a JSON summary with this
+schema:
 
 ```bash
 genelab eval GeneLab-Inverted-Pendulum-v0 logs/rsl_rl/exp1/.../model_500.pt \
@@ -79,8 +79,7 @@ Caveats:
   amortized.
 - For off-policy algorithms (SAC / TD3 / DDPG via `skrl` or `sb3`), reloading
   from a checkpoint between chunks loses the replay buffer. Sample efficiency
-  degrades but training still converges. A backend-native callback API is
-  tracked under ROADMAP M2.
+  degrades but training still converges.
 - `best_model.<ext>` reuses the source backend's checkpoint format (`.pt` for
   `rsl_rl` / `skrl`, `.zip` for `sb3`). The metadata file records the source
   iteration, eval seed, episodes, and return statistics.
@@ -102,20 +101,25 @@ genelab export Genelab-Velocity-Flat-Unitree-G1-v0 logs/.../model_30000.pt \
     --format onnx --out policy.onnx --opset 17
 ```
 
-> **Note**: `GeneLab-Franka-Pick-And-Place-v0` is currently SAC+HER with a
-> goal-conditioned `Dict` observation, which is on the limitations list
-> below — try `genelab export` against it and you'll get a clear error.
-> Locomotion tasks (cartpole, G1) use flat-tensor obs and export cleanly.
+> **Note**: `GeneLab-Franka-Pick-And-Place-v0` is SAC+HER with a goal-conditioned
+> `Dict` observation. Its exported model takes a single flat `obs` that is the
+> concatenation of `observation` + `achieved_goal` + `desired_goal` (in that
+> order); see the multi-group metadata below. Locomotion tasks (cartpole, G1) use
+> a single flat-tensor obs group.
 
 The exporter writes a sibling `<output>.metadata.json` describing the obs
-schema:
+schema. `obs_dim` is the total flat-input width; each `obs_groups` entry records
+its `start` offset into that flat tensor (so goal-conditioned policies can be
+sliced back into their sub-spaces):
 
 ```json
 {
   "task": "Genelab-Velocity-Flat-Unitree-G1-v0",
   "checkpoint": "logs/.../model_30000.pt",
+  "obs_dim": 48,
   "obs_groups": {
     "policy": {
+      "start": 0,
       "dim": 48,
       "terms": [
         {"name": "joint_pos", "dim": 23, "start": 0, "scale": 1.0, "clip": null},
@@ -131,6 +135,10 @@ schema:
   "torch_version": "2.4.0"
 }
 ```
+
+For a SAC+HER task `obs_groups` has three entries — e.g. `observation`
+(`start: 0`), `achieved_goal` (`start: 35`), `desired_goal` (`start: 38`) — and
+`obs_dim` is their sum.
 
 ### Deployment-side usage
 
@@ -155,18 +163,29 @@ actions = sess.run(None, {"obs": raw_obs.astype("float32")})[0]
 The actor is extracted via a backend-specific shim and wrapped so the call
 shape is uniform:
 
-- `rsl_rl`: prefers `runner.alg.actor_critic.actor` when it is a clean MLP;
-  otherwise falls back to `act_inference`.
+- `rsl_rl`: takes the actor module off the algorithm directly
+  (`alg._raw_actor`, falling back to `alg.actor`) and uses its `as_jit()` export
+  wrapper, which exposes a flat `forward(obs) -> deterministic action` with the
+  learned obs normalizer baked in. Older releases that kept the actor under
+  `alg.actor_critic.actor` (or only `act_inference`) are still supported.
 - `skrl`: wraps `agent.policy.act` and returns the deterministic mean (the
   `mean_actions` key) for `GaussianMixin` policies.
 - `sb3`: wraps `model.policy._predict(obs, deterministic=True)`, which is
-  uniform across PPO / A2C / SAC / TD3 / DDPG.
+  uniform across PPO / A2C / SAC / TD3 / DDPG. For goal-conditioned **SAC+HER**
+  policies the observation space is a `Dict`
+  (`observation` / `achieved_goal` / `desired_goal`) and the SAC actor consumes
+  all keys, so the wrapper takes the flat concatenation of those sub-spaces (in
+  that order) and rebuilds the Dict before calling the policy — the exported
+  model still has a single flat `obs` input, and the metadata's `obs_groups`
+  records each sub-space's `start` / `dim` so deployers know the layout.
+
+> SB3's ONNX export uses the legacy TorchScript-based exporter
+> (`torch.onnx.export(..., dynamo=False)`): the `torch.export`-based default
+> (torch ≥ 2.9) can't trace SAC's `Normal` distribution construction.
 
 ### Limitations
 
-- Dict observations (e.g. SB3 + HER) are not yet supported by export. Single-
-  group flat-tensor obs only.
 - Recurrent policies (rsl_rl `rnn_type` set) are not yet supported — the
-  exported model has no hidden-state slot. Tracked under ROADMAP follow-ups.
+  exported model has no hidden-state slot.
 - The exported model does **not** apply observation noise from `ObservationTermCfg.noise`;
   noise is part of training only.

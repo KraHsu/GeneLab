@@ -16,6 +16,7 @@ def terrain_levels_vel(
     env_ids: torch.Tensor | slice | None,
     distance_threshold: float,
     demote_ratio: float = 0.5,
+    spawn_clearance: float = 0.1,
     asset_cfg: "SceneEntityCfg | None" = None,
 ) -> torch.Tensor:
     """Promote / demote each env's terrain level by how far it walked from spawn.
@@ -26,6 +27,12 @@ def terrain_levels_vel(
     ``distance_threshold * demote_ratio`` move down (floored at 0). Levels then drive a
     fresh spawn origin lookup on the importer, and the curriculum writes the new root
     pose into the sim so the next episode starts on the new sub-terrain.
+
+    The new origins carry only the planar cell center (``z`` = terrain root height), so
+    the base is reseated at the sampled surface height plus the asset's standing height
+    (``init_pos[2]``) plus ``spawn_clearance``. Writing the bare origin would drop the
+    base to ``z = 0`` and bury the robot in the height field, whose interpenetration
+    explodes the contact solver (NaN at large ``dt``, an unconverging grind at small).
 
     No-op when ``env.scene.terrain`` is ``None``.
 
@@ -55,11 +62,14 @@ def terrain_levels_vel(
     levels[env_ids] = new_levels
 
     new_origins = terrain.update_env_origins(env_ids)
+    stand_height = float(articulation.cfg.init_pos[2])
+    root_pos = new_origins.clone()
+    root_pos[:, 2] = terrain.surface_height_at(new_origins) + stand_height + spawn_clearance
     n = int(env_ids.numel())
     zero_quat = torch.zeros(n, 4, device=env.device)
     zero_quat[:, 0] = 1.0
     zero_vel = torch.zeros(n, 3, device=env.device)
-    articulation.write_root_state(new_origins, zero_quat, zero_vel, zero_vel, env_ids)
+    articulation.write_root_state(root_pos, zero_quat, zero_vel, zero_vel, env_ids)
 
     return levels.float().mean()
 

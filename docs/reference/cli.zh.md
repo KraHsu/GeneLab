@@ -36,6 +36,7 @@ uv run genelab [全局选项] <命令> [命令选项]
 | 标志 | 说明 |
 |---|---|
 | `--vis`、`-v` | 启用 Genesis viewer。 |
+| `--headless` | 强制无 viewer（`env.simulation.vis=false`），与 `--vis` 互斥。在无显示器的服务器上跑 `play --agent trained` 时需要（其 play env 默认会启用 viewer）。 |
 | `--gpu` | 使用 Genesis GPU 后端。 |
 | `--steps N` | 在 `play` 中表示 rollout 步数；在 `train` 中是 `--max_iterations N` 的短写。 |
 | `--dt X` | 覆盖仿真时间步。 |

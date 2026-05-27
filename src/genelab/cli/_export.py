@@ -45,6 +45,10 @@ def export_task(
 
     env_cfg = resolve_env_cfg(task_id, play=True)
     env_cfg.simulation.num_envs = int(num_envs)
+    # Export only probes obs shapes — it never renders. Force ``vis=False`` so
+    # tasks whose ``play_env`` was configured for viewer playback still export
+    # on CI / remote servers without a display.
+    env_cfg.simulation.vis = False
     env = build_env(env_cfg)
 
     backend = select_backend(agent_cfg)
@@ -69,6 +73,9 @@ def export_task(
                 "supported for this checkpoint type"
             )
         policy_group = _policy_group_name(agent_cfg)
+        her_obs_group, goal_groups = _her_groups(agent_cfg)
+        if her_obs_group is not None:
+            policy_group = her_obs_group
         action_dim = int(env.action_manager.total_action_dim)
         cfg = ExportConfig(format=format, output=Path(output), opset=opset)
         return export_policy(
@@ -79,6 +86,7 @@ def export_task(
             actor_input_dim=setup.actor_input_dim or 0,
             action_dim=action_dim,
             policy_group=policy_group,
+            goal_groups=goal_groups,
             cfg=cfg,
         )
     finally:
@@ -102,3 +110,20 @@ def _policy_group_name(agent_cfg: Any) -> str:
         if actor_groups:
             return str(actor_groups[0])
     return "policy"
+
+
+def _her_groups(agent_cfg: Any) -> tuple[str | None, list[str]]:
+    """Return ``(policy_obs_group, goal_groups)`` for goal-conditioned SB3 tasks.
+
+    SAC+HER exposes a ``Dict`` observation (``observation`` / ``achieved_goal`` /
+    ``desired_goal``); the exporter concatenates these groups into the flat ``obs``
+    input so the actor can rebuild the Dict. Returns ``(None, [])`` for non-HER
+    agents (flat single-group export).
+    """
+    her = getattr(agent_cfg, "her", None)
+    if her is not None and getattr(her, "enabled", False):
+        return getattr(her, "obs_group", None), [
+            her.achieved_goal_group,
+            her.desired_goal_group,
+        ]
+    return None, []

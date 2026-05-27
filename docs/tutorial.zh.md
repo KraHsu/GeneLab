@@ -5,17 +5,17 @@ hide:
 
 # 用 GeneLab 构建第一个机器人实验
 
-本教程从一个干净 checkout 开始，带你完成 GeneLab 的最小闭环：安装环境、查看注册表、运行
+本教程从一个干净 checkout 开始，完成 GeneLab 的最小闭环：安装环境、查看注册表、运行
 倒立摆、理解任务如何接入 Genesis 后端、修改配置、启动一次短训练，最后创建一个自己的下游
 扩展项目。教程末尾会把同一套结构延伸到 Unitree G1，作为完整机器人工作流的进阶入口。完成后，
-你应该能说清 GeneLab 的整体架构，并知道下一步去哪里查模块、API 和最佳实践。
+完成后应能说清 GeneLab 的整体架构，并知道下一步去哪里查模块、API 和最佳实践。
 
 目标读者是熟悉 Python 与命令行、但第一次接触 GeneLab 的机器人或强化学习开发者。教程不要求
-你先理解所有内部模块；每一步都会给出可验证结果。
+预先理解所有内部模块并不是必要条件；每一步都会给出可验证结果。
 
-## 你会构建什么
+## 将会构建什么
 
-你会运行仓库自带的 `GeneLab-Inverted-Pendulum-v0` 任务。这个任务很小，但覆盖了 GeneLab
+本教程会运行仓库自带的 `GeneLab-Inverted-Pendulum-v0` 任务。这个任务很小，但覆盖了 GeneLab
 的核心路径：
 
 ```text
@@ -41,10 +41,10 @@ uv sync --extra torch-cpu
 uv run genelab --version
 ```
 
-如果你有 NVIDIA GPU，把 `torch-cpu` 换成与你驱动匹配的 `torch-cu126`、`torch-cu128` 或
+如果有 NVIDIA GPU，把 `torch-cpu` 换成与驱动匹配的 `torch-cu126`、`torch-cu128` 或
 `torch-cu130`。每次只能选一个 `torch-*` extra。
 
-你应该看到类似输出：
+应看到类似输出：
 
 ```text
 genelab 0.1.0
@@ -69,7 +69,7 @@ uv run genelab list envs
 uv run genelab list tasks
 ```
 
-你应该能看到内置资产库的机器人，以及已通过 entry point 发现的示例任务。若任务列表为空，
+应看到内置资产库的机器人，以及已通过 entry point 发现的示例任务。若任务列表为空，
 说明示例扩展没有被安装或发现；可以显式导入倒立摆扩展：
 
 ```bash
@@ -92,7 +92,7 @@ uv run genelab --import genelab_inverted_pendulum.tasks list tasks
 uv run genelab play GeneLab-Inverted-Pendulum-v0 --steps 32
 ```
 
-如果你在本地桌面环境中运行，可以打开 Genesis viewer：
+如果在本地桌面环境中运行，可以打开 Genesis viewer：
 
 ```bash
 uv run genelab play GeneLab-Inverted-Pendulum-v0 --vis --steps 500
@@ -191,7 +191,7 @@ uv run genelab train GeneLab-Inverted-Pendulum-v0 \
 ls logs/rsl_rl
 ```
 
-你会看到按实验名和时间戳组织的目录。主进程会写入：
+会看到按实验名和时间戳组织的目录。主进程会写入：
 
 ```text
 params/env.json
@@ -262,7 +262,7 @@ uv pip install -e examples/unitree
 uv run genelab list tasks
 ```
 
-你应该能看到：
+应看到：
 
 ```text
 Genelab-Velocity-Flat-Unitree-G1-v0
@@ -286,7 +286,7 @@ uv run genelab play Genelab-Velocity-Flat-Unitree-G1-v0 --vis --steps 500
 
 ## 9. GeneLab 能力地图
 
-到这里，你已经走完最小闭环，也看到了更大机器人示例的位置。GeneLab 的能力可以按四层理解：
+到这里，最小闭环已经走完，也看到了更大机器人示例的位置。GeneLab 的能力可以按四层理解：
 
 | 层级 | 模块 | 作用 |
 |---|---|---|

@@ -21,8 +21,8 @@ GeneLab 配置是普通 Python dataclass。CLI 在运行前通过 dotted overrid
 |---|---|
 | `SimulationCfg` | `vis`、`gpu`、`steps`、`dt`、`substeps`、`num_envs` |
 | `InteractiveSceneCfg` | `env_spacing`、`sensors`、`mouse_interaction`、`entities`、`terrain`、`batch_render`、`recordings` |
-| `ManagerBasedEnvCfg` | `simulation`、`scene` 和轻量 manager enabled flag |
-| `ManagerBasedRlEnvCfg` | `decimation`、`episode_length_s`、`device`、`seed`、`robot`、`actions_cfg`、`observations_cfg`、`rewards_cfg`、`terminations_cfg`、`commands_cfg`、`events_cfg`、`curriculum_cfg`、`metrics_cfg`、`bridges_cfg` |
+| `ManagerBasedEnvCfg` | `device`、`simulation`、`scene` 和轻量 manager enabled flag |
+| `ManagerBasedRlEnvCfg` | `decimation`、`episode_length_s`、`seed`、`robot`、`actions_cfg`、`observations_cfg`、`rewards_cfg`、`terminations_cfg`、`commands_cfg`、`events_cfg`、`curriculum_cfg`、`metrics_cfg`、`bridges_cfg` |
 
 ## Override 语法
 

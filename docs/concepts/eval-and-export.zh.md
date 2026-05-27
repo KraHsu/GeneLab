@@ -14,7 +14,7 @@
 
 ## `genelab eval`
 
-跑 vectorized deterministic rollout，按 ROADMAP §M1.1 的 schema 写一份 JSON：
+跑 vectorized deterministic rollout，并按下面的 schema 写一份 JSON：
 
 ```bash
 genelab eval GeneLab-Inverted-Pendulum-v0 logs/rsl_rl/exp1/.../model_500.pt \
@@ -71,8 +71,7 @@ genelab train GeneLab-Inverted-Pendulum-v0 \
 - 每个 chunk 走 backend 的正常 train lifecycle，会关闭并重建 Genesis env。短
   任务把 `--eval-every` 设到 ≥ 50，让 Genesis 初始化时间被摊薄。
 - Off-policy 算法（skrl / sb3 的 SAC / TD3 / DDPG）每 chunk 重载 checkpoint
-  会丢 replay buffer，sample efficiency 下降但仍能收敛。后端原生 callback API
-  跟踪在 ROADMAP M2。
+  会丢 replay buffer，sample efficiency 下降但仍能收敛。
 - `best_model.<ext>` 复用来源 backend 的 checkpoint 格式（`rsl_rl` / `skrl`
   用 `.pt`，`sb3` 用 `.zip`）。meta 文件记录来源 iter、eval seed、episode
   数、return 统计。
@@ -94,18 +93,23 @@ genelab export Genelab-Velocity-Flat-Unitree-G1-v0 logs/.../model_30000.pt \
     --format onnx --out policy.onnx --opset 17
 ```
 
-> **注**：`GeneLab-Franka-Pick-And-Place-v0` 现在是 SAC+HER + goal-conditioned
-> `Dict` 观测，命中下方的 limitations —— 对它跑 `genelab export` 会报清晰
-> 错误。Locomotion 任务（cartpole / G1）走 flat-tensor obs，导出干净。
+> **注**：`GeneLab-Franka-Pick-And-Place-v0` 是 SAC+HER + goal-conditioned
+> `Dict` 观测。它导出的模型输入是单一扁平 `obs`，即 `observation` +
+> `achieved_goal` + `desired_goal` 按该顺序拼接（见下方多 group 的 metadata）。
+> Locomotion 任务（cartpole / G1）则是单一 flat-tensor obs group。
 
-导出器会在旁边写一份 `<output>.metadata.json`，描述 obs schema：
+导出器会在旁边写一份 `<output>.metadata.json`，描述 obs schema。`obs_dim` 是扁平
+输入的总宽度；每个 `obs_groups` 条目记录它在扁平张量中的 `start` 偏移（便于把
+goal-conditioned policy 切回各子空间）：
 
 ```json
 {
   "task": "Genelab-Velocity-Flat-Unitree-G1-v0",
   "checkpoint": "logs/.../model_30000.pt",
+  "obs_dim": 23,
   "obs_groups": {
     "policy": {
+      "start": 0,
       "dim": 23,
       "terms": [
         {"name": "joint_pos", "dim": 7, "start": 0, "scale": 1.0, "clip": null},
@@ -121,6 +125,9 @@ genelab export Genelab-Velocity-Flat-Unitree-G1-v0 logs/.../model_30000.pt \
   "torch_version": "2.4.0"
 }
 ```
+
+SAC+HER 任务的 `obs_groups` 会有三个条目 —— 例如 `observation`（`start: 0`）、
+`achieved_goal`（`start: 35`）、`desired_goal`（`start: 38`）—— `obs_dim` 为它们之和。
 
 ### 部署侧用法
 
@@ -144,17 +151,25 @@ actions = sess.run(None, {"obs": raw_obs.astype("float32")})[0]
 
 actor 通过 backend 各自的小 shim 取出来，包成统一的调用形态：
 
-- `rsl_rl`：优先用 `runner.alg.actor_critic.actor`（当它是干净的 MLP 时）；
-  否则 fallback 到 `act_inference`。
+- `rsl_rl`：直接从算法对象取 actor 模块（`alg._raw_actor`，没有则退回
+  `alg.actor`），并用它的 `as_jit()` 导出包装——后者暴露扁平的
+  `forward(obs) -> 确定性动作`，且已把学到的 obs normalizer 烘焙进去。仍兼容把
+  actor 放在 `alg.actor_critic.actor`（或只有 `act_inference`）的旧版本。
 - `skrl`：包 `agent.policy.act`，对 `GaussianMixin` policy 返回 deterministic
   mean（`mean_actions` key）。
 - `sb3`：包 `model.policy._predict(obs, deterministic=True)`，对 PPO / A2C /
-  SAC / TD3 / DDPG 统一。
+  SAC / TD3 / DDPG 统一。对目标条件化的 **SAC+HER** policy，observation 是
+  `Dict`（`observation` / `achieved_goal` / `desired_goal`），SAC actor 会用到
+  所有 key，因此 wrapper 接收这些子空间按该顺序拼接的扁平张量，在调用 policy
+  前重建出 Dict —— 导出的模型仍是单一扁平 `obs` 输入，metadata 的 `obs_groups`
+  记录每个子空间的 `start` / `dim`，部署方据此还原布局。
+
+> SB3 的 ONNX 导出使用旧版基于 TorchScript 的导出器
+> （`torch.onnx.export(..., dynamo=False)`）：基于 `torch.export` 的新默认导出器
+> （torch ≥ 2.9）无法 trace SAC 的 `Normal` 分布构造。
 
 ### 限制
 
-- 字典 observation（SB3 + HER）暂不支持导出。仅支持单一 group 的 flat tensor
-  obs。
 - Recurrent policy（rsl_rl 设置 `rnn_type`）暂不支持 —— 导出的模型没有 hidden
-  state 槽。跟在 ROADMAP follow-up。
+  state 槽。
 - 导出的模型不应用 `ObservationTermCfg.noise` —— noise 只在训练时启用。

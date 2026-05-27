@@ -16,7 +16,9 @@ _PROF_BOOL_FLAGS: Final[frozenset[str]] = frozenset(
     {"--prof", "--prof-record-shapes", "--prof-with-stack"}
 )
 
-_RUN_BOOL_SHORTCUTS: Final[frozenset[str]] = frozenset({"-v", "--vis", "--gpu", *_PROF_BOOL_FLAGS})
+_RUN_BOOL_SHORTCUTS: Final[frozenset[str]] = frozenset(
+    {"-v", "--vis", "--headless", "--gpu", *_PROF_BOOL_FLAGS}
+)
 
 RUNNER_KEYS: Final[frozenset[str]] = frozenset(
     {
@@ -78,9 +80,10 @@ def normalize_argv(argv: list[str] | None) -> list[str] | None:
 def parse_run_args(tokens: list[str]) -> tuple[str, dict[str, str]]:
     """Split a ``play``/``train`` token slice into ``(task_id, overrides)``.
 
-    Shortcut flags ``-v``/``--vis``/``--gpu``/``--steps`` are rewritten into the
-    canonical ``env.simulation.*`` override paths. Other ``--a.b.c VALUE`` flags are
-    forwarded as-is (with ``-`` replaced by ``_`` in the key).
+    Shortcut flags ``-v``/``--vis``/``--headless``/``--gpu``/``--steps`` are rewritten
+    into the canonical ``env.simulation.*`` override paths. ``--vis`` and ``--headless``
+    are mutually exclusive. Other ``--a.b.c VALUE`` flags are forwarded as-is (with
+    ``-`` replaced by ``_`` in the key).
     """
 
     task_id: str | None = None
@@ -89,7 +92,15 @@ def parse_run_args(tokens: list[str]) -> tuple[str, dict[str, str]]:
     while index < len(tokens):
         token = tokens[index]
         if token in {"-v", "--vis"}:
+            if overrides.get("env.simulation.vis") == "false":
+                raise SystemExit("--vis and --headless are mutually exclusive")
             overrides["env.simulation.vis"] = "true"
+            index += 1
+            continue
+        if token == "--headless":
+            if overrides.get("env.simulation.vis") == "true":
+                raise SystemExit("--vis and --headless are mutually exclusive")
+            overrides["env.simulation.vis"] = "false"
             index += 1
             continue
         if token == "--gpu":

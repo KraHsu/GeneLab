@@ -32,6 +32,7 @@ Stdlib only: no ``requests`` / ``httpx`` dependency, no concurrent / resumable d
 """
 
 import hashlib
+import os
 import shutil
 import tarfile
 from contextvars import ContextVar
@@ -45,6 +46,12 @@ from genelab.utils.paths import CACHE_DIR
 
 _ASSET_ROOT = CACHE_DIR / "assets"
 _CHUNK_SIZE = 1 << 16  # 64 KiB
+# Per-socket-operation timeout (seconds) for asset downloads. Applies to the
+# initial connect AND each blocking read, so a stalled connection (e.g. no
+# network / proxy required) fails fast instead of hanging forever. It is NOT a
+# total-download budget — a healthy slow-but-progressing transfer is unaffected.
+# Override via ``GENELAB_DOWNLOAD_TIMEOUT`` (0 / negative ⇒ no timeout).
+_DOWNLOAD_TIMEOUT = float(os.environ.get("GENELAB_DOWNLOAD_TIMEOUT", "30"))
 _EXTRACT_DIR = "extracted"
 _STAGING_EXTRACT_DIR = ".extracting"
 
@@ -188,8 +195,9 @@ def _fetch_archive(
 def _download_to(spec: AssetSpec, staging: Path, *, progress: ProgressCallback | None) -> None:
     if staging.exists():
         staging.unlink()
+    timeout = _DOWNLOAD_TIMEOUT if _DOWNLOAD_TIMEOUT > 0 else None
     try:
-        with urlopen(spec.url) as resp, staging.open("wb") as out:
+        with urlopen(spec.url, timeout=timeout) as resp, staging.open("wb") as out:
             total = _content_length(resp)
             done = 0
             if progress is not None:
@@ -202,11 +210,17 @@ def _download_to(spec: AssetSpec, staging: Path, *, progress: ProgressCallback |
                 done += len(chunk)
                 if progress is not None:
                     progress(done, total, name=spec.name)
-    except URLError as exc:
+    except (URLError, TimeoutError) as exc:
         if staging.exists():
             staging.unlink()
+        hint = ""
+        if isinstance(exc, TimeoutError) or "timed out" in str(exc).lower():
+            hint = (
+                f" (no response within {_DOWNLOAD_TIMEOUT:g}s — check network/proxy, or set "
+                "GENELAB_DOWNLOAD_TIMEOUT)"
+            )
         raise AssetDownloadError(
-            f"failed to download asset {spec.name!r} from {spec.url!r}: {exc}"
+            f"failed to download asset {spec.name!r} from {spec.url!r}: {exc}{hint}"
         ) from exc
 
 

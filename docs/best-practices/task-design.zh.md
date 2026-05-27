@@ -27,7 +27,7 @@
 | `env` | 多 env、viewer 关闭、课程和扰动开启、只保留训练传感器。 |
 | `play_env` | 单 env、viewer 开启、鼠标/bridge 控制开启、随机化较少、可选实时曲线。 |
 
-不要让用户为了打开 viewer 记一串 override。`genelab play TASK --vis` 应该能直接用任务的
+不要让其他人为了打开 viewer 记一串 override。`genelab play TASK --vis` 应该能直接用任务的
 play 配置运行。
 
 ## 3. 用 factory 构造机器人

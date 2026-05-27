@@ -6,15 +6,6 @@ convergence step count, and the wall-clock budget — the numbers you should
 expect to land on when you `clone → train → eval` against the same
 configuration.
 
-> **Status — 2026-05-21**: all five task tables are populated from the
-> M1.7 reference batch (8×H200, Genesis 0.4.7, `QD_GRAPH=0`). G1 eval
-> ran with `QT_QPA_PLATFORM=offscreen` after the launcher's first eval
-> hung in Genesis init (cv2/Qt + `episode_length_s = 1e9` in tracking's
-> play_env — fix `a561ba0` clamps to 30 s). Franka was re-run with the
-> fix in commit `40a6194` (env `num_envs` 2048 → 64, SAC
-> `gradient_steps = 8`); success rate climbed from 0.04–0.11 (no real
-> training) to 0.89–1.00 (converged).
-
 ## Reference tasks
 
 The five tasks tracked here cover GeneLab's bundled locomotion +
@@ -26,18 +17,14 @@ manipulation lines:
 | `GeneLab-Double-Inverted-Pendulum-v0` | rsl_rl PPO | 300 iter × 4096 envs | Harder cartpole. |
 | `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 velocity tracking on flat ground. |
 | `Genelab-Tracking-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 motion-tracking on flat ground. |
-| `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 2048 envs | Goal-conditioned manipulation; needs offline demo prefill (see protocol below). |
-
-> **Note**: dev pruned the example to a single SAC+HER setup. The earlier
-> `Cartesian-v0` / `skrl-v0` / `sb3-v0` / `sb3-her-v0` Franka variants no
-> longer register and are intentionally not part of this set.
+| `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 64 envs | Goal-conditioned manipulation; needs offline demo prefill (see protocol below). |
 
 ## Reproduction protocol
 
 ### Common path (4 of 5 tasks)
 
 Cartpole + G1 tasks are rsl_rl PPO; their reference runs use the multi-seed
-CLI directly:
+CLI:
 
 ```bash
 # 1. Train three seeds (parallel=3 only for cartpole-sized tasks; G1 needs
@@ -87,14 +74,34 @@ for s in 1 2 3; do
 done
 ```
 
-The Franka task **cannot** currently be exported via `genelab export` —
-HER's `Dict` observation is on the M1.3 limitations list. Removing that
-limitation is tracked as a future M-series follow-up.
+The Franka task **cannot** currently be exported via `genelab export`.
+Export supports flat-tensor observations only, while SAC+HER uses a
+goal-conditioned `Dict` observation.
 
 ### Hardware
 
 One CUDA GPU (≥ 12 GB VRAM) for training. CPU-only eval works for the
 deterministic rollout step but is much slower than GPU-vectorized.
+
+!!! warning "Run the sim on the GPU backend"
+    `SimulationCfg.gpu` defaults to **`False` (CPU backend)**. With the CPU backend the
+    physics steps on the CPU while the policy/tensors sit on the GPU, leaving the GPU idle
+    and training **~50–100× slower** (contact-heavy tasks like G1 go from a few s to hundreds
+    of s per iteration). Bundled trainable tasks set `gpu=True`; **custom tasks must do the
+    same**. If `nvidia-smi` shows your training GPU near 0 % during steps, this is almost
+    certainly why.
+
+!!! note "Hopper (H100/H200) and multi-GPU caveats"
+    - On **Hopper (SM 90)** you must set `QD_GRAPH=0` (Genesis ships no SM 90 `graph_do_while`
+      fatbin); this disables CUDA-graph batching and badly slows **contact-heavy** sims. Prefer
+      a non-Hopper GPU (Ada / Ampere) for locomotion reproduction.
+    - Multi-GPU (`genelab train --gpus N`) gives **little speedup for G1** (per-step cost +
+      PCIe all-reduce dominate). For a multi-seed sweep, run **one seed per GPU** rather than
+      one seed across many GPUs.
+    - RL training at 4096 envs is largely **CPU-bound** and wants the whole host; running many
+      such trainings concurrently on one box oversubscribes the CPU and slows them
+      super-linearly. Wall-clock suffers but rewards are deterministic, so reproduced numbers
+      are unaffected by contention.
 
 ## Reference numbers
 
@@ -142,10 +149,10 @@ Eval `length_mean = 1000.0` for all seeds (play_env `episode_length_s =
 
 Eval `length_mean = 1500.0`. The tracking play_env normally sets
 `episode_length_s = 1e9` for infinite viewer playback; `genelab eval`
-clamps that to 30 s (see commit `a561ba0`) so 30 s × 50 Hz = 1500 steps
-per episode, all hitting the cap without termination. Very tight std
-across seeds — the converged policy follows the motion clip on track
-under the 30 s window. `success_rate` is `null`.
+clamps that to 30 s, so 30 s × 50 Hz = 1500 steps per episode, all hitting
+the cap without termination. Very tight std across seeds — the converged
+policy follows the motion clip on track under the 30 s window. `success_rate`
+is `null`.
 
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER, demo-prefilled)
 
@@ -159,17 +166,6 @@ Eval `length_mean = 100.0` (fixed episode length). Mean
 `success_rate ≈ 0.963 ± 0.052` across the three seeds; the two perfect
 seeds reflect a fully solved policy, the 0.89 seed still misses ~11 %
 of episodes from end-effector orientation drift on harder goal poses.
-
-These rows replace the earlier "anomalous, not converged" callout from
-the first M1.7 batch. The root cause turned out to be a configuration
-mismatch in this example, not an SB3 internal bug: the env had
-`num_envs = 2048` but SAC defaulted to `gradient_steps = 1`, so the 2 M
-timestep budget produced fewer than 1 000 SGD updates total. Commit
-`40a6194` drops `num_envs` to 64 (HER replay buffer holds whole
-episodes; massive parallelism wastes buffer capacity) and pins
-`gradient_steps = 8` so each rollout actually trains the policy. See
-the cfg docstring on `franka_pick_and_place_sb3_cfg` for the longer
-write-up.
 
 ## Training curves
 
@@ -207,10 +203,8 @@ above is what populated PRs should match.
 
 ## What this doc is not
 
-- It is **not** a benchmark suite — that is M3.8 (`genelab benchmark`).
-- It is **not** a leaderboard. The numbers here are GeneLab's own
-  reproducibility check; community submissions go to the benchmark suite
-  once it lands.
+- It is **not** a benchmark suite or leaderboard. The numbers here are
+  GeneLab's own reproducibility check.
 - It is **not** a tuning guide. See `best-practices/rl-experiments` for
   curriculum, DR, and reward weight choices that are upstream of these
   numbers.

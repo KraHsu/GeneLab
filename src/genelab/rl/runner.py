@@ -247,6 +247,13 @@ def play_task(
         env_cfg = resolve_env_cfg(task_id, play=True)
     if num_envs is not None:
         env_cfg.simulation.num_envs = int(num_envs)
+    # Scripted (zero / random) playback is a bounded smoke rollout: cap it at
+    # ``simulation.steps`` (what the ``--steps`` CLI flag sets) so e.g.
+    # ``play TASK --agent zero --steps 5`` stops after 5 steps instead of looping
+    # forever headless. Trained playback stays unbounded (runs until the viewer is
+    # closed or an explicit ``max_steps`` is given).
+    if max_steps is None and kind in ("zero", "random"):
+        max_steps = int(env_cfg.simulation.steps)
     env = build_env(env_cfg)
     bridges = build_bridges(env_cfg)
     for bridge in bridges:

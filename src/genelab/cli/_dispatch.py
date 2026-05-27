@@ -17,6 +17,7 @@ runtime ``cli -> _dispatch -> cli`` cycle.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, cast
 
@@ -65,6 +66,22 @@ def _coerce_prof_kwargs(prof_args: dict[str, str]) -> dict[str, Any]:
     }
 
 
+def _is_rl_play_cfg(env_cfg: Any) -> bool:
+    """Whether ``env_cfg`` can back the RL play helper (``play_task`` → ``build_env`` →
+    ``ManagerBasedRlEnv``).
+
+    Scene-playback demos (Rubiks, Wuji, downstream non-RL tasks) subclass the *non-RL*
+    base ``ManagerBasedEnvCfg`` and lack the RL surface (``decimation``,
+    ``episode_length_s``, ``actions_cfg``, …), so they must run their own ``task.play()``
+    instead — routing them through the RL helper crashes in env construction. See P8/P9.
+    """
+    if env_cfg is None:
+        return False
+    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
+
+    return isinstance(env_cfg, ManagerBasedRlEnvCfg)
+
+
 def _dispatch_play(task: Runnable, runner_args: dict[str, str], prof_args: dict[str, str]) -> None:
     task_cfg = getattr(task, "cfg", None)
     agent_cfg = getattr(task_cfg, "agent", None) if task_cfg is not None else None
@@ -79,6 +96,40 @@ def _dispatch_play(task: Runnable, runner_args: dict[str, str], prof_args: dict[
     # play is always single-process; either flag is accepted but mapped through the same
     # resolver so the mutual-exclusion guard fires on misuse.
     num_envs_per_rank = _resolve_per_rank_num_envs(runner_args, gpus=1)
+
+    # The CLI's already-overridden cfg (play_env when configured): TASKS.get returns a
+    # fresh task each call, so the runner re-resolving would discard the --vis / --gpu /
+    # --a.env.* overrides applied above.
+    play_env_cfg = getattr(task_cfg, "play_env", None)
+    if play_env_cfg is None:
+        play_env_cfg = getattr(task_cfg, "env", None)
+
+    # Scene-playback demos (non-RL: env cfg is a base ManagerBasedEnvCfg) can't go through
+    # the RL play helper — ManagerBasedRlEnv requires an RL cfg surface they don't have, so
+    # play_task → build_env would crash in env construction. Run their own .play() instead.
+    # The RL-only options below have no meaning for a fixed scene demo, so warn and ignore
+    # them rather than crashing. See P8/P9.
+    if not _is_rl_play_cfg(play_env_cfg):
+        ignored = [
+            name
+            for name, present in (
+                ("--checkpoint", checkpoint_raw is not None),
+                ("--num-envs", num_envs_per_rank is not None),
+                ("--agent", agent_raw is not None),
+                ("--prof*", bool(prof_args)),
+            )
+            if present
+        ]
+        if ignored:
+            task_name = getattr(task_cfg, "name", None) or "task"
+            print(
+                f"warning: {task_name} is a non-RL scene-playback task; ignoring "
+                f"{', '.join(ignored)} and running its built-in playback.",
+                file=sys.stderr,
+            )
+        task.play()
+        return
+
     if (
         checkpoint_raw is None
         and num_envs_per_rank is None
@@ -93,12 +144,6 @@ def _dispatch_play(task: Runnable, runner_args: dict[str, str], prof_args: dict[
     task_id = getattr(task_cfg, "name", None)
     if not isinstance(task_id, str):
         raise SystemExit("task config is missing 'name'; cannot route through RL play helper")
-    # Pass the CLI's already-overridden cfg (play_env when configured): TASKS.get
-    # returns a fresh task each call, so the runner re-resolving would discard the
-    # --vis / --gpu / --a.env.* overrides applied above.
-    play_env_cfg = getattr(task_cfg, "play_env", None)
-    if play_env_cfg is None:
-        play_env_cfg = getattr(task_cfg, "env", None)
     play_task(
         task_id,
         env_cfg=play_env_cfg,

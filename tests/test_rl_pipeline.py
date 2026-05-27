@@ -94,3 +94,38 @@ def test_rsl_rl_wrapper_exposes_runner_attrs() -> None:
     assert rew.shape == (env.num_envs,)
     assert dones.shape == (env.num_envs,)
     assert "time_outs" in info
+
+
+def test_play_task_caps_scripted_agent_at_simulation_steps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scripted (zero/random) playback defaults its step cap to ``simulation.steps``
+    (what ``--steps`` sets) so a headless ``play --agent zero --steps N`` stops after N
+    steps; trained playback stays unbounded unless ``max_steps`` is passed."""
+    from types import SimpleNamespace
+
+    from genelab.rl import runner
+
+    captured: dict[str, object] = {}
+
+    class _FakeBackend:
+        name = "fake"
+
+        def play(self, ctx: Any) -> None:
+            captured["max_steps"] = ctx.max_steps
+
+    monkeypatch.setattr(runner, "ensure_project_cache", lambda: None)
+    monkeypatch.setattr(runner, "build_env", lambda cfg: object())
+    monkeypatch.setattr(runner, "build_bridges", lambda cfg: [])
+    monkeypatch.setattr(runner, "default_backend", lambda: _FakeBackend())
+    monkeypatch.setattr(runner, "TASKS", SimpleNamespace(get=lambda _id: None))
+
+    cfg = SimpleNamespace(simulation=SimpleNamespace(steps=7, num_envs=1))
+
+    runner.play_task("Unregistered-Task-v0", env_cfg=cfg, agent="zero")
+    assert captured["max_steps"] == 7
+
+    from pathlib import Path
+
+    runner.play_task("Unregistered-Task-v0", env_cfg=cfg, agent="trained", checkpoint=Path("x.pt"))
+    assert captured["max_steps"] is None

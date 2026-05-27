@@ -51,7 +51,6 @@ class ManagerBasedRlEnvCfg(ManagerBasedEnvCfg):
 
     decimation: int = 4
     episode_length_s: float = 20.0
-    device: str = "cuda"
     seed: int | None = None
     scale_rewards_by_dt: bool = True
 
