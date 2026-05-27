@@ -18,8 +18,8 @@ when you want a runnable example of one subsystem without reading a full robot t
 
 ```bash
 uv pip install -e examples/genelab_showcase
-uv run genelab list tasks
-uv run genelab play <showcase-task-id> --vis --steps 300
+genelab list tasks
+genelab play <showcase-task-id> --vis --steps 300
 ```
 
 Use `genelab info <showcase-task-id>` to inspect the exact override paths for each showcase task.

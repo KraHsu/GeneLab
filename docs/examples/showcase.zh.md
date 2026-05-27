@@ -17,8 +17,8 @@
 
 ```bash
 uv pip install -e examples/genelab_showcase
-uv run genelab list tasks
-uv run genelab play <showcase-task-id> --vis --steps 300
+genelab list tasks
+genelab play <showcase-task-id> --vis --steps 300
 ```
 
 用 `genelab info <showcase-task-id>` 查看每个 showcase task 的准确 override 路径。

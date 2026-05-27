@@ -78,10 +78,10 @@ corruption、scale、clip 设置放在 term cfg 中，这样 `genelab info TASK`
 长训练前先跑：
 
 ```bash
-uv run genelab info TASK_ID
-uv run genelab play TASK_ID --steps 32
-uv run genelab play TASK_ID --agent random --steps 64
-uv run genelab train TASK_ID --num_envs 64 --max_iterations 2
+genelab info TASK_ID
+genelab play TASK_ID --steps 32
+genelab play TASK_ID --agent random --steps 64
+genelab train TASK_ID --num_envs 64 --max_iterations 2
 ```
 
 这能在长任务前捕获注册、scene 构造、action 维度、observation shape、reward 和 runner 接线问题。

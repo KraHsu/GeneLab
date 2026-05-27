@@ -7,7 +7,7 @@ code.
 ## 1. Generate a scaffold
 
 ```bash
-uv run genelab project new my_robot_project
+genelab project new my_robot_project
 ```
 
 The generated package has:
@@ -65,14 +65,14 @@ Then install as editable:
 
 ```bash
 uv pip install -e my_robot_project
-uv run genelab list tasks
+genelab list tasks
 ```
 
 Use explicit imports for temporary experiments:
 
 ```bash
 PYTHONPATH=my_robot_project/src \
-  uv run genelab --import my_robot_project.tasks list tasks
+  genelab --import my_robot_project.tasks list tasks
 ```
 
 ## 5. Verify the package boundary
@@ -80,10 +80,10 @@ PYTHONPATH=my_robot_project/src \
 Run these from outside the package directory:
 
 ```bash
-uv run python -c "import my_robot_project"
-uv run genelab list tasks
-uv run genelab info MyProject-Example-v0
-uv run genelab play MyProject-Example-v0 --steps 3
+python -c "import my_robot_project"
+genelab list tasks
+genelab info MyProject-Example-v0
+genelab play MyProject-Example-v0 --steps 3
 ```
 
 ## Expected result

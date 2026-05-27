@@ -19,14 +19,14 @@ plus `ContinuousGripperAction` on the fingers.
 
 ```bash
 uv pip install -e examples/franka_pick_and_place
-uv run genelab list tasks | grep Franka
+genelab list tasks | grep Franka
 ```
 
 Without installation:
 
 ```bash
 PYTHONPATH=examples/franka_pick_and_place/src \
-  uv run genelab --import genelab_franka_pick_and_place.tasks list tasks
+  genelab --import genelab_franka_pick_and_place.tasks list tasks
 ```
 
 The first run downloads the Franka MJCF asset and builds the Genesis kernel
@@ -35,7 +35,7 @@ cache.
 ## Smoke run
 
 ```bash
-uv run genelab train GeneLab-Franka-Pick-And-Place-v0 \
+genelab train GeneLab-Franka-Pick-And-Place-v0 \
   --gpu --num-envs 16 --max-iterations 2000
 ```
 
@@ -57,12 +57,12 @@ ingredients break the plateau and they work in tandem:
 
 ```bash
 # 1. Collect demos (about a minute at num-envs 32).
-uv run python -m genelab_franka_pick_and_place.collect_demos \
+python -m genelab_franka_pick_and_place.collect_demos \
   --num-envs 32 --steps 6400 --out /tmp/franka_pp_demos.npz
 
 # 2. Train with demo prefill.
 GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
-  uv run genelab train GeneLab-Franka-Pick-And-Place-v0 \
+  genelab train GeneLab-Franka-Pick-And-Place-v0 \
   --gpu --num-envs 32 --max-iterations 2000000
 ```
 
@@ -79,7 +79,7 @@ Expected milestones on the success-rate curve:
 ## Replaying a checkpoint
 
 ```bash
-uv run genelab play GeneLab-Franka-Pick-And-Place-v0 \
+genelab play GeneLab-Franka-Pick-And-Place-v0 \
   --checkpoint logs/sb3/franka_pick_and_place/<run>/model.zip \
   --steps 200
 ```

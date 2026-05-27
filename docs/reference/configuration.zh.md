@@ -30,7 +30,7 @@ GeneLab 配置是普通 Python dataclass。CLI 在运行前通过 dotted overrid
 连字符会转换成下划线。
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 \
+genelab play GeneLab-Inverted-Pendulum-v0 \
   --env.simulation.dt 0.005 \
   --env.rewards_cfg.pole_upright.weight 4.0
 ```
@@ -67,7 +67,7 @@ uv run genelab play GeneLab-Inverted-Pendulum-v0 \
 ## 发现可覆盖路径
 
 ```bash
-uv run genelab info GeneLab-Inverted-Pendulum-v0
+genelab info GeneLab-Inverted-Pendulum-v0
 ```
 
 从 `Overridable cfg paths` 里复制路径，比手写嵌套 term 名更可靠。

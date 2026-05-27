@@ -30,7 +30,7 @@ Any `--a.b.c VALUE` after a `play` or `train` task id becomes an override. Hyphe
 are converted to underscores.
 
 ```bash
-uv run genelab play GeneLab-Inverted-Pendulum-v0 \
+genelab play GeneLab-Inverted-Pendulum-v0 \
   --env.simulation.dt 0.005 \
   --env.rewards_cfg.pole_upright.weight 4.0
 ```
@@ -68,7 +68,7 @@ Unknown paths and invalid conversions fail before the simulator starts.
 ## Discovering paths
 
 ```bash
-uv run genelab info GeneLab-Inverted-Pendulum-v0
+genelab info GeneLab-Inverted-Pendulum-v0
 ```
 
 Copy paths from `Overridable cfg paths`. This is safer than guessing nested term names by hand.

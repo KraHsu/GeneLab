@@ -5,8 +5,8 @@
 ## Unknown task
 
 ```bash
-uv run genelab list tasks
-uv run genelab --import my_project.tasks list tasks
+genelab list tasks
+genelab --import my_project.tasks list tasks
 ```
 
 如果第二条命令能看到任务，说明包只有在显式 `--import` 时才被导入。安装 entry point，
@@ -15,7 +15,7 @@ uv run genelab --import my_project.tasks list tasks
 ## Unknown override path
 
 ```bash
-uv run genelab info TASK_ID
+genelab info TASK_ID
 ```
 
 从 `Overridable cfg paths` 复制路径。注意 task 有 `play_env` 时，`play` 的短标志可能把
@@ -24,8 +24,8 @@ uv run genelab info TASK_ID
 ## Torch 或 Genesis 导入错误
 
 ```bash
-uv run python -c "import torch; print(torch.__version__, torch.version.cuda)"
-uv run python -c "import genesis; print(genesis.__version__)"
+python -c "import torch; print(torch.__version__, torch.version.cuda)"
+python -c "import genesis; print(genesis.__version__)"
 ```
 
 只选择一个 `torch-*` extra。需要时重新同步：
@@ -37,7 +37,7 @@ uv sync --reinstall-package torch --extra torch-cu128
 ## 缓存或写入目录错误
 
 ```bash
-uv run genelab cache
+genelab cache
 ```
 
 这会创建项目本地缓存目录，并把 `XDG_CACHE_HOME` 和 `MPLCONFIGDIR` 指向 `.cache/`。
@@ -47,13 +47,13 @@ uv run genelab cache
 先无界面运行：
 
 ```bash
-uv run genelab play TASK_ID --steps 32
+genelab play TASK_ID --steps 32
 ```
 
 再尝试 viewer：
 
 ```bash
-uv run genelab play TASK_ID --vis --steps 128
+genelab play TASK_ID --vis --steps 128
 ```
 
 viewer 失败通常是图形驱动、display 或 OpenGL platform 问题，而不是注册表问题。
@@ -75,11 +75,11 @@ Manager term 应返回带 batch 维度的 tensor：
 `--num_envs` 表示所有 rank 的总数，必须能被 `--gpus` 整除。
 
 ```bash
-uv run genelab train TASK_ID --gpus 4 --num_envs 4096
+genelab train TASK_ID --gpus 4 --num_envs 4096
 ```
 
 想避免除法语义时使用 `--num_envs_per_gpu`：
 
 ```bash
-uv run genelab train TASK_ID --gpus 4 --num_envs_per_gpu 1024
+genelab train TASK_ID --gpus 4 --num_envs_per_gpu 1024
 ```

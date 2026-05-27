@@ -17,7 +17,6 @@
 
 ```bash
 uv sync --extra torch-cpu
-uv run genelab --version
 ```
 
 只能选择一个 PyTorch extra：
@@ -35,10 +34,47 @@ uv run genelab --version
 uv sync --reinstall-package torch --extra torch-cu128
 ```
 
+## 运行命令
+
+后续文档统一以**裸 `genelab`**（以及裸 `python`）调用 CLI —— 而**不是** `uv run genelab`。
+
+!!! warning "为什么不用 `uv run`？"
+
+    `uv run` 会在**每条**命令前隐式执行一次 `uv sync`。而 PyTorch 各构建是互斥的 extra
+    （`torch-cpu` / `torch-cu126` / `torch-cu128` / `torch-cu130`），**不在**默认同步集合里，
+    因此每次 `uv run` 都会卸载并重装 torch、并改写你上面选定的 extra —— 既慢，又可能悄悄把你的
+    CUDA 构建换掉。请改用下面两种方式之一。
+
+=== "激活 venv（推荐）"
+
+    每个 shell 激活一次，之后就能按文档里的写法运行裸命令：
+
+    ```bash
+    source .venv/bin/activate      # Windows：.venv\Scripts\activate
+    genelab --version
+    ```
+
+=== "用 uv 但不重新同步"
+
+    不想激活？给每条命令加 `--no-sync` 跳过隐式同步：
+
+    ```bash
+    uv run --no-sync genelab --version
+    ```
+
+    （文档里凡是 `genelab …` 或 `python …`，都可读作 `uv run --no-sync genelab …`。）
+
+!!! note "为什么 `uv sync` 和 `uv pip install` 仍保留 `uv` 前缀"
+
+    真正的坑只有 `uv run` —— 它在**执行**前会重新解析项目并把 venv 同步到该状态。而 `uv sync`
+    是那次由**你**指定 torch 构建的、唯一一次有意的同步；`uv pip install -e …` 则是 `uv` 的
+    pip 兼容安装器：它直接装进当前 venv，不会重新解析项目、也不碰 extra，因此绝不会重装 torch。
+    两者都可以放心保留。
+
 ## 创建本地缓存
 
 ```bash
-uv run genelab cache
+genelab cache
 ```
 
 该命令创建项目本地可写缓存目录，并把 `XDG_CACHE_HOME` 和 `MPLCONFIGDIR` 指向 `.cache/`。
@@ -46,10 +82,10 @@ uv run genelab cache
 ## 验证导入
 
 ```bash
-uv run python -c "import genelab; print(genelab.__version__)"
-uv run python -c "from genelab.lab import TaskCfg; print(TaskCfg.__name__)"
-uv run python -c "import torch; print(torch.__version__, torch.version.cuda)"
-uv run python -c "import genesis; print(genesis.__version__)"
+python -c "import genelab; print(genelab.__version__)"
+python -c "from genelab.lab import TaskCfg; print(TaskCfg.__name__)"
+python -c "import torch; print(torch.__version__, torch.version.cuda)"
+python -c "import genesis; print(genesis.__version__)"
 ```
 
 ## 安装示例扩展
@@ -59,7 +95,7 @@ uv run python -c "import genesis; print(genesis.__version__)"
 ```bash
 uv pip install -e examples/inverted_pendulum
 uv pip install -e examples/genelab_examples
-uv run genelab list tasks
+genelab list tasks
 ```
 
 只有需要更大的人形机器人示例时再安装 Unitree：

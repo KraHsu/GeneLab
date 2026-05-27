@@ -5,7 +5,7 @@
 ## 命令模型
 
 ```bash
-uv run genelab [全局选项] <命令> [参数]
+genelab [全局选项] <命令> [参数]
 ```
 
 | 区域 | 命令 |
@@ -31,7 +31,7 @@ uv run genelab [全局选项] <命令> [参数]
 `apply_overrides`。
 
 ```bash
-uv run genelab play TASK_ID --env.simulation.dt 0.005
+genelab play TASK_ID --env.simulation.dt 0.005
 ```
 
 用 `genelab info TASK_ID` 查看有效路径。

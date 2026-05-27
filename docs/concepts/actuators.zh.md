@@ -51,7 +51,7 @@ TorchScript 模块接收最后一维为 `[target_pos - joint_pos, joint_vel]` �
 `MlpResidualActuator` 驱动 Franka 手臂，其微小的 TorchScript 残差网络在首次使用时自动生成：
 
 ```bash
-uv run genelab play GeneLab-MlpResidual-Actuator-Showcase-v0 --steps 5
+genelab play GeneLab-MlpResidual-Actuator-Showcase-v0 --steps 5
 ```
 
 ## 设计建议
