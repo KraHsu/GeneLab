@@ -105,47 +105,75 @@ deterministic rollout step but is much slower than GPU-vectorized.
 
 ## Reference numbers
 
+The tables below are the **v1.0** Genesis numbers. The v0.4.7 numbers are
+preserved in a "Previous: v0.4.7" admonition next to each task so a
+re-baseline diff is one scroll away.
+
 ### `GeneLab-Inverted-Pendulum-v0`
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | 39.944 | 0.026 | 150 | ~21 min | 10.3 s |
-| 2 | 39.978 | 0.002 | 150 | ~20 min | 10.1 s |
-| 3 | 39.991 | 0.001 | 150 | ~19 min | 10.1 s |
+| 1 | TBD | TBD | 150 | TBD | TBD |
+| 2 | TBD | TBD | 150 | TBD | TBD |
+| 3 | TBD | TBD | 150 | TBD | TBD |
 
 Eval `length_mean = 1000.0` for all seeds (episode hits the time-limit cap
 without falling), so the policy is solved at the budget cap. `success_rate`
 is `null` (task does not publish `extras["is_success"]`).
 
+!!! note "Previous: v0.4.7"
+
+    | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|
+    | 1 | 39.944 | 0.026 | 150 | ~21 min | 10.3 s |
+    | 2 | 39.978 | 0.002 | 150 | ~20 min | 10.1 s |
+    | 3 | 39.991 | 0.001 | 150 | ~19 min | 10.1 s |
+
 ### `GeneLab-Double-Inverted-Pendulum-v0`
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | 59.980 | 0.007 | 300 | ~85 min | 12.2 s |
-| 2 | 59.986 | 0.003 | 300 | ~88 min | 14.2 s |
-| 3 | 59.987 | 0.002 | 300 | ~85 min | 12.6 s |
+| 1 | TBD | TBD | 300 | TBD | TBD |
+| 2 | TBD | TBD | 300 | TBD | TBD |
+| 3 | TBD | TBD | 300 | TBD | TBD |
 
 Eval `length_mean = 1200.0` for all seeds. `success_rate` is `null` (same
 reason as IP).
+
+!!! note "Previous: v0.4.7"
+
+    | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|
+    | 1 | 59.980 | 0.007 | 300 | ~85 min | 12.2 s |
+    | 2 | 59.986 | 0.003 | 300 | ~88 min | 14.2 s |
+    | 3 | 59.987 | 0.002 | 300 | ~85 min | 12.6 s |
 
 ### `Genelab-Velocity-Flat-Unitree-G1-v0`
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | 112.419 | 4.647 | 30 000 | ~18.7 h | 143.0 s |
-| 2 | 93.417 | 3.921 | 30 000 | ~20.6 h | 161.0 s |
-| 3 | 92.028 | 4.162 | 30 000 | ~19.8 h | 156.9 s |
+| 1 | TBD | TBD | 30 000 | TBD | TBD |
+| 2 | TBD | TBD | 30 000 | TBD | TBD |
+| 3 | TBD | TBD | 30 000 | TBD | TBD |
 
 Eval `length_mean = 1000.0` for all seeds (play_env `episode_length_s =
 20 s` × 50 Hz). `success_rate` is `null`.
+
+!!! note "Previous: v0.4.7"
+
+    | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|
+    | 1 | 112.419 | 4.647 | 30 000 | ~18.7 h | 143.0 s |
+    | 2 | 93.417 | 3.921 | 30 000 | ~20.6 h | 161.0 s |
+    | 3 | 92.028 | 4.162 | 30 000 | ~19.8 h | 156.9 s |
 
 ### `Genelab-Tracking-Flat-Unitree-G1-v0`
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | 137.800 | 0.005 | 30 000 | ~20.8 h | 212.8 s |
-| 2 | 138.047 | 0.004 | 30 000 | ~20.6 h | 216.8 s |
-| 3 | 138.122 | 0.007 | 30 000 | ~20.9 h | 216.0 s |
+| 1 | TBD | TBD | 30 000 | TBD | TBD |
+| 2 | TBD | TBD | 30 000 | TBD | TBD |
+| 3 | TBD | TBD | 30 000 | TBD | TBD |
 
 Eval `length_mean = 1500.0`. The tracking play_env normally sets
 `episode_length_s = 1e9` for infinite viewer playback; `genelab eval`
@@ -154,18 +182,38 @@ the cap without termination. Very tight std across seeds — the converged
 policy follows the motion clip on track under the 30 s window. `success_rate`
 is `null`.
 
+!!! note "Previous: v0.4.7"
+
+    | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|
+    | 1 | 137.800 | 0.005 | 30 000 | ~20.8 h | 212.8 s |
+    | 2 | 138.047 | 0.004 | 30 000 | ~20.6 h | 216.8 s |
+    | 3 | 138.122 | 0.007 | 30 000 | ~20.9 h | 216.0 s |
+
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER, demo-prefilled)
 
 | Seed | Final `return_mean` | `return_std` | `success_rate` | Convergence timestep | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|---|
-| 1 | −19.264 | 33.334 | 0.89 | 2 000 000 (budget cap) | ~68 min | 15.3 s |
-| 2 |  −4.626 |  8.297 | 1.00 | 2 000 000 (budget cap) | ~63 min | 14.3 s |
-| 3 |  −4.102 |  7.644 | 1.00 | 2 000 000 (budget cap) | ~64 min | 18.7 s |
+| 1 | TBD | TBD | TBD | 2 000 000 (budget cap) | TBD | TBD |
+| 2 | TBD | TBD | TBD | 2 000 000 (budget cap) | TBD | TBD |
+| 3 | TBD | TBD | TBD | 2 000 000 (budget cap) | TBD | TBD |
 
-Eval `length_mean = 100.0` (fixed episode length). Mean
-`success_rate ≈ 0.963 ± 0.052` across the three seeds; the two perfect
-seeds reflect a fully solved policy, the 0.89 seed still misses ~11 %
-of episodes from end-effector orientation drift on harder goal poses.
+Eval `length_mean = 100.0` (fixed episode length). `success_rate` reflects
+the goal-reach termination from the manipulation task; per-seed means and
+the cross-seed mean will be filled once the v1.0 runs land.
+
+!!! note "Previous: v0.4.7"
+
+    | Seed | Final `return_mean` | `return_std` | `success_rate` | Convergence timestep | Train wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|---|
+    | 1 | −19.264 | 33.334 | 0.89 | 2 000 000 (budget cap) | ~68 min | 15.3 s |
+    | 2 |  −4.626 |  8.297 | 1.00 | 2 000 000 (budget cap) | ~63 min | 14.3 s |
+    | 3 |  −4.102 |  7.644 | 1.00 | 2 000 000 (budget cap) | ~64 min | 18.7 s |
+
+    Mean `success_rate ≈ 0.963 ± 0.052` across the three seeds; the two
+    perfect seeds reflect a fully solved policy, the 0.89 seed still
+    misses ~11 % of episodes from end-effector orientation drift on
+    harder goal poses.
 
 ## Training curves
 
