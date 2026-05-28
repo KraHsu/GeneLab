@@ -54,17 +54,10 @@ class ArticulationWriter:
         robot = self._gs_handle
         set_pos = getattr(robot, "set_dofs_position", None)
         set_vel = getattr(robot, "set_dofs_velocity", None)
-        # ``envs_idx=`` is a newer Genesis kwarg; fall back to non-batched API on older builds.
         if set_pos is not None:
-            try:
-                set_pos(joint_pos, self._actuated_dof_idx, envs_idx=env_ids)
-            except TypeError:
-                set_pos(joint_pos, self._actuated_dof_idx)
+            set_pos(joint_pos, self._actuated_dof_idx, envs_idx=env_ids)
         if set_vel is not None:
-            try:
-                set_vel(joint_vel, self._actuated_dof_idx, envs_idx=env_ids)
-            except TypeError:
-                set_vel(joint_vel, self._actuated_dof_idx)
+            set_vel(joint_vel, self._actuated_dof_idx, envs_idx=env_ids)
 
     def write_root_state(
         self,
@@ -87,10 +80,7 @@ class ArticulationWriter:
             fn = getattr(robot, fn_name, None)
             if fn is None:
                 continue
-            try:
-                fn(value, envs_idx=env_ids)
-            except TypeError:
-                fn(value)
+            fn(value, envs_idx=env_ids)
 
     def reset(self, env_ids: torch.Tensor) -> None:
         """Reset actuated joints to default pose + zero velocity for ``env_ids``."""
