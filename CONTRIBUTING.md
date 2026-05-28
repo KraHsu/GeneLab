@@ -50,19 +50,26 @@ All four must pass — CI enforces the same set as required status checks on eve
 
 ## Branch and PR workflow
 
-GeneLab uses a two-layer flow: feature branches integrate into `dev` first, then `dev` is promoted to `main` via PR. `main` is protected — direct pushes are rejected and the required CI checks (`lint`, `typecheck`, `test`) must be green before a PR can merge.
+GeneLab uses a two-layer flow: feature branches integrate into a topical `dev/<topic>` branch first, then `dev/<topic>` is promoted to `main` via PR. Each coherent body of work — an epic, a release prep, a multi-PR feature group — lives on its own `dev/<topic>` integration branch cut from `main`. `main` is protected: direct pushes are rejected and the required CI checks (`lint`, `typecheck`, `test`) must be green before a PR can merge.
 
 ```
 feat/* ──┐
-fix/*  ──┼──> dev ──PR──> main
+fix/*  ──┼──> dev/<topic> ──PR──> main
 docs/* ──┘
 ```
 
-1. Branch off `dev` with a descriptive prefix: `fix/...`, `feat/...`, `ci/...`, `chore/...`, `docs/...`.
-2. Run the checks above locally.
-3. Push and either open a PR targeting `dev`, or merge into `dev` locally and push `dev` directly — pick whichever fits the size of the change.
-4. To promote `dev` to `main`, open a PR `dev` → `main`. CI runs on every push and must be green before merge.
-5. If `dev` advances during review of a feature branch, merge `dev` into your branch (or rebase) so the PR stays current.
+1. **Starting a new topic.** Cut `dev/<topic>` off `main` with a short kebab-case topic name (e.g. `dev/bump-genesis-1.0`, `dev/sb3-backend`):
+
+   ```bash
+   git checkout main && git pull --ff-only
+   git checkout -b dev/<topic>
+   git push -u origin dev/<topic>
+   ```
+
+2. **Feature work.** Branch off the relevant `dev/<topic>` with a descriptive prefix: `fix/...`, `feat/...`, `ci/...`, `chore/...`, `docs/...`. Run the checks above locally. Push and open a PR targeting `dev/<topic>`.
+3. **Promoting to main.** When the topic is complete, open a PR `dev/<topic>` → `main`. CI runs on every push and must be green before merge.
+4. **Mid-topic sync.** If `dev/<topic>` advances during review of a feature branch, merge it into your branch (or rebase) so the PR stays current. If `main` advances mid-topic (hotfixes), merge or rebase `main` into `dev/<topic>` so the eventual promotion PR stays clean.
+5. **Hotfixes.** Small urgent fixes may branch directly off `main` as `hotfix/...` and PR to `main` without going through a `dev/<topic>` branch.
 
 ## Commit messages
 
