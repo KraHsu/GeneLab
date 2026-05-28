@@ -40,6 +40,10 @@ class SimulationCfg:
     # the viewer's rate-limit will throttle the env step itself — lower ``render_fps`` or
     # raise ``decimation`` if that's not what you want.
     render_fps: int | None = 60
+    # ImGui overlay toggle for the Genesis viewer (v1.0+). Forwarded to
+    # ``gs.options.ViewerOptions(enable_gui=...)`` when ``vis=True``. Off by default so
+    # headless / scripted runs don't allocate the overlay.
+    viewer_imgui: bool = False
 
     # --- Genesis rigid-solver options (ROADMAP M3.7) ---------------------------------------
     # All optional; ``None`` = "use the Genesis default". Mapped to ``gs.options.RigidOptions``

@@ -34,14 +34,14 @@ _pyrender_save_patch_applied = False
 def _patch_pyrender_save_filename() -> None:
     """Coerce pyrender's tkinter SaveAs default extension to match the requested one.
 
-    Upstream pyrender hard-codes ``defaultextension=".png"`` in ``_get_save_filename``,
-    so pressing ``R`` twice to save a recorded video (called with ``file_exts=["mp4"]``)
-    and typing a bare filename produces e.g. ``dancing.png`` — and ``Viewer.save_video``
-    then ``shutil.move``s the .mp4 file to that .png path. We can't modify Genesis, so
-    we wrap the method at the class level: when exactly one extension is requested and
-    the dialog returned a different one, swap the extension. Multi-extension dialogs
-    (e.g. ``_save_image`` offers png/jpg/gif/all) are left alone so the user's chosen
-    type is respected.
+    Upstream pyrender (still in Genesis 1.0) hard-codes ``defaultextension=".png"`` in
+    ``_get_save_filename`` regardless of ``file_exts``, so pressing ``R`` twice to save a
+    recorded video (called with ``file_exts=["mp4"]``) and typing a bare filename produces
+    e.g. ``dancing.png`` — and ``Viewer.save_video`` then ``shutil.move``s the .mp4 file
+    to that .png path. We can't modify Genesis, so we wrap the method at the class level:
+    when exactly one extension is requested and the dialog returned a different one, swap
+    the extension. Multi-extension dialogs (e.g. ``_save_image`` offers png/jpg/gif/all)
+    are left alone so the user's chosen type is respected.
     """
     global _pyrender_save_patch_applied
     if _pyrender_save_patch_applied:
@@ -197,7 +197,10 @@ class InteractiveScene:
         # ``ViewerOptions`` when the viewer is enabled so headless training stays
         # untouched.
         viewer_options = (
-            gs.options.ViewerOptions(max_FPS=self._sim_cfg.render_fps)
+            gs.options.ViewerOptions(
+                max_FPS=self._sim_cfg.render_fps,
+                enable_gui=self._sim_cfg.viewer_imgui,
+            )
             if self._sim_cfg.vis
             else None
         )
@@ -259,12 +262,7 @@ class InteractiveScene:
             env_spacing=tuple(self._scene_cfg.env_spacing),
         )
 
-        gs_device = getattr(gs, "device", None)
-        if gs_device is not None:
-            try:
-                self._device = str(gs_device())  # type: ignore[misc]
-            except TypeError:
-                self._device = str(gs_device)
+        self._device = str(gs.device)
         self._env_origins = self._compute_env_origins()
 
         # Post-build: bind every articulation so its introspection / per-joint tensors land.
