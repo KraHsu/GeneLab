@@ -19,6 +19,15 @@ All notable changes to GeneLab are recorded here.
 
 ### Changed
 
+- **Bumped genesis-world to v1.0.0** (`>=1.0.0,<2.0.0`). Picks up non-convex multi-contact
+  collision detection, contact pruning, several upstream bug fixes (static-contact drift,
+  spurious yaw on flat terrain), and the rigid-solver speedup on contact-rich scenes.
+  Exposes the new ImGui debug overlay via `SimulationCfg.viewer_imgui` (forwarded to
+  `gs.options.ViewerOptions(enable_gui=...)`; off by default).
+- Removed three pre-0.4.7 compatibility shims (`envs_idx=` try/except in
+  `_articulation_writer`, `PyQtPlot`/`MPLPlot` recorder-name fallback in `recording.register`,
+  and the `gs.device` getattr softprobe in `InteractiveScene.build`) now that the v1.0 API
+  surface is the floor.
 - **Breaking:** removed `lab.GenesisBackendCfg`.
 - **Breaking:** renamed the environment registration protocol from `lab.ManagerBasedEnv` to
   `lab.ManagerBasedEnvProtocol`.
