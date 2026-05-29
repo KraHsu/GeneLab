@@ -1,7 +1,8 @@
-# Play and Train
+# Runtime: play and train
 
 `play` runs a registered task. `train` runs a registered task through a supported runner when the
-task provides an agent config.
+task provides an agent config. This page also covers the post-training runtime subcommands —
+`eval`, `export`, and `benchmark` — which take the same checkpoint produced by `train`.
 
 ## Play
 
@@ -23,8 +24,8 @@ The policy options (`--agent`, `--checkpoint`, `--num-envs`, `--prof*`) apply on
 tasks — those whose play env config is a `ManagerBasedRlEnvCfg`. Non-RL **scene-playback
 demos** (e.g. `GeneLab-Rubiks-Play-v0`, `GeneLab-Wuji-Hand-Playback-v0`), whose config
 subclasses the base `ManagerBasedEnvCfg`, run their own built-in playback; passing those
-options prints a warning and they are ignored. `--steps` / `--vis` / `--gpu` and dotted
-config overrides still apply to both.
+options prints a warning and they are ignored. `--steps` / `--vis` / `--headless` / `--gpu` /
+`--dt` and dotted config overrides still apply to both.
 
 Checkpoint replay:
 
@@ -44,6 +45,19 @@ genelab play TASK_ID \
       --checkpoint <ckpt> --headless
     ```
 
+## Shortcut flags
+
+Both `play` and `train` rewrite the following shortcuts into `env.simulation.*` overrides:
+
+| Shortcut | Override |
+|---|---|
+| `-v`, `--vis` | `env.simulation.vis=true` |
+| `--headless` | `env.simulation.vis=false` (mutually exclusive with `--vis`) |
+| `--gpu` | `env.simulation.gpu=true` |
+| `--steps N` | play: `env.simulation.steps=N`; train: alias for `--max_iterations N` |
+| `--dt SECONDS` | `env.simulation.dt=SECONDS` |
+| `--a.b.c VALUE` | Any dotted cfg path |
+
 ## Train
 
 ```bash
@@ -57,7 +71,38 @@ genelab train TASK_ID --gpus 4 --num_envs 4096
 ```
 
 `--num_envs` is total across ranks and must divide evenly by `--gpus`. Use
-`--num_envs_per_gpu` for per-rank semantics.
+`--num_envs_per_gpu` for per-rank semantics (mutually exclusive with `--num_envs`).
+Multi-GPU is RSL-RL only; the first entry automatically relaunches under `torchrun`.
+
+### In-training eval
+
+Pass `--eval_every K` to run a deterministic rollout every K iterations. On improvement, the
+runner writes `best_model.<ext>` into `--log_dir`:
+
+```bash
+genelab train TASK_ID --eval_every 50 --eval_episodes 20
+```
+
+| Option | Meaning (default) |
+|---|---|
+| `--eval_every K` | Evaluate every K iterations. |
+| `--eval_episodes N` | Episodes per evaluation (10). |
+| `--eval_num_envs N` | Parallel envs during eval (matches training). |
+| `--eval_seed N` | RNG seed for the eval rollout (0). |
+
+### Multi-seed train
+
+`--seeds 1,2,3` fans out the current `train` invocation into one independent subprocess per seed:
+
+```bash
+genelab train TASK_ID --seeds 1,2,3,4 --parallel 2 --num_envs 4096
+```
+
+- `--parallel N` caps concurrency (default 1 — sequential).
+- Each child is invoked with `--seed S` and `--log_dir <parent>/seed_<S>`.
+- Without an explicit `--log_dir`, the parent is
+  `logs/multi-seed/<task_id>/<YYYY-MM-DD_HH-MM-SS>/`.
+- If any seed fails, the command exits non-zero.
 
 ## RL backends
 
@@ -95,6 +140,47 @@ GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
   --gpu --num-envs 32 --max-iterations 2000000
 ```
 
+## Post-training subcommands
+
+`eval`, `export`, and `benchmark` all take a registered task plus a checkpoint and reuse the
+task's play env config — see [Eval and export](../concepts/eval-and-export.md) for the
+conceptual picture and script-level details.
+
+### Eval
+
+Deterministic rollout that writes `eval.json` (`return_mean`, `length_mean`, and
+`success_rate` if the task publishes `extras['is_success']`):
+
+```bash
+genelab eval TASK_ID logs/.../model_300.pt \
+  --num-envs 64 --episodes 100 --out eval.json
+```
+
+`--deterministic` / `--stochastic` toggles the policy mode; `--max-steps` caps the rollout.
+
+### Export
+
+Export the policy as TorchScript or ONNX (per-term scale/clip baked into the model):
+
+```bash
+genelab export TASK_ID logs/.../model_300.pt --format onnx --out policy.onnx
+```
+
+A sibling `<OUTPUT>.metadata.json` records the observation schema.
+
+### Benchmark
+
+Batch eval driven by a JSON suite, aggregated into one report:
+
+```bash
+genelab benchmark --suite suite.json --out report.json
+genelab benchmark --suite suite.json --reference baseline.json --tolerance 0.1
+```
+
+`suite.json` is `[{"task": ..., "checkpoint": ..., "episodes": ..., "seed": ..., "num_envs": ...}, ...]`.
+With `--reference`, the command compares `return_mean` against the baseline and exits non-zero
+when any task drops more than `--tolerance` — usable directly as a CI regression gate.
+
 ## Config overrides
 
 Any unknown option after the task id is treated as a dotted config override:
@@ -110,3 +196,4 @@ genelab play TASK_ID \
 - [Run RL Experiments](../best-practices/rl-experiments.md)
 - [CLI Reference](../reference/cli.md)
 - [RL runner](../concepts/rl-runner.md)
+- [Eval and export](../concepts/eval-and-export.md)
