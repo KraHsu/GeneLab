@@ -185,12 +185,11 @@ addopts = ["-ra"]
 pythonpath = ["examples/genelab_examples/src", "examples/unitree/src", "examples/inverted_pendulum/src", "examples/genelab_showcase/src", "examples/franka_pick_and_place/src"]
 testpaths = ["tests"]
 
-# Layering contracts (ROADMAP §9 PR R0.3 / ADR-0009).
+# Layering contracts.
 #
-# Currently runs in CI as a non-required step (`continue-on-error: true`).
-# Lint-only mode is the explicit choice for R0–R6: every R-phase that lands
-# trims the baseline violation list, and R7 (ADR-0009 §"R7 — flip to blocking")
-# converts this job to a required check once the list is empty.
+# Currently runs in CI as a non-required step (`continue-on-error: true`)
+# until the baseline violation list is empty, at which point this job
+# converts to a required check.
 #
 # ``exclude_type_checking_imports`` skips ``if TYPE_CHECKING: from ... import``
 # blocks. The manager-based MDP design intentionally has domain modules
@@ -201,7 +200,7 @@ testpaths = ["tests"]
 root_packages = ["genelab"]
 exclude_type_checking_imports = true
 
-# Domain modules must not reach UP into cli / rl. (After R7.3a + R7.3b this is clean.)
+# Domain modules must not reach UP into cli / rl.
 [[tool.importlinter.contracts]]
 name = "Domain modules are below cli / rl"
 type = "forbidden"
@@ -225,7 +224,7 @@ forbidden_modules = [
 
 # Term logic must not trigger asset downloads. ``asset_zoo`` is the deliberate
 # exception: it is the asset catalog, so fetching assets via ``utils.download``
-# (a downward domain -> utils import) is its purpose (ADR-0009 / R7.3c).
+# (a downward domain -> utils import) is its purpose.
 [[tool.importlinter.contracts]]
 name = "Domain (except asset_zoo) does not import utils.download"
 type = "forbidden"
@@ -245,7 +244,7 @@ forbidden_modules = [
     "genelab.utils.download",
 ]
 
-# ADR-0001 / R1: this contract reports violations until the cycle is broken.
+# This contract reports violations until the cycle is broken.
 [[tool.importlinter.contracts]]
 name = "rl.backends does not import rl.runner"
 type = "forbidden"
@@ -258,7 +257,7 @@ forbidden_modules = ["genelab.rl.runner"]
 # importlinter treats as mutually *independent* — that wrongly forbids the legitimate
 # intra-domain imports a manager-based env relies on (envs -> scene, mdp -> managers,
 # entity -> actuator, …). The contracts below capture "no band imports a band above
-# it" while leaving intra-band imports free (ADR-0009 / ROADMAP §9 R7.3d).
+# it" while leaving intra-band imports free.
 
 # rl sits below cli.
 [[tool.importlinter.contracts]]
@@ -303,7 +302,7 @@ modules = [
     "genelab.rl.backends.rsl_rl",
 ]
 
-# ADR-0014: the contracts band (ports) is dependency-free within genelab — it must
+# The contracts band (ports) is dependency-free within genelab — it must
 # not reach up into the domain / rl / cli bands. (Importing torch / stdlib is fine.)
 [[tool.importlinter.contracts]]
 name = "contracts band imports nothing in domain / rl / cli"
@@ -325,10 +324,10 @@ forbidden_modules = [
     "genelab.envs",
 ]
 
-# ADR-0014: domain terms type-hint against ``contracts.EnvContext`` rather than the
+# Domain terms type-hint against ``contracts.EnvContext`` rather than the
 # concrete env. Runtime imports of ``genelab.envs`` from the domain are forbidden;
 # the remaining ``TYPE_CHECKING`` env hints are excluded globally
-# (``exclude_type_checking_imports``) and are migrated to ``contracts`` in PR 3.2–3.4.
+# (``exclude_type_checking_imports``) and will be migrated to ``contracts``.
 [[tool.importlinter.contracts]]
 name = "Domain does not import concrete envs at runtime"
 type = "forbidden"
