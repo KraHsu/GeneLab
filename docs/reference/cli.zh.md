@@ -28,6 +28,14 @@ genelab [全局选项] <命令> [命令选项]
 | `train TASK ...` | 用支持的 runner 训练任务。 |
 | `prof open [DIR]` | 为 profiler trace 打开 TensorBoard。 |
 | `project new NAME` | 生成外部 GeneLab 扩展项目骨架。 |
+| `asset list` | 列出 `genelab.asset_zoo` 下所有声明的资产，包括是否已缓存和大小。 |
+| `asset info NAME` | 查看单个资产的下载 URL、md5、文件名、archive member 和缓存路径。 |
+| `asset download NAME` | 下载单个资产（md5 校验、幂等）。`--all` 下载全部，`--force` 即使已缓存也重新拉。 |
+| `asset purge NAME` | 从本地缓存清除单个资产（或 `--all` 清全部）。`--yes` 跳过确认提示。 |
+
+`asset` 子命令使用和其它 CLI 命令（`play`、`train`、`eval`、`export`、
+`info`）一致的 Rich 下载进度条 —— 从任何命令触发的首次下载都会显示进度条，
+不再悄无声息。
 
 ## 运行时标志
 
