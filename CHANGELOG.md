@@ -46,6 +46,14 @@ All notable changes to GeneLab are recorded here.
   `gs_handle.{get_kinetic_energy, get_potential_energy, get_total_energy}`.
   `kinetic_energy_l2` and `energy_budget` are non-negative (squared);
   `potential_energy` is signed.
+- **MJCF-style actuator cfg.** Added `MujocoStyleActuatorCfg`, a thin
+  cfg over `IdealPDActuator` that accepts Mujoco's `(gear, bias_prm,
+  dyntype="none", gaintype="fixed", biastype="affine")` shape and
+  translates it into `(stiffness, damping, effort_limit)`. Mirrors what
+  Genesis's own MJCF parser does for `<actuator>` elements at load
+  time, so robots whose actuator parameters live in Python config —
+  rather than in an MJCF file — can use the same named knobs without
+  hand-translating to PD gains.
 
 ### Changed
 

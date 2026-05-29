@@ -16,6 +16,9 @@
 | `DCMotorActuator` | 在 ideal PD 基础上加入电机限制和饱和行为。 |
 | `MlpResidualActuator` | 在 `DCMotorActuator` 基础上叠加 TorchScript 残差力矩模型。 |
 
+`MujocoStyleActuatorCfg` 是 `IdealPDActuator` 的便捷配置 —— 详见下文
+[MJCF 风格的 actuator 配置](#mjcf-style-actuator-configuration)。
+
 执行器按配置的关节名或表达式匹配关节组，并向 action term 暴露维度和控制逻辑。
 
 ## 使用 `MlpResidualActuatorCfg`
@@ -53,6 +56,29 @@ TorchScript 模块接收最后一维为 `[target_pos - joint_pos, joint_vel]` �
 ```bash
 genelab play GeneLab-MlpResidual-Actuator-Showcase-v0 --steps 5
 ```
+
+## MJCF 风格的 actuator 配置 { #mjcf-style-actuator-configuration }
+
+`MujocoStyleActuatorCfg` 把 Mujoco general actuator 翻译成 `IdealPDActuator`。当
+机器人在 MJCF 里以 `dyntype=none`、`gaintype=fixed`、`biastype=affine` 形式声明
+actuator，而手写等价 `stiffness` / `damping` 会让原始 source-of-truth 不清晰时使用它。
+
+```python
+from genelab.actuator import MujocoStyleActuatorCfg
+
+robot_cfg.actuators["arm"] = MujocoStyleActuatorCfg(
+    target_names_expr=("joint[1-7]",),
+    gear=1.0,
+    bias_prm=(0.0, -200.0, -5.0),  # 常数项、qpos 项、qvel 项
+    effort_limit=80.0,
+)
+# 等价于 IdealPDActuatorCfg(stiffness=200.0, damping=5.0, effort_limit=80.0)。
+```
+
+任何其它 dyntype / gaintype / biastype 组合都被拒绝（Genesis 自带的 MJCF parser 也对
+同一组合记录 warning），且 `bias_prm[0]` 必须为零 —— 因为 `IdealPDActuator` 没有常数
+偏置力矩项。最终的 `stiffness` / `damping` 计算为 `-gear * bias_prm[1]` 和
+`-gear * bias_prm[2]`。
 
 ## 设计建议
 
