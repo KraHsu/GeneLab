@@ -54,6 +54,15 @@ All notable changes to GeneLab are recorded here.
   time, so robots whose actuator parameters live in Python config —
   rather than in an MJCF file — can use the same named knobs without
   hand-translating to PD gains.
+- **Camera debug helpers.** Added
+  `InteractiveScene.draw_camera_frustums(camera_names=None, color=...)`
+  and `InteractiveScene.draw_camera_trajectory(positions, radius, color)`
+  wrapping Genesis 1.0's `scene.draw_debug_frustum` /
+  `scene.draw_debug_trajectory`. The frustum helper resolves names
+  against the scene's `CameraSensor` set; the trajectory helper passes
+  positions through verbatim. Added a public `gs_camera` property on
+  `CameraSensor` so the scene helper can reach the Genesis handle
+  without poking private state.
 
 ### Changed
 
