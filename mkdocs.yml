@@ -201,11 +201,11 @@ nav:
           - PointCloudTactileSensor: reference/sensors/tactile_pointcloud.md
       - API Reference: api/reference.md
   - CLI:
-      - Overview: cli/overview.md
+      - CLI Overview: cli/overview.md
       - 'Discovery: list and info': cli/list-info.md
-      - Play and Train: cli/play-train.md
+      - 'Runtime: play and train': cli/play-train.md
       - Profiling: cli/profiling.md
-      - Project New: cli/project-new.md
+      - 'Project: project new': cli/project-new.md
   - Concepts:
       - Registry: concepts/registry.md
       - Configs: concepts/configs.md

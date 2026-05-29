@@ -11,26 +11,38 @@ genelab list envs
 genelab list tasks
 ```
 
-If an extension is not installed, import it explicitly:
+If an extension is not installed as an entry point, import it explicitly:
 
 ```bash
 PYTHONPATH=examples/inverted_pendulum/src \
   genelab --import genelab_inverted_pendulum.tasks list tasks
 ```
 
-## Inspect a task
+To see only the bundled asset zoo (skip user-installed entry-point extensions):
 
 ```bash
-genelab info GeneLab-Inverted-Pendulum-v0
+genelab --no-entry-points list robots
 ```
 
-The task view includes:
+## Inspect any registered name
+
+```bash
+genelab info GeneLab-Inverted-Pendulum-v0   # task
+genelab info CartPole-Env-v0                # env
+genelab info anymal_c                       # robot
+```
+
+`info` does not require you to know which registry the name belongs to. Task views additionally
+include:
 
 | Section | Meaning |
 |---|---|
 | Metadata | Registered name, description, cfg type, examples. |
 | Task config | `TaskCfg` summary: env, robot, trainable flag, agent. |
 | Overridable paths | Dotted paths accepted by `play` and `train`. |
+
+If the inspected task needs an asset that isn't cached yet, `info` fetches it inline behind the
+same progress bar used by `play` / `train` / `asset download`.
 
 ## Use copied override paths
 
@@ -39,9 +51,11 @@ genelab play GeneLab-Inverted-Pendulum-v0 \
   --env.rewards_cfg.pole_upright.weight 4.0
 ```
 
-When `play_env` exists, play-mode shortcut flags target `play_env`; explicit paths remain explicit.
+When `play_env` exists, play-mode shortcut flags (`--vis` / `--gpu` / `--dt` / `--steps`) target
+`play_env`; explicit dotted paths still write the exact subtree you spelled.
 
 ## See also
 
 - [Configuration Reference](../reference/configuration.md)
 - [CLI Reference](../reference/cli.md)
+- [Asset zoo](../concepts/asset_zoo.md)
