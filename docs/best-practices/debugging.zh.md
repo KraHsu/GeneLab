@@ -2,7 +2,7 @@
 
 GeneLab 常见失败的最短排查路径。
 
-## Unknown task
+## 未知任务
 
 ```bash
 genelab list tasks
@@ -12,7 +12,7 @@ genelab --import my_project.tasks list tasks
 如果第二条命令能看到任务，说明包只有在显式 `--import` 时才被导入。安装 entry point，
 或继续使用显式导入。如果两条都不行，确认包已安装，或它的 `src/` 目录在 `PYTHONPATH` 上。
 
-## Unknown override path
+## 未知 override 路径
 
 ```bash
 genelab info TASK_ID
@@ -58,7 +58,7 @@ genelab play TASK_ID --vis --steps 128
 
 viewer 失败通常是图形驱动、display 或 OpenGL platform 问题，而不是注册表问题。
 
-## Observation 或 reward shape 错误
+## 观测或奖励 shape 错误
 
 Manager term 应返回带 batch 维度的 tensor：
 

@@ -49,7 +49,7 @@ scene_cfg = InteractiveSceneCfg(
 )
 ```
 
-## See also
+## 另见
 
 - [ProximitySensor](proximity.md)
 - [Concepts — Sensors](../../concepts/sensors.md)
