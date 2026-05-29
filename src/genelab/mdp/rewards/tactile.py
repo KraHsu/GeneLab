@@ -41,3 +41,18 @@ def contact_count(env: "EnvContext", sensor_name: str, threshold: float = 0.0) -
     raw = env.sensors[sensor_name].data.raw
     mask = raw.abs() > threshold
     return mask.flatten(start_dim=1).sum(dim=-1).to(raw.dtype)
+
+
+def slip_penalty(env: "EnvContext", sensor_name: str) -> torch.Tensor:
+    """``Σ raw[..., :2]²`` — squared lateral (xy) magnitude per env.
+
+    Both :class:`~genelab.sensor.ElastomerTactileSensor` (displacement vector per
+    probe) and :class:`~genelab.sensor.PointCloudTactileSensor` (force vector per
+    probe — ``data.raw`` aliases ``data.force``) expose ``data.raw`` of shape
+    ``(num_envs, [history,] num_probes, 3)`` with the third channel as the probe
+    normal. The xy slice is therefore the tangential plane: a non-zero lateral
+    signal while in contact is slip. Pair with a negative weight to penalize.
+    """
+    raw = env.sensors[sensor_name].data.raw
+    lateral = raw[..., :2]
+    return lateral.flatten(start_dim=1).pow(2).sum(dim=-1)

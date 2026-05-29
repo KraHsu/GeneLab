@@ -29,7 +29,11 @@ from genelab.mdp.rewards.regularization import (
     upright_exp,
     variable_posture,
 )
-from genelab.mdp.rewards.tactile import contact_count, contact_intensity_l2
+from genelab.mdp.rewards.tactile import (
+    contact_count,
+    contact_intensity_l2,
+    slip_penalty,
+)
 from genelab.mdp.rewards.tracking import (
     motion_global_anchor_orientation_error_exp,
     motion_global_anchor_position_error_exp,
@@ -66,6 +70,7 @@ __all__ = [
     "motion_relative_body_orientation_error_exp",
     "motion_relative_body_position_error_exp",
     "self_collision_cost",
+    "slip_penalty",
     "soft_landing",
     "track_angular_velocity_z_exp",
     "track_linear_velocity_xy_exp",
