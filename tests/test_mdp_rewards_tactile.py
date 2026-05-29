@@ -7,7 +7,11 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from genelab.mdp.rewards.tactile import contact_count, contact_intensity_l2  # noqa: E402
+from genelab.mdp.rewards.tactile import (  # noqa: E402
+    contact_count,
+    contact_intensity_l2,
+    slip_penalty,
+)
 
 
 @dataclass
@@ -61,3 +65,27 @@ def test_contact_count_default_threshold_zero() -> None:
     env = _FakeEnv({"t": _FakeTactileSensor(raw)})
     counts = contact_count(env, "t")  # type: ignore[arg-type]
     assert torch.allclose(counts, torch.tensor([1.0, 3.0]))
+
+
+def test_slip_penalty_squares_lateral_components() -> None:
+    """Last axis is xyz; the xy slice is the tangential plane."""
+    raw = torch.tensor(
+        [
+            [[1.0, 2.0, 9.0], [0.0, 0.0, 5.0]],  # env 0: lateral (1, 2) + (0, 0) → 5
+            [[0.0, 0.0, 1.0], [3.0, 4.0, 0.0]],  # env 1: lateral (0, 0) + (3, 4) → 25
+        ]
+    )
+    env = _FakeEnv({"t": _FakeTactileSensor(raw)})
+    reward = slip_penalty(env, "t")  # type: ignore[arg-type]
+    assert torch.allclose(reward, torch.tensor([5.0, 25.0]))
+
+
+def test_slip_penalty_works_with_history_axis() -> None:
+    """``(B, H, P, 3)`` shape: lateral slice still ignores the z channel; history axis is reduced."""
+    raw = torch.zeros(2, 3, 1, 3)
+    raw[0, 0, 0] = torch.tensor([3.0, 0.0, 0.0])  # contributes 9
+    raw[0, 2, 0] = torch.tensor([0.0, 4.0, 100.0])  # contributes 16 (z ignored)
+    raw[1, 1, 0] = torch.tensor([2.0, 2.0, 5.0])  # contributes 8
+    env = _FakeEnv({"t": _FakeTactileSensor(raw)})
+    reward = slip_penalty(env, "t")  # type: ignore[arg-type]
+    assert torch.allclose(reward, torch.tensor([25.0, 8.0]))
