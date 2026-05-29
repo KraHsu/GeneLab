@@ -1,8 +1,8 @@
 # How to Design a GeneLab Task
 
-This guide shows how to structure a task that is easy to run, inspect, train, and extend.
+A well-structured GeneLab task is easy to run, inspect, train, and extend.
 
-## 1. Start from the task id
+## 1. Starting from the task id
 
 Pick a stable id before writing code:
 
@@ -18,7 +18,7 @@ Examples:
 
 Use the same id in `TaskCfg.name`, the `TASKS` registration, logs, and README commands.
 
-## 2. Keep `env` and `play_env` separate
+## 2. Keeping `env` and `play_env` separate
 
 Use `env` for training defaults and `play_env` for human inspection.
 
@@ -30,7 +30,7 @@ Use `env` for training defaults and `play_env` for human inspection.
 Do not make other people remember long overrides just to open a viewer.
 `genelab play TASK --vis` should work with the task's play config.
 
-## 3. Put robot construction behind a factory
+## 3. Putting robot construction behind a factory
 
 Register a robot factory instead of a prebuilt object:
 
@@ -45,7 +45,7 @@ register_robot(
 
 Factories keep imports light and allow the CLI to list metadata without booting Genesis.
 
-## 4. Organize manager terms by intent
+## 4. Organizing manager terms by intent
 
 Use descriptive names in every manager dict. These names become CLI override paths and log keys.
 
@@ -60,7 +60,7 @@ rewards_cfg = {
 Avoid names like `r1`, `penalty2`, or `tmp`. A good name is stable enough to appear in a paper,
 run config, or dashboard.
 
-## 5. Make observations explicit
+## 5. Making observations explicit
 
 Use at least a `policy` group. Add a `critic` group when the runner needs privileged information.
 
@@ -74,7 +74,7 @@ observations_cfg = {
 Keep corruption, scale, and clip settings in the term cfg so they are visible through
 `genelab info TASK`.
 
-## 6. Validate with small rollouts
+## 6. Validating with small rollouts
 
 Before long training, run:
 

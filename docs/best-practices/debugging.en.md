@@ -1,6 +1,6 @@
 # How to Debug Common Failures
 
-This guide lists the shortest checks for common GeneLab failures.
+The shortest checks for common GeneLab failures.
 
 ## Unknown task
 
@@ -9,7 +9,7 @@ genelab list tasks
 genelab --import my_project.tasks list tasks
 ```
 
-If the second command works, the package is importable only when you pass `--import`. Install an
+If the second command works, the package is importable only with `--import`. Install an
 entry point or keep using an explicit import. If neither works, confirm the package is installed or
 its `src/` directory is on `PYTHONPATH`.
 
