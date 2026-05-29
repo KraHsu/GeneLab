@@ -101,6 +101,10 @@ project_app = typer.Typer(
 app.add_typer(project_app, name="project", rich_help_panel="Project")
 app.add_typer(prof_app, name="prof", rich_help_panel="Utilities")
 
+from genelab.cli._asset import asset_app  # noqa: E402
+
+app.add_typer(asset_app, name="asset", rich_help_panel="Registry")
+
 
 def _version_callback(value: bool) -> None:
     if value:
@@ -395,13 +399,18 @@ def export_cmd(
     from genelab.cli._export import export_task
 
     fmt: Literal["torchscript", "onnx"] = "torchscript" if format == "torchscript" else "onnx"
-    written = export_task(
-        task_id,
-        checkpoint,
-        format=fmt,
-        output=out,
-        opset=opset,
-    )
+    # ``export_task`` constructs the play env via ``TASKS.get`` → asset-zoo factories,
+    # which can trigger a download on first use. Wrap in ``fetch_progress`` so the
+    # bar renders consistently with every other CLI surface (play / train / eval /
+    # info / asset download).
+    with fetch_progress():
+        written = export_task(
+            task_id,
+            checkpoint,
+            format=fmt,
+            output=out,
+            opset=opset,
+        )
     typer.echo(f"wrote {written}")
     typer.echo(f"wrote {written.with_suffix(written.suffix + '.metadata.json')}")
 
