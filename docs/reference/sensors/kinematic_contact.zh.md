@@ -2,10 +2,10 @@
 
 点接触探针，底层是 `genesis.sensors.ContactProbe`。
 
-一组点状探针刚性挂在父 link 上，每帧报告每个探针的接触深度。封装层用
-`cfg.contact_threshold` 阈值化原始深度，下游既能读连续 depth，也能读
-布尔 "in contact" mask。适用于"机器人上这一点有没有碰到东西"的场景 ——
-不引入可变形 elastomer tactile 栈。
+一组点状探针刚性挂在父 link 上，每帧报告布尔接触。Genesis 在内部按
+`cfg.contact_threshold` 阈值化（默认 `1e-4` m 穿透深度），返回已经阈值化
+的布尔 mask。适用于"机器人上这一点有没有碰到东西"的场景 —— 不引入可变形
+elastomer tactile 栈。
 
 ## 配置
 
@@ -25,8 +25,7 @@
 
 | 字段 | 类型 | 形状 |
 |---|---|---|
-| `depth` | `torch.Tensor` (float) | `(num_envs, [history,] num_probes)` —— 每探针的接触深度（米）。 |
-| `in_contact` | `torch.Tensor` (bool) | 同上；`depth > cfg.contact_threshold`。 |
+| `in_contact` | `torch.Tensor` (bool) | `(num_envs, [history,] num_probes)` —— Genesis 内部阈值化后的接触 mask。 |
 
 ## 示例
 

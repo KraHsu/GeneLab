@@ -35,10 +35,16 @@
 
 ## 数据
 
-`PointCloudTactileData.raw` 是 `gs.sensors.ProximityTaxel.read()` 的原始返回
-值 —— `(num_envs, [history,] ...)`，对应 Genesis 内部 per-sensor 缓存形状。
-`genelab.mdp.rewards.tactile` 中的奖励函数在 batch 之外的所有轴上归并；需要
-分解的消费者请自行切片。
+Genesis 的 `ProximityTaxel.read()` 返回结构化的
+`ProximityTaxelData(force=…, torque=…)`。封装层把两个张量字段提取到
+`PointCloudTactileData` 上；`raw` 别名为 `force`，让
+`genelab.mdp.rewards.tactile` 中的 shape-agnostic 奖励函数继续可用。
+
+| 字段 | 类型 | 形状 |
+|---|---|---|
+| `force` | `torch.Tensor` (float32) | `(num_envs, [history,] num_probes, 3)` —— 探针本地系下的接触力向量。 |
+| `torque` | `torch.Tensor` (float32) | `(num_envs, [history,] num_probes, 3)` —— 探针本地系下的接触力矩向量。 |
+| `raw` | `torch.Tensor` | `force` 的别名。 |
 
 ## 示例
 

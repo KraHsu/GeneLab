@@ -2,12 +2,11 @@
 
 Point contact probe, backed by `genesis.sensors.ContactProbe`.
 
-A set of point probes ride on a parent link and report contact depth per
-probe. The wrapper thresholds the raw depth at `cfg.contact_threshold` so
-downstream code can read either the continuous depth or a boolean
-"in contact" mask. Use this where the question is "did this point on the
-robot touch something" without invoking the deformable-elastomer tactile
-stack.
+A set of point probes ride on a parent link and report binary contact.
+Genesis thresholds internally at `cfg.contact_threshold` (default `1e-4` m
+of inter-penetration) and returns the pre-thresholded boolean mask. Use
+this where the question is "did this point on the robot touch something"
+without invoking the deformable-elastomer tactile stack.
 
 ## Configuration
 
@@ -27,8 +26,7 @@ stack.
 
 | Field | Type | Shape |
 |---|---|---|
-| `depth` | `torch.Tensor` (float) | `(num_envs, [history,] num_probes)` — contact depth in metres per probe. |
-| `in_contact` | `torch.Tensor` (bool) | Same shape as `depth`; `depth > cfg.contact_threshold`. |
+| `in_contact` | `torch.Tensor` (bool) | `(num_envs, [history,] num_probes)` — Genesis-thresholded contact mask. |
 
 ## Example
 
