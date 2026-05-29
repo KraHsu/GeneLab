@@ -109,6 +109,25 @@ The tables below are the **v1.0** Genesis numbers. The v0.4.7 numbers are
 preserved in a "Previous: v0.4.7" admonition next to each task so a
 re-baseline diff is one scroll away.
 
+!!! note "Status: v1.0 sanity smoke, full sweep pending"
+
+    The v1.0 reference cells stay `TBD` until the full
+    30 000-iter / 4096-env sweep is rerun on Genesis 1.0. In the meantime
+    a **50-iter G1-Velocity-Flat sanity smoke** was run during the
+    migration (S1, PR #175) and shows a healthy learning trajectory:
+
+    - Mean reward: iter 36 **−1.08** → iter 49 **−0.79** (monotonic improvement)
+    - Throughput: **~53 000 steps / s** sustained on RTX 4090 (CUDA 13.0)
+    - Wall-clock: ~1 min 39 s for 50 iters
+
+    The sanity smoke confirms the v1.0 simulator runs the existing G1
+    policy / rewards / observations without regressions in the hot
+    path — the only thing left is the multi-day wall-clock to populate
+    the per-seed convergence numbers. Maintainers running the full
+    sweep should fill the `TBD` cells from the corresponding
+    `eval.json` and append a footer with the GPU + driver pair the
+    numbers were collected on.
+
 ### `GeneLab-Inverted-Pendulum-v0`
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |

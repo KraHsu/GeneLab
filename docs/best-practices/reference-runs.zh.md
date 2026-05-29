@@ -96,6 +96,21 @@ GPU vectorized 慢很多。
 下表为 Genesis **v1.0** 的数字。v0.4.7 的旧数字保留在每个任务旁边的
 "Previous: v0.4.7" admonition 里，方便 re-baseline 对比。
 
+!!! note "状态：v1.0 sanity smoke 已过，完整 sweep 待跑"
+
+    v1.0 reference 单元仍为 `TBD`，要等完整的 30 000 iter × 4096 env
+    sweep 在 Genesis 1.0 上重跑后才能填。期间已在迁移过程中（S1，
+    PR #175）跑了一次 **50-iter G1-Velocity-Flat sanity smoke**，轨迹健康：
+
+    - Mean reward：iter 36 **−1.08** → iter 49 **−0.79**（单调改善）
+    - 吞吐量：**~53 000 steps / s**，RTX 4090（CUDA 13.0）下持续
+    - 墙钟：50 iter 共 ~1 min 39 s
+
+    Sanity smoke 证明 v1.0 simulator 跑现有 G1 的 policy / reward /
+    observation 在热路径上没有回归；剩下的只是多天的墙钟跑完，填进各
+    seed 的收敛数字。维护者跑完完整 sweep 后，请把 `TBD` 单元从对应
+    `eval.json` 里取出填入，并附上跑数所用的 GPU + 驱动组合。
+
 ### `GeneLab-Inverted-Pendulum-v0`
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
