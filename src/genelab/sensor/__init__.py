@@ -19,6 +19,16 @@ from genelab.sensor.frame_transformer import (
     TargetFrameCfg,
 )
 from genelab.sensor.imu import IMUData, IMUSensor, IMUSensorCfg
+from genelab.sensor.kinematic_contact import (
+    KinematicContactData,
+    KinematicContactSensor,
+    KinematicContactSensorCfg,
+)
+from genelab.sensor.proximity import (
+    ProximityData,
+    ProximitySensor,
+    ProximitySensorCfg,
+)
 from genelab.sensor.ray_cast import (
     GridPattern,
     HemispherePattern,
@@ -33,6 +43,11 @@ from genelab.sensor.self_contact import (
     SelfContactSensorCfg,
 )
 from genelab.sensor.sensor import Sensor, SensorCfg
+from genelab.sensor.temperature import (
+    TemperatureGridData,
+    TemperatureGridSensor,
+    TemperatureGridSensorCfg,
+)
 from genelab.sensor.terrain_height import TerrainHeightSensor, TerrainHeightSensorCfg
 
 __all__ = [
@@ -55,6 +70,12 @@ __all__ = [
     "IMUData",
     "IMUSensor",
     "IMUSensorCfg",
+    "KinematicContactData",
+    "KinematicContactSensor",
+    "KinematicContactSensorCfg",
+    "ProximityData",
+    "ProximitySensor",
+    "ProximitySensorCfg",
     "RayCastData",
     "RayCastSensor",
     "RayCastSensorCfg",
@@ -67,6 +88,9 @@ __all__ = [
     "Sensor",
     "SensorCfg",
     "TargetFrameCfg",
+    "TemperatureGridData",
+    "TemperatureGridSensor",
+    "TemperatureGridSensorCfg",
     "TerrainHeightSensor",
     "TerrainHeightSensorCfg",
 ]
