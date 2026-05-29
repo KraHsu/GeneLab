@@ -190,8 +190,12 @@ class InteractiveScene:
             rigid_kwargs["integrator"] = integrator
         # ``batch_render=True`` swaps in Genesis's BatchRenderer so attached cameras can
         # emit per-env RGB-D tensors. Default ``None`` keeps the historic Rasterizer path.
+        # ``use_rasterizer=False`` (default) keeps the raytracer; ``True`` switches to
+        # the rasterizer for faster batched rendering.
         renderer = (
-            gs.renderers.BatchRenderer(use_rasterizer=False)
+            gs.renderers.BatchRenderer(
+                use_rasterizer=bool(getattr(self._scene_cfg, "use_rasterizer", False))
+            )
             if getattr(self._scene_cfg, "batch_render", False)
             else None
         )
