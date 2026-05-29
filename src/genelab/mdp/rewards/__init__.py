@@ -29,6 +29,11 @@ from genelab.mdp.rewards.regularization import (
     upright_exp,
     variable_posture,
 )
+from genelab.mdp.rewards.energy import (
+    energy_budget,
+    kinetic_energy_l2,
+    potential_energy,
+)
 from genelab.mdp.rewards.tactile import (
     contact_count,
     contact_intensity_l2,
@@ -54,6 +59,7 @@ __all__ = [
     "body_angular_velocity_penalty",
     "contact_count",
     "contact_intensity_l2",
+    "energy_budget",
     "feet_air_time",
     "feet_clearance",
     "feet_slip",
@@ -62,6 +68,7 @@ __all__ = [
     "joint_acc_l2",
     "joint_pos_limits",
     "joint_vel_limits",
+    "kinetic_energy_l2",
     "lin_vel_z_l2",
     "motion_global_anchor_orientation_error_exp",
     "motion_global_anchor_position_error_exp",
@@ -69,6 +76,7 @@ __all__ = [
     "motion_global_body_linear_velocity_error_exp",
     "motion_relative_body_orientation_error_exp",
     "motion_relative_body_position_error_exp",
+    "potential_energy",
     "self_collision_cost",
     "slip_penalty",
     "soft_landing",
