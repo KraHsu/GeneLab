@@ -25,6 +25,19 @@ through the named entity table, for example `env.articulations["robot"].data` fo
 `env.articulations["robot"].joint_names` for joint metadata. The environment also exposes
 `env.scene` for scene-level access.
 
+## Robot description formats
+
+`ArticulationCfg` accepts either MJCF or URDF as the source description:
+
+- `mjcf_path` — absolute path to a MuJoCo `.xml`. Loaded via `gs.morphs.MJCF`.
+- `urdf_path` — absolute path to a `.urdf`, `.xacro`, or `.urdf.xacro`. Loaded via
+  `gs.morphs.URDF`, which preprocesses xacro files through the `xacro` Python package
+  at load time. Set `xacro_args={"key": "value", ...}` to override `<xacro:arg>`
+  declarations.
+
+Exactly one of the two paths must be set; mixing both raises a `ValueError` at
+`Articulation` construction. `xacro_args` is only valid with `urdf_path`.
+
 ## Why wrappers matter
 
 Genesis APIs and Isaac Lab-style task code use different vocabulary. Wrappers isolate that
