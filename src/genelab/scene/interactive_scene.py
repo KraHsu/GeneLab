@@ -27,6 +27,9 @@ from genelab.recording.bridge import RecorderBridge
 from genelab.sensor import Sensor
 from genelab.terrains import TerrainImporter
 
+if TYPE_CHECKING:
+    from genelab.sensor.camera import CameraSensor
+
 
 _pyrender_save_patch_applied = False
 
@@ -34,14 +37,14 @@ _pyrender_save_patch_applied = False
 def _patch_pyrender_save_filename() -> None:
     """Coerce pyrender's tkinter SaveAs default extension to match the requested one.
 
-    Upstream pyrender hard-codes ``defaultextension=".png"`` in ``_get_save_filename``,
-    so pressing ``R`` twice to save a recorded video (called with ``file_exts=["mp4"]``)
-    and typing a bare filename produces e.g. ``dancing.png`` — and ``Viewer.save_video``
-    then ``shutil.move``s the .mp4 file to that .png path. We can't modify Genesis, so
-    we wrap the method at the class level: when exactly one extension is requested and
-    the dialog returned a different one, swap the extension. Multi-extension dialogs
-    (e.g. ``_save_image`` offers png/jpg/gif/all) are left alone so the user's chosen
-    type is respected.
+    Upstream pyrender (still in Genesis 1.0) hard-codes ``defaultextension=".png"`` in
+    ``_get_save_filename`` regardless of ``file_exts``, so pressing ``R`` twice to save a
+    recorded video (called with ``file_exts=["mp4"]``) and typing a bare filename produces
+    e.g. ``dancing.png`` — and ``Viewer.save_video`` then ``shutil.move``s the .mp4 file
+    to that .png path. We can't modify Genesis, so we wrap the method at the class level:
+    when exactly one extension is requested and the dialog returned a different one, swap
+    the extension. Multi-extension dialogs (e.g. ``_save_image`` offers png/jpg/gif/all)
+    are left alone so the user's chosen type is respected.
     """
     global _pyrender_save_patch_applied
     if _pyrender_save_patch_applied:
@@ -187,8 +190,12 @@ class InteractiveScene:
             rigid_kwargs["integrator"] = integrator
         # ``batch_render=True`` swaps in Genesis's BatchRenderer so attached cameras can
         # emit per-env RGB-D tensors. Default ``None`` keeps the historic Rasterizer path.
+        # ``use_rasterizer=False`` (default) keeps the raytracer; ``True`` switches to
+        # the rasterizer for faster batched rendering.
         renderer = (
-            gs.renderers.BatchRenderer(use_rasterizer=False)
+            gs.renderers.BatchRenderer(
+                use_rasterizer=bool(getattr(self._scene_cfg, "use_rasterizer", False))
+            )
             if getattr(self._scene_cfg, "batch_render", False)
             else None
         )
@@ -197,7 +204,10 @@ class InteractiveScene:
         # ``ViewerOptions`` when the viewer is enabled so headless training stays
         # untouched.
         viewer_options = (
-            gs.options.ViewerOptions(max_FPS=self._sim_cfg.render_fps)
+            gs.options.ViewerOptions(
+                max_FPS=self._sim_cfg.render_fps,
+                enable_gui=self._sim_cfg.viewer_imgui,
+            )
             if self._sim_cfg.vis
             else None
         )
@@ -259,12 +269,7 @@ class InteractiveScene:
             env_spacing=tuple(self._scene_cfg.env_spacing),
         )
 
-        gs_device = getattr(gs, "device", None)
-        if gs_device is not None:
-            try:
-                self._device = str(gs_device())  # type: ignore[misc]
-            except TypeError:
-                self._device = str(gs_device)
+        self._device = str(gs.device)
         self._env_origins = self._compute_env_origins()
 
         # Post-build: bind every articulation so its introspection / per-joint tensors land.
@@ -341,6 +346,70 @@ class InteractiveScene:
     def reset(self, env_ids: torch.Tensor) -> None:
         for art in self.articulations.values():
             art.reset(env_ids)
+
+    def draw_camera_frustums(
+        self,
+        *,
+        camera_names: tuple[str, ...] | None = None,
+        color: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 0.3),
+    ) -> int:
+        """Draw the view frustum of one or more :class:`~genelab.sensor.CameraSensor` s.
+
+        Wraps Genesis 1.0's ``scene.draw_debug_frustum(camera, color=...)``. When
+        ``camera_names`` is ``None`` every ``CameraSensor`` on the scene is drawn;
+        otherwise only the named ones (a name that doesn't resolve to a
+        ``CameraSensor`` raises). Returns the number of frustums drawn so callers
+        can detect mis-named selections without inspecting the viewer state.
+
+        Cameras allocate their Genesis-side handle in
+        :meth:`~genelab.sensor.CameraSensor.pre_build_genesis`; calling this before
+        :meth:`build` raises a ``RuntimeError``.
+        """
+        if not self._built:
+            raise RuntimeError("draw_camera_frustums called before InteractiveScene.build()")
+        selected = self._select_camera_sensors(camera_names)
+        for sensor in selected:
+            self._gs_scene.draw_debug_frustum(sensor.gs_camera, color=color)
+        return len(selected)
+
+    def draw_camera_trajectory(
+        self,
+        positions: Any,
+        *,
+        radius: float = 0.002,
+        color: tuple[float, float, float, float] = (1.0, 0.5, 0.0, 0.8),
+    ) -> None:
+        """Draw a polyline through ``positions`` (one row per world-frame point).
+
+        Thin wrapper over Genesis 1.0's
+        ``scene.draw_debug_trajectory(poss, radius=…, color=…)``. The caller owns
+        the positions buffer (typically a recorded camera path or an inspection
+        waypoint sequence) — no history is maintained on the scene side.
+        """
+        if not self._built:
+            raise RuntimeError("draw_camera_trajectory called before InteractiveScene.build()")
+        self._gs_scene.draw_debug_trajectory(positions, radius=radius, color=color)
+
+    def _select_camera_sensors(self, names: tuple[str, ...] | None) -> "list[CameraSensor]":
+        from genelab.sensor.camera import CameraSensor
+
+        if names is None:
+            return [s for s in self._sensors.values() if isinstance(s, CameraSensor)]
+        selected: list[CameraSensor] = []
+        for n in names:
+            sensor = self._sensors.get(n)
+            if sensor is None:
+                raise KeyError(
+                    f"draw_camera_frustums: no sensor named {n!r} on this scene "
+                    f"(have: {sorted(self._sensors)})"
+                )
+            if not isinstance(sensor, CameraSensor):
+                raise TypeError(
+                    f"draw_camera_frustums: sensor {n!r} is not a CameraSensor "
+                    f"(got {type(sensor).__name__})"
+                )
+            selected.append(sensor)
+        return selected
 
     def close(self) -> None:
         scene = self._gs_scene

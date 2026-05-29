@@ -1,13 +1,13 @@
 [project]
 name = "genelab"
-version = "0.2.0"
+version = "0.3.0"
 description = "Isaac Lab API for RL and robotics research powered by Genesis."
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "KraHsu", email = "charles040318@gmail.com" }]
 maintainers = [{ name = "KraHsu", email = "charles040318@gmail.com" }]
 dependencies = [
-    "genesis-world>=0.4.7",
+    "genesis-world>=1.0.0,<2.0.0",
     "typer>=0.12",
     "rich>=13",
     "questionary>=2",

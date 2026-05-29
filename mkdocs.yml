@@ -193,6 +193,12 @@ nav:
       - Module Map: reference/module-map.md
       - Configuration Reference: reference/configuration.md
       - CLI Reference: reference/cli.md
+      - Sensors:
+          - ProximitySensor: reference/sensors/proximity.md
+          - KinematicContactSensor: reference/sensors/kinematic_contact.md
+          - TemperatureGridSensor: reference/sensors/temperature_grid.md
+          - ElastomerTactileSensor: reference/sensors/tactile_elastomer.md
+          - PointCloudTactileSensor: reference/sensors/tactile_pointcloud.md
       - API Reference: api/reference.md
   - CLI:
       - Overview: cli/overview.md

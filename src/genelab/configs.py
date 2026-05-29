@@ -40,6 +40,10 @@ class SimulationCfg:
     # the viewer's rate-limit will throttle the env step itself — lower ``render_fps`` or
     # raise ``decimation`` if that's not what you want.
     render_fps: int | None = 60
+    # ImGui overlay toggle for the Genesis viewer (v1.0+). Forwarded to
+    # ``gs.options.ViewerOptions(enable_gui=...)`` when ``vis=True``. Off by default so
+    # headless / scripted runs don't allocate the overlay.
+    viewer_imgui: bool = False
 
     # --- Genesis rigid-solver options (ROADMAP M3.7) ---------------------------------------
     # All optional; ``None`` = "use the Genesis default". Mapped to ``gs.options.RigidOptions``
@@ -109,9 +113,16 @@ class InteractiveSceneCfg:
     entities: "dict[str, ArticulationCfg | RigidObjectCfg]" = field(default_factory=dict)
     terrain: "TerrainGeneratorCfg | None" = None
     # When True, ``InteractiveScene._build`` passes
-    # ``gs.renderers.BatchRenderer(use_rasterizer=False)`` to ``gs.Scene``. Required for
-    # ``CameraSensor`` to produce per-env RGB-D tensors. Linux x86-64 + CUDA only.
+    # ``gs.renderers.BatchRenderer(use_rasterizer=use_rasterizer)`` to ``gs.Scene``.
+    # Required for ``CameraSensor`` to produce per-env RGB-D tensors. Linux x86-64 +
+    # CUDA only.
     batch_render: bool = False
+    # Forwarded to ``gs.renderers.BatchRenderer(use_rasterizer=...)`` when
+    # ``batch_render=True``. ``False`` (default) keeps Genesis's raytracer (higher
+    # fidelity, slower); ``True`` switches to the rasterizer for substantially faster
+    # batched rendering when photorealism isn't required. Ignored when
+    # ``batch_render=False`` since no ``BatchRenderer`` is constructed.
+    use_rasterizer: bool = False
     # Recordings are registered as Genesis recorders just before ``gs_scene.build``;
     # each entry describes a data source and one or more output sinks (live plots, file
     # writers, video). See :mod:`genelab.recording` for the dataclass surface.

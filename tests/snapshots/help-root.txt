@@ -23,6 +23,7 @@
 ╭─ Registry ───────────────────────────────────────────────────────────────────────────────────────╮
 │ list       List registered robots, envs, or tasks.                                               │
 │ info       Show detail for one registered task, env, or robot.                                   │
+│ asset      List, inspect, download, and purge GeneLab asset-zoo files.                           │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Runtime ────────────────────────────────────────────────────────────────────────────────────────╮
 │ play       Run a registered task.                                                                │
