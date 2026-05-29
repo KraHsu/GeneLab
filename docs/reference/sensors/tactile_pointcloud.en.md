@@ -38,12 +38,17 @@ For tasks that need finite-stiffness deformable contact dynamics, see
 
 ## Data
 
-`PointCloudTactileData.raw` is whatever
-`gs.sensors.ProximityTaxel.read()` returns —
-`(num_envs, [history,] ...)` per Genesis's per-sensor cache layout. The
-reward primitives in `genelab.mdp.rewards.tactile` reduce over every
-non-batch axis; consumers that need a specific decomposition should
-slice it themselves.
+Genesis's `ProximityTaxel.read()` returns a structured
+`ProximityTaxelData(force=…, torque=…)`. The wrapper extracts both as
+tensors and exposes them on `PointCloudTactileData`; `raw` aliases
+`force` so the shape-agnostic reward primitives in
+`genelab.mdp.rewards.tactile` keep working.
+
+| Field | Type | Shape |
+|---|---|---|
+| `force` | `torch.Tensor` (float32) | `(num_envs, [history,] num_probes, 3)` — contact force vector in the probe's local frame. |
+| `torque` | `torch.Tensor` (float32) | `(num_envs, [history,] num_probes, 3)` — contact torque vector in the probe's local frame. |
+| `raw` | `torch.Tensor` | Alias for `force`. |
 
 ## Example
 
