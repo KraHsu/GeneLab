@@ -6,19 +6,20 @@ GeneLab 自带任务的**复现地基**。按任务 × seed 列出收敛后的 r
 
 ## Reference 任务
 
-这五个任务覆盖 GeneLab 内置的 locomotion + manipulation 两条线：
+这六个任务覆盖 GeneLab 内置的 locomotion + manipulation 两条线：
 
 | Task ID | Backend (默认 agent) | 预算 | 备注 |
 |---|---|---|---|
 | `GeneLab-Inverted-Pendulum-v0` | rsl_rl PPO | 150 iter × 4096 envs | 小 cartpole；当 smoke target 用。 |
 | `GeneLab-Double-Inverted-Pendulum-v0` | rsl_rl PPO | 300 iter × 4096 envs | 难一些的 cartpole。 |
 | `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 平地速度跟踪。 |
+| `Genelab-Velocity-Rough-Unitree-G1-v0` | rsl_rl PPO | 50k iter × 4096 envs | Unitree G1 崎岖高度场地形速度跟踪。 |
 | `Genelab-Tracking-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 平地动作跟踪。 |
 | `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 64 envs | 目标条件抓取；需要离线 demo 预填（见下方协议）。 |
 
 ## 复现协议
 
-### 通用路径（4 / 5 任务）
+### 通用路径（5 / 6 任务）
 
 Cartpole + G1 都是 rsl_rl PPO，复现就用 multi-seed CLI：
 
@@ -167,6 +168,24 @@ GPU vectorized 慢很多。
     | 1 | 112.419 | 4.647 | 30 000 | ~18.7 h | 143.0 s |
     | 2 | 93.417 | 3.921 | 30 000 | ~20.6 h | 161.0 s |
     | 3 | 92.028 | 4.162 | 30 000 | ~19.8 h | 156.9 s |
+
+### `Genelab-Velocity-Rough-Unitree-G1-v0`
+
+| Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
+|---|---|---|---|---|---|
+| 1 | TBD | TBD | 50 000 | TBD | TBD |
+| 2 | TBD | TBD | 50 000 | TBD | TBD |
+| 3 | TBD | TBD | 50 000 | TBD | TBD |
+
+三个 seed 的 eval `length_mean = 1000.0`（play_env `episode_length_s =
+20 s` × 50 Hz）。`success_rate` 为 `null`。Eval terrain seed = 0（确定性）。
+
+> Maintainer sweep protocol: `genelab train
+> Genelab-Velocity-Rough-Unitree-G1-v0 --seeds 1,2,3 --parallel 1 --log_dir
+> logs/reference/Genelab-Velocity-Rough-Unitree-G1-v0/<DATE>`，每块 RTX 4090
+> 跑一个 seed（4090 集群）。Eval 用 `genelab eval ... --num-envs 64 --episodes
+> 100 --seed 0 --out <seed_dir>/eval.json`，并设 `QT_QPA_PLATFORM=offscreen`
+> （headless Qt —— 即便 eval 已强制 vis=False，recording 附加项缺这个仍会崩）。
 
 ### `Genelab-Tracking-Flat-Unitree-G1-v0`
 
