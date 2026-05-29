@@ -31,6 +31,23 @@ Genesis APIs and Isaac Lab-style task code use different vocabulary. Wrappers is
 difference: MDP terms read stable GeneLab properties while the backend integration handles Genesis
 details.
 
+## Camera debug helpers
+
+`InteractiveScene` exposes two thin wrappers around Genesis 1.0's debug-draw
+API for inspecting attached cameras:
+
+- `draw_camera_frustums(camera_names=None, color=(1, 1, 1, 0.3))` draws the view
+  frustum of every (or named) `CameraSensor` on the scene. Returns the number of
+  frustums drawn. Raises if a name does not resolve to a `CameraSensor`.
+- `draw_camera_trajectory(positions, radius=0.002, color=(1, 0.5, 0, 0.8))`
+  draws a polyline through `positions` (one row per world-frame point). The
+  caller owns the buffer — typically a recorded camera path — so the scene
+  keeps no history.
+
+Both helpers must be called after `InteractiveScene.build()`; calling pre-build
+raises `RuntimeError`. Use them from a play-time hook to visualise where the
+RGB-D sensors are looking and how their pose evolved over a rollout.
+
 ## Where to continue
 
 - [Module Map](../reference/module-map.md)
