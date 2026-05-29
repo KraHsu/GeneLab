@@ -11,7 +11,7 @@ tests but exercises the full GeneLab train/play path.
 | `GeneLab-Double-Inverted-Pendulum-v0` | Two-link pole balancing (rsl_rl PPO). |
 | `GeneLab-Inverted-Pendulum-Skrl-v0` | Single pole balancing — same env, **skrl** PPO backend. |
 
-## Install and list
+## Installing and listing
 
 ```bash
 uv pip install -e examples/inverted_pendulum
@@ -25,7 +25,7 @@ PYTHONPATH=examples/inverted_pendulum/src \
   genelab --import genelab_inverted_pendulum.tasks list tasks
 ```
 
-## Run
+## Running
 
 ```bash
 genelab play GeneLab-Inverted-Pendulum-v0 --steps 64

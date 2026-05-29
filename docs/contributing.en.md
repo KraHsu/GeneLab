@@ -1,6 +1,6 @@
 # Contributing
 
-This page is for contributors changing GeneLab itself. Downstream robot projects should usually use
+Contributors changing GeneLab itself start here. Downstream robot projects should usually use
 an extension package instead.
 
 ## Development setup

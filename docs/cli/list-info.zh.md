@@ -37,7 +37,7 @@ genelab info anymal_c                       # robot
 |---|---|
 | 元信息 | 注册名、描述、cfg 类型、示例命令。 |
 | 任务配置 | `TaskCfg` 摘要：env、robot、trainable、agent。 |
-| 可覆盖路径 | `play` 和 `train` 接受的 dotted path。 |
+| override 路径 | `play` 和 `train` 接受的 dotted path。 |
 
 若该 task 需要的 asset 尚未缓存，`info` 会即时下载并显示进度条
 （和 `play` / `train` / `asset download` 走的是同一条 progress UI）。
@@ -49,7 +49,7 @@ genelab play GeneLab-Inverted-Pendulum-v0 \
   --env.rewards_cfg.pole_upright.weight 4.0
 ```
 
-当 task 提供 `play_env` 时，play 模式下的简写 flag（`--vis` / `--gpu` / `--dt` /
+当 task 提供 `play_env` 时，play 模式下的简写标志（`--vis` / `--gpu` / `--dt` /
 `--steps`）会作用到 `play_env`；显式的 dotted 路径仍按字面写的子树生效。
 
 ## 另见

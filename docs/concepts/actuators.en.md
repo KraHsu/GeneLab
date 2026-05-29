@@ -21,7 +21,7 @@ actuator configs attached to an `ArticulationCfg`.
 Actuators match joint groups by configured names or expressions, then expose dimensions and control
 logic to action terms.
 
-## Use `MlpResidualActuatorCfg`
+## Using `MlpResidualActuatorCfg`
 
 Use `MlpResidualActuatorCfg` when a robot already has a usable DC-motor model but hardware logs show
 a repeatable torque-tracking gap. The actuator loads a TorchScript module from `network_file` and

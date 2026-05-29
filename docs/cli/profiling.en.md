@@ -2,7 +2,7 @@
 
 GeneLab forwards profiler flags to `torch.profiler` through `genelab.rl.maybe_profile`.
 
-## Enable profiling
+## Enabling profiling
 
 ```bash
 genelab train TASK_ID \
@@ -49,7 +49,7 @@ training.
 ## `prof open` prerequisites
 
 - `tensorboard` must be on `PATH` (`uv pip install tensorboard`, or via this checkout's `rl` extra).
-- The directory you pass must exist; an empty directory is fine.
+- The directory passed must exist; an empty directory is fine.
 
 ## See also
 

@@ -1,13 +1,13 @@
 # How to Harden a Policy for Sim2Real
 
-This guide is the deployment recipe: **which domain randomization (DR) and noise to enable
+The deployment recipe: **which domain randomization (DR) and noise to enable
 while training, what to dump at export, and how to align the policy on the hardware side.**
-It assumes you can already train and replay a task (see *Run RL Experiments*).
+Training and replaying a task is assumed (see *Run RL Experiments*).
 
 The goal is a policy that survives the reality gap — inaccurate inertia, friction, PD gains,
 sensor bias, and actuator imperfections — without being trained on the real robot.
 
-## 1. Enable domain randomization while training
+## 1. Enabling domain randomization while training
 
 DR events are wired into `events_cfg` and follow the
 [`EventTermCfg`](../reference/configuration.md) calling convention. Sample **once per
@@ -66,7 +66,7 @@ events_cfg = {
 Start with mild ranges and widen until same-seed return drops by no more than ~10%; that is
 the budget the *Reference Runs* acceptance uses.
 
-## 2. Corrupt observations the way real sensors do
+## 2. Corrupting observations the way real sensors do
 
 Set `enable_corruption=True` on the **policy** observation group and attach a `NoiseCfg` per
 term. Keep the **critic** group uncorrupted — it learns from clean state.
@@ -100,7 +100,7 @@ the `IMUSensorCfg` (resampled each reset) instead of layering `BiasDrift` on top
 > `CorrelatedNoise` / `BiasDrift` are **stateful** and intentionally do **not** reset on
 > episode boundaries (a real drifting sensor doesn't know about resets).
 
-## 3. Make the policy respect real actuator limits
+## 3. Making the policy respect real actuator limits
 
 Add hardening terms so the policy never learns behaviour the hardware can't reproduce.
 
@@ -112,9 +112,9 @@ Add hardening terms so the policy never learns behaviour the hardware can't repr
   (penalize over-speed), `alive_bonus` (offset per-step penalties), `lin_vel_z_l2` /
   `base_height_l2` (discourage bouncing).
 
-## 4. Model the actuator gap (optional)
+## 4. Modeling the actuator gap (optional)
 
-When you have real torque-tracking logs, use `MlpResidualActuator` — a `DCMotorActuator` base
+With real torque-tracking logs, use `MlpResidualActuator` — a `DCMotorActuator` base
 plus a TorchScript residual on `[pos_error, joint_vel]`. Train the residual net downstream and
 point `MlpResidualActuatorCfg.network_file` at the saved `.pt`. With no file it degrades to a
 plain `DCMotorActuator`.
@@ -137,7 +137,7 @@ robot_cfg.actuators["drive"] = MlpResidualActuatorCfg(
 See [Actuators](../concepts/actuators.md) for the TorchScript input/output contract and the full
 field notes.
 
-## 5. Export a dependency-free policy
+## 5. Exporting a dependency-free policy
 
 ```bash
 genelab export TASK_ID logs/.../model_best.pt --format onnx --out policy.onnx
@@ -151,7 +151,7 @@ The export writes `policy.onnx` (a pure `nn.Module`, no rsl_rl/skrl/sb3) **and**
 * the action `dim` / range;
 * provenance (`task`, `checkpoint`).
 
-## 6. Align the deployment side
+## 6. Aligning the deployment side
 
 What the hardware controller must do — and must **not** do:
 
@@ -164,11 +164,11 @@ What the hardware controller must do — and must **not** do:
   and `encoder_bias` are *training* perturbations. The real robot already has its own friction,
   bias, and sensor noise; re-adding the sim versions doubles the gap.
 
-## 7. Validate before shipping
+## 7. Validating before shipping
 
 * `genelab eval TASK_ID model_best.pt --episodes 100` for deterministic return / success-rate
-  numbers; compare against your *Reference Runs*.
-* Diff `metadata.json` obs term order against your hardware obs assembly — a mis-ordered or
+  numbers; compare against the *Reference Runs*.
+* Diff `metadata.json` obs term order against the hardware obs assembly — a mis-ordered or
   mis-scaled obs vector is the most common silent deployment failure.
 * Sanity-check the exported model in a plain-`torch` process (load, feed a zero obs, confirm the
   action shape matches `metadata.json`).

@@ -1,6 +1,6 @@
 # 如何运行 RL 实验
 
-这份指南说明用 `genelab.rl` 训练和回放 GeneLab task 的实用流程。
+用 `genelab.rl` 训练和回放 GeneLab task 的实用流程。
 
 ## 1. 训练前先做 smoke test
 

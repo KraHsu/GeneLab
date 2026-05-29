@@ -1,7 +1,7 @@
 # Showcase
 
 `examples/genelab_showcase` contains focused tasks for individual framework capabilities. Use it
-when you want a runnable example of one subsystem without reading a full robot task.
+for a runnable example of one subsystem without reading a full robot task.
 
 ## Capabilities
 
@@ -14,7 +14,7 @@ when you want a runnable example of one subsystem without reading a full robot t
 | Actuators | Switching actuator models (IdealPD, MLP-residual) and action behavior. |
 | Recording | Live plots, files, and video-oriented recording configs. |
 
-## Run
+## Running
 
 ```bash
 uv pip install -e examples/genelab_showcase

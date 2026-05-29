@@ -1,6 +1,6 @@
 # Reference Runs
 
-本页是 GeneLab 自带任务的**复现地基**。按任务 × seed 列出收敛后的 return、
+GeneLab 自带任务的**复现地基**。按任务 × seed 列出收敛后的 return、
 收敛步数、wall-clock 预算 — 用同一份 config 跑 `clone → train → eval`，应该
 落到的数。
 
