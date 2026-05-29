@@ -54,7 +54,7 @@ class Runnable(Protocol):
 
 ## `Backend` 契约
 
-一个后端拥有一个 RL 库，按任务 agent config 的**类型**被选中（见 [RL 运行器](rl-runner.md)）。契约是
+一个后端拥有一个 RL 库，按任务 agent config 的**类型**被选中（见 [RL runner](rl-runner.md)）。契约是
 `genelab.extensions.Backend`：
 
 ```python
@@ -126,4 +126,4 @@ def register() -> None:
 - [构建扩展项目](../best-practices/extension-projects.md)
 - [新建项目](../cli/project-new.md)
 - [注册表](registry.md)
-- [RL 运行器](rl-runner.md)
+- [RL runner](rl-runner.md)
