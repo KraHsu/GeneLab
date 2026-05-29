@@ -43,6 +43,16 @@ from genelab.sensor.self_contact import (
     SelfContactSensorCfg,
 )
 from genelab.sensor.sensor import Sensor, SensorCfg
+from genelab.sensor.tactile_elastomer import (
+    ElastomerTactileData,
+    ElastomerTactileSensor,
+    ElastomerTactileSensorCfg,
+)
+from genelab.sensor.tactile_pointcloud import (
+    PointCloudTactileData,
+    PointCloudTactileSensor,
+    PointCloudTactileSensorCfg,
+)
 from genelab.sensor.temperature import (
     TemperatureGridData,
     TemperatureGridSensor,
@@ -59,6 +69,9 @@ __all__ = [
     "ContactData",
     "ContactSensor",
     "ContactSensorCfg",
+    "ElastomerTactileData",
+    "ElastomerTactileSensor",
+    "ElastomerTactileSensorCfg",
     "ForceTorqueData",
     "ForceTorqueSensor",
     "ForceTorqueSensorCfg",
@@ -73,6 +86,9 @@ __all__ = [
     "KinematicContactData",
     "KinematicContactSensor",
     "KinematicContactSensorCfg",
+    "PointCloudTactileData",
+    "PointCloudTactileSensor",
+    "PointCloudTactileSensorCfg",
     "ProximityData",
     "ProximitySensor",
     "ProximitySensorCfg",
