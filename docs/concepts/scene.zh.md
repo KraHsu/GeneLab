@@ -23,6 +23,18 @@ articulation、rigid object、sensor、terrain importer、recorder bridge 和 vi
 entity 表访问，例如用 `env.articulations["robot"].data` 读取 `RobotState`，用
 `env.articulations["robot"].joint_names` 读取关节元数据。环境也暴露 `env.scene` 供 scene 级访问。
 
+## 机器人描述格式
+
+`ArticulationCfg` 接受 MJCF 或 URDF 两种来源：
+
+- `mjcf_path` —— MuJoCo `.xml` 的绝对路径。通过 `gs.morphs.MJCF` 加载。
+- `urdf_path` —— `.urdf`、`.xacro` 或 `.urdf.xacro` 的绝对路径。通过
+  `gs.morphs.URDF` 加载，xacro 文件由 Genesis 在加载时调用 `xacro` Python 包预处理。
+  用 `xacro_args={"key": "value", ...}` 覆盖 `<xacro:arg>` 声明。
+
+两者必须只设一个；都设时 `Articulation` 构造抛 `ValueError`。`xacro_args` 只
+对 `urdf_path` 有效。
+
 ## 为什么需要 wrapper
 
 Genesis API 和 Isaac Lab 风格任务代码使用的词汇不同。wrapper 隔离这种差异：MDP term 读取稳定的 GeneLab 属性，后端集成负责 Genesis 细节。

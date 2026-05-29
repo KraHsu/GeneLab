@@ -31,13 +31,21 @@ from genelab.entity._articulation_writer import ArticulationWriter
 class ArticulationCfg:
     """Articulated-robot description.
 
-    ``mjcf_path`` is the absolute path to a MuJoCo XML file. ``default_joint_pos`` keys are
-    regex patterns against the articulated joint names (last-match wins). ``actuators`` is a
-    dict of named actuator-group configs that must collectively cover every actuated joint:
-    unmatched or duplicated joints raise ``ValueError`` at ``bind`` time.
+    Exactly one of ``mjcf_path`` / ``urdf_path`` must be set: ``mjcf_path`` points at a
+    MuJoCo XML file, ``urdf_path`` at a URDF (Genesis 1.0 also accepts ``.xacro`` /
+    ``.urdf.xacro`` files — the URDF morph preprocesses them via the ``xacro`` package
+    at load time). ``xacro_args`` overrides ``xacro:arg`` declarations when loading from
+    a xacro file; ignored for plain URDF and rejected for MJCF.
+
+    ``default_joint_pos`` keys are regex patterns against the articulated joint names
+    (last-match wins). ``actuators`` is a dict of named actuator-group configs that must
+    collectively cover every actuated joint: unmatched or duplicated joints raise
+    ``ValueError`` at ``bind`` time.
     """
 
     mjcf_path: str = ""
+    urdf_path: str = ""
+    xacro_args: dict[str, str] = field(default_factory=dict)
     init_pos: tuple[float, float, float] = (0.0, 0.0, 1.0)
     init_quat: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
     default_joint_pos: dict[str, float] = field(default_factory=dict)
@@ -60,8 +68,15 @@ class Articulation:
     """Genesis articulated-robot entity with Isaac-Lab-style accessors."""
 
     def __init__(self, cfg: ArticulationCfg, *, name: str = "robot") -> None:
-        if not cfg.mjcf_path:
-            raise ValueError(f"ArticulationCfg(name={name!r}).mjcf_path must be set")
+        if bool(cfg.mjcf_path) == bool(cfg.urdf_path):
+            raise ValueError(
+                f"ArticulationCfg(name={name!r}): exactly one of mjcf_path / urdf_path "
+                f"must be set (got mjcf_path={cfg.mjcf_path!r}, urdf_path={cfg.urdf_path!r})"
+            )
+        if cfg.xacro_args and not cfg.urdf_path:
+            raise ValueError(
+                f"ArticulationCfg(name={name!r}): xacro_args is only valid with urdf_path"
+            )
         self.cfg = cfg
         self.name = name
         self._gs_handle: Any = None
@@ -85,17 +100,29 @@ class Articulation:
     # ------------------------------------------------------------------ spawn / bind
 
     def spawn(self, gs_scene: Any) -> None:
-        """Pre-build: attach the MJCF morph to a Genesis scene."""
+        """Pre-build: attach the robot morph (MJCF or URDF/xacro) to a Genesis scene.
+
+        Dispatches on which of ``mjcf_path`` / ``urdf_path`` the cfg has set. Genesis 1.0's
+        ``gs.morphs.URDF`` auto-preprocesses ``.xacro`` and ``.urdf.xacro`` files via the
+        ``xacro`` package at load time, so an extension check at the GeneLab layer is
+        unnecessary — the URDF morph handles both shapes.
+        """
         import genesis as gs  # type: ignore[import-not-found]
 
         morph_kwargs: dict[str, Any] = dict(
-            file=str(self.cfg.mjcf_path),
             pos=tuple(self.cfg.init_pos),
             quat=tuple(self.cfg.init_quat),
         )
         if self.cfg.requires_jac_and_ik:
             morph_kwargs["requires_jac_and_IK"] = True
-        morph = gs.morphs.MJCF(**morph_kwargs)
+        if self.cfg.urdf_path:
+            morph_kwargs["file"] = str(self.cfg.urdf_path)
+            if self.cfg.xacro_args:
+                morph_kwargs["xacro_args"] = dict(self.cfg.xacro_args)
+            morph = gs.morphs.URDF(**morph_kwargs)
+        else:
+            morph_kwargs["file"] = str(self.cfg.mjcf_path)
+            morph = gs.morphs.MJCF(**morph_kwargs)
         self._gs_handle = gs_scene.add_entity(morph)
 
     def bind(self, num_envs: int, device: str) -> None:
