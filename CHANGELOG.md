@@ -77,6 +77,17 @@ All notable changes to GeneLab are recorded here.
   from S1) so no extra GUI dependency is required. Falls back to a
   warned no-op when the plugin isn't attached (headless / `viewer_imgui`
   off).
+- **Bundled `sample-arm` xacro showcase.** Added a minimal 2-DoF
+  arm under `genelab.asset_zoo` (`SampleArmCfg(link_length=…)`),
+  shipping the xacro file inside the wheel at
+  `genelab/asset_zoo/data/sample_arm.urdf.xacro`. Demonstrates
+  `ArticulationCfg.urdf_path` + `xacro_args` end-to-end: a single
+  `link_length` argument flows through `xacro:arg`, the preprocessor
+  substitutes `${L}` and derived `${L * 0.6}` sizes, and Genesis's
+  `gs.morphs.URDF` consumes the result. Unlike the other asset-zoo
+  entries the file ships in the wheel rather than via the
+  `KraHsu/genelab-assets` mirror — appropriate scope for a tiny
+  showcase, not a precedent for new robots.
 
 ### Changed
 
