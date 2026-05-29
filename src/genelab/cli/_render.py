@@ -68,7 +68,7 @@ def render_main_help() -> None:
     )
     console.print()
     console.print("[registry.kind]Commands[/]")
-    console.print("  [entry.name]Registry[/]    list, info")
+    console.print("  [entry.name]Registry[/]    list, info, asset")
     console.print("  [entry.name]Runtime[/]     play, train")
     console.print("  [entry.name]Project[/]     project new")
     console.print("  [entry.name]Utilities[/]   cache, prof open")

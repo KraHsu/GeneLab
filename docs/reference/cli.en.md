@@ -28,6 +28,14 @@ genelab [global options] <command> [command options]
 | `train TASK ...` | Train a task with a supported runner. |
 | `prof open [DIR]` | Open TensorBoard for profiler traces. |
 | `project new NAME` | Scaffold an external GeneLab extension project. |
+| `asset list` | List every asset declared under `genelab.asset_zoo` with cached / not-cached status and size. |
+| `asset info NAME` | Show download URL, md5, filename, archive member, and cache path for one asset. |
+| `asset download NAME` | Download a single asset (md5-verified, idempotent). Add `--all` for every asset, `--force` to re-fetch even if cached. |
+| `asset purge NAME` | Remove one asset (or `--all`) from the local cache. Pass `--yes` to skip the confirmation prompt. |
+
+The asset subcommands render the same Rich download progress bar every other CLI
+surface uses (`play`, `train`, `eval`, `export`, `info`), so a first-touch
+download from any command shows a progress bar instead of staying silent.
 
 ## Runtime flags
 

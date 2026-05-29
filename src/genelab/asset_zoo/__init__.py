@@ -11,6 +11,7 @@ from genelab.asset_zoo.allegro_hand import AllegroHandCfg
 from genelab.asset_zoo.anymal_c import AnymalCCfg
 from genelab.asset_zoo.cartpole import CartpoleCfg
 from genelab.asset_zoo.franka import FrankaPandaCfg
+from genelab.asset_zoo.sample_arm import SampleArmCfg
 from genelab.asset_zoo.unitree_g1 import UnitreeG1Cfg
 from genelab.asset_zoo.unitree_g1_motions import g1_lafan1_dance1_subject2
 from genelab.asset_zoo.unitree_go1 import UnitreeGo1Cfg
@@ -22,6 +23,7 @@ __all__ = [
     "AnymalCCfg",
     "CartpoleCfg",
     "FrankaPandaCfg",
+    "SampleArmCfg",
     "UR10eCfg",
     "UnitreeG1Cfg",
     "UnitreeGo1Cfg",

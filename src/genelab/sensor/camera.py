@@ -151,6 +151,16 @@ class CameraSensor(Sensor[CameraData]):
                 f"render_rgb / render_depth / render_segmentation must be True"
             )
 
+    @property
+    def gs_camera(self) -> object | None:
+        """The underlying Genesis camera handle, or ``None`` before ``pre_build_genesis``.
+
+        Exposed for scene-level debug helpers (e.g.
+        :meth:`~genelab.scene.InteractiveScene.draw_camera_frustums`) that need the
+        handle to call Genesis's ``draw_debug_frustum`` API directly.
+        """
+        return self._cam
+
     def _allocate_camera(self, gs_scene: object, link: object) -> object:
         cam = gs_scene.add_camera(  # type: ignore[attr-defined]
             res=(self._cfg_typed.width, self._cfg_typed.height),

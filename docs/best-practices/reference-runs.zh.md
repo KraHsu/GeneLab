@@ -93,46 +93,88 @@ GPU vectorized 慢很多。
 
 ## Reference 数字
 
+下表为 Genesis **v1.0** 的数字。v0.4.7 的旧数字保留在每个任务旁边的
+"Previous: v0.4.7" admonition 里，方便 re-baseline 对比。
+
+!!! note "状态：v1.0 sanity smoke 已过，完整 sweep 待跑"
+
+    v1.0 reference 单元仍为 `TBD`，要等完整的 30 000 iter × 4096 env
+    sweep 在 Genesis 1.0 上重跑后才能填。期间已在迁移过程中（S1，
+    PR #175）跑了一次 **50-iter G1-Velocity-Flat sanity smoke**，轨迹健康：
+
+    - Mean reward：iter 36 **−1.08** → iter 49 **−0.79**（单调改善）
+    - 吞吐量：**~53 000 steps / s**，RTX 4090（CUDA 13.0）下持续
+    - 墙钟：50 iter 共 ~1 min 39 s
+
+    Sanity smoke 证明 v1.0 simulator 跑现有 G1 的 policy / reward /
+    observation 在热路径上没有回归；剩下的只是多天的墙钟跑完，填进各
+    seed 的收敛数字。维护者跑完完整 sweep 后，请把 `TBD` 单元从对应
+    `eval.json` 里取出填入，并附上跑数所用的 GPU + 驱动组合。
+
 ### `GeneLab-Inverted-Pendulum-v0`
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | 39.944 | 0.026 | 150 | ~21 min | 10.3 s |
-| 2 | 39.978 | 0.002 | 150 | ~20 min | 10.1 s |
-| 3 | 39.991 | 0.001 | 150 | ~19 min | 10.1 s |
+| 1 | TBD | TBD | 150 | TBD | TBD |
+| 2 | TBD | TBD | 150 | TBD | TBD |
+| 3 | TBD | TBD | 150 | TBD | TBD |
 
 三个 seed 的 eval `length_mean = 1000.0`（episode 跑满时间上限不倒），策略
 在预算上限解掉。`success_rate` 为 `null`（任务未 publish
 `extras["is_success"]`）。
 
+!!! note "Previous: v0.4.7"
+
+    | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|
+    | 1 | 39.944 | 0.026 | 150 | ~21 min | 10.3 s |
+    | 2 | 39.978 | 0.002 | 150 | ~20 min | 10.1 s |
+    | 3 | 39.991 | 0.001 | 150 | ~19 min | 10.1 s |
+
 ### `GeneLab-Double-Inverted-Pendulum-v0`
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | 59.980 | 0.007 | 300 | ~85 min | 12.2 s |
-| 2 | 59.986 | 0.003 | 300 | ~88 min | 14.2 s |
-| 3 | 59.987 | 0.002 | 300 | ~85 min | 12.6 s |
+| 1 | TBD | TBD | 300 | TBD | TBD |
+| 2 | TBD | TBD | 300 | TBD | TBD |
+| 3 | TBD | TBD | 300 | TBD | TBD |
 
 三个 seed 的 eval `length_mean = 1200.0`。`success_rate` 为 `null`（同 IP）。
+
+!!! note "Previous: v0.4.7"
+
+    | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|
+    | 1 | 59.980 | 0.007 | 300 | ~85 min | 12.2 s |
+    | 2 | 59.986 | 0.003 | 300 | ~88 min | 14.2 s |
+    | 3 | 59.987 | 0.002 | 300 | ~85 min | 12.6 s |
 
 ### `Genelab-Velocity-Flat-Unitree-G1-v0`
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | 112.419 | 4.647 | 30 000 | ~18.7 h | 143.0 s |
-| 2 | 93.417 | 3.921 | 30 000 | ~20.6 h | 161.0 s |
-| 3 | 92.028 | 4.162 | 30 000 | ~19.8 h | 156.9 s |
+| 1 | TBD | TBD | 30 000 | TBD | TBD |
+| 2 | TBD | TBD | 30 000 | TBD | TBD |
+| 3 | TBD | TBD | 30 000 | TBD | TBD |
 
 三个 seed 的 eval `length_mean = 1000.0`（play_env `episode_length_s =
 20 s` × 50 Hz）。`success_rate` 为 `null`。
+
+!!! note "Previous: v0.4.7"
+
+    | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|
+    | 1 | 112.419 | 4.647 | 30 000 | ~18.7 h | 143.0 s |
+    | 2 | 93.417 | 3.921 | 30 000 | ~20.6 h | 161.0 s |
+    | 3 | 92.028 | 4.162 | 30 000 | ~19.8 h | 156.9 s |
 
 ### `Genelab-Tracking-Flat-Unitree-G1-v0`
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | 137.800 | 0.005 | 30 000 | ~20.8 h | 212.8 s |
-| 2 | 138.047 | 0.004 | 30 000 | ~20.6 h | 216.8 s |
-| 3 | 138.122 | 0.007 | 30 000 | ~20.9 h | 216.0 s |
+| 1 | TBD | TBD | 30 000 | TBD | TBD |
+| 2 | TBD | TBD | 30 000 | TBD | TBD |
+| 3 | TBD | TBD | 30 000 | TBD | TBD |
 
 Eval `length_mean = 1500.0`。Tracking play_env 默认 `episode_length_s =
 1e9` 是为 viewer 无限 playback 设的；`genelab eval` 把它 clamp 到 30 s，
@@ -140,17 +182,37 @@ Eval `length_mean = 1500.0`。Tracking play_env 默认 `episode_length_s =
 三 seed 之间标准差非常紧 —— 收敛策略在 30 s 窗口内稳定跟随 motion clip。
 `success_rate` 为 `null`。
 
+!!! note "Previous: v0.4.7"
+
+    | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|
+    | 1 | 137.800 | 0.005 | 30 000 | ~20.8 h | 212.8 s |
+    | 2 | 138.047 | 0.004 | 30 000 | ~20.6 h | 216.8 s |
+    | 3 | 138.122 | 0.007 | 30 000 | ~20.9 h | 216.0 s |
+
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER，demo 预填)
 
 | Seed | 最终 `return_mean` | `return_std` | `success_rate` | 收敛 timestep | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|---|
-| 1 | −19.264 | 33.334 | 0.89 | 2 000 000（预算上限）| ~68 min | 15.3 s |
-| 2 |  −4.626 |  8.297 | 1.00 | 2 000 000（预算上限）| ~63 min | 14.3 s |
-| 3 |  −4.102 |  7.644 | 1.00 | 2 000 000（预算上限）| ~64 min | 18.7 s |
+| 1 | TBD | TBD | TBD | 2 000 000（预算上限）| TBD | TBD |
+| 2 | TBD | TBD | TBD | 2 000 000（预算上限）| TBD | TBD |
+| 3 | TBD | TBD | TBD | 2 000 000（预算上限）| TBD | TBD |
 
-Eval `length_mean = 100.0`（固定 episode length）。三 seed 平均
-`success_rate ≈ 0.963 ± 0.052`；两个完美 seed 表示策略完全收敛，0.89 那个
-seed 在比较难的 goal pose 上还会差 ~11 % episode（末端朝向 drift）。
+Eval `length_mean = 100.0`（固定 episode length）。`success_rate` 由
+manipulation 任务的 goal-reach termination 给出；每个 seed 的均值和三 seed
+之间的总体均值在 v1.0 跑完之后回填。
+
+!!! note "Previous: v0.4.7"
+
+    | Seed | 最终 `return_mean` | `return_std` | `success_rate` | 收敛 timestep | 训练 wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|---|
+    | 1 | −19.264 | 33.334 | 0.89 | 2 000 000（预算上限）| ~68 min | 15.3 s |
+    | 2 |  −4.626 |  8.297 | 1.00 | 2 000 000（预算上限）| ~63 min | 14.3 s |
+    | 3 |  −4.102 |  7.644 | 1.00 | 2 000 000（预算上限）| ~64 min | 18.7 s |
+
+    三 seed 平均 `success_rate ≈ 0.963 ± 0.052`；两个完美 seed 表示策略完全
+    收敛，0.89 那个 seed 在比较难的 goal pose 上还会差 ~11 % episode（末端
+    朝向 drift）。
 
 ## 训练曲线
 

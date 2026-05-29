@@ -79,13 +79,7 @@ def _save_on_reset(output_cfg: OutputCfg) -> bool:
 
 
 def _to_genesis_options(rec_cfg: RecordingCfg, output_cfg: OutputCfg) -> Any:
-    """Build a Genesis ``RecorderOptions`` instance matching ``output_cfg``.
-
-    The installed ``genesis-world`` exposes the line plotters as
-    :class:`PyQtLinePlot` / :class:`MPLLinePlot`; older snapshots used
-    ``PyQtPlot`` / ``MPLPlot``. Fall back to either spelling for robustness across
-    Genesis versions.
-    """
+    """Build a Genesis ``RecorderOptions`` instance matching ``output_cfg``."""
     from genesis import recorders as gs_recorders
 
     common: dict[str, Any] = {
@@ -96,8 +90,7 @@ def _to_genesis_options(rec_cfg: RecordingCfg, output_cfg: OutputCfg) -> Any:
     title_default = rec_cfg.name
 
     if isinstance(output_cfg, PyQtPlotCfg):
-        cls = _resolve_plot_cls(gs_recorders, "PyQtLinePlot", "PyQtPlot")
-        return cls(
+        return gs_recorders.PyQtLinePlot(
             **common,
             title=output_cfg.title or title_default,
             labels=output_cfg.labels,
@@ -105,8 +98,7 @@ def _to_genesis_options(rec_cfg: RecordingCfg, output_cfg: OutputCfg) -> Any:
             history_length=output_cfg.history_length,
         )
     if isinstance(output_cfg, MPLPlotCfg):
-        cls = _resolve_plot_cls(gs_recorders, "MPLLinePlot", "MPLPlot")
-        return cls(
+        return gs_recorders.MPLLinePlot(
             **common,
             title=output_cfg.title or title_default,
             labels=output_cfg.labels,
@@ -152,15 +144,6 @@ def _to_genesis_options(rec_cfg: RecordingCfg, output_cfg: OutputCfg) -> Any:
     raise TypeError(
         f"RecordingCfg(name={rec_cfg.name!r}): unknown OutputCfg type {type(output_cfg).__name__}"
     )
-
-
-def _resolve_plot_cls(gs_recorders: Any, *names: str) -> Any:
-    """Pick the first attribute that exists on ``gs.recorders`` from ``names``."""
-    for name in names:
-        cls = getattr(gs_recorders, name, None)
-        if cls is not None:
-            return cls
-    raise AttributeError("no plotter class found on genesis.recorders; tried " + ", ".join(names))
 
 
 # Re-export so the call-site can construct handles without importing the class directly.
