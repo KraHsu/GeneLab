@@ -1,6 +1,6 @@
 # 快速开始
 
-环境已经安装好、只想走最短命令路径时，用这一页。命令统一写作裸 `genelab`，前提是已激活
+环境已安装好后的最短命令路径。命令统一写作裸 `genelab`，前提是已激活
 venv（`source .venv/bin/activate`）；原因以及 `uv run --no-sync` 替代方案见
 [安装 → 运行命令](installation.md#_4)。
 

@@ -14,7 +14,7 @@ code to `src/genelab/`.
 | [Rubik's Cube](rubiks-cube.md) | `examples/genelab_examples` | Rigid-object composition and visual interaction. |
 | [Wuji Hand](wuji-hand.md) | `examples/genelab_examples` | Articulated hand playback and asset packaging. |
 
-## Install examples
+## Installing examples
 
 ```bash
 uv pip install -e examples/inverted_pendulum

@@ -3,21 +3,21 @@ hide:
   - toc
 ---
 
-# Build Your First Robot Experiment with GeneLab
+# Building a First Robot Experiment with GeneLab
 
-This tutorial starts from a clean checkout and walks through the smallest useful GeneLab loop:
+Starting from a clean checkout, the smallest useful GeneLab loop runs end to end:
 install the environment, inspect the registries, run the inverted pendulum task, understand how a
 task reaches the Genesis backend, override configuration, launch a short training run, and scaffold
-your own downstream extension project. It then points to the Unitree G1 tasks as the next step for a
-full robot workflow. By the end, you should understand the shape of GeneLab and know where to
+a downstream extension project. The Unitree G1 tasks follow as the next step toward a
+full robot workflow. The end state is a clear picture of GeneLab's shape and where to
 continue into detailed module, API, and best-practice documentation.
 
-The intended reader knows Python and the command line, but is new to GeneLab. You do not need to
-understand every internal module before starting; each step has a concrete result to verify.
+The intended reader knows Python and the command line, but is new to GeneLab. No prior understanding
+of every internal module is required; each step has a concrete result to verify.
 
-## What You Will Build
+## What this builds
 
-You will run the bundled `GeneLab-Inverted-Pendulum-v0` task. It is small, but it covers the core
+The loop runs the bundled `GeneLab-Inverted-Pendulum-v0` task. It is small, but it covers the core
 GeneLab path:
 
 ```text
@@ -34,7 +34,7 @@ CLI
 Larger tasks such as Unitree G1, terrain curricula, sensors, and recording use the same route with a
 larger robot, richer manager terms, and a more complete runner configuration.
 
-## 1. Prepare the Environment
+## 1. Preparing the Environment
 
 From the repository root, sync dependencies:
 
@@ -43,7 +43,7 @@ uv sync --extra torch-cpu
 genelab --version
 ```
 
-If you have an NVIDIA GPU, replace `torch-cpu` with the matching `torch-cu126`, `torch-cu128`, or
+With an NVIDIA GPU, replace `torch-cpu` with the matching `torch-cu126`, `torch-cu128`, or
 `torch-cu130` extra. Pick exactly one `torch-*` extra.
 
 Expected result:
@@ -60,7 +60,7 @@ genelab cache
 
 If dependency sync fails or torch is wrong, read [Installation](getting-started/installation.md).
 
-## 2. Inspect What GeneLab Knows
+## 2. Inspecting What GeneLab Knows
 
 The core `genelab` package provides the framework. Robots, environments, and tasks are registered by
 the asset zoo or extension packages. List the three registries:
@@ -71,7 +71,7 @@ genelab list envs
 genelab list tasks
 ```
 
-You should see bundled asset-zoo robots and any example tasks discovered through entry points. If
+The output lists bundled asset-zoo robots and any example tasks discovered through entry points. If
 the task list is empty, explicitly import the inverted pendulum extension:
 
 ```bash
@@ -86,7 +86,7 @@ The registries are the first architecture boundary:
 | `ENVS` | Environment factories | CLI `list envs`, downstream projects |
 | `TASKS` | Task factories carrying env, play env, and agent cfg | `genelab play`, `genelab train` |
 
-## 3. Run the First Task
+## 3. Running the First Task
 
 Start with a short rollout to verify construction and stepping:
 
@@ -108,7 +108,7 @@ This step follows this path:
 4. `ManagerBasedRlEnv` builds the Genesis scene, robot articulation, sensors, and managers.
 5. The play loop produces actions and calls `env.step(action)`.
 
-## 4. Inspect and Override Task Configuration
+## 4. Inspecting and Overriding Task Configuration
 
 Use `info` to inspect task metadata and overridable paths:
 
@@ -137,7 +137,7 @@ defines one; otherwise they target `env`.
 | `--steps N` | `play_env.simulation.steps=N` | `--max_iterations N` |
 | `--dt X` | `play_env.simulation.dt=X` | `env.simulation.dt=X` |
 
-## 5. Read the Task Source Against the Architecture
+## 5. Reading the Task Source Against the Architecture
 
 The inverted pendulum registration entry point is
 `examples/inverted_pendulum/src/genelab_inverted_pendulum/tasks.py`. It does three things:
@@ -176,7 +176,7 @@ events_cfg={
 This is the main GeneLab capability: RL environments are assembled from replaceable terms instead
 of hiding everything inside one large `step()` function.
 
-## 6. Launch a Short Training Run
+## 6. Launching a Short Training Run
 
 The inverted pendulum task ships with an RSL-RL runner config. Run a tiny training job to verify the
 RL pipeline can construct the env, wrap it as a VecEnv, and write logs/checkpoints:
@@ -211,7 +211,7 @@ genelab play GeneLab-Inverted-Pendulum-v0 \
 
 For environment health checks, use `--agent zero` or `--agent random`.
 
-## 7. Create Your Own Extension Project
+## 7. Creating a Downstream Extension Project
 
 GeneLab expects real projects to live in their own Python packages rather than under
 `src/genelab/`. Generate a scaffold:
@@ -253,7 +253,7 @@ PYTHONPATH=my_robot_project/src \
   genelab --import my_robot_project.tasks list tasks
 ```
 
-## 8. Continue to Unitree G1
+## 8. Continuing to Unitree G1
 
 The Unitree G1 example uses the same architecture with a humanoid robot, larger action and
 observation spaces, command sampling, RSL-RL training, and motion imitation.
@@ -265,7 +265,7 @@ uv pip install -e examples/unitree
 genelab list tasks
 ```
 
-You should see:
+The task list now includes:
 
 ```text
 Genelab-Velocity-Flat-Unitree-G1-v0
@@ -289,7 +289,7 @@ Read [Unitree G1](examples/unitree-g1.md) for the full training and replay comma
 
 ## 9. GeneLab Capability Map
 
-You have now walked through the smallest useful loop and seen where the larger robot example fits.
+This completes the smallest useful loop and shows where the larger robot example fits.
 GeneLab can be understood in four layers:
 
 | Layer | Modules | Role |
@@ -304,7 +304,7 @@ GeneLab can be understood in four layers:
 - For more commands, read [CLI overview](cli/overview.md) and [Play and Train](cli/play-train.md).
 - For architecture, read [Module map](reference/module-map.md) and
   [Managers and MDP terms](concepts/managers.md).
-- To write your own task, read [Task design](best-practices/task-design.md) and
+- To write a task, read [Task design](best-practices/task-design.md) and
   [Extensions](concepts/extensions.md).
 - To look up APIs, read [API Reference](api/reference.md).
 - For complete demos, read [Examples](examples/overview.md).

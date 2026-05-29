@@ -1,8 +1,8 @@
 # Runtime: play and train
 
 `play` runs a registered task. `train` runs a registered task through a supported runner when the
-task provides an agent config. This page also covers the post-training runtime subcommands —
-`eval`, `export`, and `benchmark` — which take the same checkpoint produced by `train`.
+task provides an agent config. The post-training runtime subcommands —
+`eval`, `export`, and `benchmark` — take the same checkpoint produced by `train`.
 
 ## Play
 
@@ -143,8 +143,7 @@ GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
 ## Post-training subcommands
 
 `eval`, `export`, and `benchmark` all take a registered task plus a checkpoint and reuse the
-task's play env config — see [Eval and export](../concepts/eval-and-export.md) for the
-conceptual picture and script-level details.
+task's play env config.
 
 ### Eval
 
@@ -194,6 +193,5 @@ genelab play TASK_ID \
 ## See also
 
 - [Run RL Experiments](../best-practices/rl-experiments.md)
-- [CLI Reference](../reference/cli.md)
 - [RL runner](../concepts/rl-runner.md)
 - [Eval and export](../concepts/eval-and-export.md)

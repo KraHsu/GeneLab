@@ -1,6 +1,6 @@
 # 安装
 
-这页是专门的安装检查清单。完整学习路径请从[教程](../tutorial.md)开始。
+专门的安装检查清单。完整学习路径请从[教程](../tutorial.md)开始。
 
 ## 要求
 
@@ -42,7 +42,7 @@ uv sync --reinstall-package torch --extra torch-cu128
 
     `uv run` 会在**每条**命令前隐式执行一次 `uv sync`。而 PyTorch 各构建是互斥的 extra
     （`torch-cpu` / `torch-cu126` / `torch-cu128` / `torch-cu130`），**不在**默认同步集合里，
-    因此每次 `uv run` 都会卸载并重装 torch、并改写你上面选定的 extra —— 既慢，又可能悄悄把你的
+    因此每次 `uv run` 都会卸载并重装 torch、并改写上面选定的 extra —— 既慢，又可能悄悄把当前的
     CUDA 构建换掉。请改用下面两种方式之一。
 
 === "激活 venv（推荐）"
@@ -67,7 +67,7 @@ uv sync --reinstall-package torch --extra torch-cu128
 !!! note "为什么 `uv sync` 和 `uv pip install` 仍保留 `uv` 前缀"
 
     真正的坑只有 `uv run` —— 它在**执行**前会重新解析项目并把 venv 同步到该状态。而 `uv sync`
-    是那次由**你**指定 torch 构建的、唯一一次有意的同步；`uv pip install -e …` 则是 `uv` 的
+    是唯一一次有意指定 torch 构建的同步；`uv pip install -e …` 则是 `uv` 的
     pip 兼容安装器：它直接装进当前 venv，不会重新解析项目、也不碰 extra，因此绝不会重装 torch。
     两者都可以放心保留。
 

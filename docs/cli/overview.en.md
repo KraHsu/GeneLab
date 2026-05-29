@@ -56,7 +56,6 @@ When stdin is a TTY, the CLI can prompt for a missing task id, unknown registry 
 
 ## See also
 
-- [CLI Reference](../reference/cli.md)
 - [Discovery: list and info](list-info.md)
 - [Play and Train](play-train.md)
 - [Eval and export](../concepts/eval-and-export.md)

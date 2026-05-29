@@ -1,10 +1,10 @@
 # Quickstart
 
-Use this page when the environment is already installed and you want the shortest command path.
+The shortest command path once the environment is already installed.
 Commands are written as a bare `genelab`, which assumes the venv is active (`source .venv/bin/activate`);
 see [Installation → Run commands](installation.md#run-commands) for the why and for the `uv run --no-sync` alternative.
 
-## 1. List registered content
+## 1. Listing registered content
 
 ```bash
 genelab list robots
@@ -19,7 +19,7 @@ PYTHONPATH=examples/inverted_pendulum/src \
   genelab --import genelab_inverted_pendulum.tasks list tasks
 ```
 
-## 2. Inspect a task
+## 2. Inspecting a task
 
 ```bash
 genelab info GeneLab-Inverted-Pendulum-v0
@@ -51,7 +51,7 @@ genelab train GeneLab-Inverted-Pendulum-v0 \
   --max_iterations 300
 ```
 
-## 5. Scaffold a project
+## 5. Scaffolding a project
 
 ```bash
 genelab project new my_robot_project

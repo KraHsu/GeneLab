@@ -10,7 +10,7 @@ GeneLab scales to humanoid locomotion and motion imitation.
 | `Genelab-Velocity-Flat-Unitree-G1-v0` | Velocity tracking on flat ground. |
 | `Genelab-Tracking-Flat-Unitree-G1-v0` | Reference motion tracking. |
 
-## Install
+## Installing
 
 ```bash
 uv pip install -e examples/unitree

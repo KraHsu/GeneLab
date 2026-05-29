@@ -2,7 +2,7 @@
 
 GeneLab 通过 `genelab.rl.maybe_profile` 把 profiler 标志转发给 `torch.profiler`。
 
-## 启用 profiling
+## 启用性能剖析
 
 ```bash
 genelab train TASK_ID \
@@ -21,7 +21,7 @@ genelab prof open <log_dir> --port 6007 # 指定 TensorBoard 端口
 genelab prof open <log_dir> --host 0.0.0.0
 ```
 
-## 参数
+## 标志
 
 | 标志 | 等价环境变量 | 含义（默认） |
 |---|---|---|
@@ -34,7 +34,7 @@ genelab prof open <log_dir> --host 0.0.0.0
 | `--prof-record-shapes` | `GENELAB_PROFILE_RECORD_SHAPES` | 记录 tensor shape。 |
 | `--prof-with-stack` | `GENELAB_PROFILE_WITH_STACK` | 捕获 Python stack，开销更高。 |
 
-命令行 flag 始终优先于环境变量。
+命令行标志始终优先于环境变量。
 
 ## 实用默认值
 

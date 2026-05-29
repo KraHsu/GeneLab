@@ -1,6 +1,6 @@
 # Eval and Export
 
-This page covers GeneLab's research-reproducibility tooling under
+GeneLab's research-reproducibility tooling under
 `genelab.rl.evaluator` / `eval_callback` / `exporter`, surfaced as three
 CLIs that close the **train → eval → export** loop:
 

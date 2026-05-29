@@ -1,6 +1,6 @@
 # Eval 与 Export
 
-本页介绍 GeneLab 的研究复现工具链 —— `genelab.rl.evaluator` / `eval_callback`
+GeneLab 的研究复现工具链 —— `genelab.rl.evaluator` / `eval_callback`
 / `exporter`，对应三条 CLI，把 **train → eval → export** 闭环串起来：
 
 | 命令 | 用途 | 输出 |

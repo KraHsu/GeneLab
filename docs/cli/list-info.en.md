@@ -3,7 +3,7 @@
 Use `list` to see what extensions registered. Use `info` to inspect one registered object and copy
 override paths.
 
-## List registries
+## Listing registries
 
 ```bash
 genelab list robots
@@ -24,7 +24,7 @@ To see only the bundled asset zoo (skip user-installed entry-point extensions):
 genelab --no-entry-points list robots
 ```
 
-## Inspect any registered name
+## Inspecting any registered name
 
 ```bash
 genelab info GeneLab-Inverted-Pendulum-v0   # task
@@ -32,19 +32,19 @@ genelab info CartPole-Env-v0                # env
 genelab info anymal_c                       # robot
 ```
 
-`info` does not require you to know which registry the name belongs to. Task views additionally
+`info` does not require knowing which registry the name belongs to. Task views additionally
 include:
 
 | Section | Meaning |
 |---|---|
 | Metadata | Registered name, description, cfg type, examples. |
 | Task config | `TaskCfg` summary: env, robot, trainable flag, agent. |
-| Overridable paths | Dotted paths accepted by `play` and `train`. |
+| Override paths | Dotted paths accepted by `play` and `train`. |
 
 If the inspected task needs an asset that isn't cached yet, `info` fetches it inline behind the
 same progress bar used by `play` / `train` / `asset download`.
 
-## Use copied override paths
+## Using copied override paths
 
 ```bash
 genelab play GeneLab-Inverted-Pendulum-v0 \
@@ -52,7 +52,7 @@ genelab play GeneLab-Inverted-Pendulum-v0 \
 ```
 
 When `play_env` exists, play-mode shortcut flags (`--vis` / `--gpu` / `--dt` / `--steps`) target
-`play_env`; explicit dotted paths still write the exact subtree you spelled.
+`play_env`; explicit dotted paths still write the exact subtree as written.
 
 ## See also
 

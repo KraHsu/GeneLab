@@ -1,6 +1,6 @@
 # Installation
 
-This page is the focused installation checklist. For the full learning path, start with the
+A focused installation checklist. For the full learning path, start with the
 [tutorial](../tutorial.md).
 
 ## Requirements
@@ -12,7 +12,7 @@ This page is the focused installation checklist. For the full learning path, sta
 | Simulator backend | `genesis-world>=0.4.7` |
 | PyTorch | `torch>=2.8.0` through one `torch-*` extra |
 
-## Sync the environment
+## Syncing the environment
 
 From the repository root:
 
@@ -35,7 +35,7 @@ Refresh an existing torch install:
 uv sync --reinstall-package torch --extra torch-cu128
 ```
 
-## Run commands
+## Running commands { #run-commands }
 
 The rest of these docs invoke the CLI as a **bare `genelab`** (and a bare `python`) — *not*
 `uv run genelab`.
@@ -45,7 +45,7 @@ The rest of these docs invoke the CLI as a **bare `genelab`** (and a bare `pytho
     `uv run` performs an implicit `uv sync` before **every** command. The PyTorch builds ship as
     mutually-exclusive extras (`torch-cpu` / `torch-cu126` / `torch-cu128` / `torch-cu130`) that are
     **not** part of the default sync set, so each `uv run` uninstalls and reinstalls torch and
-    rewrites the extra you selected above — slow, and it can silently flip your CUDA build. Use one
+    rewrites the extra selected above — slow, and it can silently flip the CUDA build. Use one
     of the two ways below instead.
 
 === "Activate the venv (recommended)"
@@ -70,12 +70,12 @@ The rest of these docs invoke the CLI as a **bare `genelab`** (and a bare `pytho
 !!! note "Why `uv sync` and `uv pip install` keep the `uv` prefix"
 
     Only `uv run` is the footgun — it re-resolves the project and reconciles the venv before
-    *executing*. `uv sync` is the one deliberate sync where **you** choose the torch build, and
+    *executing*. `uv sync` is the one deliberate sync that selects the torch build, and
     `uv pip install -e …` is `uv`'s pip-compatible installer: it installs into the active venv
     without re-resolving the project or touching extras, so it never reinstalls torch. Both are
     safe to keep.
 
-## Create local caches
+## Creating local caches
 
 ```bash
 genelab cache
@@ -84,7 +84,7 @@ genelab cache
 The command creates writable project-local cache directories and points `XDG_CACHE_HOME` and
 `MPLCONFIGDIR` at `.cache/`.
 
-## Verify imports
+## Verifying imports
 
 ```bash
 python -c "import genelab; print(genelab.__version__)"
@@ -93,7 +93,7 @@ python -c "import torch; print(torch.__version__, torch.version.cuda)"
 python -c "import genesis; print(genesis.__version__)"
 ```
 
-## Install example extensions
+## Installing example extensions
 
 The core package is a framework; tasks are registered by extensions.
 
@@ -103,7 +103,7 @@ uv pip install -e examples/genelab_examples
 genelab list tasks
 ```
 
-Install Unitree only when you want the larger humanoid examples:
+Install Unitree only for the larger humanoid examples:
 
 ```bash
 uv pip install -e examples/unitree

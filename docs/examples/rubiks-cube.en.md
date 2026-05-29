@@ -9,7 +9,7 @@ interaction.
 GeneLab-Rubiks-Play-v0
 ```
 
-## Run
+## Running
 
 ```bash
 uv pip install -e examples/genelab_examples
