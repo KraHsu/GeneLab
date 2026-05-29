@@ -29,7 +29,7 @@ robots / envs / tasks 数量。
 
 ## 扩展加载顺序
 
-每个需要 registry 数据的命令按以下顺序加载扩展：
+每个需要注册表数据的命令按以下顺序加载扩展：
 
 1. 通过 `load_bundled_asset_zoo()` 装入随包的 asset zoo 机器人。
 2. 已安装的 `genelab.extensions` entry points（除非传 `--no-entry-points`）。

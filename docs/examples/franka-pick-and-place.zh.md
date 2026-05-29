@@ -31,7 +31,7 @@ PYTHONPATH=examples/franka_pick_and_place/src \
 
 第一次运行会下载 Franka MJCF 资产并构建 Genesis kernel cache。
 
-## Smoke 训练
+## smoke 训练
 
 ```bash
 genelab train GeneLab-Franka-Pick-And-Place-v0 \
