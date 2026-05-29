@@ -29,6 +29,7 @@ from genelab.mdp.rewards.regularization import (
     upright_exp,
     variable_posture,
 )
+from genelab.mdp.rewards.tactile import contact_count, contact_intensity_l2
 from genelab.mdp.rewards.tracking import (
     motion_global_anchor_orientation_error_exp,
     motion_global_anchor_position_error_exp,
@@ -47,6 +48,8 @@ __all__ = [
     "applied_torque_l2",
     "base_height_l2",
     "body_angular_velocity_penalty",
+    "contact_count",
+    "contact_intensity_l2",
     "feet_air_time",
     "feet_clearance",
     "feet_slip",
