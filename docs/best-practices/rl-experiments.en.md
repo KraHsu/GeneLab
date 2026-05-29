@@ -1,8 +1,8 @@
 # How to Run RL Experiments
 
-This guide describes the practical flow for training and replaying GeneLab tasks with `genelab.rl`.
+The practical flow for training and replaying GeneLab tasks with `genelab.rl`.
 
-## 1. Smoke-test before training
+## 1. Smoke-testing before training
 
 Run these before any long job:
 
@@ -16,7 +16,7 @@ genelab train TASK_ID --num_envs 64 --max_iterations 2
 This checks registry loading, env construction, action dimensions, observation groups, rewards,
 terminations, and runner wiring.
 
-## 2. Pick the policy source for playback
+## 2. Picking the policy source for playback
 
 | Agent | Behavior | Use case |
 |---|---|---|
@@ -34,7 +34,7 @@ genelab play TASK_ID \
 
 Passing `--checkpoint` defaults `--agent` to `trained`.
 
-## 3. Control env count deliberately
+## 3. Controlling env count deliberately
 
 Single process:
 
@@ -49,9 +49,9 @@ genelab train TASK_ID --gpus 4 --num_envs 4096
 ```
 
 With `--gpus 4`, `--num_envs 4096` means 4096 total, 1024 per rank. Use
-`--num_envs_per_gpu` when you want to specify the per-rank value directly.
+`--num_envs_per_gpu` to specify the per-rank value directly.
 
-## 4. Keep logs reproducible
+## 4. Keeping logs reproducible
 
 Use meaningful `experiment_name` and `run_name` in `RslRlOnPolicyRunnerCfg`. GeneLab writes:
 
@@ -62,10 +62,10 @@ logs/rsl_rl/<experiment>/<timestamp-or-run>/
 └── model_*.pt
 ```
 
-Use `--log_dir PATH` only when you need an exact output directory, such as a distributed relaunch or
+Use `--log_dir PATH` only for an exact output directory, such as a distributed relaunch or
 scripted comparison.
 
-## 5. Profile short runs first
+## 5. Profiling short runs first
 
 ```bash
 genelab train TASK_ID \

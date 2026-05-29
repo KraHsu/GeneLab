@@ -1,6 +1,6 @@
 # 如何调试常见问题
 
-这份指南列出 GeneLab 常见失败的最短排查路径。
+GeneLab 常见失败的最短排查路径。
 
 ## Unknown task
 

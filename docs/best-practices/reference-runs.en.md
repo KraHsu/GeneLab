@@ -1,9 +1,9 @@
 # Reference Runs
 
-This page is the **reproducibility ground truth** for GeneLab's bundled tasks.
+The **reproducibility ground truth** for GeneLab's bundled tasks.
 It lists, per registered task and per seed, the converged return, the
-convergence step count, and the wall-clock budget — the numbers you should
-expect to land on when you `clone → train → eval` against the same
+convergence step count, and the wall-clock budget — the numbers to
+expect from a `clone → train → eval` against the same
 configuration.
 
 ## Reference tasks
@@ -88,11 +88,11 @@ deterministic rollout step but is much slower than GPU-vectorized.
     physics steps on the CPU while the policy/tensors sit on the GPU, leaving the GPU idle
     and training **~50–100× slower** (contact-heavy tasks like G1 go from a few s to hundreds
     of s per iteration). Bundled trainable tasks set `gpu=True`; **custom tasks must do the
-    same**. If `nvidia-smi` shows your training GPU near 0 % during steps, this is almost
+    same**. If `nvidia-smi` shows the training GPU near 0 % during steps, this is almost
     certainly why.
 
 !!! note "Hopper (H100/H200) and multi-GPU caveats"
-    - On **Hopper (SM 90)** you must set `QD_GRAPH=0` (Genesis ships no SM 90 `graph_do_while`
+    - On **Hopper (SM 90)**, set `QD_GRAPH=0` (Genesis ships no SM 90 `graph_do_while`
       fatbin); this disables CUDA-graph batching and badly slows **contact-heavy** sims. Prefer
       a non-Hopper GPU (Ada / Ampere) for locomotion reproduction.
     - Multi-GPU (`genelab train --gpus N`) gives **little speedup for G1** (per-step cost +

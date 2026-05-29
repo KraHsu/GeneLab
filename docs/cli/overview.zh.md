@@ -55,7 +55,6 @@ genelab play TASK_ID --env.simulation.dt 0.005
 
 ## 另见
 
-- [CLI 参考](../reference/cli.md)
 - [发现：list 与 info](list-info.md)
 - [play 与 train](play-train.md)
 - [Eval 与 export](../concepts/eval-and-export.md)

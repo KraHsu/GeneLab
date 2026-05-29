@@ -18,10 +18,13 @@ actuator configs attached to an `ArticulationCfg`.
 | `DCMotorActuator` | Extends ideal PD with motor limits and saturation behavior. |
 | `MlpResidualActuator` | Extends `DCMotorActuator` with a TorchScript residual torque model. |
 
+`MujocoStyleActuatorCfg` is a convenience config for `IdealPDActuator` — see
+[MJCF-style actuator configuration](#mjcf-style-actuator-configuration) below.
+
 Actuators match joint groups by configured names or expressions, then expose dimensions and control
 logic to action terms.
 
-## Use `MlpResidualActuatorCfg`
+## Using `MlpResidualActuatorCfg`
 
 Use `MlpResidualActuatorCfg` when a robot already has a usable DC-motor model but hardware logs show
 a repeatable torque-tracking gap. The actuator loads a TorchScript module from `network_file` and
@@ -59,6 +62,29 @@ first use:
 ```bash
 genelab play GeneLab-MlpResidual-Actuator-Showcase-v0 --steps 5
 ```
+
+## MJCF-style actuator configuration { #mjcf-style-actuator-configuration }
+
+`MujocoStyleActuatorCfg` translates a Mujoco general actuator into an `IdealPDActuator`. Use it when
+a robot declares actuators in MJCF as `dyntype=none`, `gaintype=fixed`, `biastype=affine`, and
+hand-writing the equivalent `stiffness` / `damping` would obscure the original source of truth.
+
+```python
+from genelab.actuator import MujocoStyleActuatorCfg
+
+robot_cfg.actuators["arm"] = MujocoStyleActuatorCfg(
+    target_names_expr=("joint[1-7]",),
+    gear=1.0,
+    bias_prm=(0.0, -200.0, -5.0),  # constant, qpos, qvel terms
+    effort_limit=80.0,
+)
+# Equivalent to IdealPDActuatorCfg(stiffness=200.0, damping=5.0, effort_limit=80.0).
+```
+
+Any other dyntype / gaintype / biastype combination is rejected (Genesis's own MJCF parser also logs
+a warning for the same combination), and `bias_prm[0]` must be zero — `IdealPDActuator` has no
+constant bias-torque term. The final `stiffness` / `damping` are computed as `-gear * bias_prm[1]`
+and `-gear * bias_prm[2]`.
 
 ## Design guidance
 

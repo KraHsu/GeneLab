@@ -1,6 +1,6 @@
 # 如何设计 GeneLab 任务
 
-这份指南说明如何组织一个容易运行、检查、训练和扩展的 GeneLab task。
+一个组织良好的 GeneLab task 应当容易运行、检查、训练和扩展。
 
 ## 1. 先定 task id
 

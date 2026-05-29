@@ -1,8 +1,8 @@
 # 运行时：play 与 train
 
 `play` 运行已注册任务。`train` 在 task 提供 agent 配置时，通过支持的 runner 训练任务。
-这一页还覆盖训练后用同一个 checkpoint 做 `eval` / `export` / `benchmark` 的几条
-runtime 子命令。
+训练后的 `eval` / `export` / `benchmark` 几条 runtime 子命令，复用 `train` 产出的同一个
+checkpoint。
 
 ## Play
 
@@ -45,7 +45,7 @@ genelab play TASK_ID \
       --checkpoint <ckpt> --headless
     ```
 
-## 简写 flag
+## 简写标志
 
 `play` 和 `train` 都会把以下简写改写为 `env.simulation.*` override：
 
@@ -106,7 +106,7 @@ genelab train TASK_ID --seeds 1,2,3,4 --parallel 2 --num_envs 4096
 
 ## RL 后端
 
-训练后端由 task 的 agent 配置类型自动选择，无需任何 flag：
+训练后端由 task 的 agent 配置类型自动选择，无需任何标志：
 
 | Agent 配置 | 后端 | 算法 |
 |---|---|---|
@@ -140,8 +140,7 @@ GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz \
 ## 训练后的工具命令
 
 `eval`、`export`、`benchmark` 都以已注册 task + checkpoint 作为入参，复用 task 的
-play env 配置——理论上的概念与脚本细节见
-[Eval 与 export](../concepts/eval-and-export.md)。
+play env 配置。
 
 ### Eval
 
@@ -191,6 +190,5 @@ genelab play TASK_ID \
 ## 另见
 
 - [运行 RL 实验](../best-practices/rl-experiments.md)
-- [CLI 参考](../reference/cli.md)
 - [RL runner](../concepts/rl-runner.md)
 - [Eval 与 export](../concepts/eval-and-export.md)

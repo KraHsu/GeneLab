@@ -1,7 +1,7 @@
 # Module Map
 
-This reference maps GeneLab's public modules to the part of the system they own. Use it when you
-know what you want to change but need the right import path.
+GeneLab's public modules map to the part of the system they own — useful when the change is known
+but the right import path is not.
 
 ## Public facade
 
@@ -11,7 +11,7 @@ know what you want to change but need the right import path.
 | `genelab` | Lightweight package root. It lazily re-exports a few top-level types without importing torch. | `__version__`, `TaskCfg`, `ManagerBasedEnvCfg` |
 
 Prefer `genelab.lab` in notebooks, downstream tasks, and examples unless a lower-level module is
-documented as the owner of the API you need.
+documented as the owner of the API in question.
 
 ## Discovery and dispatch
 
