@@ -12,10 +12,21 @@ genelab [global options] <command> [arguments]
 
 | Area | Commands |
 |---|---|
-| Registry discovery | `list robots`, `list envs`, `list tasks`, `info NAME` |
-| Runtime | `play TASK`, `train TASK` |
+| Registry | `list robots\|envs\|tasks`, `info NAME`, `asset list\|info\|download\|purge` |
+| Runtime | `play TASK`, `train TASK`, `eval TASK CHECKPOINT`, `export TASK CHECKPOINT`, `benchmark --suite ...` |
+| Project | `project new NAME` |
 | Utilities | `cache`, `prof open` |
-| Project scaffolding | `project new NAME` |
+
+Running `genelab` with no subcommand prints a landing page with quickstart commands and a count of
+registered robots / envs / tasks.
+
+## Global options
+
+| Option | Meaning |
+|---|---|
+| `--version` | Print the version and exit. |
+| `--import MODULE` | Import an extension module before dispatch; repeatable. |
+| `--no-entry-points` | Skip extensions from the `genelab.extensions` entry-point group. |
 
 ## Extension loading order
 
@@ -30,7 +41,7 @@ Use entry points for daily work and `--import` for local experiments.
 ## Overrides
 
 Runtime commands accept unknown `--a.b.c VALUE` options after the task id. The CLI forwards them to
-`apply_overrides`.
+`apply_overrides`:
 
 ```bash
 genelab play TASK_ID --env.simulation.dt 0.005
@@ -48,3 +59,4 @@ When stdin is a TTY, the CLI can prompt for a missing task id, unknown registry 
 - [CLI Reference](../reference/cli.md)
 - [Discovery: list and info](list-info.md)
 - [Play and Train](play-train.md)
+- [Eval and export](../concepts/eval-and-export.md)
