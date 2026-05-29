@@ -88,6 +88,20 @@ All notable changes to GeneLab are recorded here.
   entries the file ships in the wheel rather than via the
   `KraHsu/genelab-assets` mirror — appropriate scope for a tiny
   showcase, not a precedent for new robots.
+- **`Avatar` kinematic entity.** Added `src/genelab/entity/avatar.py`
+  with `Avatar` + `AvatarCfg`, a sibling to `RigidObject` that wraps
+  Genesis 1.0's `KinematicEntity` (the v0.4.1 "avatar" concept rebadged
+  in v1.0). Avatars participate in the visual / sensor pipeline but
+  are ignored by the rigid solver — no contacts, no constraints —
+  making them the right shape for scripted scene actors (motion-clip
+  ghosts, target reference markers, follow-the-leader demonstrators).
+  Per-step pose updates flow through `avatar.set_pose(pos, quat)`.
+- **`InteractiveSceneCfg.use_rasterizer` toggle.** Added a new bool
+  field (default `False`) that's forwarded to
+  `gs.renderers.BatchRenderer(use_rasterizer=…)` when `batch_render=True`.
+  `False` keeps the raytracer (default, higher fidelity), `True`
+  switches to the rasterizer (faster batched rendering when
+  photorealism isn't required). Ignored when `batch_render=False`.
 
 ### Changed
 

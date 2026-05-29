@@ -44,6 +44,41 @@ Genesis APIs and Isaac Lab-style task code use different vocabulary. Wrappers is
 difference: MDP terms read stable GeneLab properties while the backend integration handles Genesis
 details.
 
+## Avatar (kinematic) entities
+
+Use the `Avatar` entity when a body should appear in the scene visually but
+**not** participate in physics — typical use cases are scripted motion-clip
+ghosts, target reference markers, or a "follow-the-leader" demonstrator that
+the env writes a pose to each step without exerting force on the rest of the
+scene.
+
+```python
+from genelab.entity import Avatar, AvatarCfg
+
+ghost = Avatar(
+    AvatarCfg(morph="box", size=(0.1, 0.1, 0.1), init_pos=(0.0, 0.0, 1.0)),
+    name="motion_ghost",
+)
+ghost.spawn(scene)
+# every env step:
+ghost.set_pose(target_pos, target_quat)
+```
+
+The avatar is backed by Genesis 1.0's `Kinematic` material so the rigid
+solver leaves it alone (no contacts, no constraints), but sensors and cameras
+still see it.
+
+## Rasterizer toggle for batched rendering
+
+`InteractiveSceneCfg.use_rasterizer` (default `False`) controls which
+backend Genesis's `BatchRenderer` uses when `batch_render=True`:
+
+- `False` — raytracer (default; higher fidelity, slower).
+- `True` — rasterizer (substantially faster batched rendering when
+  photorealism isn't required).
+
+Ignored when `batch_render=False`, since no `BatchRenderer` is constructed.
+
 ## Camera debug helpers
 
 `InteractiveScene` exposes two thin wrappers around Genesis 1.0's debug-draw
