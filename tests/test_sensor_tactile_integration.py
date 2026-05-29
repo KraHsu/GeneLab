@@ -26,17 +26,42 @@ from genelab.sensor.tactile_elastomer import ElastomerTactileSensorCfg  # noqa: 
 from genelab.sensor.tactile_pointcloud import PointCloudTactileSensorCfg  # noqa: E402
 
 
-@pytest.fixture(scope="module")
-def gs_initialized() -> None:
-    """Ensure Genesis is initialised exactly once across the whole test session.
+def _scene_build_supported() -> bool:
+    """Return True if ``gs.Scene(...).build()`` can run in this environment.
 
-    ``gs.init`` raises if it has already been called, but other test files in the
-    suite (recording / interactive_scene / m4_sensor_integration) also call it,
-    and pytest may interleave with them. Guard on ``gs._initialized`` so this
-    fixture is a no-op when a sibling test ran ``gs.init`` first.
+    Genesis always constructs an offscreen pyrender renderer inside
+    ``scene.build()``, which requires EGL / a display backend. Headless CI
+    runners typically lack both, so this probe lets us skip the integration
+    smoke gracefully there without disabling the local pass.
     """
     if not getattr(gs, "_initialized", False):
-        gs.init(backend=gs.cpu, logging_level="warning")
+        try:
+            gs.init(backend=gs.cpu, logging_level="warning")
+        except Exception:
+            return False
+    try:
+        probe = gs.Scene(show_viewer=False)
+        probe.add_entity(gs.morphs.Plane())
+        probe.build(n_envs=1)
+    except Exception:
+        return False
+    return True
+
+
+_SCENE_BUILD_SUPPORTED = _scene_build_supported()
+
+pytestmark = pytest.mark.skipif(
+    not _SCENE_BUILD_SUPPORTED,
+    reason="gs.Scene.build() unsupported in this environment (no display / EGL)",
+)
+
+
+@pytest.fixture(scope="module")
+def gs_initialized() -> None:
+    """``gs.init`` is already called by ``_scene_build_supported``; this fixture
+    is kept so the per-test signatures stay explicit about the global Genesis state.
+    """
+    return None
 
 
 def _entity_wrapper(gs_handle: Any, link_names: list[str]) -> Any:
