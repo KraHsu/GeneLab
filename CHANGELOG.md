@@ -16,9 +16,25 @@ All notable changes to GeneLab are recorded here.
   the blessed `lab.__all__` and `extensions.__all__` public surfaces.
 - **MDP package structure:** split rewards into the `mdp/rewards` package while preserving the
   existing `genelab.mdp` import surface.
+- **`genelab asset` CLI command group:** added `asset {list,info,download,purge}`
+  for managing the bundled asset-zoo cache. `asset list` enumerates every
+  `AssetSpec` declared under `genelab.asset_zoo` with downloaded / not-downloaded
+  status + on-disk size; `asset info NAME` shows URL / md5 / cache path; `asset
+  download NAME` (or `--all`, `--force`) explicitly downloads through the
+  existing `fetch_asset` / md5-verify path; `asset purge NAME` (or `--all`,
+  `--yes`) removes a cached asset. Discovery walks the zoo's submodules, so
+  adding a new robot automatically shows up under `asset list` without any
+  registration call.
 
 ### Changed
 
+- **Asset-download progress bar reaches every CLI surface.** `genelab export`
+  now wraps its task-construction step in the same `fetch_progress()` Rich
+  callback every other CLI surface uses (`play`, `train`, `eval`, `info`, the
+  new `asset *` subcommands), so a first-touch asset download from any command
+  renders a progress bar instead of staying silent. The download infrastructure
+  itself was already callback-driven; only `_export` was missing the
+  `with fetch_progress():` block.
 - **Breaking:** removed `lab.GenesisBackendCfg`.
 - **Breaking:** renamed the environment registration protocol from `lab.ManagerBasedEnv` to
   `lab.ManagerBasedEnvProtocol`.
