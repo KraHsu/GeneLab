@@ -3,7 +3,7 @@
 `InteractiveScene` 是 GeneLab 的 Genesis scene owner。它把声明式配置转换成 live Genesis handle，
 并向环境其他部分暴露 Isaac Lab 风格的 entity wrapper。
 
-## Scene 边界
+## 场景边界
 
 `InteractiveSceneCfg` 描述应该存在什么：env spacing、entities、terrain、sensors、recordings、
 viewer interaction、batch rendering。`InteractiveScene` 持有实际存在的东西：Genesis `Scene`、
@@ -11,7 +11,7 @@ articulation、rigid object、sensor、terrain importer、recorder bridge 和 vi
 
 这种分离让配置可序列化，也让任务能在 Genesis 启动前被检查。
 
-## Entities
+## 实体
 
 | Entity | 用途 |
 |---|---|
@@ -60,7 +60,7 @@ ghost.set_pose(target_pos, target_quat)
 底层用 Genesis 1.0 的 `Kinematic` 材质，刚体求解器不管它（无接触、无约束），
 但传感器和相机依然能看到。
 
-## 批渲染的 rasterizer 开关
+## 批渲染的光栅化开关
 
 `InteractiveSceneCfg.use_rasterizer`（默认 `False`）控制 `batch_render=True`
 时 `BatchRenderer` 用什么后端：

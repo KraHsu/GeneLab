@@ -2,7 +2,7 @@
 
 `genelab.mdp` 是可复用 term 库。它本身不定义任务；任务配置从这个库里选择函数和类，并接到 manager 中。
 
-## Actions 与 commands
+## 动作与命令
 
 | 区域 | 公开组件 |
 |---|---|
@@ -13,7 +13,7 @@
 
 action 把策略输出转换为仿真控制。command 持有 observation 和 reward 可读取的采样目标。
 
-### Action terms
+### 动作 term
 
 | Term | Action dim | 说明 |
 |---|---:|---|
@@ -33,21 +33,21 @@ action 把策略输出转换为仿真控制。command 持有 observation 和 rew
 手臂 term 组合使用；例如 Franka Cartesian 抓取放置任务把 `DifferentialIKAction(body_name="hand")`
 和 `BinaryGripperAction` 组合成 4 维 `(dx, dy, dz, gripper)` action space。
 
-## Observations
+## 观测
 
 常见 observation 函数包括 base velocity、projected gravity、relative joint position/velocity、
 last action、generated commands、sensor data、contact 特征、terrain height scan 和 motion-tracking 状态。
 
 observation 函数应返回 `(num_envs, d)` 或 `(num_envs,)` tensor。Observation manager 负责可选噪声、缩放、裁剪和 group concat。
 
-## Rewards 与 terminations
+## 奖励与终止
 
 reward 函数覆盖速度跟踪、action 平滑、关节加速度、姿态、关节限制、足端 clearance、slip、air time、
 self collision、角动量和 motion-tracking 误差。termination 函数覆盖 time-out、姿态、root height 和 motion-tracking 失败。
 
 reward 函数应返回 `(num_envs,)`；termination 函数应返回 `(num_envs,)` bool tensor。
 
-## Events、curricula、metrics、noise
+## 事件、课程、指标、噪声
 
 | 区域 | 示例 |
 |---|---|
