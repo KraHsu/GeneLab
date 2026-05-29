@@ -13,6 +13,7 @@ from genelab.actuator.dc_motor import DCMotorActuator, DCMotorActuatorCfg
 from genelab.actuator.ideal_pd import IdealPDActuator, IdealPDActuatorCfg
 from genelab.actuator.implicit_pd import ImplicitPDActuator, ImplicitPDActuatorCfg
 from genelab.actuator.mlp_residual import MlpResidualActuator, MlpResidualActuatorCfg
+from genelab.actuator.mujoco_style import MujocoStyleActuatorCfg
 
 __all__ = [
     "ActuatorBase",
@@ -25,4 +26,5 @@ __all__ = [
     "ImplicitPDActuatorCfg",
     "MlpResidualActuator",
     "MlpResidualActuatorCfg",
+    "MujocoStyleActuatorCfg",
 ]
