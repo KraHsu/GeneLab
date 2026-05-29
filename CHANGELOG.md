@@ -63,6 +63,20 @@ All notable changes to GeneLab are recorded here.
   positions through verbatim. Added a public `gs_camera` property on
   `CameraSensor` so the scene helper can reach the Genesis handle
   without poking private state.
+- **URDF / xacro support on `ArticulationCfg`.** Added `urdf_path` and
+  `xacro_args` fields. `Articulation.spawn` dispatches on which path is
+  set — `mjcf_path` → `gs.morphs.MJCF`, `urdf_path` → `gs.morphs.URDF`
+  (which auto-preprocesses `.xacro` / `.urdf.xacro` via the `xacro`
+  package at load time). Exactly one of the two paths must be set;
+  `xacro_args` is rejected when `mjcf_path` is used.
+- **ImGui twist bridge.** New `src/genelab/bridges/imgui.py` with
+  `ImGuiTwistBridge` and `ImGuiTwistBridgeCfg`. Same `(vx, vy, ωz)`
+  output shape as the keyboard / DearPyGui bridges, but renders three
+  native `imgui.slider_float` widgets in Genesis's built-in
+  `ImGuiOverlayPlugin` (enabled via `SimulationCfg.viewer_imgui=True`
+  from S1) so no extra GUI dependency is required. Falls back to a
+  warned no-op when the plugin isn't attached (headless / `viewer_imgui`
+  off).
 
 ### Changed
 
