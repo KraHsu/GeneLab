@@ -46,13 +46,21 @@ class PointCloudTactileSensorCfg(SensorCfg):
 class PointCloudTactileData:
     """Per-step point-cloud-tactile snapshot.
 
-    ``raw`` is whatever ``gs.sensors.ProximityTaxel.read()`` returns —
-    ``(num_envs, [history,] ...)`` per Genesis's per-sensor cache layout. The
-    primitives in :mod:`genelab.mdp.rewards.tactile` consume this generically;
-    consumers needing a specific decomposition (normal vs shear) should slice it.
+    Genesis's ``ProximityTaxel.read()`` returns a structured response with two
+    per-probe vector channels: ``force`` (the contact force) and ``torque`` (the
+    contact torque), each of shape ``(num_envs, [history,] num_probes, 3)``. The
+    wrapper extracts both as tensors. ``raw`` aliases ``force`` so the generic
+    primitives in :mod:`genelab.mdp.rewards.tactile` (``contact_intensity_l2``,
+    ``contact_count``) still see a ``.raw`` field.
     """
 
-    raw: torch.Tensor
+    force: torch.Tensor
+    torque: torch.Tensor
+
+    @property
+    def raw(self) -> torch.Tensor:
+        """Alias for :attr:`force` — kept for the shape-agnostic reward primitives."""
+        return self.force
 
 
 class PointCloudTactileSensor(Sensor[PointCloudTactileData]):
@@ -110,4 +118,9 @@ class PointCloudTactileSensor(Sensor[PointCloudTactileData]):
         assert self._gs_sensor is not None, (
             f"PointCloudTactileSensor(name={self._cfg.name!r}) read before pre_build_genesis"
         )
-        return PointCloudTactileData(raw=self._gs_sensor.read())
+        raw = self._gs_sensor.read()
+        # Genesis ``ProximityTaxel.read()`` returns ``ProximityTaxelData(force=…, torque=…)``;
+        # ``force`` / ``torque`` are tensors and the data class also carries ``count`` /
+        # ``index`` methods that aren't user-facing here. Extracting the two tensors keeps
+        # the wrapper's contract a plain dataclass of tensors.
+        return PointCloudTactileData(force=raw.force, torque=raw.torque)

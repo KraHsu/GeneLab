@@ -65,16 +65,15 @@ def test_unknown_link_name_raises() -> None:
         )
 
 
-def test_compute_data_thresholds_depth_to_in_contact() -> None:
-    sensor, gs_scene, _ = _build(
-        probe_local_pos=((0.0, 0.0, 0.0), (0.1, 0.0, 0.0)),
-        contact_threshold=1e-3,
-    )
-    # Two probes per env; first probe in contact (depth > threshold), second not.
-    gs_scene.sensors[0].set_return(torch.tensor([[2e-3, 5e-5], [4e-3, 8e-4]]))
+def test_compute_data_returns_genesis_bool_mask() -> None:
+    sensor, gs_scene, _ = _build(probe_local_pos=((0.0, 0.0, 0.0), (0.1, 0.0, 0.0)))
+    # Genesis ``ContactProbe.read()`` returns a ``(B, P)`` bool tensor — the threshold
+    # was already applied internally per ``cfg.contact_threshold``.
+    expected = torch.tensor([[True, False], [True, True]])
+    gs_scene.sensors[0].set_return(expected)
     data = sensor.data
-    assert torch.equal(data.depth, torch.tensor([[2e-3, 5e-5], [4e-3, 8e-4]]))
-    assert torch.equal(data.in_contact, torch.tensor([[True, False], [True, False]]))
+    assert data.in_contact.dtype == torch.bool
+    assert torch.equal(data.in_contact, expected)
     # Re-read after an explicit invalidate triggers another read.
     sensor.update(0.02)
     _ = sensor.data

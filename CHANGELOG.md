@@ -33,6 +33,26 @@ All notable changes to GeneLab are recorded here.
   primitives generic over `sensor.data.raw`: `contact_intensity_l2`
   (`Σ raw²`) and `contact_count` (count above threshold). Bilingual
   reference pages and an `## [Unreleased] / ### Added` entry.
+- **Tactile slip reward + integration coverage.** Added
+  `genelab.mdp.rewards.slip_penalty(env, sensor_name)` — squared sum of
+  the lateral (xy) components of `data.raw`, valid for both elastomer
+  displacement and point-cloud force outputs (both expose `(B, [H,] P, 3)`
+  with the third channel as the probe normal). Added a real-Genesis
+  integration test that exercises all four new sensor wrappers via
+  `gs.Scene + add_sensor + build + step`, validating the wrappers'
+  `pre_build_genesis` / `_compute_data` round-trip end-to-end.
+
+### Changed
+
+- `KinematicContactSensor.data`: dropped the mis-named `depth` field
+  (Genesis `ContactProbe.read()` returns a bool, not a depth) and the
+  redundant threshold operation. `data.in_contact` is now the
+  `(num_envs, [history,] num_probes)` `bool` tensor Genesis returns,
+  already thresholded at `cfg.contact_threshold`.
+- `PointCloudTactileSensor.data`: replaced the single `raw` field with
+  `force` and `torque` tensors extracted from Genesis's structured
+  `ProximityTaxelData`. `raw` is kept as a property alias for `force` so
+  the shape-agnostic reward primitives still see the right tensor.
 
 ### Changed
 

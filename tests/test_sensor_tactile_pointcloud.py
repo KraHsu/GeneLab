@@ -84,12 +84,25 @@ def test_empty_link_name_raises() -> None:
         )
 
 
-def test_compute_data_wraps_read() -> None:
-    sensor, gs_scene, _ = _build()
-    expected = torch.tensor([[1.0, 2.0, 3.0], [0.0, 0.0, 0.0]])
-    gs_scene.sensors[0].set_return(expected)
+def test_compute_data_extracts_force_and_torque_fields() -> None:
+    """Genesis ``ProximityTaxel.read()`` returns ``ProximityTaxelData(force=…, torque=…)``;
+    the wrapper extracts both tensors and aliases ``raw`` to ``force`` for the generic
+    reward primitives."""
+
+    class _FakeProximityTaxelData:
+        def __init__(self, force: torch.Tensor, torque: torch.Tensor) -> None:
+            self.force = force
+            self.torque = torque
+
+    sensor, gs_scene, _ = _build(probe_local_pos=((0.0, 0.0, 0.0), (0.1, 0.0, 0.0)))
+    force = torch.tensor([[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]])
+    torque = torch.tensor([[[0.0, 0.0, 0.1], [0.0, 0.0, 0.2]], [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]])
+    gs_scene.sensors[0].set_return(_FakeProximityTaxelData(force, torque))  # type: ignore[arg-type]
     data = sensor.data
-    assert torch.equal(data.raw, expected)
+    assert torch.equal(data.force, force)
+    assert torch.equal(data.torque, torque)
+    # ``raw`` aliases ``force`` so the generic reward primitives still see the right tensor.
+    assert torch.equal(data.raw, force)
 
 
 def test_read_before_pre_build_asserts() -> None:

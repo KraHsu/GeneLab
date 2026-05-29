@@ -1,15 +1,15 @@
 """Kinematic contact-probe sensor (Genesis 1.0 ``ContactProbe``).
 
 Wraps :class:`gs.sensors.ContactProbe`: a set of point probes rigidly attached to a robot
-link that report contact depth (or binary contact when read against a threshold). Use this
-for "did this point on the robot touch something" without engaging the tactile-stack
-dynamics that the deformable-elastomer sensors carry.
+link that report binary contact. Genesis thresholds internally at ``contact_threshold``
+(default ``1e-4`` m of inter-penetration) and ``ContactProbe.read()`` returns a
+``(num_envs, [history,] num_probes)`` ``bool`` tensor — the wrapper exposes this as
+``data.in_contact``. Use this for "did this point on the robot touch something" without
+engaging the tactile-stack dynamics that the deformable-elastomer sensors carry.
 
-Probe positions are specified in the parent link's local frame; binary contact is reported
-whenever the per-probe contact depth exceeds ``contact_threshold`` (Genesis default
-``1e-4`` m). ``history_length=0`` (default) reads only the current step; setting it to
-``H > 0`` returns a rolling ``(num_envs, H, num_probes)`` ring buffer that Genesis
-maintains on the GPU.
+Probe positions are in the parent link's local frame. ``history_length=0`` (default)
+reads only the current step; ``H > 0`` returns a rolling ring buffer with a leading
+history axis.
 """
 
 from dataclasses import dataclass
@@ -44,13 +44,11 @@ class KinematicContactSensorCfg(SensorCfg):
 class KinematicContactData:
     """Per-step contact-probe snapshot.
 
-    ``depth`` is whatever Genesis ``ContactProbe.read`` returns (per-probe contact depth
-    in metres, ``(num_envs, [history,] num_probes)``). ``in_contact`` thresholds the
-    depth at ``cfg.contact_threshold`` so consumers that only care about the boolean
-    don't have to repeat the comparison.
+    ``in_contact`` is the ``bool`` tensor returned by ``gs.sensors.ContactProbe.read()`` —
+    shape ``(num_envs, [history,] num_probes)``. Genesis already applies
+    ``cfg.contact_threshold`` internally, so this is the final boolean mask.
     """
 
-    depth: torch.Tensor
     in_contact: torch.Tensor
 
 
@@ -96,6 +94,4 @@ class KinematicContactSensor(Sensor[KinematicContactData]):
         assert self._gs_sensor is not None, (
             f"KinematicContactSensor(name={self._cfg.name!r}) read before pre_build_genesis"
         )
-        depth = self._gs_sensor.read()
-        in_contact = depth > self._cfg_typed.contact_threshold
-        return KinematicContactData(depth=depth, in_contact=in_contact)
+        return KinematicContactData(in_contact=self._gs_sensor.read())
