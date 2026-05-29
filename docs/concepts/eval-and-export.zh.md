@@ -42,7 +42,7 @@ genelab eval GeneLab-Inverted-Pendulum-v0 logs/rsl_rl/exp1/.../model_500.pt \
 }
 ```
 
-### Success rate
+### 成功率
 
 `success_rate` 在任务通过 `ManagerBasedRlEnv.step` 的 `extras["is_success"]`
 publish 一个 per-env bool tensor 时计算（gymnasium 约定）。任务在 termination
