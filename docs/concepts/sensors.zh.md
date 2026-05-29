@@ -30,7 +30,7 @@ observation term 可以通过 `mdp.sensor_data` 或自定义 callable 读取传�
 
 保持传感器名称稳定；它们会成为配置路径、recording source 和 term params。
 
-## Camera 注意事项
+## 相机注意事项
 
 并行 RGB-D 渲染需要 CUDA 和 `InteractiveSceneCfg.batch_render=True`。把 camera task 当成不同于轻量状态 RL task 的硬件 profile。
 
