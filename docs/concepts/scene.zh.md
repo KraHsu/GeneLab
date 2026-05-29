@@ -27,6 +27,22 @@ entity 表访问，例如用 `env.articulations["robot"].data` 读取 `RobotStat
 
 Genesis API 和 Isaac Lab 风格任务代码使用的词汇不同。wrapper 隔离这种差异：MDP term 读取稳定的 GeneLab 属性，后端集成负责 Genesis 细节。
 
+## 相机调试辅助
+
+`InteractiveScene` 提供两个对 Genesis 1.0 debug-draw API 的薄封装，用于检查
+挂载在场景上的相机：
+
+- `draw_camera_frustums(camera_names=None, color=(1, 1, 1, 0.3))` 绘制场景上
+  每一个（或指定名字的）`CameraSensor` 的视锥。返回实际绘制的视锥数。指定
+  的名字若没有对应 `CameraSensor` 会抛错。
+- `draw_camera_trajectory(positions, radius=0.002, color=(1, 0.5, 0, 0.8))`
+  在 `positions`（每行一个世界系坐标点）上画一条折线。调用方持有 buffer —— 
+  通常是录制下来的相机路径 —— 所以 scene 不维护任何历史。
+
+两个辅助方法都必须在 `InteractiveScene.build()` 之后调用；build 之前调用会抛
+`RuntimeError`。一般是从 play 阶段的 hook 里调用，用来可视化 RGB-D 传感器
+所看的视野以及一次 rollout 中位姿的变化。
+
 ## 继续阅读
 
 - [模块地图](../reference/module-map.md)
