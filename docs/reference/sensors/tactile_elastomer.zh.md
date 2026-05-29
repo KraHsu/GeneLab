@@ -62,7 +62,7 @@ scene_cfg = InteractiveSceneCfg(
 )
 ```
 
-## See also
+## 另见
 
 - [PointCloudTactileSensor](tactile_pointcloud.md)
 - [Concepts — Sensors](../../concepts/sensors.md)

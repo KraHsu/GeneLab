@@ -48,7 +48,7 @@ scene_cfg = InteractiveSceneCfg(
 )
 ```
 
-## See also
+## 另见
 
 - [KinematicContactSensor](kinematic_contact.md)
 - [Concepts — Sensors](../../concepts/sensors.md)
