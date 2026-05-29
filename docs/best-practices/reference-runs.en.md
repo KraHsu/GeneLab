@@ -8,7 +8,7 @@ configuration.
 
 ## Reference tasks
 
-The five tasks tracked here cover GeneLab's bundled locomotion +
+The six tasks tracked here cover GeneLab's bundled locomotion +
 manipulation lines:
 
 | Task ID | Backend (default agent) | Budget | Notes |
@@ -16,12 +16,13 @@ manipulation lines:
 | `GeneLab-Inverted-Pendulum-v0` | rsl_rl PPO | 150 iter × 4096 envs | Tiny cartpole; sanity smoke target. |
 | `GeneLab-Double-Inverted-Pendulum-v0` | rsl_rl PPO | 300 iter × 4096 envs | Harder cartpole. |
 | `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 velocity tracking on flat ground. |
+| `Genelab-Velocity-Rough-Unitree-G1-v0` | rsl_rl PPO | 50k iter × 4096 envs | Unitree G1 velocity tracking on heightfield rough terrain. |
 | `Genelab-Tracking-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 motion-tracking on flat ground. |
 | `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 64 envs | Goal-conditioned manipulation; needs offline demo prefill (see protocol below). |
 
 ## Reproduction protocol
 
-### Common path (4 of 5 tasks)
+### Common path (5 of 6 tasks)
 
 Cartpole + G1 tasks are rsl_rl PPO; their reference runs use the multi-seed
 CLI:
@@ -185,6 +186,25 @@ Eval `length_mean = 1000.0` for all seeds (play_env `episode_length_s =
     | 1 | 112.419 | 4.647 | 30 000 | ~18.7 h | 143.0 s |
     | 2 | 93.417 | 3.921 | 30 000 | ~20.6 h | 161.0 s |
     | 3 | 92.028 | 4.162 | 30 000 | ~19.8 h | 156.9 s |
+
+### `Genelab-Velocity-Rough-Unitree-G1-v0`
+
+| Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
+|---|---|---|---|---|---|
+| 1 | TBD | TBD | 50 000 | TBD | TBD |
+| 2 | TBD | TBD | 50 000 | TBD | TBD |
+| 3 | TBD | TBD | 50 000 | TBD | TBD |
+
+Eval `length_mean = 1000.0` for all seeds (play_env `episode_length_s =
+20 s` × 50 Hz). `success_rate` is `null`. Eval terrain seed = 0 (deterministic).
+
+> Maintainer sweep protocol: `genelab train
+> Genelab-Velocity-Rough-Unitree-G1-v0 --seeds 1,2,3 --parallel 1 --log_dir
+> logs/reference/Genelab-Velocity-Rough-Unitree-G1-v0/<DATE>`, one seed per RTX
+> 4090 GPU (4090 cluster). Eval with `genelab eval ... --num-envs 64 --episodes
+> 100 --seed 0 --out <seed_dir>/eval.json` and `QT_QPA_PLATFORM=offscreen`
+> (headless Qt — recording extras crash without this even after eval forces
+> vis=False).
 
 ### `Genelab-Tracking-Flat-Unitree-G1-v0`
 
