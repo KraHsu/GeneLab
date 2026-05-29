@@ -24,6 +24,15 @@ All notable changes to GeneLab are recorded here.
   sensor constructor so a single integer flips the ring-buffer on at the
   Genesis layer rather than in user code. Bilingual reference pages under
   `docs/reference/sensors/`.
+- **Tactile family:** added two more wrappers in the same shape —
+  `ElastomerTactileSensor` (over `gs.sensors.ElastomerTaxel`, deformable
+  elastomer model with Lamé `lambda_d` / `lambda_s`) and
+  `PointCloudTactileSensor` (over `gs.sensors.ProximityTaxel`, lighter
+  stiffness-and-shear model). Both sample a point cloud from the parent
+  link's mesh. Added `genelab.mdp.rewards.tactile` with two reward
+  primitives generic over `sensor.data.raw`: `contact_intensity_l2`
+  (`Σ raw²`) and `contact_count` (count above threshold). Bilingual
+  reference pages and an `## [Unreleased] / ### Added` entry.
 
 ### Changed
 
