@@ -16,6 +16,14 @@ All notable changes to GeneLab are recorded here.
   the blessed `lab.__all__` and `extensions.__all__` public surfaces.
 - **MDP package structure:** split rewards into the `mdp/rewards` package while preserving the
   existing `genelab.mdp` import surface.
+- **Sensor zoo:** added wrappers over three Genesis 1.0 sensor primitives —
+  `ProximitySensor` (over `gs.sensors.SurfaceDistanceProbe`),
+  `KinematicContactSensor` (over `gs.sensors.ContactProbe`), and
+  `TemperatureGridSensor` (over `gs.sensors.TemperatureGrid`). Each exposes
+  `history_length: int = 0` on its Cfg, forwarded verbatim to the Genesis
+  sensor constructor so a single integer flips the ring-buffer on at the
+  Genesis layer rather than in user code. Bilingual reference pages under
+  `docs/reference/sensors/`.
 
 ### Changed
 
