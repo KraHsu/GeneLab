@@ -2,6 +2,14 @@
 
 All notable changes to GeneLab are recorded here.
 
+## [Unreleased]
+
+### Added
+
+- **G1 velocity tracking on rough terrain:** added `Genelab-Velocity-Rough-Unitree-G1-v0`,
+  a 5-level RandomRough curriculum with `terrain_levels_vel`, `height_scan` actor
+  observation, and a 50k-iter PPO budget. Reference numbers in PR <followup>.
+
 ## [0.3.0] — 2026-05-29
 
 Third development release. The headline is the **Genesis 1.0 migration**:
