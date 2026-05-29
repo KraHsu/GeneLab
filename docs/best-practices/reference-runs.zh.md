@@ -1,10 +1,10 @@
-# Reference Runs
+# 参考指标
 
 GeneLab 自带任务的**复现地基**。按任务 × seed 列出收敛后的 return、
 收敛步数、wall-clock 预算 — 用同一份 config 跑 `clone → train → eval`，应该
 落到的数。
 
-## Reference 任务
+## 参考任务
 
 这五个任务覆盖 GeneLab 内置的 locomotion + manipulation 两条线：
 
@@ -91,7 +91,7 @@ GPU vectorized 慢很多。
     - 4096 envs 的 RL 训练基本是 **CPU 受限**、要吃满整机；同机并发多个这种训练会过订阅 CPU、
       超线性变慢。墙钟会变差，但奖励是确定性的，所以复现数值不受并发影响。
 
-## Reference 数字
+## 参考数字
 
 下表为 Genesis **v1.0** 的数字。v0.4.7 的旧数字保留在每个任务旁边的
 "Previous: v0.4.7" admonition 里，方便 re-baseline 对比。

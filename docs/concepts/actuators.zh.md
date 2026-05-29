@@ -82,7 +82,7 @@ robot_cfg.actuators["arm"] = MujocoStyleActuatorCfg(
 
 ## 设计建议
 
-执行器分组应贴合机器人机构。若手臂、手、底座关节需要不同增益、限制或 action scale，不要放进一个巨大的 actuator。
+执行器分组应贴合机器人机构。若手臂、手、底座关节需要不同增益、限制或 action scale，不要放进一个巨大的执行器。
 
 ## 继续阅读
 
