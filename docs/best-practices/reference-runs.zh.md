@@ -173,12 +173,18 @@ GPU vectorized 慢很多。
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | 50 000 | TBD | TBD |
-| 2 | TBD | TBD | 50 000 | TBD | TBD |
-| 3 | TBD | TBD | 50 000 | TBD | TBD |
+| 1 | 71.664 | 16.346 | 50 000 | ~33.6 h | 117.1 s |
+| 2 | 64.196 | 17.481 | 50 000 | ~34.4 h | 116.6 s |
+| 3 | 60.412 | 22.588 | 50 000 | ~34.8 h | 108.0 s |
 
-三个 seed 的 eval `length_mean = 1000.0`（play_env `episode_length_s =
-20 s` × 50 Hz）。`success_rate` 为 `null`。Eval terrain seed = 0（确定性）。
+三个 seed 的 eval `length_mean` = 912.7 / 899.6 / 795.9。与平地任务不同，崎岖地形上
+收敛策略并非每个 rollout 都能撑到 1000 步上限（play_env `episode_length_s =
+20 s` × 50 Hz）：部分 episode 在上限前因摔倒而提前终止。`success_rate` 为 `null`。
+Eval terrain seed = 0（确定性）。
+
+数据采集环境：单台 8×H200 节点，3 个 seed 并行（一卡一个），并设 `QD_GRAPH=0`
+—— Hopper（SM 90）必需，它会关闭 CUDA-graph 批处理，使单卡吞吐与 Ada 持平而非更快；
+上表的训练 wall-clock 反映的是三个 run 共享同一节点的情况。
 
 > Maintainer sweep protocol: `genelab train
 > Genelab-Velocity-Rough-Unitree-G1-v0 --seeds 1,2,3 --parallel 1 --log_dir

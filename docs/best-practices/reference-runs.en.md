@@ -191,12 +191,19 @@ Eval `length_mean = 1000.0` for all seeds (play_env `episode_length_s =
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | 50 000 | TBD | TBD |
-| 2 | TBD | TBD | 50 000 | TBD | TBD |
-| 3 | TBD | TBD | 50 000 | TBD | TBD |
+| 1 | 71.664 | 16.346 | 50 000 | ~33.6 h | 117.1 s |
+| 2 | 64.196 | 17.481 | 50 000 | ~34.4 h | 116.6 s |
+| 3 | 60.412 | 22.588 | 50 000 | ~34.8 h | 108.0 s |
 
-Eval `length_mean = 1000.0` for all seeds (play_env `episode_length_s =
-20 s` × 50 Hz). `success_rate` is `null`. Eval terrain seed = 0 (deterministic).
+Eval `length_mean` = 912.7 / 899.6 / 795.9 for seeds 1 / 2 / 3. Unlike the flat
+task, the rough policy does not survive every rollout to the 1000-step cap
+(play_env `episode_length_s = 20 s` × 50 Hz): some episodes terminate on a fall
+before the cap. `success_rate` is `null`. Eval terrain seed = 0 (deterministic).
+
+Recorded on a single 8×H200 node, 3 seeds concurrent (one per GPU) with
+`QD_GRAPH=0` — required on Hopper (SM 90), and it disables CUDA-graph batching so
+per-card throughput matches an Ada GPU rather than beating it; the train
+wall-clock above reflects the three runs sharing one node.
 
 > Maintainer sweep protocol: `genelab train
 > Genelab-Velocity-Rough-Unitree-G1-v0 --seeds 1,2,3 --parallel 1 --log_dir
