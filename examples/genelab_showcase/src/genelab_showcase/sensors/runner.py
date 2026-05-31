@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import torch
 
+from genelab_showcase._viz import LazyQtWindows
 from genelab_showcase.runner import ShowcaseRunner
 
 if TYPE_CHECKING:
@@ -31,8 +32,7 @@ class SensorsShowcaseRunner(ShowcaseRunner):
         self._joint1_idx: int | None = None
         self._frustum_node: object | None = None
         self._img_interval = 2  # refresh the camera window every N steps
-        self._inited = False
-        self._app: Any = None
+        self._qt = LazyQtWindows()
         self._win: Any = None
         self._rgb_item: Any = None
         self._depth_item: Any = None
@@ -48,39 +48,28 @@ class SensorsShowcaseRunner(ShowcaseRunner):
         action[:, self._joint1_idx] = math.sin(phase) * 0.5
         return action
 
-    def _ensure_cam_window(self) -> bool:
-        """Lazily open the pyqtgraph RGB | depth window. False if pyqtgraph is unavailable."""
-        if self._inited:
-            return self._rgb_item is not None
-        self._inited = True
-        try:
-            import pyqtgraph as pg
+    def _build_cam_window(self, app: Any) -> None:
+        import pyqtgraph as pg
 
-            self._app = pg.mkQApp("hand camera")
-            win = pg.GraphicsLayoutWidget()
-            win.setWindowTitle("hand camera (RGB | depth)")
-            win.resize(700, 320)
-            rgb_vb = win.addViewBox(row=0, col=0)
-            rgb_vb.setAspectLocked(True)
-            rgb_vb.invertY(True)  # image row 0 at the top
-            self._rgb_item = pg.ImageItem(axisOrder="row-major")
-            rgb_vb.addItem(self._rgb_item)
-            depth_vb = win.addViewBox(row=0, col=1)
-            depth_vb.setAspectLocked(True)
-            depth_vb.invertY(True)
-            self._depth_item = pg.ImageItem(axisOrder="row-major")
-            depth_vb.addItem(self._depth_item)
-            cmap = pg.colormap.get("inferno")
-            if cmap is not None:
-                self._depth_item.setLookupTable(cmap.getLookupTable())
-            self._depth_item.setLevels(_DEPTH_RANGE)
-            win.show()
-            self._win = win
-            return True
-        except Exception as exc:  # noqa: BLE001 - viz is best-effort, never break the sim
-            print(f"sensors showcase: camera window unavailable ({exc})")
-            self._img_interval = 1_000_000
-            return False
+        win = pg.GraphicsLayoutWidget()
+        win.setWindowTitle("hand camera (RGB | depth)")
+        win.resize(700, 320)
+        rgb_vb = win.addViewBox(row=0, col=0)
+        rgb_vb.setAspectLocked(True)
+        rgb_vb.invertY(True)  # image row 0 at the top
+        self._rgb_item = pg.ImageItem(axisOrder="row-major")
+        rgb_vb.addItem(self._rgb_item)
+        depth_vb = win.addViewBox(row=0, col=1)
+        depth_vb.setAspectLocked(True)
+        depth_vb.invertY(True)
+        self._depth_item = pg.ImageItem(axisOrder="row-major")
+        depth_vb.addItem(self._depth_item)
+        cmap = pg.colormap.get("inferno")
+        if cmap is not None:
+            self._depth_item.setLookupTable(cmap.getLookupTable())
+        self._depth_item.setLevels(_DEPTH_RANGE)
+        win.show()
+        self._win = win
 
     def _post_step(self, env: "ManagerBasedRlEnv", step: int) -> None:
         if step % self._img_interval:
@@ -97,7 +86,7 @@ class SensorsShowcaseRunner(ShowcaseRunner):
             self._frustum_node = gs_scene.draw_debug_frustum(cam, color=(0.2, 0.8, 1.0, 0.35))
 
         # Live RGB + depth in the pyqtgraph window.
-        if not self._ensure_cam_window():
+        if not self._qt.ensure(self._build_cam_window, label="hand camera"):
             return
         if data.rgb is not None:
             self._rgb_item.setImage(
@@ -107,4 +96,4 @@ class SensorsShowcaseRunner(ShowcaseRunner):
             self._depth_item.setImage(
                 data.depth[0].detach().cpu().numpy(), autoLevels=False, levels=_DEPTH_RANGE
             )
-        self._app.processEvents()
+        self._qt.process()
