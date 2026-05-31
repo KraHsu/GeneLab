@@ -30,11 +30,30 @@ def raycast_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
     # rays read varying distances. ``use_visual_raycasting`` is harmless for these solid
     # bodies (their collision faces are in the BVH anyway) but keeps the intent explicit.
     props: dict[str, ArticulationCfg | RigidObjectCfg] = {
-        "box_tall": RigidObjectCfg(morph="box", size=(0.08, 0.08, 0.30), init_pos=(0.45, 0.0, 0.15), use_visual_raycasting=True),
-        "box_wide": RigidObjectCfg(morph="box", size=(0.12, 0.12, 0.16), init_pos=(0.40, 0.17, 0.08), use_visual_raycasting=True),
-        "box_low": RigidObjectCfg(morph="box", size=(0.10, 0.10, 0.10), init_pos=(0.52, -0.18, 0.05), use_visual_raycasting=True),
-        "ball_a": RigidObjectCfg(morph="sphere", size=(0.07,), init_pos=(0.50, 0.10, 0.07), use_visual_raycasting=True),
-        "ball_b": RigidObjectCfg(morph="sphere", size=(0.05,), init_pos=(0.38, -0.08, 0.05), use_visual_raycasting=True),
+        "box_tall": RigidObjectCfg(
+            morph="box",
+            size=(0.08, 0.08, 0.30),
+            init_pos=(0.45, 0.0, 0.15),
+            use_visual_raycasting=True,
+        ),
+        "box_wide": RigidObjectCfg(
+            morph="box",
+            size=(0.12, 0.12, 0.16),
+            init_pos=(0.40, 0.17, 0.08),
+            use_visual_raycasting=True,
+        ),
+        "box_low": RigidObjectCfg(
+            morph="box",
+            size=(0.10, 0.10, 0.10),
+            init_pos=(0.52, -0.18, 0.05),
+            use_visual_raycasting=True,
+        ),
+        "ball_a": RigidObjectCfg(
+            morph="sphere", size=(0.07,), init_pos=(0.50, 0.10, 0.07), use_visual_raycasting=True
+        ),
+        "ball_b": RigidObjectCfg(
+            morph="sphere", size=(0.05,), init_pos=(0.38, -0.08, 0.05), use_visual_raycasting=True
+        ),
     }
 
     return ManagerBasedRlEnvCfg(

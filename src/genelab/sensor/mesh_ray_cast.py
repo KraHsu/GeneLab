@@ -173,9 +173,7 @@ class MeshRayCastSensor(Sensor[MeshRayCastData]):
         try:
             return names.index(link_name)
         except ValueError as exc:
-            raise ValueError(
-                f"link {link_name!r} not found on entity; links={names!r}"
-            ) from exc
+            raise ValueError(f"link {link_name!r} not found on entity; links={names!r}") from exc
 
     def bind(self, env: "EnvContext") -> None:
         super().bind(env)

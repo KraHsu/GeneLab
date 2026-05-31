@@ -129,8 +129,12 @@ class CurriculumShowcaseRunner(ShowcaseRunner):
         plot.setLabel("bottom", "difficulty level (0 = smoothest)")
         plot.setLabel("left", "robots")
         plot.setYRange(0, 12)
-        brushes = [pg.mkBrush(int(c[0] * 255), int(c[1] * 255), int(c[2] * 255)) for c in _LEVEL_COLORS]
-        self._bar = pg.BarGraphItem(x=list(range(_NUM_ROWS)), height=[0] * _NUM_ROWS, width=0.7, brushes=brushes)
+        brushes = [
+            pg.mkBrush(int(c[0] * 255), int(c[1] * 255), int(c[2] * 255)) for c in _LEVEL_COLORS
+        ]
+        self._bar = pg.BarGraphItem(
+            x=list(range(_NUM_ROWS)), height=[0] * _NUM_ROWS, width=0.7, brushes=brushes
+        )
         plot.addItem(self._bar)
 
     def _update_hist(self) -> None:
