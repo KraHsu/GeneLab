@@ -1,4 +1,4 @@
-"""RSL-RL configuration dataclasses (mirror of ``mjlab.rl.config`` with tensorboard default)."""
+"""RSL-RL configuration dataclasses (mirror of ``rl.config`` with tensorboard default)."""
 
 from dataclasses import dataclass, field
 from typing import Any, Literal

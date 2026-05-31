@@ -1,6 +1,6 @@
 """Genesis articulated-robot wrapper used by ``ManagerBasedRlEnv`` and ``InteractiveScene``.
 
-Two-phase construction mirrors Isaac Lab / MjLab:
+Two-phase construction mirrors Isaac Lab:
 
 * ``spawn(gs_scene)`` attaches an MJCF morph BEFORE ``scene.build()``.
 * ``bind(num_envs, device)`` enumerates joints / links, assembles actuators, and pushes the
@@ -264,7 +264,7 @@ class Articulation:
 
     @property
     def body_names(self) -> list[str]:
-        """Alias for ``link_names`` to match mjlab's terminology."""
+        """Alias for ``link_names`` to match Isaac Lab's terminology."""
         return list(self._link_names)
 
     @property

@@ -35,7 +35,7 @@ class UniformVelocityCommandCfg(CommandTermCfg):
       raw sampled ``ang_vel_z``. Requires ``heading_command=True``.
     * **forward** (``rel_forward_envs``): sample is rewritten at resample time to a
       strict forward motion — ``vx = abs(sample).clamp(min=0.3)``, ``vy = 0``,
-      ``ωz = 0``. Decouples translation learning from heading control; cf. mjlab's G1
+      ``ωz = 0``. Decouples translation learning from heading control; cf. Isaac Lab's G1
       flat config uses 0.2.
     * **world** (``rel_world_envs``): the sampled velocity is interpreted in the world
       frame and rotated into the body frame every step via current yaw — i.e. the
@@ -76,7 +76,7 @@ class UniformVelocityCommand(CommandTerm):
     flags described on :class:`UniformVelocityCommandCfg` are sampled independently;
     when more than one fires for the same env the per-step :meth:`_update_command`
     applies them in order *heading PD → world-frame rotation → standing zero-out* so
-    later writes take precedence over earlier ones — same composition as mjlab.
+    later writes take precedence over earlier ones — same composition as Isaac Lab.
     """
 
     cfg: UniformVelocityCommandCfg  # type: ignore[assignment]
@@ -189,9 +189,9 @@ class UniformVelocityCommand(CommandTerm):
             self._command[fwd_ids, 2] = 0.0
 
         # Standing envs override everything; assign last so an env that's both standing
-        # and forward ends up at zero (matches mjlab precedence — standing wins).
+        # and forward ends up at zero (matches Isaac Lab precedence — standing wins).
         # Clear both ``_command`` and ``_command_w`` so the cached world-frame command
-        # also reads zero for standing envs (mjlab parity — ``velocity_command.py:137-138``).
+        # also reads zero for standing envs (Isaac Lab parity — ``velocity_command.py:137-138``).
         standing_ids = env_ids[self._is_standing[env_ids]]
         if standing_ids.numel() > 0:
             self._command[standing_ids] = 0.0
@@ -224,7 +224,7 @@ class UniformVelocityCommand(CommandTerm):
             self._command[w_ids, 1] = -sin_h * vx_w + cos_h * vy_w
 
         # 3. Standing envs zero out — final assignment so it overrides heading/world.
-        # mjlab parity (velocity_command.py:137-138): clear both buffers, not just the
+        # Isaac Lab parity (velocity_command.py:137-138): clear both buffers, not just the
         # body-frame one, so a standing env in world mode doesn't read a stale
         # ``_command_w`` value at the next ``_update_command`` step before resample.
         self._command[self._is_standing] = 0.0

@@ -147,7 +147,7 @@ def test_geom_friction_asset_cfg_unset_covers_every_link() -> None:
 
 
 def test_geom_friction_converts_absolute_to_ratio_via_nominal() -> None:
-    """mjlab parity: the sampled value is the absolute friction, not a ratio.
+    """Reference parity: the sampled value is the absolute friction, not a ratio.
 
     Genesis only exposes a batched ``set_friction_ratio`` setter, so we divide
     by each link's nominal friction (read from ``robot.links[i].geoms[0]._friction``)
@@ -291,7 +291,7 @@ def test_encoder_bias_filters_to_named_joints_only() -> None:
 
 
 def test_joint_pos_rel_does_not_add_encoder_bias() -> None:
-    """mjlab parity: ``joint_pos_rel`` returns the raw physical offset.
+    """Reference parity: ``joint_pos_rel`` returns the raw physical offset.
 
     Pre-parity behaviour added ``encoder_bias`` to the obs, which cancelled the
     matching action-side subtraction and silently neutralised the encoder-bias

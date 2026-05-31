@@ -111,11 +111,11 @@ def contact_sensor(env: "EnvContext", sensor_name: str) -> ContactSensor:
 def command_active(env: "EnvContext", command_name: str, threshold: float) -> torch.Tensor:
     """Returns ``(B,)`` float mask: 1 where ``||cmd_xy|| + |cmd_z| > threshold``, else 0.
 
-    mjlab parity: each gait-shaping reward (``feet_clearance`` / ``feet_slip`` /
+    Isaac Lab parity: each gait-shaping reward (``feet_clearance`` / ``feet_slip`` /
     ``soft_landing`` / ``feet_swing_height``) computes the gate this way — sum of
     the linear-xy norm and the absolute yaw rate — rather than an L2 norm of the
     full 3-vector. The two formulas diverge near the threshold: for cmd
-    ``(0.03, 0, 0.03)`` and threshold 0.05, mjlab's gate fires (0.06 > 0.05)
+    ``(0.03, 0, 0.03)`` and threshold 0.05, Isaac Lab's gate fires (0.06 > 0.05)
     while the L2-of-3 version stays silent (≈0.042). Matters whenever the policy
     is asked to do gentle motion that doesn't break the L2 ball but does exceed
     the L1-y-axes envelope.

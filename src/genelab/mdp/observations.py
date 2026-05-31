@@ -33,7 +33,7 @@ def projected_gravity(env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = No
 def joint_pos_rel(env: "EnvContext", asset_cfg: "SceneEntityCfg | None" = None) -> torch.Tensor:
     """Joint positions minus default pose.
 
-    Mirrors mjlab's default ``joint_pos_rel`` (no bias term). When the env's
+    Mirrors Isaac Lab's default ``joint_pos_rel`` (no bias term). When the env's
     startup events include ``genelab.mdp.dr.encoder_bias``,
     :class:`~genelab.mdp.actions.joint_position.JointPositionAction` subtracts
     the bias from its PD target so the real joint sits ``-bias`` away from the

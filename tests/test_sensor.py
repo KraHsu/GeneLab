@@ -1280,7 +1280,7 @@ def test_self_contact_sensor_zero_when_no_genesis_runtime() -> None:
 
 
 def test_self_contact_sensor_reports_max_pair_force_per_env() -> None:
-    """mjlab parity: per-env signal is the *max* pair magnitude, not the sum."""
+    """Reference parity: per-env signal is the *max* pair magnitude, not the sum."""
     contacts = {
         "force_a": torch.tensor(
             [
@@ -1299,7 +1299,7 @@ def test_self_contact_sensor_reports_max_pair_force_per_env() -> None:
 
 
 def test_self_contact_sensor_found_bit_is_any_pair_above_threshold() -> None:
-    """mjlab parity: ``found`` is True iff at least one *single* pair exceeded thr.
+    """Reference parity: ``found`` is True iff at least one *single* pair exceeded thr.
 
     The pre-parity behaviour thresholded the *sum* of all pair forces; with that
     rule two 0.6-magnitude pairs would falsely flag a 1.0-threshold sensor (sum=1.2).
