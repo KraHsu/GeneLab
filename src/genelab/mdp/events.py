@@ -115,17 +115,17 @@ def reset_joints_by_offset(
 ) -> None:
     """Reset joints to ``default + U(*position_range)`` with ``U(*velocity_range)`` velocity.
 
-    mjlab parity for ``envs/mdp/events.reset_joints_by_offset``. Differs from
+    Isaac Lab parity for ``envs/mdp/events.reset_joints_by_offset``. Differs from
     :func:`reset_joints_to_default`:
 
     * Accepts asymmetric ``(lo, hi)`` ranges rather than a symmetric jitter scalar.
-    * Same range applies uniformly to all joints (mjlab supports per-joint via
+    * Same range applies uniformly to all joints (Isaac Lab supports per-joint via
       ``SceneEntityCfg``; once :class:`SceneEntityCfg` lands in P5 we can extend here).
     * Clamps the sampled position to ``env.articulation.joint_pos_limits`` so
-      large offsets can't violate the joint limits — mirrors mjlab's
+      large offsets can't violate the joint limits — mirrors Isaac Lab's
       ``soft_joint_pos_limits`` clamp.
 
-    ``position_range=(0, 0)`` and ``velocity_range=(0, 0)`` reproduces the mjlab call
+    ``position_range=(0, 0)`` and ``velocity_range=(0, 0)`` reproduces the Isaac Lab call
     site that resets to bare default pose with zero velocity.
     """
     if env_ids is None or env_ids.numel() == 0:

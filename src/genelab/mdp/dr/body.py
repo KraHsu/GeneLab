@@ -22,7 +22,7 @@ def body_com_offset(
 
     Wraps Genesis's :meth:`set_COM_shift` (``rigid_entity.py:4089``). Each axis
     in ``ranges`` is sampled independently; missing axes default to zero offset.
-    mjlab's G1 cfg shifts the torso COM by ±2.5 cm in x/y and ±3 cm in z to
+    Isaac Lab's G1 cfg shifts the torso COM by ±2.5 cm in x/y and ±3 cm in z to
     test policy robustness to inaccurate inertial calibration.
 
     Parameters
@@ -59,7 +59,7 @@ def body_mass_offset(
     """Per-env, per-link additive offset on link mass (kg).
 
     Wraps Genesis's :meth:`set_mass_shift` (``rigid_entity.py:4073``). Not present
-    in mjlab's reference G1 cfg, but a common sim2real DR (mass calibration
+    in Isaac Lab's reference G1 cfg, but a common sim2real DR (mass calibration
     error is one of the easier real-world perturbations to model). Mass is
     *added* to the nominal value — Genesis takes a shift, not a multiplier.
     """

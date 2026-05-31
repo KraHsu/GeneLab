@@ -102,7 +102,7 @@ def test_reset_joints_by_offset_empty_env_ids_is_noop() -> None:
 
 
 def test_reset_joints_by_offset_clamps_to_joint_limits() -> None:
-    """mjlab parity: large position offsets must be clipped to the joint limits."""
+    """Reference parity: large position offsets must be clipped to the joint limits."""
     torch.manual_seed(0)
     # 2 joints, tight limits: joint 0 ∈ [-0.05, 0.05], joint 1 ∈ [-0.1, 0.1].
     limits = torch.tensor([[-0.05, 0.05], [-0.1, 0.1]])

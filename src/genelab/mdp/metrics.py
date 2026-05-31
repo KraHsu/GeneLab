@@ -5,7 +5,7 @@ tensorboard via ``env.extras["log"]["Episode_Metrics/<name>"]``. Useful for surf
 indicators (action smoothness, sensor health, etc.) where a weight-zero reward
 term is the wrong tool because it bakes the metric into the reward bookkeeping.
 
-mjlab logs the corresponding diagnostics as ``Metrics/<name>_mean`` directly from
+The reference logs the corresponding diagnostics as ``Metrics/<name>_mean`` directly from
 inside the reward functions, then rsl-rl averages them across a rollout. GeneLab's
 :class:`~genelab.managers.metrics_manager.MetricsManager` instead averages over
 an episode and reports at env reset under ``Episode_Metrics/<name>``. The
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 def mean_action_acc(env: "EnvContext") -> torch.Tensor:
     """Per-env mean ``|a_t − 2·a_{t-1} + a_{t-2}|`` — discrete action acceleration.
 
-    mjlab parity for ``mean_action_acc``. Lower values indicate smoother policy
+    reference parity for ``mean_action_acc``. Lower values indicate smoother policy
     outputs (relative to the previous two control steps). Reads the three-slot
     rolling history maintained by :class:`~genelab.managers.action_manager.ActionManager`.
     Right after an env reset both history slots are zero, so the first two
@@ -49,10 +49,10 @@ def mean_action_acc(env: "EnvContext") -> torch.Tensor:
 
 # --------------------------------------------------------------------- gait diagnostics
 #
-# The five metrics below mirror mjlab's ``Metrics/{air_time,peak_height,
+# The five metrics below mirror the reference's ``Metrics/{air_time,peak_height,
 # slip_velocity,landing_force,angular_momentum}_mean`` writes (see
-# ``mjlab/tasks/velocity/mdp/rewards.py:205, 229, 317, 352, 373``). Each
-# computes mjlab's exact cross-(env, foot) scalar each step, then broadcasts
+# ``tasks/velocity/mdp/rewards.py:205, 229, 317, 352, 373``). Each
+# computes the reference's exact cross-(env, foot) scalar each step, then broadcasts
 # to ``(B,)`` so :class:`MetricsManager` can accumulate it uniformly across
 # envs — the broadcast collapses cleanly at reset because every env sees the
 # same value.
@@ -66,7 +66,7 @@ def _broadcast_scalar(value: torch.Tensor, env: "EnvContext") -> torch.Tensor:
 def angular_momentum_mean(env: "EnvContext", sensor_name: str) -> torch.Tensor:
     """``||L||`` of the root-frame angular momentum.
 
-    mjlab logs ``torch.mean(angmom_magnitude)`` (a cross-env scalar) inside the
+    the reference logs ``torch.mean(angmom_magnitude)`` (a cross-env scalar) inside the
     ``angular_momentum_penalty`` reward; per-env ``||L||`` averaged over the
     episode gives the same per-batch value when MetricsManager reduces across
     envs at reset.
@@ -78,7 +78,7 @@ def angular_momentum_mean(env: "EnvContext", sensor_name: str) -> torch.Tensor:
 def air_time_mean(env: "EnvContext", sensor_name: str) -> torch.Tensor:
     """Mean ``current_air_time`` across (env, foot) pairs that are in the air.
 
-    Replicates mjlab's ``Metrics/air_time_mean`` in ``feet_air_time``: sum of
+    Replicates the reference's ``Metrics/air_time_mean`` in ``feet_air_time``: sum of
     air times divided by number of mid-air feet (clamped to 1). Broadcasted to
     ``(B,)`` for MetricsManager.
     """
@@ -96,7 +96,7 @@ def slip_velocity_mean(
 ) -> torch.Tensor:
     """Mean ``||v_xy||`` across grounded (env, foot) pairs.
 
-    Replicates mjlab's ``Metrics/slip_velocity_mean`` in ``feet_slip``. Reads
+    Replicates the reference's ``Metrics/slip_velocity_mean`` in ``feet_slip``. Reads
     site-frame foot velocity (``link_offsets`` honoured) and weights by
     in-contact bool. Broadcasted to ``(B,)``.
     """
@@ -113,7 +113,7 @@ def slip_velocity_mean(
 def landing_force_mean(env: "EnvContext", sensor_name: str) -> torch.Tensor:
     """Mean ``|F|`` across (env, foot) pairs that just landed.
 
-    Replicates mjlab's ``Metrics/landing_force_mean`` in ``soft_landing``:
+    Replicates the reference's ``Metrics/landing_force_mean`` in ``soft_landing``:
     contact-force magnitude on the substep ``first_contact`` fires, averaged
     over the landings (clamped to 1). Broadcasted to ``(B,)``.
     """
@@ -134,8 +134,8 @@ class peak_height_mean:
     bookkeeping (separate buffer so the metric works whether the reward is
     weight=0 or active — currently weight=−0.25 in G1).
 
-    Replicates mjlab's ``Metrics/peak_height_mean`` in ``feet_swing_height``
-    (``mjlab/.../rewards.py:317``). Broadcasted to ``(B,)`` for MetricsManager.
+    Replicates the reference's ``Metrics/peak_height_mean`` in ``feet_swing_height``
+    (``.../rewards.py:317``). Broadcasted to ``(B,)`` for MetricsManager.
     """
 
     def __init__(self, cfg: RewardTermCfg, env: "EnvContext") -> None:

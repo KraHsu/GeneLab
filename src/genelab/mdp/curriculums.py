@@ -88,7 +88,7 @@ def commands_vel(
     ``cfg.commands[command_name].ranges`` in place so the next ``_resample_command``
     samples from the new range.
 
-    Mirrors ``mjlab.tasks.velocity.mdp.curriculums.commands_vel``.
+    Mirrors ``tasks.velocity.mdp.curriculums.commands_vel``.
     """
     del env_ids  # ranges are global, not per-env
     term = env.command_manager.get_term(command_name)

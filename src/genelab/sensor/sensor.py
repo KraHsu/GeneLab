@@ -1,7 +1,7 @@
 """Backend-agnostic sensor abstraction.
 
-The shape mirrors mjlab's ``SensorCfg`` / ``Sensor[T]`` so configs and observation terms can move
-between the two backends without ceremony, but the lifecycle drops mjlab's ``edit_spec`` /
+The shape mirrors the reference's ``SensorCfg`` / ``Sensor[T]`` so configs and observation terms can move
+between the two backends without ceremony, but the lifecycle drops the reference's ``edit_spec`` /
 ``initialize`` pair — Genesis has no MJCF spec to rewrite, so ``bind(env)`` is the single hook.
 """
 

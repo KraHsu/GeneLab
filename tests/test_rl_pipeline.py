@@ -14,7 +14,7 @@ from genelab.rl import (  # noqa: E402  (after importorskip)
 from genelab.rl.vecenvs.rsl_rl import RslRlVecEnvWrapper  # noqa: E402
 
 
-def test_rsl_rl_runner_cfg_defaults_match_mjlab_shape() -> None:
+def test_rsl_rl_runner_cfg_defaults_match_reference_shape() -> None:
     cfg = RslRlOnPolicyRunnerCfg()
     assert cfg.class_name == "OnPolicyRunner"
     assert cfg.num_steps_per_env == 24

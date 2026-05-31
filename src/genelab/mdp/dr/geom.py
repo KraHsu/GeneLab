@@ -49,23 +49,23 @@ def geom_friction(
 ) -> None:
     """Per-env absolute friction coefficient on the geoms of the selected links.
 
-    mjlab parity: writes the *sampled value* as the effective friction (mjlab's
+    Isaac Lab parity: writes the *sampled value* as the effective friction (Isaac Lab's
     ``operation="abs"``), not as a multiplier on nominal. Genesis only exposes
     a per-env-batched ``set_friction_ratio`` setter, so we convert internally:
     ``ratio = sampled / nominal`` (read once per link from
     ``robot.links[i].geoms[0]._friction``). The downstream simulation reads
-    ``effective = nominal * ratio = sampled``, which matches mjlab's behavior.
+    ``effective = nominal * ratio = sampled``, which matches Isaac Lab's behavior.
 
-    ``asset_cfg.link_names=None`` covers the whole entity (mjlab's G1 cfg
+    ``asset_cfg.link_names=None`` covers the whole entity (Isaac Lab's G1 cfg
     restricts to foot geoms for a focused friction sweep).
 
     Parameters
     ----------
     ranges
-        Uniform sample range for the *absolute* friction coefficient. mjlab's
+        Uniform sample range for the *absolute* friction coefficient. Isaac Lab's
         G1 uses ``(0.3, 1.2)``.
     shared_random
-        If True (mjlab default), every selected link of a given env gets the
+        If True (Isaac Lab default), every selected link of a given env gets the
         same random sample — useful when "ground friction" should be one value
         per env even if multiple foot geoms exist. If False, every link gets
         an independent sample.

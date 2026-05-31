@@ -113,7 +113,7 @@ def upright_exp(
 ) -> torch.Tensor:
     """``exp(-||projected_gravity_xy||^2 / std^2)`` — positive reward for an upright link.
 
-    Port of mjlab's ``upright`` reward (flat-ground variant). Saturates near zero tilt
+    Port of the reference's ``upright`` reward (flat-ground variant). Saturates near zero tilt
     instead of growing unbounded like an L2 penalty, which matches the policy gradients
     the reference implementation relies on.
 
@@ -123,7 +123,7 @@ def upright_exp(
       (``robot_state.projected_gravity_b``). Penalises **pelvis** tilt for a
       floating-base humanoid. Backward-compatible default.
     * ``asset_cfg=SceneEntityCfg(link_names=(L,))`` — project the world gravity
-      vector into ``L``'s frame via ``link_quat_w``. mjlab's G1 cfg targets
+      vector into ``L``'s frame via ``link_quat_w``. The reference's G1 cfg targets
       ``torso_link`` so the reward penalises **torso** tilt rather than pelvis
       — different signal when the waist joints flex.
 
@@ -148,7 +148,7 @@ def upright_exp(
 class variable_posture:
     """Reward for staying near the default pose, with per-joint, speed-dependent tolerance.
 
-    Port of ``mjlab.tasks.velocity.mdp.rewards.variable_posture``. Std dicts map joint name
+    Port of ``tasks.velocity.mdp.rewards.variable_posture``. Std dicts map joint name
     regex → std value; per joint the *last* matching pattern wins (same convention as
     ``RobotEntityCfg.default_joint_pos``). Joints with no match keep the supplied ``default``.
 
@@ -226,12 +226,12 @@ class variable_posture:
 def joint_pos_limits(env: EnvContext, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
     """Sum of per-joint excursions past the actuator's configured limits.
 
-    mjlab parity (``envs/mdp/rewards.py::joint_pos_limits``):
+    reference parity (``envs/mdp/rewards.py::joint_pos_limits``):
 
     * Reads each joint's ``(lower, upper)`` limit from Genesis (sliced to the
       actuated DoFs at bind time — see :attr:`Articulation.joint_pos_limits`).
     * Returns ``Σⱼ (max(0, lower − q) + max(0, q − upper))`` per env.
-    * **Absolute** excursion (not squared) — matches mjlab's formula. A joint
+    * **Absolute** excursion (not squared) — matches the reference's formula. A joint
       sitting exactly at its limit contributes zero; beyond, the penalty grows
       linearly.
 

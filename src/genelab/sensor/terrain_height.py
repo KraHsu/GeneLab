@@ -7,7 +7,7 @@ Two modes, distinguished by which cfg field is populated:
   the pre-P3 API; existing call sites keep working.
 * **Multi-frame** — set ``link_names`` (plural tuple) and pick a ``reduction``.
   Output shape is ``(B, F)`` after reducing the per-frame ray fan to a single
-  number, or ``(B, F, num_rays)`` with ``reduction="none"``. mjlab parity for
+  number, or ``(B, F, num_rays)`` with ``reduction="none"``. Reference parity for
   ``foot_height_scan`` — one sensor scans both feet at once and gives back one
   clearance per foot.
 
@@ -42,7 +42,7 @@ Reduction = Literal["min", "max", "mean", "none"]
 class TerrainHeightSensorCfg(SensorCfg):
     # Single-frame legacy entrypoint. Set this *or* ``link_names``, not both.
     link_name: str = ""
-    # Multi-frame entrypoint (mjlab parity); one frame per link, reduction applied
+    # Multi-frame entrypoint (reference parity); one frame per link, reduction applied
     # per-frame across the pattern.
     link_names: tuple[str, ...] = ()
     pattern: GridPattern | RingPattern | HemispherePattern = field(default_factory=GridPattern)
@@ -51,7 +51,7 @@ class TerrainHeightSensorCfg(SensorCfg):
     max_distance: float = 10.0
     ground_height: float = 0.0
     link_offsets: tuple[tuple[float, float, float], ...] | None = None
-    """Per-link local-frame offsets for the ray-pattern origin (mjlab site parity).
+    """Per-link local-frame offsets for the ray-pattern origin (the reference site parity).
 
     When set in multi-frame mode, must have the same length as ``link_names``;
     each entry is the site position in the corresponding link's body frame.
