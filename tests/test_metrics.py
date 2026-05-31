@@ -209,7 +209,7 @@ def test_mean_action_acc_known_finite_difference() -> None:
 
 # --------------------------------------------------------------------- gait metric fakes
 #
-# Lightweight sensor + robot_state stand-ins so the 5 mjlab-parity metrics
+# Lightweight sensor + robot_state stand-ins so the 5 reference-parity metrics
 # (``angular_momentum_mean``, ``air_time_mean``, ``slip_velocity_mean``,
 # ``landing_force_mean``, ``peak_height_mean``) can be exercised without
 # spinning up Genesis. Each metric reads either a contact sensor's data,
@@ -277,7 +277,7 @@ def _make_contact_sensor(
 
 
 def test_angular_momentum_mean_returns_norm_per_env() -> None:
-    """Per-env ``||L||_2``. mjlab logs ``mean(magnitude)``; per-env value is the magnitude."""
+    """Per-env ``||L||_2``. The reference logs ``mean(magnitude)``; per-env value is the magnitude."""
     env = _FakeMetricsEnvWithSensors(num_envs=2)
     # Env 0: L = (3, 4, 0) → ||L|| = 5. Env 1: L = (0, 0, 12) → 12.
     env.sensors["angmom"] = _FakeAngmomSensor(

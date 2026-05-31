@@ -1,6 +1,6 @@
 """PPO config for the Unitree G1 motion-imitation task.
 
-Mirrors ``mjlab.tasks.tracking.config.g1.rl_cfg`` so behaviour matches the BeyondMimic baseline.
+Mirrors ``tasks.tracking.config.g1.rl_cfg`` so behaviour matches the BeyondMimic baseline.
 """
 
 from genelab.rl import RslRlModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg

@@ -7,7 +7,7 @@ the things that don't make sense for diagnostics:
 * No ``dt`` scaling — the episode mean is over control steps, not seconds.
 * No clamping / nan-fill — if a metric goes NaN you want to see it.
 
-mjlab parity for ``MetricsManager``. We skip mjlab's ``per_substep`` flag (we
+Reference parity for ``MetricsManager``. We skip the reference's ``per_substep`` flag (we
 don't have a substep hook in GeneLab's step loop) and the ``reduce="last"``
 option (no current consumer). Add either back if needed — the manager's
 internal layout was designed with those extensions in mind.

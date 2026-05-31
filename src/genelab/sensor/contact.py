@@ -1,6 +1,6 @@
 """Per-link contact sensor with optional air-time / contact-time state machine.
 
-The shape mirrors mjlab's ``ContactSensor`` — same ``found`` / ``force`` / ``current_air_time`` /
+The shape mirrors the reference's ``ContactSensor`` — same ``found`` / ``force`` / ``current_air_time`` /
 ``last_air_time`` semantics so obs / reward terms transfer 1:1 — but the backend reads Genesis's
 ``robot.get_links_net_contact_force()`` (per-link external-contact aggregate) instead of MuJoCo
 contact pairs. A contact is "found" when the force magnitude exceeds ``force_threshold`` (N).
@@ -34,7 +34,7 @@ class ContactData:
     first_detached: torch.Tensor  # (B, N) bool: this step transitioned from contact → air
     # ``(B, N, H, 3)`` rolling window of the last ``H = history_length`` net contact forces, in
     # arbitrary (write-pointer) order. ``None`` when ``history_length=0`` (the default — skips
-    # the per-step copy). Used by impact-aware rewards (mjlab ``self_collision_cost``) that
+    # the per-step copy). Used by impact-aware rewards (the reference ``self_collision_cost``) that
     # aggregate over a short look-back to catch transient spikes between policy steps.
     force_history: torch.Tensor | None
 

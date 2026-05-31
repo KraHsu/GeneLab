@@ -10,8 +10,8 @@ The bundled `dance1_subject2.npz` is derived from the Unitree-retargeted
 LAFAN1 dataset and inherits CC BY-NC-ND 4.0 — non-commercial research use
 only. See ``unitree_g1/motions/LICENSE.NOTICE`` in the assets repo.
 
-The body / joint axes inside the NPZ follow mjlab's MJCF DFS traversal order
-(see :data:`G1_MJLAB_BODY_NAMES` / :data:`G1_MJLAB_JOINT_NAMES`); Genesis uses
+The body / joint axes inside the NPZ follow the reference's MJCF DFS traversal order
+(see :data:`G1_MOTION_BODY_NAMES` / :data:`G1_MOTION_JOINT_NAMES`); Genesis uses
 its own traversal so the env config must hand these orderings to
 ``MotionCommandCfg`` for a per-axis permutation.
 """
@@ -22,7 +22,7 @@ from typing import Final
 from genelab.utils.download import AssetSpec, fetch_asset
 
 
-G1_MJLAB_BODY_NAMES: Final[tuple[str, ...]] = (
+G1_MOTION_BODY_NAMES: Final[tuple[str, ...]] = (
     "pelvis",
     "left_hip_pitch_link",
     "left_hip_roll_link",
@@ -55,7 +55,7 @@ G1_MJLAB_BODY_NAMES: Final[tuple[str, ...]] = (
     "right_wrist_yaw_link",
 )
 
-G1_MJLAB_JOINT_NAMES: Final[tuple[str, ...]] = (
+G1_MOTION_JOINT_NAMES: Final[tuple[str, ...]] = (
     "left_hip_pitch_joint",
     "left_hip_roll_joint",
     "left_hip_yaw_joint",
