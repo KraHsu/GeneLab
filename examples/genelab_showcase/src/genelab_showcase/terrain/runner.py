@@ -8,8 +8,10 @@ cross-section in two live pyqtgraph windows. Nothing is written to disk.
 
 from typing import TYPE_CHECKING, Any, cast
 
+import numpy as np
 import torch
 
+from genelab_showcase._viz import LazyQtWindows
 from genelab_showcase.runner import ShowcaseRunner, SpringCfg
 
 if TYPE_CHECKING:
@@ -32,12 +34,10 @@ class TerrainShowcaseRunner(ShowcaseRunner):
         super().__init__(env_cfg, spring=SpringCfg(link_name="pelvis", gravity_comp=1.0))
         self._nodes: list[Any] = []
         self._follow_set = False
-        self._inited = False
-        self._app: Any = None
+        self._qt = LazyQtWindows()
         self._view: Any = None
         self._scatter: Any = None
         self._profile: Any = None
-        self._np: Any = None
 
     def _teleport_to(self, env: "ManagerBasedRlEnv", col: int) -> None:
         """Place the robot at the centre of sub-terrain column ``col`` and re-anchor the spring."""
@@ -73,7 +73,7 @@ class TerrainShowcaseRunner(ShowcaseRunner):
             return
         data = cast("RayCastData", env.sensors["pelvis_height"].data)
         self._draw_rays(env, data)
-        if self._ensure_scan_window():
+        if self._qt.ensure(self._build_scan_windows, label="terrain scan"):
             self._update_windows(data)
 
     def _draw_rays(self, env: "ManagerBasedRlEnv", data: "RayCastData") -> None:
@@ -89,41 +89,28 @@ class TerrainShowcaseRunner(ShowcaseRunner):
                 gs_scene.draw_debug_line(starts[i], hits[i], radius=0.004, color=(0.3, 0.85, 1.0, 0.5))
             )
 
-    def _ensure_scan_window(self) -> bool:
-        # _inited (set below) prevents re-entry, so a failed pyqtgraph import is not retried.
-        if self._inited:
-            return self._scatter is not None
-        self._inited = True
-        try:
-            import numpy as np
-            import pyqtgraph as pg
-            import pyqtgraph.opengl as gl
+    def _build_scan_windows(self, app: Any) -> None:
+        import pyqtgraph as pg
+        import pyqtgraph.opengl as gl
 
-            self._np = np
-            self._app = pg.mkQApp("terrain scan")
-            view = gl.GLViewWidget()
-            view.setWindowTitle("terrain hit point cloud")
-            view.setCameraPosition(distance=1.8, elevation=28, azimuth=-60)
-            grid = gl.GLGridItem()
-            grid.setSize(1.4, 1.4, 1.0)
-            grid.setSpacing(0.1, 0.1, 0.1)
-            view.addItem(grid)
-            self._scatter = gl.GLScatterPlotItem(size=8.0)
-            view.addItem(self._scatter)
-            view.show()
-            self._view = view
-            plot = pg.plot(title="terrain height cross-section")
-            plot.setLabel("bottom", "x under robot (m)")
-            plot.setLabel("left", "relative height (m)")
-            plot.setYRange(-0.25, 0.25)
-            self._profile = plot.plot(pen=pg.mkPen((255, 160, 30), width=2), symbol="o", symbolSize=4)
-            return True
-        except Exception as exc:  # noqa: BLE001 - viz is best-effort, never break the sim
-            print(f"terrain showcase: scan windows unavailable ({exc})")
-            return False
+        view = gl.GLViewWidget()
+        view.setWindowTitle("terrain hit point cloud")
+        view.setCameraPosition(distance=1.8, elevation=28, azimuth=-60)
+        grid = gl.GLGridItem()
+        grid.setSize(1.4, 1.4, 1.0)
+        grid.setSpacing(0.1, 0.1, 0.1)
+        view.addItem(grid)
+        self._scatter = gl.GLScatterPlotItem(size=8.0)
+        view.addItem(self._scatter)
+        view.show()
+        self._view = view
+        plot = pg.plot(title="terrain height cross-section")
+        plot.setLabel("bottom", "x under robot (m)")
+        plot.setLabel("left", "relative height (m)")
+        plot.setYRange(-0.25, 0.25)
+        self._profile = plot.plot(pen=pg.mkPen((255, 160, 30), width=2), symbol="o", symbolSize=4)
 
     def _update_windows(self, data: "RayCastData") -> None:
-        np = self._np
         hits = data.hit_pos_w[0].detach().cpu().numpy()  # (M, 3)
         # Point cloud, coloured low→high by height and centred on its own footprint.
         z = hits[:, 2]
@@ -137,4 +124,4 @@ class TerrainShowcaseRunner(ShowcaseRunner):
         n = int(round(len(hits) ** 0.5))
         row = hits.reshape(n, n, 3)[n // 2]
         self._profile.setData(row[:, 0] - row[:, 0].mean(), row[:, 2] - row[:, 2].mean())
-        self._app.processEvents()
+        self._qt.process()
