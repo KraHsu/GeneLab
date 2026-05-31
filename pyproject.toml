@@ -3,9 +3,11 @@ name = "genelab"
 version = "0.3.0"
 description = "Isaac Lab API for RL and robotics research powered by Genesis."
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
-authors = [{ name = "KraHsu", email = "charles040318@gmail.com" }]
-maintainers = [{ name = "KraHsu", email = "charles040318@gmail.com" }]
+authors = [{ name = "Chenhao Zhang", email = "charles040318@gmail.com" }]
+maintainers = [{ name = "Chenhao Zhang", email = "charles040318@gmail.com" }]
 dependencies = [
     "genesis-world>=1.0.0,<2.0.0",
     "typer>=0.12",
