@@ -36,28 +36,31 @@ Genesis 负责物理、渲染、地形高程图与内置 PD;其上全是 GeneLab
 无关的代码。
 
 ```mermaid
-flowchart TD
-    subgraph NAT["GeneLab 自研 — 自有逻辑,Isaac Lab 风格,与仿真器无关"]
-        Managers[managers · mdp 术语库 · DR · commands]
-        EnvLoop[envs:ManagerBasedRlEnv 的 step 循环]
-        Reg[registry · extensions · asset_zoo · cli · utils.math]
-        Derived[派生传感器:contact 气时 · self_contact · ray_cast · terrain_height · body_velocity · angular_momentum]
-        ActLaws[作动器控制律:ideal_pd · dc_motor · mlp_residual]
+flowchart TB
+    subgraph NAT["GeneLab 自研"]
+        direction LR
+        Managers[managers]
+        MDPlib[mdp 术语库]
+        EnvLoop[envs step 循环]
+        Derived[派生传感器]
+        ActLaws[作动器控制律]
+        Infra[registry · cli · asset_zoo]
     end
-    subgraph WRAP["包装 Genesis — 委托给 gs.*"]
-        Scene2[scene:gs.Scene · build · step]
-        Entity2[entity:morphs URDF/MJCF · get/set dofs]
-        ImplAct[actuator:implicit_pd · mujoco_style → gs 内置 PD]
-        Terr[terrains → gs.morphs.Terrain]
-        Rec[recording → genesis.recorders]
-        HwSens[硬件传感器:camera · raycaster · tactile · proximity]
-        Kb[bridges.keyboard → gs 键位]
+    subgraph WRAP["包装 Genesis"]
+        direction LR
+        Scene2[scene + entity]
+        ImplAct[内置 PD]
+        Terr[terrains]
+        Rec[recording]
+        HwSens[硬件传感器]
+        Kb[键盘桥接]
     end
-    subgraph EXT["包装外部 RL 库 — 非 Genesis"]
-        RL[rl:runner · backends · vecenvs · eval/benchmark/export]
-        Libs[(rsl_rl · skrl · sb3 · gymnasium)]
+    subgraph EXT["包装外部 RL 库"]
+        direction LR
+        RL[rl runner + backends]
+        Libs[(rsl_rl · skrl · sb3)]
     end
-    GenesisSim[(Genesis 仿真 — 物理 · 渲染 · 地形高程图 · 内置 PD)]
+    GenesisSim[(Genesis 仿真)]
 
     NAT --> WRAP --> GenesisSim
     EXT --> EnvLoop
@@ -67,11 +70,13 @@ flowchart TD
     classDef wrap fill:#e3f2fd,stroke:#1565c0;
     classDef ext fill:#fff3e0,stroke:#e65100;
     classDef sim fill:#eceff1,stroke:#37474f;
-    class Managers,EnvLoop,Reg,Derived,ActLaws nat;
-    class Scene2,Entity2,ImplAct,Terr,Rec,HwSens,Kb wrap;
+    class Managers,MDPlib,EnvLoop,Derived,ActLaws,Infra nat;
+    class Scene2,ImplAct,Terr,Rec,HwSens,Kb wrap;
     class RL,Libs ext;
     class GenesisSim sim;
 ```
+
+下表列出每一类中的具体模块。
 
 ### 三类划分
 
