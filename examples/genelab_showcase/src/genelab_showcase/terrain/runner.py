@@ -86,7 +86,9 @@ class TerrainShowcaseRunner(ShowcaseRunner):
         stride = max(1, len(starts) // _MAX_RAY_LINES)
         for i in range(0, len(starts), stride):
             self._nodes.append(
-                gs_scene.draw_debug_line(starts[i], hits[i], radius=0.004, color=(0.3, 0.85, 1.0, 0.5))
+                gs_scene.draw_debug_line(
+                    starts[i], hits[i], radius=0.004, color=(0.3, 0.85, 1.0, 0.5)
+                )
             )
 
     def _build_scan_windows(self, app: Any) -> None:

@@ -77,12 +77,24 @@ def sensors_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
             # depth streams show real geometry (boxes + spheres at varied size / distance)
             # instead of an empty plane as joint1 sweeps the camera across them.
             entities={
-                "prop_box_a": RigidObjectCfg(morph="box", size=(0.08, 0.08, 0.08), init_pos=(0.45, 0.0, 0.04)),
-                "prop_box_b": RigidObjectCfg(morph="box", size=(0.06, 0.12, 0.10), init_pos=(0.40, 0.22, 0.05)),
-                "prop_box_c": RigidObjectCfg(morph="box", size=(0.12, 0.06, 0.06), init_pos=(0.52, -0.20, 0.03)),
-                "prop_tower": RigidObjectCfg(morph="box", size=(0.05, 0.05, 0.16), init_pos=(0.58, -0.04, 0.08)),
-                "prop_ball_a": RigidObjectCfg(morph="sphere", size=(0.05,), init_pos=(0.55, 0.13, 0.05)),
-                "prop_ball_b": RigidObjectCfg(morph="sphere", size=(0.035,), init_pos=(0.37, -0.10, 0.035)),
+                "prop_box_a": RigidObjectCfg(
+                    morph="box", size=(0.08, 0.08, 0.08), init_pos=(0.45, 0.0, 0.04)
+                ),
+                "prop_box_b": RigidObjectCfg(
+                    morph="box", size=(0.06, 0.12, 0.10), init_pos=(0.40, 0.22, 0.05)
+                ),
+                "prop_box_c": RigidObjectCfg(
+                    morph="box", size=(0.12, 0.06, 0.06), init_pos=(0.52, -0.20, 0.03)
+                ),
+                "prop_tower": RigidObjectCfg(
+                    morph="box", size=(0.05, 0.05, 0.16), init_pos=(0.58, -0.04, 0.08)
+                ),
+                "prop_ball_a": RigidObjectCfg(
+                    morph="sphere", size=(0.05,), init_pos=(0.55, 0.13, 0.05)
+                ),
+                "prop_ball_b": RigidObjectCfg(
+                    morph="sphere", size=(0.035,), init_pos=(0.37, -0.10, 0.035)
+                ),
             },
             sensors=(
                 CameraSensorCfg(

@@ -175,8 +175,12 @@ class ActuatorShowcaseRunner(ShowcaseRunner):
             slider.setValue(round(current / step_val))
 
             def on_change(
-                ticks: int, attr: str = attr, label: str = label, step_val: float = step_val,
-                fmt: str = fmt, tag: QtWidgets.QLabel = tag,
+                ticks: int,
+                attr: str = attr,
+                label: str = label,
+                step_val: float = step_val,
+                fmt: str = fmt,
+                tag: QtWidgets.QLabel = tag,
             ) -> None:
                 value = ticks * step_val
                 setattr(self, attr, value)

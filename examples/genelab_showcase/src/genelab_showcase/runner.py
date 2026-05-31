@@ -204,7 +204,9 @@ class ShowcaseRunner:
             world_up = torch.tensor(_WORLD_UP, device=device).expand(n, 3)
             up_w = quat_apply(rs.root_quat, world_up)  # base up-axis in world
             err = torch.cross(up_w, world_up, dim=-1)  # rotates up_w back toward world up
-            torque = (spr.upright_stiffness * err - spr.upright_damping * rs.root_ang_vel_w).unsqueeze(1)
+            torque = (
+                spr.upright_stiffness * err - spr.upright_damping * rs.root_ang_vel_w
+            ).unsqueeze(1)
             link.solver.apply_links_external_torque(torque, (link.idx,), ref="link_com")
 
     # ------------------------------------------------------------------ play

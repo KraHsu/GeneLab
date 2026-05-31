@@ -19,8 +19,16 @@ if TYPE_CHECKING:
     from genelab.sensor import ContactData
 
 # The leg joints flexed to lift a foot: (hip pitch, knee, ankle pitch), per side.
-_LEFT_LEG: tuple[str, str, str] = ("left_hip_pitch_joint", "left_knee_joint", "left_ankle_pitch_joint")
-_RIGHT_LEG: tuple[str, str, str] = ("right_hip_pitch_joint", "right_knee_joint", "right_ankle_pitch_joint")
+_LEFT_LEG: tuple[str, str, str] = (
+    "left_hip_pitch_joint",
+    "left_knee_joint",
+    "left_ankle_pitch_joint",
+)
+_RIGHT_LEG: tuple[str, str, str] = (
+    "right_hip_pitch_joint",
+    "right_knee_joint",
+    "right_ankle_pitch_joint",
+)
 # Per-actuator-group action_scale turns these into a high-knee lift (~70 deg hip, ~60 deg knee
 # above default): big enough to clear the ground cleanly so the contact <-> air switch is
 # obvious. Hip is negative (pitch flexion).
@@ -44,7 +52,9 @@ class ContactShowcaseRunner(ShowcaseRunner):
         # PD holds the pelvis up against the planted-leg squat so the body marches tall.
         super().__init__(
             env_cfg,
-            spring=SpringCfg(link_name="pelvis", gravity_comp=0.9, stiffness=8000.0, damping=1000.0),
+            spring=SpringCfg(
+                link_name="pelvis", gravity_comp=0.9, stiffness=8000.0, damping=1000.0
+            ),
         )
         self._joint_idx: dict[str, int] | None = None
         self._foot_idx: tuple[int, int] = (-1, -1)
@@ -55,7 +65,10 @@ class ContactShowcaseRunner(ShowcaseRunner):
             return
         robot = env.articulations["robot"]
         self._joint_idx = {n: robot.joint_names.index(n) for n in (*_LEFT_LEG, *_RIGHT_LEG)}
-        self._foot_idx = (robot.link_names.index(FOOT_LINKS[0]), robot.link_names.index(FOOT_LINKS[1]))
+        self._foot_idx = (
+            robot.link_names.index(FOOT_LINKS[0]),
+            robot.link_names.index(FOOT_LINKS[1]),
+        )
 
     def _scripted_action(self, env: "ManagerBasedRlEnv", step: int) -> torch.Tensor:
         self._ensure_indices(env)
