@@ -96,12 +96,14 @@ def test_rsl_rl_wrapper_exposes_runner_attrs() -> None:
     assert "time_outs" in info
 
 
-def test_play_task_caps_scripted_agent_at_simulation_steps(
+def test_play_task_step_cap_gates_on_viewer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scripted (zero/random) playback defaults its step cap to ``simulation.steps``
-    (what ``--steps`` sets) so a headless ``play --agent zero --steps N`` stops after N
-    steps; trained playback stays unbounded unless ``max_steps`` is passed."""
+    """Playback length is gated on the viewer, not the agent kind: headless
+    (``vis=False``) playback caps at ``simulation.steps`` for every kind (so a headless
+    ``play --agent zero/trained`` can't hang); with a viewer (``vis=True``) it stays
+    unbounded so it runs until the window is closed. An explicit ``max_steps`` wins."""
+    from pathlib import Path
     from types import SimpleNamespace
 
     from genelab.rl import runner
@@ -120,12 +122,25 @@ def test_play_task_caps_scripted_agent_at_simulation_steps(
     monkeypatch.setattr(runner, "default_backend", lambda: _FakeBackend())
     monkeypatch.setattr(runner, "TASKS", SimpleNamespace(get=lambda _id: None))
 
-    cfg = SimpleNamespace(simulation=SimpleNamespace(steps=7, num_envs=1))
+    def _cfg(vis: bool) -> SimpleNamespace:
+        return SimpleNamespace(simulation=SimpleNamespace(steps=7, num_envs=1, vis=vis))
 
-    runner.play_task("Unregistered-Task-v0", env_cfg=cfg, agent="zero")
+    # Headless: every kind is capped at simulation.steps.
+    runner.play_task("Unregistered-Task-v0", env_cfg=_cfg(vis=False), agent="zero")
+    assert captured["max_steps"] == 7
+    runner.play_task(
+        "Unregistered-Task-v0", env_cfg=_cfg(vis=False), agent="trained", checkpoint=Path("x.pt")
+    )
     assert captured["max_steps"] == 7
 
-    from pathlib import Path
-
-    runner.play_task("Unregistered-Task-v0", env_cfg=cfg, agent="trained", checkpoint=Path("x.pt"))
+    # Viewer on: unbounded — playback runs until the window closes.
+    runner.play_task("Unregistered-Task-v0", env_cfg=_cfg(vis=True), agent="zero")
     assert captured["max_steps"] is None
+    runner.play_task(
+        "Unregistered-Task-v0", env_cfg=_cfg(vis=True), agent="trained", checkpoint=Path("x.pt")
+    )
+    assert captured["max_steps"] is None
+
+    # Explicit max_steps always wins, viewer or not.
+    runner.play_task("Unregistered-Task-v0", env_cfg=_cfg(vis=True), agent="zero", max_steps=3)
+    assert captured["max_steps"] == 3
