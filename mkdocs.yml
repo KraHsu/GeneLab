@@ -115,6 +115,7 @@ plugins:
             Profiling: 性能剖析
             'Project: project new': '项目：project new'
             Concepts: 核心概念
+            Architecture: 架构
             Registry: 注册表
             Configs: 配置系统
             Contracts: 契约/端口
@@ -175,7 +176,11 @@ markdown_extensions:
         - .
         - docs
       check_paths: true
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.tasklist:
@@ -215,6 +220,7 @@ nav:
       - Profiling: cli/profiling.md
       - 'Project: project new': cli/project-new.md
   - Concepts:
+      - Architecture: concepts/architecture.md
       - Registry: concepts/registry.md
       - Configs: concepts/configs.md
       - Contracts: concepts/contracts.md
