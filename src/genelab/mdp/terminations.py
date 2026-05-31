@@ -101,7 +101,7 @@ def bad_anchor_ori(env: "EnvContext", command_name: str, threshold: float) -> to
     """True when the tilt error between robot anchor and reference exceeds ``threshold``.
 
     Uses the body-frame gravity z-component as a tilt proxy (simpler than a full geodesic
-    distance and matches mjlab's ``bad_anchor_ori`` semantically).
+    distance and matches the reference's ``bad_anchor_ori`` semantically).
     """
     from genelab.utils.math import quat_apply_inverse
 

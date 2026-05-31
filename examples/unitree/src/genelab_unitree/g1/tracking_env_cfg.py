@@ -1,6 +1,6 @@
 """Motion-imitation env config for the Unitree G1 on flat ground.
 
-Port of ``mjlab.tasks.tracking.config.g1.env_cfgs.unitree_g1_flat_tracking_env_cfg`` adapted to
+Port of ``tasks.tracking.config.g1.env_cfgs.unitree_g1_flat_tracking_env_cfg`` adapted to
 GeneLab's slim manager system. The motion clip defaults to the LAFAN1 ``dance1_subject2``
 NPZ vendored in the asset zoo (fetched lazily on first use via
 :func:`genelab.asset_zoo.unitree_g1_motions.g1_lafan1_dance1_subject2`). Edit the cfg or
@@ -22,8 +22,8 @@ from genelab.managers import (
 )
 from genelab.asset_zoo.unitree_g1 import UnitreeG1Cfg
 from genelab.asset_zoo.unitree_g1_motions import (
-    G1_MJLAB_BODY_NAMES,
-    G1_MJLAB_JOINT_NAMES,
+    G1_MOTION_BODY_NAMES,
+    G1_MOTION_JOINT_NAMES,
     g1_lafan1_dance1_subject2,
 )
 from genelab.mdp.actions.joint_position import JointPositionActionCfg
@@ -160,8 +160,8 @@ def unitree_g1_tracking_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 motion_file=str(g1_lafan1_dance1_subject2()),
                 anchor_body_name="torso_link",
                 body_names=_G1_TRACKING_BODIES,
-                motion_body_order=G1_MJLAB_BODY_NAMES,
-                motion_joint_order=G1_MJLAB_JOINT_NAMES,
+                motion_body_order=G1_MOTION_BODY_NAMES,
+                motion_joint_order=G1_MOTION_JOINT_NAMES,
                 pose_range=(
                     {
                         "x": (-0.05, 0.05),

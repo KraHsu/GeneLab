@@ -6,7 +6,7 @@ true angular momentum; the per-link spin term ``Σᵢ Iᵢ_world · ωᵢ`` is o
 because Genesis does not expose per-link inertia tensors through a stable
 public API and reading internals (``rigid_link._variant_inertial``) would
 couple the sensor to engine version. For the locomotion penalty
-``mdp.angular_momentum_penalty`` (mjlab parity, weight −0.02) the orbital
+``mdp.angular_momentum_penalty`` (reference parity, weight −0.02) the orbital
 term dominates — a humanoid's "spinning" failure mode is dominated by limbs
 swinging at long lever arms, not by individual links spinning about their
 own axes. Document the approximation in callers expecting tight physical

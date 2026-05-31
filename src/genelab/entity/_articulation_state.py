@@ -48,7 +48,7 @@ class RobotState:
         # ``JointPositionAction.process_actions`` subtracts it from the PD target
         # so the real joint sits ``bias`` away from the policy's nominal command;
         # ``mdp.joint_pos_rel`` returns the raw ``joint_pos − default`` and surfaces
-        # that offset to the policy — mjlab parity for joint-encoder-bias sim2real DR.
+        # that offset to the policy — Isaac Lab parity for joint-encoder-bias sim2real DR.
         self.encoder_bias = z(num_envs, num_dofs)
         # Per-env, per-actuated-DoF realized actuator torque (Genesis control force),
         # refreshed each step via ``get_dofs_control_force``. Used by

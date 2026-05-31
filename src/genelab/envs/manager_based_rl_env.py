@@ -1,6 +1,6 @@
 """Genesis-backed manager-based RL environment.
 
-This is a slim port of ``mjlab.envs.manager_based_rl_env`` adapted to Genesis. The env owns
+This is a slim port of ``envs.manager_based_rl_env`` adapted to Genesis. The env owns
 the seven manager-style MDP hooks and orchestrates an :class:`~genelab.scene.InteractiveScene`
 that in turn owns the Genesis ``gs.Scene``, an articulated robot, and any extra rigid bodies.
 """

@@ -75,7 +75,7 @@ class ActionManager:
         self._prev_action: torch.Tensor = torch.zeros_like(self._action)
         # Second-order history slot so ``mean_action_acc`` and similar metrics can compute a
         # finite-difference acceleration ``a_t − 2·a_{t-1} + a_{t-2}``. Two extra (B, A)
-        # buffers are cheap; mjlab keeps the same pair on its ActionManager.
+        # buffers are cheap; Isaac Lab keeps the same pair on its ActionManager.
         self._prev_prev_action: torch.Tensor = torch.zeros_like(self._action)
 
     @property

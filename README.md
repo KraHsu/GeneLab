@@ -12,6 +12,7 @@ lightweight simulation backend — no USD/Kit, no vendor lock-in.
 ![Python](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Genesis](https://img.shields.io/badge/sim-Genesis-FF6F00)
 ![uv](https://img.shields.io/badge/deps-uv-DE5FE9)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 [**中文**](docs/README_CN.md) · [**Documentation**](https://krahsu.github.io/GeneLab/) · [**Examples**](examples/README.md)
 
@@ -164,6 +165,22 @@ Note: `QD_GRAPH=0` disables CUDA-graph batching and noticeably slows **contact-h
 prefer a non-Hopper GPU (Ada / Ampere) for heavy locomotion training.
 
 </details>
+
+## 📚 Citation
+
+If you use GeneLab in your research, please cite it. GitHub renders a
+**Cite this repository** button from [`CITATION.cff`](CITATION.cff); or use the
+BibTeX below:
+
+```bibtex
+@software{zhang_genelab,
+  author  = {Zhang, Chenhao},
+  title   = {{GeneLab: An Isaac Lab--style API for RL \& robotics research on Genesis}},
+  url     = {https://github.com/KraHsu/GeneLab},
+  version = {0.3.0},
+  license = {Apache-2.0}
+}
+```
 
 ---
 
