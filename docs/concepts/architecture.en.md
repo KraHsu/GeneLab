@@ -2,7 +2,7 @@
 
 This page is the conceptual map of GeneLab and, in particular, where the
 **boundary with the Genesis simulator** lies: which features are thin wrappers
-over Genesis, which are GeneLab's own implementations, and which wrap external
+over Genesis, which are implemented in GeneLab, and which wrap external
 RL libraries. For the import-time rules that keep the layers honest, see
 [Contracts](contracts.md).
 
@@ -35,12 +35,13 @@ flowchart TD
 
 The abstraction seam sits at `InteractiveScene` / `Articulation` /
 `Sensor.build()`. Below it Genesis owns physics, rendering, terrain heightfields
-and the built-in PD controller; above it everything is GeneLab's own,
-simulator-agnostic code.
+and the built-in PD controller; above it the code is implemented in GeneLab and
+is simulator-agnostic (still a re-implementation of the Isaac Lab API and
+wrappers over various libraries — not original work).
 
 ```mermaid
 flowchart TB
-    subgraph NAT["GeneLab-native"]
+    subgraph NAT["Implemented in GeneLab"]
         direction LR
         Managers[managers]
         MDPlib[mdp terms]
@@ -86,7 +87,7 @@ The table below lists the exact packages in each bucket.
 | Category | Packages | What it means |
 |---|---|---|
 | **Wraps Genesis** | `scene`, `entity`, `actuator.implicit_pd` / `mujoco_style`, `terrains`, `recording`, hardware sensors (`camera`, `mesh_ray_cast`, `tactile_*`, `proximity`, `temperature`, `kinematic_contact`), `bridges.keyboard` | a thin layer over `gs.*` calls |
-| **GeneLab-native** | `managers`, `mdp` (+ DR / commands / curricula / metrics), `envs` step loop, `registry` / `extensions`, `asset_zoo`, `cli`, `utils.math`, native actuator laws (`ideal_pd`, `dc_motor`, `mlp_residual`), derived sensors (`contact`, `self_contact`, `ray_cast`, `terrain_height`, `body_velocity`, `angular_momentum`, `frame_transformer`) | own logic, no simulator coupling |
+| **Implemented in GeneLab** | `managers`, `mdp` (+ DR / commands / curricula / metrics), `envs` step loop, `registry` / `extensions`, `asset_zoo`, `cli`, `utils.math`, actuator laws (`ideal_pd`, `dc_motor`, `mlp_residual`), derived sensors (`contact`, `self_contact`, `ray_cast`, `terrain_height`, `body_velocity`, `angular_momentum`, `frame_transformer`) | logic lives in GeneLab, no `gs.*` calls |
 | **Wraps external RL libs** | `rl` (`runner`, `backends`, `vecenvs`, `eval_task`, `benchmark`, `exporter`) | targets `rsl_rl` / `skrl` / `sb3` / `gymnasium` — no Genesis dependency |
 
 > Derived sensors are dual: they *read* Genesis raw data (contact forces, link

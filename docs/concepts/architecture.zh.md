@@ -1,7 +1,7 @@
 # 架构
 
 本页是 GeneLab 的概念地图,重点说明**与 Genesis 仿真器的边界**:哪些功能是
-对 Genesis 的薄封装,哪些是 GeneLab 自有实现,哪些是对外部 RL 库的封装。关于
+对 Genesis 的薄封装,哪些在 GeneLab 中实现,哪些是对外部 RL 库的封装。关于
 保持各层边界的导入期规则,见[契约](contracts.md)。
 
 一句话心智模型:
@@ -29,15 +29,15 @@ flowchart TD
     MDP --> Entities
 ```
 
-## 哪些包装 Genesis,哪些是 GeneLab 自研
+## 哪些包装 Genesis,哪些在 GeneLab 中实现
 
 抽象接缝落在 `InteractiveScene` / `Articulation` / `Sensor.build()`——其下由
-Genesis 负责物理、渲染、地形高程图与内置 PD;其上全是 GeneLab 自有、与仿真器
-无关的代码。
+Genesis 负责物理、渲染、地形高程图与内置 PD;其上是在 GeneLab 中实现、与仿真器
+无关的代码(它们本身仍是 Isaac Lab API 的重实现与对各类库的封装)。
 
 ```mermaid
 flowchart TB
-    subgraph NAT["GeneLab 自研"]
+    subgraph NAT["在 GeneLab 中实现"]
         direction LR
         Managers[managers]
         MDPlib[mdp 术语库]
@@ -83,7 +83,7 @@ flowchart TB
 | 类别 | 模块 | 含义 |
 |---|---|---|
 | **包装 Genesis** | `scene`、`entity`、`actuator.implicit_pd` / `mujoco_style`、`terrains`、`recording`、硬件类传感器(`camera`、`mesh_ray_cast`、`tactile_*`、`proximity`、`temperature`、`kinematic_contact`)、`bridges.keyboard` | 对 `gs.*` 调用的薄封装 |
-| **GeneLab 自研** | `managers`、`mdp`(含 DR / commands / curricula / metrics)、`envs` step 循环、`registry` / `extensions`、`asset_zoo`、`cli`、`utils.math`、自有作动器控制律(`ideal_pd`、`dc_motor`、`mlp_residual`)、派生传感器(`contact`、`self_contact`、`ray_cast`、`terrain_height`、`body_velocity`、`angular_momentum`、`frame_transformer`) | 自有逻辑,不与仿真器耦合 |
+| **在 GeneLab 中实现** | `managers`、`mdp`(含 DR / commands / curricula / metrics)、`envs` step 循环、`registry` / `extensions`、`asset_zoo`、`cli`、`utils.math`、作动器控制律(`ideal_pd`、`dc_motor`、`mlp_residual`)、派生传感器(`contact`、`self_contact`、`ray_cast`、`terrain_height`、`body_velocity`、`angular_momentum`、`frame_transformer`) | 逻辑在 GeneLab 中,不调用 `gs.*` |
 | **包装外部 RL 库** | `rl`(`runner`、`backends`、`vecenvs`、`eval_task`、`benchmark`、`exporter`) | 面向 `rsl_rl` / `skrl` / `sb3` / `gymnasium`——不依赖 Genesis |
 
 > 派生传感器具有双重性:它们*读取* Genesis 原始数据(接触力、连杆状态),但
