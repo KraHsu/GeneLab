@@ -10,7 +10,7 @@ configs into Genesis recorders during build, then binds them to the live env aft
 
 ```text
 RecordingCfg(source, field, env_idx)
-└── PyQtPlotCfg / MPLPlotCfg / NPZFileCfg / CSVFileCfg / VideoFileCfg
+└── PyQtPlotCfg / MPLPlotCfg / MPLImagePlotCfg / NPZFileCfg / CSVFileCfg / VideoFileCfg
 ```
 
 ## Sources
@@ -28,11 +28,16 @@ returns a scalar or when a file should capture the full batch.
 
 | Output | Use case |
 |---|---|
-| `PyQtPlotCfg` | Live PyQtGraph plots. |
-| `MPLPlotCfg` | Live Matplotlib plots. |
+| `PyQtPlotCfg` | Live PyQtGraph line plots (time series). |
+| `MPLPlotCfg` | Live Matplotlib line plots (time series). |
+| `MPLImagePlotCfg` | Live Matplotlib image window for a `CameraSensor` source — `field="rgb"` for the frame, `field="depth"` for the depth map. |
 | `NPZFileCfg` | Compressed array dumps at cleanup/reset. |
 | `CSVFileCfg` | Row-oriented streaming output. |
 | `VideoFileCfg` | Camera frames to `.mp4`. |
+
+Line plots (`PyQtPlotCfg` / `MPLPlotCfg`) consume 1-D channel data; `MPLImagePlotCfg` consumes a 2-D
+frame and requires a camera source. All plot windows auto-detect the display and no-op on a headless
+host.
 
 ## Where to continue
 
