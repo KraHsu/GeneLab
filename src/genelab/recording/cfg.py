@@ -53,6 +53,21 @@ class MPLPlotCfg(OutputCfg):
 
 
 @dataclass
+class MPLImagePlotCfg(OutputCfg):
+    """Live Matplotlib image window (``imshow``), updated each sample via blit.
+
+    Pairs with a :class:`~genelab.sensor.CameraSensor` source: set ``field="rgb"`` for the
+    ``(H, W, 3)`` uint8 frame, or ``field="depth"`` for the ``(H, W)`` depth map (rendered
+    as a heatmap). Unlike :class:`PyQtPlotCfg` / :class:`MPLPlotCfg` (1-D time series), this
+    shows the 2-D frame itself. Main-thread only with an interactive backend; Genesis
+    auto-detects the display, so it no-ops on a headless host.
+    """
+
+    title: str = ""
+    window_size: tuple[int, int] = (480, 360)
+
+
+@dataclass
 class NPZFileCfg(OutputCfg):
     """Buffers samples and writes a compressed ``.npz`` at cleanup."""
 

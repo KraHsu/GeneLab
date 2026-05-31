@@ -8,7 +8,7 @@ Recording 把选定运行时信号变成实时曲线、文件或视频，而不�
 
 ```text
 RecordingCfg(source, field, env_idx)
-└── PyQtPlotCfg / MPLPlotCfg / NPZFileCfg / CSVFileCfg / VideoFileCfg
+└── PyQtPlotCfg / MPLPlotCfg / MPLImagePlotCfg / NPZFileCfg / CSVFileCfg / VideoFileCfg
 ```
 
 ## 数据源
@@ -25,11 +25,14 @@ RecordingCfg(source, field, env_idx)
 
 | Output | 用途 |
 |---|---|
-| `PyQtPlotCfg` | 实时 PyQtGraph 曲线。 |
-| `MPLPlotCfg` | 实时 Matplotlib 曲线。 |
+| `PyQtPlotCfg` | 实时 PyQtGraph 折线图（时间序列）。 |
+| `MPLPlotCfg` | 实时 Matplotlib 折线图（时间序列）。 |
+| `MPLImagePlotCfg` | `CameraSensor` 源的实时 Matplotlib 图像窗口——`field="rgb"` 显示画面，`field="depth"` 显示深度图。 |
 | `NPZFileCfg` | cleanup/reset 时写压缩数组。 |
 | `CSVFileCfg` | 行式流式输出。 |
 | `VideoFileCfg` | 相机帧写 `.mp4`。 |
+
+折线图（`PyQtPlotCfg` / `MPLPlotCfg`）消费一维通道数据；`MPLImagePlotCfg` 消费二维帧，且要求相机源。所有绘图窗口都会自动检测显示器，无显示器时静默跳过。
 
 ## 继续阅读
 

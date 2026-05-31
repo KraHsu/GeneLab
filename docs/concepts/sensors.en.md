@@ -21,7 +21,8 @@ This lazy cache keeps repeated observation and reward reads consistent within on
 | `CameraSensor` | RGB-D camera attached to a link. |
 | `ContactSensor` | Per-link contact force and optional air/contact time. |
 | `FrameTransformerSensor` | Target frame poses relative to a source frame. |
-| `RayCastSensor` | Grid, ring, or hemisphere ray patterns. |
+| `RayCastSensor` | Analytic ray-vs-ground / heightfield (grid, ring, hemisphere patterns) — the fast O(1) path for terrain height-scan. |
+| `MeshRayCastSensor` | Genesis BVH ray-cast against real scene meshes — rays hit arbitrary rigid bodies (props, obstacles). Targets must set `use_visual_raycasting=True`. |
 | `TerrainHeightSensor` | Downward height scan for terrain-aware locomotion. |
 | `SelfContactSensor` | Self-collision/contact signals. |
 | `RootAngularMomentumSensor` | Root angular momentum diagnostics. |

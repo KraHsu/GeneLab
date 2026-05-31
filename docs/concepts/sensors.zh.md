@@ -19,7 +19,8 @@ Genesis 不会通过 MJCF sensor block 暴露所有信号，因此 GeneLab 提�
 | `CameraSensor` | 挂到 link 上的 RGB-D 相机。 |
 | `ContactSensor` | 每 link 接触力和可选 air/contact time。 |
 | `FrameTransformerSensor` | target frame 相对 source frame 的姿态。 |
-| `RayCastSensor` | grid、ring、hemisphere ray pattern。 |
+| `RayCastSensor` | 解析法射线 vs 地面 / heightfield(grid、ring、hemisphere pattern)——地形高度扫描的 O(1) 快路。 |
+| `MeshRayCastSensor` | Genesis BVH 射线对真实场景 mesh 求交——射线能打到任意刚体(道具、障碍)。目标需设 `use_visual_raycasting=True`。 |
 | `TerrainHeightSensor` | 地形感知 locomotion 的向下 height scan。 |
 | `SelfContactSensor` | 自碰撞/自接触信号。 |
 | `RootAngularMomentumSensor` | root angular momentum 诊断。 |

@@ -23,6 +23,10 @@ class RigidObjectCfg:
     ``None`` keeps Genesis's defaults. Manipulation tasks usually need a non-default
     friction on the object being grasped — the Genesis fallback is too low to hold a
     cube between parallel fingers.
+
+    ``use_visual_raycasting`` opts the object's visual mesh into Genesis's BVH ray-cast, so
+    a :class:`~genelab.sensor.MeshRayCastSensor`'s rays can hit it. Off by default (the BVH
+    only includes opted-in meshes).
     """
 
     morph: Literal["plane", "box", "sphere", "mesh", "mjcf"] = "plane"
@@ -33,6 +37,7 @@ class RigidObjectCfg:
     fixed: bool = True
     friction: float | None = None
     density: float | None = None
+    use_visual_raycasting: bool = False
 
 
 class RigidObject:
@@ -101,13 +106,19 @@ class RigidObject:
         """Build a ``gs.materials.Rigid`` only if the cfg overrides a default —
         otherwise return ``None`` so ``add_entity`` falls back to its built-in
         material and behavior stays unchanged for callers that don't opt in."""
-        if self.cfg.friction is None and self.cfg.density is None:
+        if (
+            self.cfg.friction is None
+            and self.cfg.density is None
+            and not self.cfg.use_visual_raycasting
+        ):
             return None
         kwargs: dict[str, Any] = {}
         if self.cfg.friction is not None:
             kwargs["friction"] = float(self.cfg.friction)
         if self.cfg.density is not None:
             kwargs["rho"] = float(self.cfg.density)
+        if self.cfg.use_visual_raycasting:
+            kwargs["use_visual_raycasting"] = True
         return gs.materials.Rigid(**kwargs)
 
     @property
