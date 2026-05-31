@@ -13,12 +13,26 @@ is a sensor name (in which case ``_steps_per_sample`` is patched to the decimati
 ratio at :meth:`bind_env`) or an opaque callable (left at every-physics-tick sampling).
 """
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from genelab.contracts import EnvContext, SceneContext
     from genelab.sensor import Sensor
+
+
+class _DropThreadExistsWarning(logging.Filter):
+    """Drop Genesis's spurious ``start_thread(): Processor thread already exists`` warning.
+
+    Genesis's ``RecorderManager.reset`` calls ``recorder.start()`` right after
+    ``recorder.reset()`` without stopping the still-running processor thread, so every
+    ``save_on_reset`` flush logs that warning. The restart is a harmless no-op (the thread
+    keeps running), so the warning is pure noise — filtered only around our ``reset`` call.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "Processor thread already exists" not in record.getMessage()
 
 
 @dataclass
@@ -100,7 +114,19 @@ class RecorderBridge:
         if cur_step == self._last_reset_step:
             return
         self._last_reset_step = cur_step
-        rm.reset(envs_idx=None)
+        # Genesis's reset() restarts already-running recorder threads, logging a harmless
+        # "thread already exists" warning each episode; filter it just around this call.
+        import genesis as gs
+
+        logger = getattr(gs, "logger", None)
+        log_filter = _DropThreadExistsWarning()
+        if logger is not None:
+            logger.addFilter(log_filter)
+        try:
+            rm.reset(envs_idx=None)
+        finally:
+            if logger is not None:
+                logger.removeFilter(log_filter)
 
     @staticmethod
     def _current_global_step(gs_scene: Any) -> int:
