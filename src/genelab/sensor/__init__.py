@@ -24,6 +24,13 @@ from genelab.sensor.kinematic_contact import (
     KinematicContactSensor,
     KinematicContactSensorCfg,
 )
+from genelab.sensor.mesh_ray_cast import (
+    MeshGridPattern,
+    MeshRayCastData,
+    MeshRayCastSensor,
+    MeshRayCastSensorCfg,
+    MeshSphericalPattern,
+)
 from genelab.sensor.proximity import (
     ProximityData,
     ProximitySensor,
@@ -86,6 +93,11 @@ __all__ = [
     "KinematicContactData",
     "KinematicContactSensor",
     "KinematicContactSensorCfg",
+    "MeshGridPattern",
+    "MeshRayCastData",
+    "MeshRayCastSensor",
+    "MeshRayCastSensorCfg",
+    "MeshSphericalPattern",
     "PointCloudTactileData",
     "PointCloudTactileSensor",
     "PointCloudTactileSensorCfg",
