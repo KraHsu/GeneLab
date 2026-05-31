@@ -13,8 +13,6 @@ is a sensor name (in which case ``_steps_per_sample`` is patched to the decimati
 ratio at :meth:`bind_env`) or an opaque callable (left at every-physics-tick sampling).
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
