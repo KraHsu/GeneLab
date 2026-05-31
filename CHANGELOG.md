@@ -2,6 +2,39 @@
 
 All notable changes to GeneLab are recorded here.
 
+## [0.3.1] — 2026-05-31
+
+Patch release. Adds a Genesis-backed mesh ray-caster to the sensor zoo and a
+live-image recording sink, and converts every bundled `genelab_showcase`
+example to real-time on-screen display instead of writing files to disk.
+
+### Added
+
+- **Mesh ray-cast sensor:** added `MeshRayCastSensor` (with `MeshRayCastSensorCfg`
+  and `MeshRayCastData`) over Genesis's native BVH `Raycaster`, plus the
+  `MeshGridPattern` / `MeshSphericalPattern` ray patterns — exported from
+  `genelab.sensor` and `genelab.lab`. It complements the existing analytic
+  `RayCastSensor` (terrain height-field scan) by ray-casting real mesh geometry.
+  `RigidObjectCfg.use_visual_raycasting` opts an object's visual mesh into the BVH.
+- **Live-image recording sink:** added `MPLImagePlotCfg` to `genelab.recording`,
+  a Matplotlib image output for camera-style `(H, W, C)` recording sources.
+
+### Fixed
+
+- **Recorder warning noise:** the recording bridge now filters Genesis's repeated
+  `start_thread(): Processor thread already exists` warning around `save_on_reset`
+  flushes (Genesis restarts the still-running recorder thread each episode; the
+  restart is a harmless no-op). Benefits any env with threaded `save_on_reset`
+  recorders, not only the showcases.
+
+### Examples
+
+- **Real-time showcases:** converted all eight bundled `genelab_showcase` examples
+  (sensors, ray-cast, contact, terrain, curriculum, actuator, MLP-residual actuator,
+  recording) from silent disk-dumping to live Qt / pyqtgraph display. Added a shared
+  `LazyQtWindows` helper and a virtual-spring base class for the showcase runners;
+  file dumps, where still available, are opt-in and documented.
+
 ## [0.3.0] — 2026-05-29
 
 Third development release. The headline is the **Genesis 1.0 migration**:
