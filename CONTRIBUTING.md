@@ -55,7 +55,9 @@ GeneLab uses a two-layer flow: feature branches integrate into a topical `dev/<t
 ```
 feat/* ──┐
 fix/*  ──┼──> dev/<topic> ──PR──> main
-docs/* ──┘
+docs/* ──┘     ▲                    ▲
+               │                    │
+   small work: commit directly      └── hotfix/*: urgent, skips dev/<topic>
 ```
 
 1. **Starting a new topic.** Cut `dev/<topic>` off `main` with a short kebab-case topic name (e.g. `dev/bump-genesis-1.0`, `dev/sb3-backend`):
@@ -66,7 +68,7 @@ docs/* ──┘
    git push -u origin dev/<topic>
    ```
 
-2. **Feature work.** Branch off the relevant `dev/<topic>` with a descriptive prefix: `fix/...`, `feat/...`, `ci/...`, `chore/...`, `docs/...`. Run the checks above locally. Push and open a PR targeting `dev/<topic>`.
+2. **Feature work.** For a change that warrants its own review PR, branch off the relevant `dev/<topic>` with a descriptive prefix: `fix/...`, `feat/...`, `ci/...`, `chore/...`, `docs/...`. Run the checks above locally. Push and open a PR targeting `dev/<topic>`. Small, self-contained work does not need its own feature branch — committing straight to `dev/<topic>` is fine, since `dev/<topic>` is itself the integration branch and review happens at the `dev/<topic>` → `main` promotion PR.
 3. **Promoting to main.** When the topic is complete, open a PR `dev/<topic>` → `main`. CI runs on every push and must be green before merge.
 4. **Mid-topic sync.** If `dev/<topic>` advances during review of a feature branch, merge it into your branch (or rebase) so the PR stays current. If `main` advances mid-topic (hotfixes), merge or rebase `main` into `dev/<topic>` so the eventual promotion PR stays clean.
 5. **Hotfixes.** Small urgent fixes may branch directly off `main` as `hotfix/...` and PR to `main` without going through a `dev/<topic>` branch.
