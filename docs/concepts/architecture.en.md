@@ -39,28 +39,31 @@ and the built-in PD controller; above it everything is GeneLab's own,
 simulator-agnostic code.
 
 ```mermaid
-flowchart TD
-    subgraph NAT["GeneLab-native — own logic, Isaac Lab-shaped, sim-agnostic"]
-        Managers[managers · mdp term library · DR · commands]
-        EnvLoop[envs: ManagerBasedRlEnv step loop]
-        Reg[registry · extensions · asset_zoo · cli · utils.math]
-        Derived[derived sensors: contact air-time · self_contact · ray_cast · terrain_height · body_velocity · angular_momentum]
-        ActLaws[actuator laws: ideal_pd · dc_motor · mlp_residual]
+flowchart TB
+    subgraph NAT["GeneLab-native"]
+        direction LR
+        Managers[managers]
+        MDPlib[mdp terms]
+        EnvLoop[envs step loop]
+        Derived[derived sensors]
+        ActLaws[actuator laws]
+        Infra[registry · cli · asset_zoo]
     end
-    subgraph WRAP["Wraps Genesis — delegates to gs.*"]
-        Scene2[scene: gs.Scene · build · step]
-        Entity2[entity: morphs URDF/MJCF · get/set dofs]
-        ImplAct[actuator: implicit_pd · mujoco_style → gs PD]
-        Terr[terrains → gs.morphs.Terrain]
-        Rec[recording → genesis.recorders]
-        HwSens[hardware sensors: camera · raycaster · tactile · proximity]
-        Kb[bridges.keyboard → gs keybinds]
+    subgraph WRAP["Wraps Genesis"]
+        direction LR
+        Scene2[scene + entity]
+        ImplAct[built-in PD]
+        Terr[terrains]
+        Rec[recording]
+        HwSens[hardware sensors]
+        Kb[keyboard bridge]
     end
-    subgraph EXT["Wraps external RL libs — not Genesis"]
-        RL[rl: runner · backends · vecenvs · eval/benchmark/export]
-        Libs[(rsl_rl · skrl · sb3 · gymnasium)]
+    subgraph EXT["Wraps external RL libs"]
+        direction LR
+        RL[rl runner + backends]
+        Libs[(rsl_rl · skrl · sb3)]
     end
-    GenesisSim[(Genesis sim — physics · render · terrain heightfield · built-in PD)]
+    GenesisSim[(Genesis sim)]
 
     NAT --> WRAP --> GenesisSim
     EXT --> EnvLoop
@@ -70,11 +73,13 @@ flowchart TD
     classDef wrap fill:#e3f2fd,stroke:#1565c0;
     classDef ext fill:#fff3e0,stroke:#e65100;
     classDef sim fill:#eceff1,stroke:#37474f;
-    class Managers,EnvLoop,Reg,Derived,ActLaws nat;
-    class Scene2,Entity2,ImplAct,Terr,Rec,HwSens,Kb wrap;
+    class Managers,MDPlib,EnvLoop,Derived,ActLaws,Infra nat;
+    class Scene2,ImplAct,Terr,Rec,HwSens,Kb wrap;
     class RL,Libs ext;
     class GenesisSim sim;
 ```
+
+The table below lists the exact packages in each bucket.
 
 ### Three categories
 
