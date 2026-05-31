@@ -45,6 +45,10 @@ genelab play TASK_ID \
       --checkpoint <ckpt> --headless
     ```
 
+    Headless playback is bounded: with no window to close, it stops after
+    `simulation.steps` steps (set with `--steps`, default 240) instead of running
+    forever. Pass `--max-steps N` to override.
+
 ## Shortcut flags
 
 Both `play` and `train` rewrite the following shortcuts into `env.simulation.*` overrides:
