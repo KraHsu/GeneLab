@@ -19,8 +19,6 @@ returned. Once the env is bound (by ``RecorderBridge.bind_env``), the real data 
 used.
 """
 
-from __future__ import annotations
-
 import inspect
 from collections.abc import Callable
 from dataclasses import is_dataclass
@@ -30,6 +28,7 @@ import torch
 
 from genelab.recording.cfg import (
     CSVFileCfg,
+    MPLImagePlotCfg,
     MPLPlotCfg,
     NPZFileCfg,
     OutputCfg,
@@ -42,7 +41,7 @@ if TYPE_CHECKING:
     from genelab.recording.bridge import RecorderBridge
 
 
-_PLOTTER_CFGS = (PyQtPlotCfg, MPLPlotCfg)
+_LINE_PLOT_CFGS = (PyQtPlotCfg, MPLPlotCfg)
 _FILE_CFGS = (NPZFileCfg, CSVFileCfg)
 
 
@@ -103,19 +102,23 @@ def validate_output_compatibility(rec_cfg: RecordingCfg, bridge: "RecorderBridge
         raise ValueError(f"RecordingCfg(name={rec_cfg.name!r}): outputs is empty")
 
     has_video = any(isinstance(o, VideoFileCfg) for o in rec_cfg.outputs)
-    has_plot = any(isinstance(o, _PLOTTER_CFGS) for o in rec_cfg.outputs)
+    has_image = any(isinstance(o, MPLImagePlotCfg) for o in rec_cfg.outputs)
+    has_plot = any(isinstance(o, _LINE_PLOT_CFGS) for o in rec_cfg.outputs)
     sensor = bridge.sensors.get(rec_cfg.source) if isinstance(rec_cfg.source, str) else None
     is_camera = sensor is not None and type(sensor).__name__ == "CameraSensor"
 
-    if has_video and not is_camera:
+    # Only a sensor-name source can be checked for camera-ness; a callable source is the
+    # caller's responsibility (it may legitimately return frames), so don't reject it.
+    if isinstance(rec_cfg.source, str) and (has_video or has_image) and not is_camera:
+        bad = "VideoFileCfg" if has_video else "MPLImagePlotCfg"
         raise ValueError(
-            f"RecordingCfg(name={rec_cfg.name!r}): VideoFileCfg requires a CameraSensor "
+            f"RecordingCfg(name={rec_cfg.name!r}): {bad} requires a CameraSensor "
             f"source; got source={rec_cfg.source!r}"
         )
     if is_camera and has_plot:
         raise ValueError(
-            f"RecordingCfg(name={rec_cfg.name!r}): plot outputs cannot consume camera "
-            "frames; split into a separate RecordingCfg or remove the plot output."
+            f"RecordingCfg(name={rec_cfg.name!r}): line-plot outputs cannot consume camera "
+            "frames; use MPLImagePlotCfg for a live image, or a separate RecordingCfg."
         )
 
 
@@ -268,7 +271,7 @@ def output_is_file(output: OutputCfg) -> bool:
 
 
 def output_is_plot(output: OutputCfg) -> bool:
-    return isinstance(output, _PLOTTER_CFGS)
+    return isinstance(output, _LINE_PLOT_CFGS)
 
 
 def _build_probe_stub(rec_cfg: RecordingCfg) -> Any:
@@ -286,7 +289,7 @@ def _build_probe_stub(rec_cfg: RecordingCfg) -> Any:
     """
     plot_labels = None
     for out in rec_cfg.outputs:
-        if isinstance(out, _PLOTTER_CFGS) and out.labels is not None:
+        if isinstance(out, _LINE_PLOT_CFGS) and out.labels is not None:
             plot_labels = out.labels
             break
 
