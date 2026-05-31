@@ -45,6 +45,9 @@ genelab play TASK_ID \
       --checkpoint <ckpt> --headless
     ```
 
+    无头回放是有界的：没有窗口可关，它会在 `simulation.steps`（用 `--steps`
+    设置，默认 240）步后停止，而不会一直运行。用 `--max-steps N` 覆盖。
+
 ## 简写标志
 
 `play` 和 `train` 都会把以下简写改写为 `env.simulation.*` override：

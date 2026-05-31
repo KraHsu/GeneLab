@@ -43,7 +43,7 @@ checkpoint。RSL-RL 写到 `logs/rsl_rl/`，skrl 写到 `logs/skrl/`，SB3 写�
 | `random` | 均匀随机动作。 |
 | `trained` | 加载 checkpoint，并调用后端的 inference policy。 |
 
-Genesis viewer 关闭或达到 `max_steps` 时，回放会干净退出。
+回放时长取决于是否开启 viewer，而非 agent 类型：开启 viewer（`vis=true`）时一直运行到窗口关闭；无头（`vis=false`）时对所有 agent 类型都在 `simulation.steps`（由 `--steps` 设置）步后停止，因此无头运行不会卡死。显式的 `max_steps`（`--max-steps`）会覆盖两者。
 
 ## 分布式训练
 
