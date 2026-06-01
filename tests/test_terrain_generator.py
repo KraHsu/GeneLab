@@ -20,6 +20,7 @@ from genelab.terrains import (
     RandomRoughCfg,
     SlopeCfg,
     SteppingStonesCfg,
+    SubTerrainCfg,
     TerrainGenerator,
     TerrainGeneratorCfg,
     TerrainImporter,
@@ -283,3 +284,40 @@ def test_curriculum_single_row_uses_easiest() -> None:
         )
     )
     assert gen.layout == [["easy", "easy"]]
+
+
+@pytest.mark.usefixtures("genesis_runtime")
+def test_build_height_field_per_cell_amplitude() -> None:
+    """Same-``genesis_type`` levels at different params must NOT collapse.
+
+    Genesis keys ``subterrain_parameters`` by type string, so a layout of five
+    ``RandomRoughCfg`` levels (one shared ``random_uniform_terrain`` type) would build
+    every cell at the last level's amplitude. ``build_height_field`` sidesteps that by
+    generating each cell from its own params; assert the per-row roughness is genuinely
+    monotonically increasing rather than uniform.
+    """
+    sub_terrains: dict[str, SubTerrainCfg] = {
+        f"rough_l{level}": RandomRoughCfg(
+            min_height=-0.02 - 0.025 * level,
+            max_height=0.02 + 0.025 * level,
+            step=0.02,
+        )
+        for level in range(5)
+    }
+    cfg = TerrainGeneratorCfg(
+        num_rows=5,
+        num_cols=3,
+        subterrain_size=(8.0, 8.0),
+        horizontal_scale=0.1,
+        vertical_scale=0.005,
+        sub_terrains=sub_terrains,
+        layout=tuple(tuple(f"rough_l{level}" for _ in range(3)) for level in range(5)),
+        curriculum=True,
+    )
+    hf = TerrainGenerator(cfg).build_height_field()
+    per = (hf.shape[0] - 1) // cfg.num_rows
+    stds = [float(hf[i * per : (i + 1) * per, :].std()) for i in range(cfg.num_rows)]
+    # Strictly increasing roughness row 0 -> row 4 (the curriculum gradient).
+    assert all(stds[i] < stds[i + 1] for i in range(len(stds) - 1)), stds
+    # The collapse bug made every row identical; guard the spread is real.
+    assert stds[-1] > 3 * stds[0], stds
