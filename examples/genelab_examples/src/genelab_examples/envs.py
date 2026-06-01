@@ -14,8 +14,6 @@ from genelab_examples.rubiks.sim import (
     ForceDrivenCubeController,
     RubiksCubeController,
 )
-from genelab_examples.wuji_hand.config import WujiEnvCfg
-from genelab_examples.wuji_hand.sim import WujiHandRunConfig, run_wuji_hand
 
 
 class _ViewerLike(Protocol):
@@ -165,38 +163,8 @@ class RubiksPlayEnv:
         return ForceDrivenCubeController(cube, scene=scene, spec=spec, config=force_cfg)
 
 
-class WujiHandPlaybackEnv:
-    """Genesis environment for fixed-trajectory Wuji hand playback."""
-
-    def __init__(self, cfg: WujiEnvCfg | None = None) -> None:
-        self.cfg = cfg or WujiEnvCfg()
-
-    def play(self) -> None:
-        from genelab.cache import ensure_project_cache
-
-        ensure_project_cache()
-
-        cfg = self.cfg
-        run_wuji_hand(
-            WujiHandRunConfig(
-                side=cfg.robot.side,
-                desc_dir=cfg.robot.desc_dir,
-                trajectory=cfg.robot.trajectory,
-                vis=cfg.simulation.vis,
-                gpu=cfg.simulation.gpu,
-                steps=cfg.simulation.steps,
-                dt=cfg.simulation.dt,
-                reset_interval=cfg.reset_interval,
-            )
-        )
-
-
 def create_rubiks_env(cfg: RubiksEnvCfg | None = None) -> RubiksPlayEnv:
     return RubiksPlayEnv(cfg)
-
-
-def create_wuji_env(cfg: WujiEnvCfg | None = None) -> WujiHandPlaybackEnv:
-    return WujiHandPlaybackEnv(cfg)
 
 
 def register() -> None:
@@ -206,11 +174,4 @@ def register() -> None:
             lambda: create_rubiks_env(),
             description="Example Genesis scene for the force-driven Rubik's cube.",
             cfg_type=RubiksEnvCfg,
-        )
-    if "wuji-hand-playback" not in ENVS:
-        register_env(
-            "wuji-hand-playback",
-            lambda: create_wuji_env(),
-            description="Example Genesis scene that plays a fixed Wuji hand trajectory.",
-            cfg_type=WujiEnvCfg,
         )

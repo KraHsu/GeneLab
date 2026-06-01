@@ -5,13 +5,13 @@ from pathlib import Path
 
 from genelab.configs import ManagerBasedEnvCfg, SimulationCfg
 
-from genelab_examples.wuji_hand.assets import DEFAULT_DESC_DIR, DEFAULT_TRAJECTORY
+from genelab_wuji.wuji_hand.assets import DEFAULT_TRAJECTORY
 
 
 @dataclass
 class WujiRobotCfg:
     side: str = "right"
-    desc_dir: Path = DEFAULT_DESC_DIR
+    desc_dir: Path | None = None
     trajectory: Path = DEFAULT_TRAJECTORY
 
 
