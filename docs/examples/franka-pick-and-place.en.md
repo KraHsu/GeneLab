@@ -18,15 +18,15 @@ plus `ContinuousGripperAction` on the fingers.
 ## Installing the extension
 
 ```bash
-uv pip install -e examples/franka_pick_and_place
+uv pip install -e examples/franka
 genelab list tasks | grep Franka
 ```
 
 Without installation:
 
 ```bash
-PYTHONPATH=examples/franka_pick_and_place/src \
-  genelab --import genelab_franka_pick_and_place.tasks list tasks
+PYTHONPATH=examples/franka/src \
+  genelab --import genelab_franka.tasks list tasks
 ```
 
 The first run downloads the Franka MJCF asset and builds the Genesis kernel
@@ -57,7 +57,7 @@ ingredients break the plateau and they work in tandem:
 
 ```bash
 # 1. Collect demos (about a minute at num-envs 32).
-python -m genelab_franka_pick_and_place.collect_demos \
+python -m genelab_franka.collect_demos \
   --num-envs 32 --steps 6400 --out /tmp/franka_pp_demos.npz
 
 # 2. Train with demo prefill.
