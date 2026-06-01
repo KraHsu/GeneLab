@@ -243,4 +243,5 @@ nav:
       - Showcase: examples/showcase.md
       - "Rubik's Cube": examples/rubiks-cube.md
       - Wuji Hand: examples/wuji-hand.md
+      - Wuji Hand Reorientation: examples/wuji-reorient.md
   - Contributing: contributing.md

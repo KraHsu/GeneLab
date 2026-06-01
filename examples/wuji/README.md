@@ -3,6 +3,7 @@
 This directory is a normal external GeneLab project for the Wuji dexterous hand. It registers:
 
 - `GeneLab-Wuji-Hand-Playback-v0` — fixed-trajectory playback of the Wuji hand.
+- `Genelab-Reorient-Wuji-Hand-v0` — SO(3) in-hand cube reorientation, trainable with RSL-RL PPO (see [docs](../../docs/examples/wuji-reorient.en.md)).
 
 From the repository root, run the example without installing this package by importing its
 registration module:
