@@ -76,11 +76,13 @@ def test_register_backend_round_trip() -> None:
 
 def test_runnable_protocol_shape() -> None:
     # A class with the right shape is a structural ``Runnable``; this documents the
-    # contract third-party task types follow (cfg + play() + train()).
+    # contract third-party task types follow (cfg + play(max_steps=...) + train()).
+    # ``play`` takes the keyword-only ``--max-steps`` hard cap; tasks that drive no
+    # step loop may accept and ignore it.
     class _OkTask:
         cfg = object()
 
-        def play(self) -> None: ...
+        def play(self, *, max_steps: int | None = None) -> None: ...
 
         def train(self) -> None: ...
 

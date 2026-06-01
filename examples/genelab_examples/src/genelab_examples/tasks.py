@@ -15,7 +15,10 @@ class RegisteredTask:
     def __init__(self, cfg: TaskCfg) -> None:
         self.cfg = cfg
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
+        # Rubiks / Wuji are scene-playback demos with their own fixed loops, so the
+        # ``--max-steps`` hard cap (``max_steps``) does not apply here; accepted to
+        # satisfy the ``Runnable`` contract.
         if self.cfg.env_name == "rubiks-play":
             if not isinstance(self.cfg.env, RubiksEnvCfg):
                 raise TypeError("rubiks-play tasks require RubiksEnvCfg")
