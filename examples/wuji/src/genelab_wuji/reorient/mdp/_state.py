@@ -31,3 +31,22 @@ def cage_counter(env: "EnvContext") -> torch.Tensor:
 def prev_joint_vel(env: "EnvContext", num_dofs: int) -> torch.Tensor:
     """Per-env previous-step joint velocity cache for the acceleration penalty."""
     return _buf(env, "_wuji_prev_joint_vel", num_dofs)
+
+
+def _scalar(env: "EnvContext", attr: str, init: float) -> torch.Tensor:
+    """A persistent 1-element global curriculum scalar (not per-env)."""
+    buf = getattr(env, attr, None)
+    if buf is None:
+        buf = torch.full((1,), init, device=env.device)
+        setattr(env, attr, buf)
+    return buf
+
+
+def success_curriculum_value(env: "EnvContext") -> torch.Tensor:
+    """Global success-curriculum progress in ``[0, 1]`` (0 = loose threshold, 1 = tight)."""
+    return _scalar(env, "_wuji_success_curr", 0.0)
+
+
+def disturbance_scale_value(env: "EnvContext") -> torch.Tensor:
+    """Global disturbance-intensity scale in ``[min, 1]`` (adaptive-episode curriculum)."""
+    return _scalar(env, "_wuji_disturbance_scale", 0.05)

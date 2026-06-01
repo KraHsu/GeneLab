@@ -76,6 +76,9 @@ def test_reorient_env_cfg_structure(monkeypatch: pytest.MonkeyPatch) -> None:
     # training DR present
     for key in ("robot_friction", "pd_gains", "encoder_bias", "object_disturbance"):
         assert key in cfg.events_cfg
+    # training curriculum present; success threshold starts loose
+    assert {"success_curriculum", "adaptive_episode"} <= set(cfg.curriculum_cfg)
+    assert cfg.commands_cfg["reorient_command"].success_threshold == 0.8
 
 
 def test_reorient_play_cfg_strips_domain_randomization(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -84,6 +87,9 @@ def test_reorient_play_cfg_strips_domain_randomization(monkeypatch: pytest.Monke
     for key in ("robot_friction", "pd_gains", "encoder_bias", "object_disturbance"):
         assert key not in cfg.events_cfg
     assert "reset_object" in cfg.events_cfg
+    # no curriculum in eval; tight target success threshold
+    assert cfg.curriculum_cfg == {}
+    assert cfg.commands_cfg["reorient_command"].success_threshold == 0.2
 
 
 def test_reorient_env_builds_and_steps(genesis_runtime: Any) -> None:

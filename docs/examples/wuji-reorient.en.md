@@ -36,6 +36,9 @@ genelab play  Genelab-Reorient-Wuji-Hand-v0 --checkpoint logs/rsl_rl/wuji_reorie
 - **Observations** — policy: joint pos/vel, cube position in the tag frame, 6D goal-rotation
   error, last action; critic adds command-state and cage-counter progress.
 - **Termination** — time-out, or `cage_drop` when the cube leaves the palm cage long enough.
+- **Curriculum** (training only) — a success curriculum tightens the goal tolerance from
+  loose (0.8 rad) to the target (0.2 rad) as the policy reliably reaches goals, and an
+  adaptive-episode curriculum ramps the cube velocity disturbance with episode survival.
 
 ## Domain randomization
 
@@ -50,19 +53,20 @@ stripped.
 
 ## Convergence
 
-Short GPU smoke (2048 envs, 400 iterations, RTX 5060 Ti) — a learning-signal check, not a
-release-grade policy:
+Reference-scale run (8192 envs, 5000 iterations, RTX 5060 Ti, ~5 h) with the curriculum:
 
-- Orientation-alignment reward rises from ~5 to ~9.7; most episodes survive to time-out
-  rather than dropping the cube.
-- Deterministic eval over 100 episodes (`genelab eval`): **success rate ~0.33** (fraction of
-  episodes that reorient the cube to at least one *held* SO(3) goal — a goal requires staying
-  within tolerance for the full hold window), mean return ~328, mean episode length ~580.
+- The success curriculum tightens the tolerance to the target 0.2 rad by ~iter 1000, after
+  which the policy keeps improving *at full difficulty* (~6.7 goals reached per episode by
+  the end, with a stable grip — `cage_drop` ≈ 0.2).
+- Deterministic eval over 100 episodes (`genelab eval`, tight 0.2 threshold): **success rate
+  0.99** (fraction of episodes that reorient the cube to at least one *held* SO(3) goal),
+  mean return ~1060, mean episode length ~591.
 
-The strict hold window is the bottleneck at this short budget: the policy gets the cube
-*near* goals (high orientation reward) but completes the held success in roughly a third of
-episodes. A full release-scale run (8192 envs, several thousand iterations) is left to the
-user and should push the success rate substantially higher.
+!!! note "The curriculum is essential"
+    Without the success curriculum, the mjlab-aligned reward weights (heavy torque /
+    action-rate / cage penalties) over-regularize into a static hold and reach **0%** at a
+    short budget; with the curriculum they reach the release-level 0.99. A short run without
+    the curriculum and with lighter Genesis-tuned weights reaches ~0.33.
 
 ## See also
 

@@ -61,6 +61,8 @@ class InHandReorientCommand(CommandTerm):
         self._window_timer = torch.zeros(n, dtype=torch.long, device=dev)
         self._reward_hold = torch.zeros(n, dtype=torch.long, device=dev)
         self._goal_reach_count = torch.zeros(n, dtype=torch.long, device=dev)
+        # Pre-reset snapshot of the ended episode's goal count, read by the success curriculum.
+        self._goal_reach_snapshot = torch.zeros(n, dtype=torch.long, device=dev)
         self._in_window = torch.zeros(n, dtype=torch.bool, device=dev)
         self._within = torch.zeros(n, dtype=torch.bool, device=dev)
         self._success_achieved = torch.zeros(n, dtype=torch.bool, device=dev)
@@ -127,13 +129,21 @@ class InHandReorientCommand(CommandTerm):
         self._in_window[env_ids] = False
 
     def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
-        super().reset(env_ids)  # resamples goal + clears per-goal hold state
         if env_ids is None:
-            self._goal_reach_count.zero_()
+            ids = torch.arange(self.num_envs, device=self.device)
         elif isinstance(env_ids, slice):
-            self._goal_reach_count[env_ids] = 0
+            ids = torch.arange(self.num_envs, device=self.device)[env_ids]
         else:
-            self._goal_reach_count[env_ids] = 0
+            ids = env_ids
+        # Snapshot the ended episode's goal count before clearing — the success curriculum
+        # (which runs after this reset) reads the snapshot.
+        self._goal_reach_snapshot[ids] = self._goal_reach_count[ids]
+        super().reset(env_ids)  # resamples goal + clears per-goal hold state
+        self._goal_reach_count[ids] = 0
+
+    @property
+    def goal_reach_snapshot(self) -> torch.Tensor:
+        return self._goal_reach_snapshot
 
     def _update_command(self) -> None:
         cube_quat = self._cube_quat()

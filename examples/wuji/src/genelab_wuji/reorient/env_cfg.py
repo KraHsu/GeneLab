@@ -12,6 +12,7 @@ from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.entity import RigidObjectCfg
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
 from genelab.managers import (
+    CurriculumTermCfg,
     EventTermCfg,
     MetricsTermCfg,
     ObservationGroupCfg,
@@ -28,7 +29,7 @@ from genelab_wuji.reorient.constants import (
     REORIENT_CUBE_HALF_EXTENT,
     REORIENT_CUBE_INIT_POS,
 )
-from genelab_wuji.reorient.mdp import cage, events, metrics, observations, rewards
+from genelab_wuji.reorient.mdp import cage, curriculums, events, metrics, observations, rewards
 from genelab_wuji.reorient.mdp.actions import JointPositionOffsetEMAActionCfg
 from genelab_wuji.reorient.mdp.commands import InHandReorientCommandCfg
 from genelab_wuji.reorient.mdp.sensors import HandObjectContactSensorCfg
@@ -81,7 +82,7 @@ def _critic_obs() -> ObservationGroupCfg:
     )
 
 
-def wuji_hand_reorient_env_cfg(play: bool = False, num_envs: int = 4096) -> ManagerBasedRlEnvCfg:
+def wuji_hand_reorient_env_cfg(play: bool = False, num_envs: int = 8192) -> ManagerBasedRlEnvCfg:
     """Build the WUJI-hand SO(3) reorientation task config."""
     size = 2.0 * REORIENT_CUBE_HALF_EXTENT
     cfg = ManagerBasedRlEnvCfg(
@@ -131,7 +132,9 @@ def wuji_hand_reorient_env_cfg(play: bool = False, num_envs: int = 4096) -> Mana
             "reorient_command": InHandReorientCommandCfg(
                 asset_name="robot",
                 resampling_time_range=_FAR_RESAMPLE,
-                success_threshold=0.2,
+                # Training starts loose and the success curriculum tightens it toward 0.2;
+                # play/eval uses the tight target threshold directly (real success criterion).
+                success_threshold=0.2 if play else 0.8,
                 success_hold_steps=5,
                 goal_switch_delay=20,
                 debug_vis=play,
@@ -149,11 +152,11 @@ def wuji_hand_reorient_env_cfg(play: bool = False, num_envs: int = 4096) -> Mana
                 params={"command_name": "reorient_command"},
             ),
             "cage_escape": RewardTermCfg(
-                func=cage.cage_escape_penalty, weight=-1.0, params={"margin": 0.01}
+                func=cage.cage_escape_penalty, weight=-500.0, params={"margin": 0.01}
             ),
             "hand_pose": RewardTermCfg(func=rewards.hand_pose_penalty, weight=-0.2),
-            "action_rate": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.01),
-            "torque": RewardTermCfg(func=mdp.applied_torque_l2, weight=-0.01),
+            "action_rate": RewardTermCfg(func=rewards.action_rate_combined, weight=-1.0),
+            "torque": RewardTermCfg(func=rewards.torque_penalty, weight=-24.0),
             "tip_slide": RewardTermCfg(
                 func=rewards.tip_slide_penalty,
                 weight=-0.3,
@@ -188,9 +191,32 @@ def wuji_hand_reorient_env_cfg(play: bool = False, num_envs: int = 4096) -> Mana
             "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
             "cage_drop": TerminationTermCfg(func=cage.cage_drop, params={"max_outside_steps": 10}),
         },
+        curriculum_cfg=_curriculum_cfg(play),
         events_cfg=_events_cfg(play),
     )
     return cfg
+
+
+def _curriculum_cfg(play: bool) -> dict[str, CurriculumTermCfg]:
+    """Training-only adaptive schedules: success-tolerance tightening + disturbance ramp."""
+    if play:
+        return {}
+    return {
+        "success_curriculum": CurriculumTermCfg(
+            func=curriculums.reorient_success_curriculum,
+            params={
+                "command_name": "reorient_command",
+                "count_threshold": 3,
+                "delta_per_loop": 0.08,
+                "threshold_start": 0.8,
+                "threshold_end": 0.2,
+            },
+        ),
+        "adaptive_episode": CurriculumTermCfg(
+            func=curriculums.adaptive_episode_curriculum,
+            params={"target_steps": 800},
+        ),
+    }
 
 
 def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
