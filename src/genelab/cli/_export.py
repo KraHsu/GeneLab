@@ -88,6 +88,7 @@ def export_task(
             policy_group=policy_group,
             goal_groups=goal_groups,
             cfg=cfg,
+            is_recurrent=setup.is_recurrent,
         )
     finally:
         env.close()

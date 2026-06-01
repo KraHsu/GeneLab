@@ -36,6 +36,47 @@ def test_runner_cfg_is_a_subclass_of_base() -> None:
     assert isinstance(cfg.algorithm, RslRlPpoAlgorithmCfg)
 
 
+# -- recurrent (RNN) policy config -------------------------------------------------
+
+
+def test_rnn_type_auto_selects_rnn_model() -> None:
+    """Setting ``rnn_type`` alone flips ``class_name`` to ``RNNModel`` (one knob)."""
+    from genelab.rl import RslRlModelCfg
+
+    assert RslRlModelCfg().class_name == "MLPModel"  # default stays MLP
+    for rnn_type in ("lstm", "gru"):
+        cfg = RslRlModelCfg(rnn_type=rnn_type)
+        assert cfg.class_name == "RNNModel"
+
+
+def test_rnn_type_validation_and_explicit_class_name() -> None:
+    from genelab.rl import RslRlModelCfg
+
+    with pytest.raises(ValueError, match="rnn_type"):
+        RslRlModelCfg(rnn_type="transformer")
+    # An explicit non-default class_name is left untouched.
+    assert RslRlModelCfg(rnn_type="gru", class_name="CNNModel").class_name == "CNNModel"
+    # RNNModel without an rnn_type is rejected early (would otherwise crash in rsl_rl).
+    with pytest.raises(ValueError, match="requires rnn_type"):
+        RslRlModelCfg(class_name="RNNModel")
+
+
+def test_runner_cfg_to_dict_prunes_per_model_class() -> None:
+    """MLP drops every recurrent/cnn key; RNN keeps the rnn keys but still drops cnn_cfg."""
+    from genelab.rl import RslRlModelCfg
+    from genelab.rl.backends.rsl_rl import _runner_cfg_to_dict
+
+    mlp = _runner_cfg_to_dict(RslRlOnPolicyRunnerCfg())["actor"]
+    assert "rnn_type" not in mlp and "cnn_cfg" not in mlp
+
+    rnn_cfg = RslRlModelCfg(rnn_type="lstm", rnn_hidden_dim=64, rnn_num_layers=2)
+    rnn = _runner_cfg_to_dict(RslRlOnPolicyRunnerCfg(actor=rnn_cfg, critic=rnn_cfg))["actor"]
+    assert rnn["class_name"] == "RNNModel"
+    assert rnn["rnn_type"] == "lstm"
+    assert rnn["rnn_hidden_dim"] == 64 and rnn["rnn_num_layers"] == 2
+    assert "cnn_cfg" not in rnn  # RNNModel.__init__ rejects it
+
+
 class _FakeActionManager:
     total_action_dim = 4
 
@@ -94,6 +135,105 @@ def test_rsl_rl_wrapper_exposes_runner_attrs() -> None:
     assert rew.shape == (env.num_envs,)
     assert dones.shape == (env.num_envs,)
     assert "time_outs" in info
+
+
+# -- recurrent hidden-state reset hook (play / eval) ------------------------------
+
+
+class _ResetSpyEnv:
+    """Minimal env/wrapper pair for the rollout loops; step emits a fixed ``dones``."""
+
+    viewer_closed = False
+
+    def __init__(self, dones: "torch.Tensor") -> None:
+        self._dones = dones
+
+    def reset(self):
+        return torch.zeros(1, 3), {}
+
+    def step(self, _actions):
+        return torch.zeros(1, 3), torch.zeros(len(self._dones)), self._dones, {"time_outs": None}
+
+
+def test_run_play_loop_resets_hidden_state_with_dones() -> None:
+    """The play loop forwards each step's ``dones`` to ``reset_hidden`` (recurrent policies)."""
+    from genelab.rl._helpers import run_play_loop
+
+    dones = torch.tensor([True, False])
+    env = _ResetSpyEnv(dones)
+    seen: list[Any] = []
+    run_play_loop(
+        env,
+        env,
+        policy=lambda _obs: torch.zeros(1, 3),
+        bridges=[],
+        max_steps=3,
+        prof_step=None,
+        reset_hidden=lambda d: seen.append(d),
+    )
+    assert len(seen) == 3
+    assert all(torch.equal(d, dones) for d in seen)
+
+
+def test_run_play_loop_without_reset_hidden_is_a_noop() -> None:
+    """A stateless policy (``reset_hidden=None``) runs the loop unchanged."""
+    from genelab.rl._helpers import run_play_loop
+
+    env = _ResetSpyEnv(torch.tensor([False]))
+    run_play_loop(
+        env, env, policy=lambda _obs: torch.zeros(1, 3), bridges=[], max_steps=2, prof_step=None
+    )  # no reset_hidden kwarg -> must not raise
+
+
+def test_run_play_loop_reset_hidden_allows_inplace_on_inference_tensor() -> None:
+    """Regression: a recurrent reset zeroes the hidden state in place, but ``policy()``
+    created that tensor as an *inference tensor* inside the loop's ``inference_mode``.
+    The loop must run ``reset_hidden`` inside inference mode too — otherwise PyTorch raises
+    'Inplace update to inference tensor outside InferenceMode is not allowed'. This mirrors
+    rsl_rl's ``RNNModel.reset`` and is what surfaced in live ``genelab play``."""
+    from genelab.rl._helpers import run_play_loop
+
+    state: dict[str, Any] = {}
+
+    def policy(_obs: Any) -> Any:
+        # Runs under run_play_loop's inference_mode -> an inference tensor, like the
+        # RNN hidden state created during the forward pass.
+        state["h"] = torch.zeros(2)
+        return torch.zeros(1, 3)
+
+    def reset_hidden(dones: Any) -> None:
+        state["h"][dones.view(-1).bool()] = 0.0  # in-place update on the inference tensor
+
+    env = _ResetSpyEnv(torch.tensor([True, False]))
+    run_play_loop(
+        env, env, policy=policy, bridges=[], max_steps=2, prof_step=None, reset_hidden=reset_hidden
+    )  # must not raise
+
+
+def test_run_evaluation_resets_hidden_on_episode_boundary() -> None:
+    """``run_evaluation`` calls ``reset_hidden(dones)`` every step so finished episodes
+    start the next one from a zero hidden state."""
+    from genelab.rl.backends.base import InferenceSetup
+    from genelab.rl.evaluator import EvalConfig, run_evaluation
+
+    # Each step ends the episode (done=True), so 2 steps collect 2 episodes.
+    class _Adapter:
+        def reset(self):
+            return torch.zeros(1, 3), {}
+
+        def step(self, _actions):
+            return torch.zeros(1, 3), torch.zeros(1), torch.ones(1, dtype=torch.bool), {}
+
+    seen: list[Any] = []
+    setup = InferenceSetup(
+        wrapper=None,
+        adapter=_Adapter(),
+        policy=lambda _obs: torch.zeros(1, 3),
+        is_recurrent=True,
+        reset_hidden=lambda d: seen.append(d),
+    )
+    run_evaluation(setup, EvalConfig(episodes=2, max_steps=10), num_envs=1)
+    assert len(seen) >= 2  # at least one reset per completed episode
 
 
 def test_play_task_step_cap_gates_on_viewer(
