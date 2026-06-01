@@ -11,8 +11,10 @@
                     exclusive with --vis. Use for `play --agent trained` on a                       
                     server with no display (its play_env enables the viewer).                       
    --gpu            Use the GPU backend (env.simulation.gpu=true).                                  
-   --steps N        Run for N steps. Play: env.simulation.steps=N.                                  
-                    Train: alias for --max_iterations N.                                            
+   --steps N        Soft length config (env.simulation.steps=N). Play: headless                     
+                    rollout length; IGNORED with a viewer (--vis runs until you                     
+                    close the window). Train: alias for --max_iterations N.                         
+                    For a hard cap that holds even with a viewer, use --max-steps.                  
    --dt SECONDS     Override the sim timestep (env.simulation.dt=SECONDS).                          
    --a.b.c VALUE    Set any dotted cfg path.                                                        
                                                                                                     
@@ -24,6 +26,10 @@
    --num_envs_per_gpu N  Per-rank parallel environments. Mutually exclusive                         
                          with --num_envs.                                                           
    --agent KIND          one of: zero, random, trained (play only).                                 
+   --max-steps N         Hard playback cap (play only). Stops after N steps in                      
+                         EITHER mode — wins over --steps and over the viewer gate,                  
+                         so it bounds a run even with a window open. Unset: headless                
+                         caps at --steps, a viewer runs until the window closes.                    
    --checkpoint PATH     Resume from a checkpoint.                                                  
    --seed N              RNG seed.                                                                  
    --log_dir PATH        Override the log directory.                                                
