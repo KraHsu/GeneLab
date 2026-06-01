@@ -3,7 +3,7 @@
 from genelab.rl import RslRlModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
 
 
-def wuji_hand_reorient_ppo_runner_cfg(max_iterations: int = 1500) -> RslRlOnPolicyRunnerCfg:
+def wuji_hand_reorient_ppo_runner_cfg(max_iterations: int = 5000) -> RslRlOnPolicyRunnerCfg:
     return RslRlOnPolicyRunnerCfg(
         seed=42,
         num_steps_per_env=40,

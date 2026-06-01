@@ -83,3 +83,17 @@ def finger_self_collision_penalty(
 ) -> torch.Tensor:
     """Penalize finger self-collision (any self-contact pair above the sensor threshold)."""
     return env.sensors[sensor_name].data.found.float()
+
+
+def action_rate_combined(env: "EnvContext") -> torch.Tensor:
+    """Combined first- + second-order action smoothness penalty (reference parity)."""
+    am = env.action_manager
+    first = am.action - am.prev_action
+    second = am.action - 2.0 * am.prev_action + am.prev_prev_action
+    return torch.sum(first**2, dim=-1) + torch.sum(second**2, dim=-1)
+
+
+def torque_penalty(env: "EnvContext", effort_limit: float = 0.65) -> torch.Tensor:
+    """Sum of squared normalized actuator torques, ``(torque / effort_limit)^2``."""
+    rs = resolve_robot_state(env, "robot")
+    return torch.sum((rs.applied_torque / effort_limit) ** 2, dim=-1)

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from genelab_wuji.reorient.constants import REORIENT_CUBE_INIT_POS
-from genelab_wuji.reorient.mdp._state import cage_counter
+from genelab_wuji.reorient.mdp._state import cage_counter, disturbance_scale_value
 from genelab_wuji.reorient.mdp._math import random_quat
 
 if TYPE_CHECKING:
@@ -69,7 +69,10 @@ def apply_velocity_disturbance(
         cur = cur.unsqueeze(0).expand(env.num_envs, -1)
     direction = torch.randn(n, 3, device=env.device)
     direction = direction / direction.norm(dim=-1, keepdim=True).clamp_min(1e-6)
-    speed = torch.empty(n, 1, device=env.device).uniform_(min_speed, max_speed)
+    # Ramp the upper speed with the adaptive-episode curriculum scale.
+    scale = float(disturbance_scale_value(env)[0])
+    effective_max = min_speed + (max_speed - min_speed) * scale
+    speed = torch.empty(n, 1, device=env.device).uniform_(min_speed, effective_max)
     new_vel = cur[env_ids] + direction * speed
     set_vel = getattr(handle, "set_vel", None)
     if set_vel is None:
