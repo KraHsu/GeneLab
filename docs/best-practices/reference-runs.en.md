@@ -109,32 +109,31 @@ The tables below are the **v1.0** Genesis numbers. The v0.4.7 numbers are
 preserved in a "Previous: v0.4.7" admonition next to each task so a
 re-baseline diff is one scroll away.
 
-!!! note "Status: v1.0 sanity smoke, full sweep pending"
+!!! note "Hardware the v1.0 numbers were collected on"
 
-    The v1.0 reference cells stay `TBD` until the full
-    30 000-iter / 4096-env sweep is rerun on Genesis 1.0. In the meantime
-    a **50-iter G1-Velocity-Flat sanity smoke** was run during the
-    migration (S1, PR #175) and shows a healthy learning trajectory:
-
-    - Mean reward: iter 36 **−1.08** → iter 49 **−0.79** (monotonic improvement)
-    - Throughput: **~53 000 steps / s** sustained on RTX 4090 (CUDA 13.0)
-    - Wall-clock: ~1 min 39 s for 50 iters
-
-    The sanity smoke confirms the v1.0 simulator runs the existing G1
-    policy / rewards / observations without regressions in the hot
-    path — the only thing left is the multi-day wall-clock to populate
-    the per-seed convergence numbers. Maintainers running the full
-    sweep should fill the `TBD` cells from the corresponding
-    `eval.json` and append a footer with the GPU + driver pair the
-    numbers were collected on.
+    - **Cartpole IP / DIP, Franka** — NVIDIA H200 (141 GB HBM3), driver
+      570.211.01, CUDA 12.8, `QD_GRAPH=0` (Hopper requires it — no
+      `graph_do_while` fatbin for SM 90). Cartpoles ran with
+      `--parallel 3` on a single GPU; Franka ran with one seed per GPU
+      across GPUs 0–2.
+    - **G1-Velocity-Flat, G1-Tracking-Flat** — 4× NVIDIA GeForce RTX
+      4090 (24 GB each), driver 580.159.03, CUDA 12.8. G1-Velocity used
+      one seed per GPU on GPUs 0–2; G1-Tracking ran seed 1 alongside
+      Velocity on GPU 3 (Phase A), then seeds 2/3 on GPUs 0/1 after
+      Velocity finished (Phase B). The cross-task concurrency on one
+      host oversubscribes the CPU per this doc's own warning — the
+      reward numbers are deterministic and unaffected, but the train
+      wall-clock below is the **concurrent-run** wall, not a solo
+      figure (a solo run on the same GPU is ~3–6× faster per the
+      `Time elapsed` counter in `train.log`).
 
 ### `GeneLab-Inverted-Pendulum-v0`
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | 150 | TBD | TBD |
-| 2 | TBD | TBD | 150 | TBD | TBD |
-| 3 | TBD | TBD | 150 | TBD | TBD |
+| 1 | 39.977 | 0.002 | 150 | ~2.5 min | 12.6 s |
+| 2 | 39.994 | 0.001 | 150 | ~2.5 min | 12.4 s |
+| 3 | 39.986 | 0.001 | 150 | ~2.5 min | 12.6 s |
 
 Eval `length_mean = 1000.0` for all seeds (episode hits the time-limit cap
 without falling), so the policy is solved at the budget cap. `success_rate`
@@ -152,9 +151,9 @@ is `null` (task does not publish `extras["is_success"]`).
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | 300 | TBD | TBD |
-| 2 | TBD | TBD | 300 | TBD | TBD |
-| 3 | TBD | TBD | 300 | TBD | TBD |
+| 1 | 59.933 | 0.020 | 300 | ~3.5 min | 16.3 s |
+| 2 | 59.914 | 0.174 | 300 | ~3.5 min | 16.4 s |
+| 3 | 59.897 | 0.023 | 300 | ~3.5 min | 16.4 s |
 
 Eval `length_mean = 1200.0` for all seeds. `success_rate` is `null` (same
 reason as IP).
@@ -171,9 +170,9 @@ reason as IP).
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | 30 000 | TBD | TBD |
-| 2 | TBD | TBD | 30 000 | TBD | TBD |
-| 3 | TBD | TBD | 30 000 | TBD | TBD |
+| 1 | 112.038 | 4.816 | 30 000 | ~28 h | 163.5 s |
+| 2 | 112.871 | 4.918 | 30 000 | ~28 h | 160.3 s |
+| 3 | 113.163 | 4.850 | 30 000 | ~28 h | 160.9 s |
 
 Eval `length_mean = 1000.0` for all seeds (play_env `episode_length_s =
 20 s` × 50 Hz). `success_rate` is `null`.
@@ -190,9 +189,9 @@ Eval `length_mean = 1000.0` for all seeds (play_env `episode_length_s =
 
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | 30 000 | TBD | TBD |
-| 2 | TBD | TBD | 30 000 | TBD | TBD |
-| 3 | TBD | TBD | 30 000 | TBD | TBD |
+| 1 | 138.444 | 0.006 | 30 000 | ~28 h | 227.3 s |
+| 2 | 137.980 | 0.008 | 30 000 | ~29 h | 301.6 s |
+| 3 | 138.060 | 0.004 | 30 000 | ~29 h | 236.9 s |
 
 Eval `length_mean = 1500.0`. The tracking play_env normally sets
 `episode_length_s = 1e9` for infinite viewer playback; `genelab eval`
@@ -213,13 +212,15 @@ is `null`.
 
 | Seed | Final `return_mean` | `return_std` | `success_rate` | Convergence timestep | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | 2 000 000 (budget cap) | TBD | TBD |
-| 2 | TBD | TBD | TBD | 2 000 000 (budget cap) | TBD | TBD |
-| 3 | TBD | TBD | TBD | 2 000 000 (budget cap) | TBD | TBD |
+| 1 | −6.122 | 13.307 | 0.990 | 2 000 000 (budget cap) | ~67 min | 10.7 s |
+| 2 | −7.260 | 14.695 | 0.990 | 2 000 000 (budget cap) | ~62 min | 10.4 s |
+| 3 | −8.790 | 18.275 | 0.970 | 2 000 000 (budget cap) | ~64 min | 11.1 s |
 
 Eval `length_mean = 100.0` (fixed episode length). `success_rate` reflects
-the goal-reach termination from the manipulation task; per-seed means and
-the cross-seed mean will be filled once the v1.0 runs land.
+the goal-reach termination from the manipulation task. Cross-seed mean
+`success_rate ≈ 0.983 ± 0.012` — meaningfully tighter than the v0.4.7
+sweep, where one seed only reached 0.89 from end-effector drift on harder
+goal poses. All three v1.0 seeds land in the same tight band.
 
 !!! note "Previous: v0.4.7"
 
