@@ -185,6 +185,31 @@ def test_run_play_loop_without_reset_hidden_is_a_noop() -> None:
     )  # no reset_hidden kwarg -> must not raise
 
 
+def test_run_play_loop_reset_hidden_allows_inplace_on_inference_tensor() -> None:
+    """Regression: a recurrent reset zeroes the hidden state in place, but ``policy()``
+    created that tensor as an *inference tensor* inside the loop's ``inference_mode``.
+    The loop must run ``reset_hidden`` inside inference mode too — otherwise PyTorch raises
+    'Inplace update to inference tensor outside InferenceMode is not allowed'. This mirrors
+    rsl_rl's ``RNNModel.reset`` and is what surfaced in live ``genelab play``."""
+    from genelab.rl._helpers import run_play_loop
+
+    state: dict[str, Any] = {}
+
+    def policy(_obs: Any) -> Any:
+        # Runs under run_play_loop's inference_mode -> an inference tensor, like the
+        # RNN hidden state created during the forward pass.
+        state["h"] = torch.zeros(2)
+        return torch.zeros(1, 3)
+
+    def reset_hidden(dones: Any) -> None:
+        state["h"][dones.view(-1).bool()] = 0.0  # in-place update on the inference tensor
+
+    env = _ResetSpyEnv(torch.tensor([True, False]))
+    run_play_loop(
+        env, env, policy=policy, bridges=[], max_steps=2, prof_step=None, reset_hidden=reset_hidden
+    )  # must not raise
+
+
 def test_run_evaluation_resets_hidden_on_episode_boundary() -> None:
     """``run_evaluation`` calls ``reset_hidden(dones)`` every step so finished episodes
     start the next one from a zero hidden state."""
