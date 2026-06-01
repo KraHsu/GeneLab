@@ -166,6 +166,37 @@ prefer a non-Hopper GPU (Ada / Ampere) for heavy locomotion training.
 
 </details>
 
+<details>
+<summary><b>Viewer won't render on Wayland (<code>--vis</code>): <code>makeCurrent() failed</code> / <code>eglError: 3000</code></b></summary>
+
+<br>
+
+On a **Wayland** session the Genesis viewer's Qt `QOpenGLWidget` can fail to activate its EGL
+context against the compositor, so `--vis` opens a window that never draws and floods the terminal
+with:
+
+```
+QWaylandGLContext::makeCurrent: eglError: 3000
+QOpenGLWidget: Failed to make context current
+qt.qpa.backingstore: composeAndFlush: makeCurrent() failed
+```
+
+(`eglError: 3000` is actually `EGL_SUCCESS` — EGL reports no error code, the context activation just
+fails; this is the well-known Qt-OpenGL-on-Wayland context-sharing issue.) Force Qt onto **XWayland**
+(the X11 backend), which has stable GLX/EGL behavior:
+
+```bash
+export QT_QPA_PLATFORM=xcb                          # for the session
+QT_QPA_PLATFORM=xcb genelab play <task> --vis       # or for a single command
+```
+
+If it still fails, also disable Qt auto-scaling (`QT_AUTO_SCREEN_SCALE_FACTOR=0`), or on a
+hybrid-GPU laptop pin the discrete GPU
+(`__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia`). The unrelated `QFont::fromString`
+and `dubious mass` lines in the same output are harmless and can be ignored.
+
+</details>
+
 ## 📚 Citation
 
 If you use GeneLab in your research, please cite it. GitHub renders a
