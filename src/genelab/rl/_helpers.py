@@ -15,6 +15,7 @@ import dataclasses
 import datetime as dt
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -79,10 +80,15 @@ def run_play_loop(
     *,
     max_steps: int | None,
     prof_step: Any,
+    reset_hidden: "Callable[[Any], None] | None" = None,
 ) -> None:
     """Inner play loop. Extracted from :func:`play_task` so the bridge lifecycle
     contract (``pre_step → policy → step → post_step``) is unit-testable without
     spinning up a Genesis scene.
+
+    ``reset_hidden`` (set for recurrent policies) is called with the per-env ``dones``
+    after each step so the policy's hidden state is zeroed for envs that just auto-reset;
+    ``None`` for stateless policies.
     """
     import torch
 
@@ -93,7 +99,9 @@ def run_play_loop(
             bridge.pre_step(env)
         with torch.inference_mode():
             actions = policy(obs)
-        obs, _, _, _ = wrapped.step(actions)
+        obs, _, dones, _ = wrapped.step(actions)
+        if reset_hidden is not None:
+            reset_hidden(dones)
         for bridge in bridges:
             bridge.post_step(env)
         if env.viewer_closed:

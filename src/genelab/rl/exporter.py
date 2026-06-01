@@ -98,10 +98,9 @@ def _resolve_obs_specs(
     return specs, cursor, group_specs
 
 
-def _build_exported_module(actor: "nn.Module", specs: list[_TermSpec], obs_dim: int) -> Any:
-    """Return an ``nn.Module`` that bakes per-term scale/clip in front of ``actor``."""
+def _scale_clip_vecs(specs: list[_TermSpec], obs_dim: int) -> tuple[Any, Any, Any]:
+    """Return ``(scale, clip_lo, clip_hi)`` tensors baking each term's scale/clip by offset."""
     import torch
-    import torch.nn as nn
 
     scale_vec = torch.ones(obs_dim, dtype=torch.float32)
     lo_vec = torch.full((obs_dim,), -_BIG, dtype=torch.float32)
@@ -112,6 +111,15 @@ def _build_exported_module(actor: "nn.Module", specs: list[_TermSpec], obs_dim: 
         if spec.clip is not None:
             lo_vec[spec.start : spec.end] = float(spec.clip[0])
             hi_vec[spec.start : spec.end] = float(spec.clip[1])
+    return scale_vec, lo_vec, hi_vec
+
+
+def _build_exported_module(actor: "nn.Module", specs: list[_TermSpec], obs_dim: int) -> Any:
+    """Return an ``nn.Module`` that bakes per-term scale/clip in front of ``actor``."""
+    import torch
+    import torch.nn as nn
+
+    scale_vec, lo_vec, hi_vec = _scale_clip_vecs(specs, obs_dim)
 
     class _ExportedPolicy(nn.Module):
         def __init__(self) -> None:
@@ -135,6 +143,152 @@ def _build_exported_module(actor: "nn.Module", specs: list[_TermSpec], obs_dim: 
     return _ExportedPolicy()
 
 
+def _recurrent_meta(actor: Any) -> dict[str, Any]:
+    """Read ``{rnn_type, rnn_num_layers, rnn_hidden_dim}`` off an rsl_rl ``RNNModel``.
+
+    Inspects the underlying ``nn.LSTM`` / ``nn.GRU`` (``actor.rnn.rnn``) so the metadata
+    reflects the trained network rather than the requested cfg.
+    """
+    import torch.nn as nn
+
+    # Defensive access (mirrors ``_extract_rsl_rl_actor``): ``actor.rnn.rnn`` is the raw
+    # torch nn.LSTM / nn.GRU inside rsl_rl's RNN wrapper. Fall back gracefully rather than
+    # raising an opaque AttributeError if a future rsl_rl renames the attribute chain.
+    rnn = getattr(getattr(actor, "rnn", None), "rnn", None)
+    rnn_type = "gru" if isinstance(rnn, nn.GRU) else "lstm"
+    return {
+        "rnn_type": rnn_type,
+        "rnn_num_layers": int(getattr(rnn, "num_layers", 1)),
+        "rnn_hidden_dim": int(getattr(rnn, "hidden_size", 0)),
+    }
+
+
+def _build_recurrent_jit_module(actor: Any, specs: list[_TermSpec], obs_dim: int) -> Any:
+    """Return a *scriptable* module: per-term scale/clip in front of ``actor.as_jit()``.
+
+    rsl_rl's ``as_jit()`` wrapper is stateful — ``forward(obs) -> actions`` keeps the
+    hidden state in an internal buffer (fixed batch 1) and exposes ``reset()``. We bake
+    scale/clip in front and re-export ``reset`` so the deployment interface stays the
+    single-input MLP shape plus an explicit episode-boundary reset.
+    """
+    import torch
+    import torch.nn as nn
+
+    scale_vec, lo_vec, hi_vec = _scale_clip_vecs(specs, obs_dim)
+    inner = actor.as_jit()
+
+    class _RecurrentExportedPolicy(nn.Module):
+        # Class-level annotations type the registered buffers as tensors for both pyright
+        # and TorchScript's scripting compiler (which reads them when building the graph).
+        _obs_scale: torch.Tensor
+        _obs_clip_lo: torch.Tensor
+        _obs_clip_hi: torch.Tensor
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.actor = inner
+            self.register_buffer("_obs_scale", scale_vec)
+            self.register_buffer("_obs_clip_lo", lo_vec)
+            self.register_buffer("_obs_clip_hi", hi_vec)
+
+        def forward(self, obs: torch.Tensor) -> torch.Tensor:
+            x = obs * self._obs_scale
+            x = torch.maximum(x, self._obs_clip_lo)
+            x = torch.minimum(x, self._obs_clip_hi)
+            return self.actor(x)
+
+        @torch.jit.export
+        def reset(self) -> None:
+            """Zero the recurrent hidden state — call at episode boundaries."""
+            self.actor.reset()
+
+    return _RecurrentExportedPolicy()
+
+
+def _build_recurrent_onnx_module(onnx_inner: Any, specs: list[_TermSpec], obs_dim: int) -> Any:
+    """Return a module wrapping rsl_rl's ``as_onnx()`` with per-term scale/clip in front.
+
+    rsl_rl's ONNX wrapper takes explicit hidden state: ``forward(obs, h_in[, c_in]) ->
+    (actions, h_out[, c_out])`` (the cell tensors are LSTM-only; GRU passes/returns
+    ``None``). We only transform ``obs`` and delegate, preserving the signature so the
+    exported graph keeps the hidden-state ports rsl_rl declares in ``input_names`` /
+    ``output_names``.
+    """
+    import torch
+    import torch.nn as nn
+
+    scale_vec, lo_vec, hi_vec = _scale_clip_vecs(specs, obs_dim)
+
+    class _RecurrentOnnxPolicy(nn.Module):
+        _obs_scale: torch.Tensor
+        _obs_clip_lo: torch.Tensor
+        _obs_clip_hi: torch.Tensor
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.actor = onnx_inner
+            self.register_buffer("_obs_scale", scale_vec)
+            self.register_buffer("_obs_clip_lo", lo_vec)
+            self.register_buffer("_obs_clip_hi", hi_vec)
+
+        def forward(
+            self, obs: torch.Tensor, h_in: torch.Tensor, c_in: torch.Tensor | None = None
+        ) -> Any:
+            x = obs * self._obs_scale
+            x = torch.maximum(x, self._obs_clip_lo)
+            x = torch.minimum(x, self._obs_clip_hi)
+            return self.actor(x, h_in, c_in)
+
+    return _RecurrentOnnxPolicy()
+
+
+def _export_recurrent(
+    actor: Any, specs: list[_TermSpec], obs_dim: int, cfg: ExportConfig, output: Path
+) -> None:
+    """Serialize a recurrent ``RNNModel`` to TorchScript or ONNX via rsl_rl's wrappers."""
+    import torch
+
+    if cfg.format == "torchscript":
+        module = _build_recurrent_jit_module(actor, specs, obs_dim)
+        module.eval()
+        # Script (not trace): the stateful ``as_jit()`` wrapper mutates its hidden-state
+        # buffer in ``forward`` and exposes ``reset()`` — tracing would freeze both.
+        with torch.inference_mode():
+            scripted = torch.jit.script(module)
+        torch.jit.save(scripted, str(output))  # type: ignore[arg-type]
+    elif cfg.format == "onnx":
+        onnx_inner = actor.as_onnx()
+        onnx_inner.eval()
+        module = _build_recurrent_onnx_module(onnx_inner, specs, obs_dim)
+        module.eval()
+        dummy_obs, *dummy_state = onnx_inner.get_dummy_inputs()
+        # The obs values are arbitrary for tracing (the graph is shape/structure, not data);
+        # keep the rsl_rl-provided hidden-state dummies so the tracer sees the right ranks.
+        dummy = (torch.zeros_like(dummy_obs), *dummy_state)
+        input_names = list(onnx_inner.input_names)
+        output_names = list(onnx_inner.output_names)
+        dynamic_axes: dict[str, dict[int, str]] = {
+            "obs": {0: "batch"},
+            "actions": {0: "batch"},
+        }
+        # Hidden-state tensors are (num_layers, batch, hidden_dim) → batch is axis 1.
+        for name in input_names[1:] + output_names[1:]:
+            dynamic_axes[name] = {1: "batch"}
+        with torch.inference_mode():
+            torch.onnx.export(
+                module,
+                tuple(dummy),
+                str(output),
+                input_names=input_names,
+                output_names=output_names,
+                dynamic_axes=dynamic_axes,
+                opset_version=cfg.opset,
+                dynamo=False,
+            )
+    else:
+        raise SystemExit(f"unknown export format {cfg.format!r}; use torchscript or onnx")
+
+
 def _metadata(
     task_id: str,
     checkpoint: Path,
@@ -142,10 +296,11 @@ def _metadata(
     obs_dim: int,
     action_dim: int,
     cfg: ExportConfig,
+    recurrent: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     import torch
 
-    return {
+    meta: dict[str, Any] = {
         "task": task_id,
         "checkpoint": str(checkpoint),
         # One entry per group, in the order they are concatenated into the flat
@@ -172,11 +327,27 @@ def _metadata(
         "action_dim": action_dim,
         "action_range": [-1.0, 1.0],
         "normalization_baked": True,
+        "is_recurrent": recurrent is not None,
         "format": cfg.format,
         "opset": cfg.opset if cfg.format == "onnx" else None,
         "exported_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "torch_version": torch.__version__,
     }
+    if recurrent is not None:
+        # Hidden-state interface for deployers. The TorchScript export hides the state in
+        # an internal buffer (call ``model.reset()`` at episode boundaries); the ONNX
+        # export takes/returns it explicitly via the named ports below.
+        num_layers = recurrent["rnn_num_layers"]
+        hidden_dim = recurrent["rnn_hidden_dim"]
+        is_lstm = recurrent["rnn_type"] == "lstm"
+        meta["recurrent"] = {
+            **recurrent,
+            # ``batch`` is dynamic in ONNX; the TorchScript buffer is fixed at batch 1.
+            "hidden_state_shape": [num_layers, "batch", hidden_dim],
+            "onnx_inputs": ["obs", "h_in", "c_in"] if is_lstm else ["obs", "h_in"],
+            "onnx_outputs": ["actions", "h_out", "c_out"] if is_lstm else ["actions", "h_out"],
+        }
+    return meta
 
 
 def export_policy(
@@ -190,6 +361,7 @@ def export_policy(
     policy_group: str,
     goal_groups: Sequence[str] = (),
     cfg: ExportConfig,
+    is_recurrent: bool = False,
 ) -> Path:
     """Serialize ``actor`` (with baked per-term obs normalization) to ``cfg.output``.
 
@@ -197,6 +369,10 @@ def export_policy(
     into the single flat ``obs`` input — used by goal-conditioned (SAC+HER) policies
     whose actor consumes a ``Dict`` of ``observation`` + ``achieved_goal`` +
     ``desired_goal``; the actor module reconstructs that Dict from the flat tensor.
+
+    When ``is_recurrent`` is set, ``actor`` is an rsl_rl ``RNNModel``: TorchScript export
+    scripts its stateful ``as_jit()`` wrapper (hidden state internal, plus ``reset()``)
+    and ONNX export wraps its ``as_onnx()`` wrapper (explicit ``h_in``/``c_in`` ports).
 
     Writes a sibling ``<output>.metadata.json`` describing the obs schema. Returns
     the path to the serialized model file.
@@ -218,38 +394,41 @@ def export_policy(
         )
 
     actor.eval()
-    module = _build_exported_module(actor, specs, obs_dim)
-    module.eval()
-
-    dummy = torch.zeros(1, obs_dim, dtype=torch.float32)
     output = Path(cfg.output)
     output.parent.mkdir(parents=True, exist_ok=True)
+    recurrent_meta: dict[str, Any] | None = _recurrent_meta(actor) if is_recurrent else None
 
-    if cfg.format == "torchscript":
-        with torch.inference_mode():
-            scripted = torch.jit.trace(module, dummy, check_trace=False)
-        # ``torch.jit.trace`` returns a ``ScriptModule`` at runtime; pyright's stub
-        # over-narrows the return so we go through the module-level ``save``.
-        torch.jit.save(scripted, str(output))  # type: ignore[arg-type]
-    elif cfg.format == "onnx":
-        with torch.inference_mode():
-            torch.onnx.export(
-                module,
-                (dummy,),
-                str(output),
-                input_names=["obs"],
-                output_names=["actions"],
-                dynamic_axes={"obs": {0: "batch"}, "actions": {0: "batch"}},
-                opset_version=cfg.opset,
-                # Use the legacy TorchScript-based exporter (matches the torchscript
-                # trace path above). The torch.export-based default (torch>=2.9)
-                # can't trace SB3 SAC's ``Normal`` distribution construction inside
-                # ``_predict`` (data-dependent guard error); the legacy tracer
-                # handles every backend's actor.
-                dynamo=False,
-            )
+    if is_recurrent:
+        _export_recurrent(actor, specs, obs_dim, cfg, output)
     else:
-        raise SystemExit(f"unknown export format {cfg.format!r}; use torchscript or onnx")
+        module = _build_exported_module(actor, specs, obs_dim)
+        module.eval()
+        dummy = torch.zeros(1, obs_dim, dtype=torch.float32)
+        if cfg.format == "torchscript":
+            with torch.inference_mode():
+                scripted = torch.jit.trace(module, dummy, check_trace=False)
+            # ``torch.jit.trace`` returns a ``ScriptModule`` at runtime; pyright's stub
+            # over-narrows the return so we go through the module-level ``save``.
+            torch.jit.save(scripted, str(output))  # type: ignore[arg-type]
+        elif cfg.format == "onnx":
+            with torch.inference_mode():
+                torch.onnx.export(
+                    module,
+                    (dummy,),
+                    str(output),
+                    input_names=["obs"],
+                    output_names=["actions"],
+                    dynamic_axes={"obs": {0: "batch"}, "actions": {0: "batch"}},
+                    opset_version=cfg.opset,
+                    # Use the legacy TorchScript-based exporter (matches the torchscript
+                    # trace path above). The torch.export-based default (torch>=2.9)
+                    # can't trace SB3 SAC's ``Normal`` distribution construction inside
+                    # ``_predict`` (data-dependent guard error); the legacy tracer
+                    # handles every backend's actor.
+                    dynamo=False,
+                )
+        else:
+            raise SystemExit(f"unknown export format {cfg.format!r}; use torchscript or onnx")
 
     meta = _metadata(
         task_id=task_id,
@@ -258,6 +437,7 @@ def export_policy(
         obs_dim=obs_dim,
         action_dim=action_dim,
         cfg=cfg,
+        recurrent=recurrent_meta,
     )
     meta_path = output.with_suffix(output.suffix + ".metadata.json")
     meta_path.write_text(json.dumps(meta, indent=2))

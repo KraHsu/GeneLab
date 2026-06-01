@@ -379,8 +379,9 @@ def test_extract_rsl_rl_actor_new_layout(tmp_path: Path) -> None:
     alg = _Alg()
     alg._raw_actor = actor
 
-    module, in_dim = _extract_rsl_rl_actor(_fake_runner(alg), num_obs=99)
+    module, in_dim, is_recurrent = _extract_rsl_rl_actor(_fake_runner(alg), num_obs=99)
     assert in_dim == 4  # derived from the model, not the num_obs fallback
+    assert is_recurrent is False
     # The returned module takes a flat obs tensor (not a TensorDict) and is
     # deterministic — the contract the exporter bakes normalization around.
     actions = module(torch.zeros(2, 4))
@@ -418,9 +419,12 @@ def test_extract_rsl_rl_actor_legacy_layout() -> None:
 
     from genelab.rl.backends.rsl_rl import _extract_rsl_rl_actor
 
-    module, in_dim = _extract_rsl_rl_actor(_fake_runner(_Alg(_ActorCritic(actor))), num_obs=99)
+    module, in_dim, is_recurrent = _extract_rsl_rl_actor(
+        _fake_runner(_Alg(_ActorCritic(actor))), num_obs=99
+    )
     assert module is actor
     assert in_dim == 6  # first Linear's in_features, not the fallback
+    assert is_recurrent is False
 
 
 def test_extract_rsl_rl_actor_missing_returns_none() -> None:
@@ -430,9 +434,227 @@ def test_extract_rsl_rl_actor_missing_returns_none() -> None:
     class _Alg:
         pass
 
-    module, in_dim = _extract_rsl_rl_actor(_fake_runner(_Alg()), num_obs=7)
+    module, in_dim, is_recurrent = _extract_rsl_rl_actor(_fake_runner(_Alg()), num_obs=7)
     assert module is None
     assert in_dim == 7
+    assert is_recurrent is False
+
+
+# -- rsl_rl recurrent (RNN/LSTM/GRU) export ---------------------------------------
+
+
+def _rnn_actor(rnn_type: str, obs_dim: int, act_dim: int, hidden: int, layers: int) -> Any:
+    """Build a real rsl_rl ``RNNModel`` (the object the exporter's recurrent path expects)."""
+    from rsl_rl.models import RNNModel
+    from tensordict import TensorDict
+
+    obs = TensorDict({"policy": torch.zeros(4, obs_dim)}, batch_size=[4])
+    model = RNNModel(
+        obs,
+        {"actor": ["policy"]},
+        "actor",
+        act_dim,
+        hidden_dims=(16, 16),
+        activation="elu",
+        obs_normalization=True,
+        distribution_cfg={"class_name": "GaussianDistribution"},
+        rnn_type=rnn_type,
+        rnn_hidden_dim=hidden,
+        rnn_num_layers=layers,
+    )
+    model.eval()
+    return model
+
+
+def test_extract_rsl_rl_actor_flags_recurrent() -> None:
+    """An ``RNNModel`` actor is returned raw with ``is_recurrent=True`` (not as_jit'd)."""
+    pytest.importorskip("rsl_rl")
+    from genelab.rl.backends.rsl_rl import _extract_rsl_rl_actor
+
+    actor = _rnn_actor("lstm", obs_dim=4, act_dim=3, hidden=8, layers=1)
+
+    class _Alg:
+        pass
+
+    alg = _Alg()
+    alg._raw_actor = actor
+    module, in_dim, is_recurrent = _extract_rsl_rl_actor(_fake_runner(alg), num_obs=99)
+    assert is_recurrent is True
+    assert in_dim == 4
+    assert module is actor  # raw model, so the exporter can call as_jit()/as_onnx()
+
+
+@pytest.mark.parametrize("rnn_type", ["lstm", "gru"])
+def test_export_recurrent_torchscript(tmp_path: Path, rnn_type: str) -> None:
+    """Recurrent TS export scripts the stateful wrapper: forward(obs)->actions + reset()."""
+    pytest.importorskip("rsl_rl")
+    from genelab.rl.exporter import ExportConfig, export_policy
+
+    hidden, layers = 8, 2
+    actor = _rnn_actor(rnn_type, obs_dim=4, act_dim=3, hidden=hidden, layers=layers)
+    terms = {"a": _FakeTermCfg(dim=2, scale=2.0), "b": _FakeTermCfg(dim=2, clip=(-1.0, 1.0))}
+    out = tmp_path / "policy.ts"
+    export_policy(
+        task_id="Rnn-Task-v0",
+        env=_FakeEnv({"policy": terms}),
+        checkpoint=Path("/tmp/fake.pt"),
+        actor=actor,
+        actor_input_dim=4,
+        action_dim=3,
+        policy_group="policy",
+        cfg=ExportConfig(format="torchscript", output=out),
+        is_recurrent=True,
+    )
+    loaded = torch.jit.load(str(out))
+    loaded.eval()
+    a1 = loaded(torch.zeros(1, 4))
+    assert a1.shape == (1, 3)
+    # Hidden state evolves across calls; reset() returns it to the post-first-step value.
+    a2 = loaded(torch.ones(1, 4))
+    loaded.reset()
+    a3 = loaded(torch.ones(1, 4))
+    assert not torch.allclose(a2, a3)
+
+    meta = json.loads((out.with_suffix(out.suffix + ".metadata.json")).read_text())
+    assert meta["is_recurrent"] is True
+    assert meta["recurrent"]["rnn_type"] == rnn_type
+    assert meta["recurrent"]["rnn_num_layers"] == layers
+    assert meta["recurrent"]["rnn_hidden_dim"] == hidden
+
+
+@pytest.mark.parametrize("rnn_type", ["lstm", "gru"])
+def test_export_recurrent_onnx(tmp_path: Path, rnn_type: str) -> None:
+    """Recurrent ONNX export exposes explicit hidden-state ports (h_in/c_in -> h_out/c_out)."""
+    pytest.importorskip("rsl_rl")
+    pytest.importorskip("onnx")
+    import onnx
+
+    from genelab.rl.exporter import ExportConfig, export_policy
+
+    actor = _rnn_actor(rnn_type, obs_dim=4, act_dim=3, hidden=8, layers=1)
+    terms = {"a": _FakeTermCfg(dim=2, scale=1.0), "b": _FakeTermCfg(dim=2, scale=1.0)}
+    out = tmp_path / "policy.onnx"
+    export_policy(
+        task_id="Rnn-Task-v0",
+        env=_FakeEnv({"policy": terms}),
+        checkpoint=Path("/tmp/fake.pt"),
+        actor=actor,
+        actor_input_dim=4,
+        action_dim=3,
+        policy_group="policy",
+        cfg=ExportConfig(format="onnx", output=out, opset=17),
+        is_recurrent=True,
+    )
+    model = onnx.load(str(out))
+    onnx.checker.check_model(model)
+    ins = [i.name for i in model.graph.input]
+    outs = [o.name for o in model.graph.output]
+    assert ins[0] == "obs" and outs[0] == "actions"
+    assert ("c_in" in ins) == (rnn_type == "lstm")
+    assert ("c_out" in outs) == (rnn_type == "lstm")
+
+    meta = json.loads((out.with_suffix(out.suffix + ".metadata.json")).read_text())
+    assert meta["recurrent"]["onnx_inputs"] == ins
+    assert meta["recurrent"]["onnx_outputs"] == outs
+
+
+def test_recurrent_train_to_export_end_to_end(tmp_path: Path) -> None:
+    """The whole recurrent chain on the real rsl_rl runner, no Genesis:
+
+    cfg (``rnn_type``) -> ``OnPolicyRunner`` builds an ``RNNModel`` -> train -> save ->
+    reload -> ``_extract_rsl_rl_actor`` flags it recurrent -> ``export_policy`` writes a
+    TorchScript file that loads, runs, and ``reset()``s. Drives the runner with a tiny
+    fake VecEnv so it exercises the recurrent rollout-storage path without a simulator.
+    """
+    pytest.importorskip("rsl_rl")
+    from tensordict import TensorDict
+
+    from genelab.rl.backends.rsl_rl import _extract_rsl_rl_actor, _runner_cfg_to_dict
+    from genelab.rl.config import (
+        RslRlModelCfg,
+        RslRlOnPolicyRunnerCfg,
+        RslRlPpoAlgorithmCfg,
+    )
+    from genelab.rl.exporter import ExportConfig, export_policy
+    from rsl_rl.runners import OnPolicyRunner
+
+    ne, obs_dim, act_dim = 8, 6, 2
+
+    class _FakeVecEnv:
+        """Minimal rsl_rl VecEnv with ``policy`` + ``critic`` obs groups and toy dynamics."""
+
+        def __init__(self) -> None:
+            self.num_envs, self.num_actions = ne, act_dim
+            self.max_episode_length = 16
+            self.episode_length_buf = torch.zeros(ne, dtype=torch.long)
+            self.device = "cpu"
+            self.cfg: dict[str, Any] = {}
+
+        def _obs(self) -> Any:
+            return TensorDict(
+                {"policy": torch.randn(ne, obs_dim), "critic": torch.randn(ne, obs_dim)},
+                batch_size=[ne],
+            )
+
+        def get_observations(self) -> Any:
+            return self._obs()
+
+        def reset(self) -> Any:
+            return self._obs(), {"observations": {}}
+
+        def step(self, _actions: Any) -> Any:
+            self.episode_length_buf += 1
+            dones = self.episode_length_buf >= self.max_episode_length
+            self.episode_length_buf[dones] = 0
+            extras = {"observations": {}, "time_outs": dones.clone()}
+            return self._obs(), torch.randn(ne), dones.float(), extras
+
+    def _rnn_cfg() -> Any:
+        return RslRlModelCfg(
+            rnn_type="lstm",
+            rnn_hidden_dim=32,
+            rnn_num_layers=1,
+            hidden_dims=(32,),
+            obs_normalization=True,
+            distribution_cfg={"class_name": "GaussianDistribution"},
+        )
+
+    agent = RslRlOnPolicyRunnerCfg(actor=_rnn_cfg(), critic=_rnn_cfg(), num_steps_per_env=8)
+    agent.algorithm = RslRlPpoAlgorithmCfg(num_learning_epochs=1, num_mini_batches=1)
+
+    env = _FakeVecEnv()
+    # A fresh cfg dict per runner: OnPolicyRunner pops keys (e.g. class_name) in place.
+    runner = OnPolicyRunner(env, _runner_cfg_to_dict(agent), log_dir=str(tmp_path), device="cpu")
+    assert type(runner.alg.actor).__name__ == "RNNModel"
+    assert runner.alg.actor.is_recurrent is True
+    runner.learn(num_learning_iterations=2)
+    ckpt = tmp_path / "model.pt"
+    runner.save(str(ckpt))
+
+    runner2 = OnPolicyRunner(env, _runner_cfg_to_dict(agent), log_dir=None, device="cpu")
+    runner2.load(str(ckpt))
+    policy = runner2.get_inference_policy(device="cpu")
+    policy.reset(torch.ones(ne, dtype=torch.bool))  # reset hook works on the inference policy
+    module, in_dim, is_recurrent = _extract_rsl_rl_actor(runner2, num_obs=obs_dim)
+    assert is_recurrent is True and in_dim == obs_dim
+
+    terms = {"x": _FakeTermCfg(dim=obs_dim, scale=1.0)}
+    out = tmp_path / "policy.ts"
+    export_policy(
+        task_id="Rnn-Trained-v0",
+        env=_FakeEnv({"policy": terms}),
+        checkpoint=ckpt,
+        actor=module,
+        actor_input_dim=in_dim,
+        action_dim=act_dim,
+        policy_group="policy",
+        cfg=ExportConfig(format="torchscript", output=out),
+        is_recurrent=is_recurrent,
+    )
+    loaded = torch.jit.load(str(out))
+    loaded.eval()
+    assert loaded(torch.zeros(1, obs_dim)).shape == (1, act_dim)
+    loaded.reset()  # exported module exposes the episode-boundary reset
 
 
 # -- SB3 goal-conditioned (SAC+HER) Dict-obs export -------------------------------
