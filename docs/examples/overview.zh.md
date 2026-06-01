@@ -11,7 +11,7 @@
 | [Franka 抓取放置](franka-pick-and-place.md) | `examples/franka` | Goal-conditioned manipulation、SAC + HER + lift bonus + FSM demo prefill。 |
 | [Showcase](showcase.md) | `examples/genelab_showcase` | 传感器、ray cast、接触、地形、课程、执行器、录制。 |
 | [魔方](rubiks-cube.md) | `examples/genelab_examples` | 刚体组合与可视交互。 |
-| [舞肌手](wuji-hand.md) | `examples/genelab_examples` | 灵巧手 playback 与资产打包。 |
+| [舞肌手](wuji-hand.md) | `examples/wuji` | 灵巧手 playback 与资产打包。 |
 
 ## 安装示例
 
@@ -19,6 +19,7 @@
 uv pip install -e examples/inverted_pendulum
 uv pip install -e examples/genelab_examples
 uv pip install -e examples/franka
+uv pip install -e examples/wuji
 genelab list tasks
 ```
 

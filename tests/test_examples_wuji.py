@@ -1,7 +1,7 @@
 """Tests for the bundled Wuji-hand example: bundled assets, joint-name ordering,
 MJCF resolution, trajectory loading, and the joint-mapping / playback target math.
 
-These exercise ``genelab_examples`` robot logic (not the CLI) — they were split
+These exercise ``genelab_wuji`` robot logic (not the CLI) — they were split
 out of ``tests/test_cli.py`` to keep that module focused on the CLI surface.
 """
 
@@ -12,15 +12,15 @@ from numpy.typing import NDArray
 import pytest
 
 from genelab.cli import main
-from genelab_examples.wuji_hand.assets import (
-    DEFAULT_DESC_DIR,
+from genelab_wuji.wuji_hand.assets import (
     DEFAULT_TRAJECTORY,
+    WUJI_HAND_DESCRIPTION,
     candidate_mjcf_paths,
     load_trajectory,
     resolve_mjcf_path,
     wuji_joint_names,
 )
-from genelab_examples.wuji_hand.sim import build_joint_mapping, trajectory_target
+from genelab_wuji.wuji_hand.sim import build_joint_mapping, trajectory_target
 
 type FloatArray = NDArray[np.floating]
 
@@ -61,14 +61,14 @@ class _FakeWujiEntity:
 
 
 def test_wuji_default_trajectory_is_bundled_with_package_assets() -> None:
-    assert "genelab_examples/wuji_hand/data/wave.npy" in DEFAULT_TRAJECTORY.as_posix()
+    assert "genelab_wuji/wuji_hand/data/wave.npy" in DEFAULT_TRAJECTORY.as_posix()
     assert DEFAULT_TRAJECTORY.exists()
 
 
 def test_wuji_env_cfg_inherits_device_default() -> None:
     """The Wuji playback scene uses the base ``ManagerBasedEnvCfg``; ``device`` lives on the
     base cfg (PR #153), so the demo cfg inherits it."""
-    from genelab_examples.wuji_hand.config import WujiEnvCfg
+    from genelab_wuji.wuji_hand.config import WujiEnvCfg
 
     assert WujiEnvCfg().device == "cuda"
 
@@ -80,7 +80,7 @@ def test_wuji_play_with_rl_flags_runs_scene_demo(monkeypatch: pytest.MonkeyPatch
     would crash building ``ManagerBasedRlEnv`` from the non-RL ``WujiEnvCfg``. Exercises the
     same dispatch path the CLI uses, with Genesis stubbed out so it runs headless."""
     from genelab.cli import main
-    from genelab_examples import envs
+    from genelab_wuji import envs
 
     captured: dict[str, object] = {}
 
@@ -102,7 +102,7 @@ def test_wuji_play_with_rl_flags_runs_scene_demo(monkeypatch: pytest.MonkeyPatch
     main(
         [
             "--import",
-            "genelab_examples.tasks",
+            "genelab_wuji.tasks",
             "play",
             "GeneLab-Wuji-Hand-Playback-v0",
             "--agent",
@@ -115,16 +115,35 @@ def test_wuji_play_with_rl_flags_runs_scene_demo(monkeypatch: pytest.MonkeyPatch
     assert captured["steps"] == 5
 
 
-def test_wuji_default_description_assets_are_bundled_with_package_assets() -> None:
-    assert "genelab_examples/wuji_hand/description" in DEFAULT_DESC_DIR.as_posix()
-    assert resolve_mjcf_path(DEFAULT_DESC_DIR, "left").exists()
-    assert resolve_mjcf_path(DEFAULT_DESC_DIR, "right").exists()
-    assert (DEFAULT_DESC_DIR / "meshes" / "left" / "left_palm_link.STL").exists()
-    assert (DEFAULT_DESC_DIR / "meshes" / "right" / "right_palm_link.STL").exists()
+def test_wuji_description_spec_targets_asset_zoo() -> None:
+    """The hand description is fetched from genelab-assets, not bundled in-tree."""
+    assert WUJI_HAND_DESCRIPTION.url.startswith(
+        "https://raw.githubusercontent.com/KraHsu/genelab-assets/"
+    )
+    assert len(WUJI_HAND_DESCRIPTION.md5) == 32
+    assert WUJI_HAND_DESCRIPTION.archive_member.endswith("description/mjcf/right.xml")
+
+
+def test_wuji_description_resolved_from_downloaded_asset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """``desc_dir=None`` resolves the MJCFs from the extracted asset tree.
+
+    ``fetch_asset`` is monkeypatched (like the asset-zoo tests) so the resolution logic is
+    exercised without touching the network."""
+    desc = tmp_path / "wuji_hand" / "description"
+    (desc / "mjcf").mkdir(parents=True)
+    (desc / "mjcf" / "left.xml").write_text("<mujoco/>")
+    (desc / "mjcf" / "right.xml").write_text("<mujoco/>")
+    member = desc / "mjcf" / "right.xml"
+    monkeypatch.setattr("genelab_wuji.wuji_hand.assets.fetch_asset", lambda spec: member)
+
+    assert resolve_mjcf_path(None, "left").name == "left.xml"
+    assert resolve_mjcf_path(None, "right").name == "right.xml"
 
 
 def test_wuji_hand_is_registered_for_cli(capsys: pytest.CaptureFixture[str]) -> None:
-    main(["--import", "genelab_examples.tasks", "list", "tasks"])
+    main(["--import", "genelab_wuji.tasks", "list", "tasks"])
 
     assert "GeneLab-Wuji-Hand-Playback-v0" in capsys.readouterr().out
 

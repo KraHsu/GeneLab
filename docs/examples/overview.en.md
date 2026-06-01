@@ -12,7 +12,7 @@ code to `src/genelab/`.
 | [Franka Pick-and-Place](franka-pick-and-place.md) | `examples/franka` | Goal-conditioned manipulation, SAC + HER + lift bonus + FSM demo prefill. |
 | [Showcase](showcase.md) | `examples/genelab_showcase` | Sensors, ray casts, contact, terrains, curricula, actuators, recording. |
 | [Rubik's Cube](rubiks-cube.md) | `examples/genelab_examples` | Rigid-object composition and visual interaction. |
-| [Wuji Hand](wuji-hand.md) | `examples/genelab_examples` | Articulated hand playback and asset packaging. |
+| [Wuji Hand](wuji-hand.md) | `examples/wuji` | Articulated hand playback and asset packaging. |
 
 ## Installing examples
 
@@ -20,6 +20,7 @@ code to `src/genelab/`.
 uv pip install -e examples/inverted_pendulum
 uv pip install -e examples/genelab_examples
 uv pip install -e examples/franka
+uv pip install -e examples/wuji
 genelab list tasks
 ```
 
