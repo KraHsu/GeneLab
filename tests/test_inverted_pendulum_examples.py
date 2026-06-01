@@ -23,6 +23,42 @@ def test_inverted_pendulum_extension_registers() -> None:
     assert "inverted-pendulum-env" in ENVS.names()
     assert "double-inverted-pendulum-env" in ENVS.names()
 
+    # "Recall the target" memory showcase: RNN + MLP baseline on a shared env.
+    assert "GeneLab-Inverted-Pendulum-Memory-Rnn-v0" in TASKS.names()
+    assert "GeneLab-Inverted-Pendulum-Memory-Mlp-v0" in TASKS.names()
+    assert "inverted-pendulum-memory-env" in ENVS.names()
+
+
+def test_memory_task_rnn_is_recurrent_mlp_is_not() -> None:
+    """The memory showcase task carries an LSTM ``RslRlModelCfg`` (auto-selected ``RNNModel``);
+    its baseline stays a feed-forward ``MLPModel``. Both share the memory env and a rollout
+    length that spans the episode (so truncated BPTT can learn the recall)."""
+    load_extension_module("genelab_inverted_pendulum.tasks")
+
+    rnn = TASKS.get("GeneLab-Inverted-Pendulum-Memory-Rnn-v0")
+    assert rnn.cfg.agent.actor.rnn_type == "lstm"
+    assert rnn.cfg.agent.actor.class_name == "RNNModel"
+    assert rnn.cfg.agent.num_steps_per_env == 100  # BPTT spans a ~100-step episode
+
+    mlp = TASKS.get("GeneLab-Inverted-Pendulum-Memory-Mlp-v0")
+    assert mlp.cfg.agent.actor.class_name == "MLPModel"
+    assert rnn.cfg.env_name == mlp.cfg.env_name == "inverted-pendulum-memory-env"
+    assert rnn.cfg.robot_name == "inverted-pendulum"
+
+
+def test_memory_env_cfg_has_masked_target_and_tracking_reward() -> None:
+    """The memory env replaces the cart-centring reward with hidden-target tracking, adds the
+    (masked) target-cue observation, and re-samples the target each reset — the pieces that
+    make the task require memory."""
+    from genelab_inverted_pendulum.single import inverted_pendulum_memory_env_cfg
+
+    cfg = inverted_pendulum_memory_env_cfg()
+    assert "target_cue" in cfg.observations_cfg["policy"].terms
+    assert "cart_target" in cfg.rewards_cfg
+    assert "cart_position" not in cfg.rewards_cfg  # replaced by target tracking
+    assert "reset_cart_target" in cfg.events_cfg
+    assert cfg.episode_length_s == 1.0  # short episodes keep the dependency BPTT-learnable
+
 
 def test_inverted_pendulum_skrl_task_uses_skrl_agent_cfg() -> None:
     """The skrl task reuses the single-pendulum env but carries a ``SkrlAgentCfg``,
