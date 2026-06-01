@@ -26,12 +26,25 @@ _MLP_MODEL_KEYS = {
     "obs_normalization",
     "distribution_cfg",
 }
+# ``RNNModel`` subclasses ``MLPModel`` (the MLP head sits after the RNN), so it accepts
+# every MLP key plus the three recurrent ones. It does *not* accept ``cnn_cfg``, so we
+# still prune that out — passing the full asdict() dict would raise a TypeError.
+_RNN_MODEL_KEYS = _MLP_MODEL_KEYS | {"rnn_type", "rnn_hidden_dim", "rnn_num_layers"}
 
 
 def _prune_model_cfg(model: dict[str, Any]) -> dict[str, Any]:
-    """Drop keys that rsl_rl's ``MLPModel`` does not accept."""
-    if model.get("class_name", "MLPModel") == "MLPModel":
+    """Drop keys the target rsl_rl model class does not accept.
+
+    ``RslRlModelCfg`` is a superset of every model's constructor args (it carries MLP,
+    CNN and RNN fields together); ``asdict`` emits all of them, so we keep only the keys
+    the resolved ``class_name`` actually consumes. Unknown class names are passed through
+    untouched (the caller owns the contract).
+    """
+    class_name = model.get("class_name", "MLPModel")
+    if class_name == "MLPModel":
         return {k: v for k, v in model.items() if k in _MLP_MODEL_KEYS}
+    if class_name == "RNNModel":
+        return {k: v for k, v in model.items() if k in _RNN_MODEL_KEYS}
     return model
 
 
@@ -118,13 +131,21 @@ class RslRlBackend:
         )
         runner.load(str(ctx.checkpoint))
         policy = runner.get_inference_policy(device=str(wrapped.device))
-        actor_module, actor_input_dim = _extract_rsl_rl_actor(runner, wrapped.num_obs)
+        actor_module, actor_input_dim, is_recurrent = _extract_rsl_rl_actor(runner, wrapped.num_obs)
+        # A recurrent inference policy maintains its hidden state across calls; the play /
+        # eval loops must zero it for the envs whose episode just ended. ``policy`` is the
+        # very model the loop calls, so resetting it targets the right hidden state.
+        reset_hidden = (
+            policy.reset if is_recurrent and callable(getattr(policy, "reset", None)) else None
+        )
         return InferenceSetup(
             wrapper=wrapped,
             adapter=wrapped,
             policy=policy,
             actor_module=actor_module,
             actor_input_dim=actor_input_dim,
+            is_recurrent=is_recurrent,
+            reset_hidden=reset_hidden,
         )
 
     def play(self, ctx: PlayContext) -> None:
@@ -132,10 +153,12 @@ class RslRlBackend:
         device = env.device
 
         policy: Any
+        reset_hidden = None
         if ctx.kind == "trained":
             setup = self.make_inference_setup(ctx)
             wrapped = setup.wrapper
             policy = setup.policy
+            reset_hidden = setup.reset_hidden
         else:
             wrapped = RslRlVecEnvWrapper(env, clip_actions=None)
             if ctx.kind == "zero":
@@ -153,14 +176,15 @@ class RslRlBackend:
                     ctx.bridges,
                     max_steps=ctx.max_steps,
                     prof_step=prof_step,
+                    reset_hidden=reset_hidden,
                 )
         finally:
             close_bridges(ctx.bridges, env)
             env.close()
 
 
-def _extract_rsl_rl_actor(runner: Any, num_obs: int) -> tuple[Any, int]:
-    """Return ``(nn.Module, in_dim)`` extracting the deterministic actor from a loaded runner.
+def _extract_rsl_rl_actor(runner: Any, num_obs: int) -> tuple[Any, int, bool]:
+    """Return ``(module, in_dim, is_recurrent)`` for the deterministic actor of a loaded runner.
 
     Current rsl_rl stores the actor on ``alg`` directly (``_raw_actor`` aliases the
     uncompiled module; ``actor`` may be a ``torch.compile`` wrapper). The actor is an
@@ -168,6 +192,11 @@ def _extract_rsl_rl_actor(runner: Any, num_obs: int) -> tuple[Any, int]:
     we use its ``as_jit()`` export wrapper which exposes the flat
     ``forward(obs) -> deterministic action`` contract (with the learned obs normalizer
     baked in) that the exporter consumes.
+
+    A recurrent actor (``RNNModel``, ``is_recurrent == True``) is returned *raw* — the
+    exporter needs the model's own ``as_jit()`` (stateful TorchScript) and ``as_onnx()``
+    (explicit hidden-state I/O) wrappers, so it picks the right one per format rather than
+    receiving a pre-resolved JIT module.
 
     Falls back to the legacy ``alg.actor_critic.actor`` / ``act_inference`` path for
     older rsl_rl releases.
@@ -179,26 +208,28 @@ def _extract_rsl_rl_actor(runner: Any, num_obs: int) -> tuple[Any, int]:
     if not isinstance(actor, nn.Module):
         actor = getattr(alg, "actor", None)
     if isinstance(actor, nn.Module):
+        in_dim = int(getattr(actor, "obs_dim", num_obs) or num_obs)
+        if getattr(actor, "is_recurrent", False):
+            # Hand back the raw RNNModel; the exporter calls as_jit()/as_onnx() itself.
+            return actor, in_dim, True
         as_jit = getattr(actor, "as_jit", None)
         if callable(as_jit):
-            exportable = as_jit()
-            in_dim = int(getattr(actor, "obs_dim", num_obs) or num_obs)
-            return exportable, in_dim
+            return as_jit(), in_dim, False
         for m in actor.modules():
             if isinstance(m, nn.Linear):
-                return actor, m.in_features
-        return actor, num_obs
+                return actor, m.in_features, False
+        return actor, num_obs, False
 
     # Legacy rsl_rl: actor lived under ``alg.actor_critic``.
     ac = getattr(alg, "actor_critic", None)
     if ac is None:
-        return None, num_obs  # type: ignore[return-value]
+        return None, num_obs, False  # type: ignore[return-value]
     legacy_actor = getattr(ac, "actor", None)
     if isinstance(legacy_actor, nn.Module):
         for m in legacy_actor.modules():
             if isinstance(m, nn.Linear):
-                return legacy_actor, m.in_features
-        return legacy_actor, num_obs
+                return legacy_actor, m.in_features, False
+        return legacy_actor, num_obs, False
 
     class _RslRlActor(nn.Module):
         def __init__(self, actor_critic: Any) -> None:
@@ -208,7 +239,7 @@ def _extract_rsl_rl_actor(runner: Any, num_obs: int) -> tuple[Any, int]:
         def forward(self, obs: Any) -> Any:
             return self.actor_critic.act_inference(obs)
 
-    return _RslRlActor(ac), num_obs
+    return _RslRlActor(ac), num_obs, False
 
 
 register_backend(RslRlBackend())

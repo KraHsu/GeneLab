@@ -93,6 +93,7 @@ def run_evaluation(
 
     adapter = setup.adapter
     policy = setup.policy
+    reset_hidden = setup.reset_hidden
 
     obs, _ = adapter.reset()
     returns_running = torch.zeros(num_envs, dtype=torch.float64)
@@ -108,6 +109,10 @@ def run_evaluation(
         while len(episode_returns) < cfg.episodes:
             actions = policy(obs)
             obs, reward, dones, info = adapter.step(actions)
+            # A recurrent policy must drop hidden state for envs that just auto-reset, so
+            # the next step starts each finished episode from a zero state.
+            if reset_hidden is not None:
+                reset_hidden(dones)
 
             rewards_list = _as_float_list(reward)
             for i, r in enumerate(rewards_list):
