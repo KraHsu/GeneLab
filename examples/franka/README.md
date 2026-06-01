@@ -31,7 +31,7 @@ The setup combines four pieces, each load-bearing:
 ## Install
 
 ```bash
-uv pip install -e examples/franka_pick_and_place
+uv pip install -e examples/franka
 ```
 
 ## Smoke run (no convergence)
@@ -48,7 +48,7 @@ runs start instantly. Add `--vis` to `genelab play` to open the viewer.
 
 ```bash
 # 1. Collect FSM demos (about a minute at num-envs 32).
-uv run python -m genelab_franka_pick_and_place.collect_demos \
+uv run python -m genelab_franka.collect_demos \
     --num-envs 32 --steps 6400 --out /tmp/franka_pp_demos.npz
 
 # 2. Train with demo prefill (~50 minutes on a single H200).
