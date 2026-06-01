@@ -15,7 +15,7 @@ zeroed for the same ids, so each env yields a continuous stream of
 
 Run from the repo root::
 
-    uv run python -m genelab_franka_pick_and_place.collect_demos \\
+    uv run python -m genelab_franka.collect_demos \\
         --num-envs 64 --steps 1000 --out /tmp/franka_pp_demos.npz
 
 ``--num-envs`` must match the SB3 backend's ``vec_env.num_envs`` (default
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
-    from genelab_franka_pick_and_place.demo_fsm import FrankaPickAndPlaceFsm
+    from genelab_franka.demo_fsm import FrankaPickAndPlaceFsm
 
 
 def _to_numpy(t: "torch.Tensor") -> np.ndarray:
@@ -155,7 +155,7 @@ def main() -> None:
     args = parser.parse_args()
 
     ensure_project_cache()
-    load_extension_module("genelab_franka_pick_and_place.tasks")
+    load_extension_module("genelab_franka.tasks")
     task = TASKS.get("GeneLab-Franka-Pick-And-Place-v0")
     env_cfg = task.cfg.env
     env_cfg.simulation.num_envs = int(args.num_envs)
@@ -165,7 +165,7 @@ def main() -> None:
 
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
-    from genelab_franka_pick_and_place.demo_fsm import FrankaPickAndPlaceFsm
+    from genelab_franka.demo_fsm import FrankaPickAndPlaceFsm
 
     env = ManagerBasedRlEnv(env_cfg)
     fsm = FrankaPickAndPlaceFsm(env)

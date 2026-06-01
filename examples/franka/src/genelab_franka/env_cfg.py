@@ -34,8 +34,8 @@ from genelab.mdp.actions.continuous_gripper import ContinuousGripperActionCfg
 from genelab.mdp.actions.ee_delta_ik import DifferentialIKActionCfg
 from genelab.mdp.noise import Unoise
 
-from genelab_franka_pick_and_place import mdp as fpp_mdp
-from genelab_franka_pick_and_place.constants import (
+from genelab_franka import mdp as fpp_mdp
+from genelab_franka.constants import (
     ARM_JOINTS_REGEX,
     CUBE_ENTITY_NAME,
     CUBE_HALF,
@@ -44,7 +44,7 @@ from genelab_franka_pick_and_place.constants import (
     EE_LINK,
     FINGER_JOINTS_REGEX,
 )
-from genelab_franka_pick_and_place.robot import (
+from genelab_franka.robot import (
     PANDA_GYM_NEUTRAL_POSE,
     get_franka_pick_and_place_robot_cfg,
 )

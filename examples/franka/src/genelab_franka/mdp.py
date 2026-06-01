@@ -13,7 +13,7 @@ import torch
 
 from genelab.entity._torch import to_tensor
 
-from genelab_franka_pick_and_place.constants import (
+from genelab_franka.constants import (
     CUBE_DROP_Z,
     CUBE_ENTITY_NAME,
     CUBE_HALF,
@@ -113,7 +113,7 @@ def sparse_goal_reward(env: "ManagerBasedRlEnv") -> torch.Tensor:
     """panda-gym sparse goal reward: ``-1`` while the cube is farther than
     ``DISTANCE_THRESHOLD`` from the goal, ``0`` once it is within threshold.
 
-    Mirrors :func:`genelab_franka_pick_and_place.sb3_cfg.franka_pick_and_place_compute_reward`
+    Mirrors :func:`genelab_franka.sb3_cfg.franka_pick_and_place_compute_reward`
     bit-for-bit so HER's online and relabelled transitions share one reward
     shape — applied with weight ``+1.0``."""
     d = torch.linalg.vector_norm(_cube_pos(env) - _ensure_goal_buffer(env), dim=-1)

@@ -1,17 +1,15 @@
 # GeneLab Example Extension
 
-This directory is a normal external GeneLab project that registers two tasks:
+This directory is a normal external GeneLab project that registers one task:
 
 - `GeneLab-Rubiks-Play-v0`
-- `GeneLab-Wuji-Hand-Playback-v0`
 
-From the repository root, run the examples without installing this package by importing its
+From the repository root, run the example without installing this package by importing its
 registration module:
 
 ```bash
 PYTHONPATH=examples/genelab_examples/src uv run genelab --import genelab_examples.tasks list tasks
 PYTHONPATH=examples/genelab_examples/src uv run genelab --import genelab_examples.tasks play GeneLab-Rubiks-Play-v0 --steps 240
-PYTHONPATH=examples/genelab_examples/src uv run genelab --import genelab_examples.tasks play GeneLab-Wuji-Hand-Playback-v0 --steps 240
 ```
 
 Or install the example project once, then use the entry point auto-loading path:
@@ -20,7 +18,6 @@ Or install the example project once, then use the entry point auto-loading path:
 uv pip install -e examples/genelab_examples
 uv run genelab list tasks
 uv run genelab play GeneLab-Rubiks-Play-v0 --steps 240
-uv run genelab play GeneLab-Wuji-Hand-Playback-v0 --steps 240
 ```
 
 Use `--no-entry-points` when you want to verify core GeneLab without installed extensions.

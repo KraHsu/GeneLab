@@ -1,16 +1,41 @@
-"""Wuji hand asset path and trajectory helpers."""
+"""Wuji hand asset path and trajectory helpers.
+
+The hand description (MJCF + meshes) is not bundled in the source tree; it is fetched on
+demand from the GeneLab asset zoo (``genelab-assets``) and md5-verified into the local
+cache. Only the small playback trajectory (``data/wave.npy``) ships with the package.
+Pass ``desc_dir=None`` (the default) to use the downloaded description, or an explicit
+path to override it.
+"""
 
 from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
+from genelab.utils.download import AssetSpec, fetch_asset
+
 type FloatArray = NDArray[np.float32]
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 PACKAGE_ROOT = Path(__file__).resolve().parent
-DEFAULT_DESC_DIR = PACKAGE_ROOT / "description"
 DEFAULT_TRAJECTORY = PACKAGE_ROOT / "data" / "wave.npy"
 SIDES = ("left", "right")
+
+# Full left+right hand description (MJCF + ~5 MB of STL meshes) hosted as a .tar.gz in the
+# genelab-assets repo, so the source tree stays lean. ``archive_member`` points at the
+# right-hand MJCF; the description directory is its grandparent in the extracted tree.
+WUJI_HAND_DESCRIPTION = AssetSpec(
+    name="wuji_hand",
+    url="https://raw.githubusercontent.com/KraHsu/genelab-assets/main/wuji_hand/wuji_hand.tar.gz",
+    md5="46827dfc417773d469a75347a072e82e",
+    filename="wuji_hand.tar.gz",
+    archive_member="wuji_hand/description/mjcf/right.xml",
+)
+
+
+def fetch_description_dir() -> Path:
+    """Download (once) and return the local Wuji hand ``description`` directory."""
+    entry = fetch_asset(WUJI_HAND_DESCRIPTION)
+    return entry.parent.parent
 
 
 def wuji_joint_names(side: str) -> list[str]:
@@ -22,14 +47,16 @@ def wuji_joint_names(side: str) -> list[str]:
     ]
 
 
-def resolve_description_dir(desc_dir: Path | str = DEFAULT_DESC_DIR) -> Path:
+def resolve_description_dir(desc_dir: Path | str | None = None) -> Path:
+    if desc_dir is None:
+        return fetch_description_dir()
     path = Path(desc_dir).expanduser()
     if not path.is_absolute():
         path = REPO_ROOT / path
     if not path.exists():
         raise FileNotFoundError(
             f"Wuji hand description directory not found: {path}. "
-            "Use the bundled description assets or override env.robot.desc_dir."
+            "Omit env.robot.desc_dir to download the bundled asset, or pass a valid path."
         )
     return path
 

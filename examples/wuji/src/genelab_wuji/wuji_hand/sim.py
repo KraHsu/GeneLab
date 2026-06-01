@@ -7,8 +7,7 @@ from typing import Any, Protocol, cast
 import numpy as np
 from numpy.typing import NDArray
 
-from genelab_examples.wuji_hand.assets import (
-    DEFAULT_DESC_DIR,
+from genelab_wuji.wuji_hand.assets import (
     DEFAULT_TRAJECTORY,
     SIDES,
     load_trajectory,
@@ -36,7 +35,7 @@ class JointMapping:
 @dataclass(frozen=True)
 class WujiHandRunConfig:
     side: str = "right"
-    desc_dir: Path = DEFAULT_DESC_DIR
+    desc_dir: Path | None = None
     trajectory: Path = DEFAULT_TRAJECTORY
     vis: bool = False
     gpu: bool = False
