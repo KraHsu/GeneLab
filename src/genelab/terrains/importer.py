@@ -33,7 +33,11 @@ class TerrainImporter:
         """Add a ``gs.morphs.Terrain`` to ``gs_scene``. Must be called pre-build."""
         import genesis as gs  # type: ignore[import-not-found]
 
-        morph = gs.morphs.Terrain(**self.generator.genesis_kwargs)
+        kwargs = dict(self.generator.genesis_kwargs)
+        # Per-cell heightfield: fixes the type-keyed param collapse for same-type
+        # multi-difficulty layouts (see TerrainGenerator.build_height_field).
+        kwargs["height_field"] = self.generator.build_height_field()
+        morph = gs.morphs.Terrain(**kwargs)
         self._gs_handle = gs_scene.add_entity(morph)
 
     # ------------------------------------------------------------------ post-spawn data
