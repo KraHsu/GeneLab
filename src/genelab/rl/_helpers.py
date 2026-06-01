@@ -101,7 +101,11 @@ def run_play_loop(
             actions = policy(obs)
         obs, _, dones, _ = wrapped.step(actions)
         if reset_hidden is not None:
-            reset_hidden(dones)
+            # The recurrent hidden state was created as an inference tensor inside the
+            # ``inference_mode`` block above; its in-place reset must run in that mode too
+            # (an in-place update to an inference tensor outside InferenceMode raises).
+            with torch.inference_mode():
+                reset_hidden(dones)
         for bridge in bridges:
             bridge.post_step(env)
         if env.viewer_closed:
