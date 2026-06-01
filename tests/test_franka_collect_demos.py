@@ -16,7 +16,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from genelab_franka_pick_and_place.constants import (  # noqa: E402
+from genelab_franka.constants import (  # noqa: E402
     CUBE_ENTITY_NAME,
     EE_LINK,
 )
@@ -87,7 +87,7 @@ class _FakeFrankaEnv:
 
 def test_demo_fsm_reads_state_through_articulation_data() -> None:
     """The FSM accessors must use ``articulations[...].data.*`` (no robot_state)."""
-    from genelab_franka_pick_and_place.demo_fsm import FrankaPickAndPlaceFsm
+    from genelab_franka.demo_fsm import FrankaPickAndPlaceFsm
 
     env = _FakeFrankaEnv(num_envs=4)
     fsm = FrankaPickAndPlaceFsm(env)
@@ -98,8 +98,8 @@ def test_demo_fsm_reads_state_through_articulation_data() -> None:
 
 
 def test_collect_writes_npz_with_expected_keys_and_shapes(tmp_path: Path) -> None:
-    from genelab_franka_pick_and_place.collect_demos import collect, save_demos
-    from genelab_franka_pick_and_place.demo_fsm import FrankaPickAndPlaceFsm
+    from genelab_franka.collect_demos import collect, save_demos
+    from genelab_franka.demo_fsm import FrankaPickAndPlaceFsm
 
     num_envs, steps = 4, 3
     env = _FakeFrankaEnv(num_envs=num_envs)

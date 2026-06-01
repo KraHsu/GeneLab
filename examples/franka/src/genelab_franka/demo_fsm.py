@@ -5,7 +5,7 @@ shared finite state machine on the live env state. Reasonable enough to be
 used as the action source for offline demonstration collection — running this
 in parallel through the Cartesian + sparse-reward env produces full
 ``reach -> grasp -> lift -> place`` trajectories whose transitions
-:func:`genelab_franka_pick_and_place.collect_demos.main` saves to disk.
+:func:`genelab_franka.collect_demos.main` saves to disk.
 
 Each env carries its own ``phase`` (which of the 6 stages) and ``frames``
 (steps spent in the current stage) so envs progress independently. Call
@@ -18,14 +18,14 @@ from typing import TYPE_CHECKING
 
 import torch
 
-from genelab_franka_pick_and_place.constants import (
+from genelab_franka.constants import (
     CUBE_ENTITY_NAME,
     CUBE_HALF,
     DISTANCE_THRESHOLD,
     EE_LINK,
 )
 
-# Must match ``genelab_franka_pick_and_place.mdp._GOAL_ATTR``: the env attribute
+# Must match ``genelab_franka.mdp._GOAL_ATTR``: the env attribute
 # under which ``resample_goal_uniform`` caches the per-env desired-goal buffer.
 # Duplicated here to keep the FSM independent of mdp's private surface.
 _GOAL_ATTR = "_franka_pp_goal_w"
