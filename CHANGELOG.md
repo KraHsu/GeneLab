@@ -10,6 +10,18 @@ All notable changes to GeneLab are recorded here.
   a 5-level RandomRough curriculum with `terrain_levels_vel`, `height_scan` actor
   observation, and a 50k-iter PPO budget. Reference numbers in PR <followup>.
 
+### Fixed
+
+- **Terrain level curriculum collapsing to a single difficulty:** `TerrainGenerator`
+  passed `subterrain_parameters` to Genesis keyed by terrain *type*, so a layout that
+  reused one `genesis_type` at different parameters (e.g. a RandomRough `rough_l0..l4`
+  level curriculum) silently built every cell at the last level's difficulty — the
+  intended easy→hard gradient did not exist. `TerrainGenerator.build_height_field` now
+  generates each cell from its own parameters and the importer feeds it to Genesis via
+  `height_field`, so per-cell difficulty is honoured. Affects every same-type
+  multi-difficulty layout, including `Genelab-Velocity-Rough-Unitree-G1-v0` and the
+  curriculum showcase.
+
 ## [0.3.0] — 2026-05-29
 
 Third development release. The headline is the **Genesis 1.0 migration**:
