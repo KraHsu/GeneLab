@@ -96,28 +96,28 @@ GPU vectorized 慢很多。
 下表为 Genesis **v1.0** 的数字。v0.4.7 的旧数字保留在每个任务旁边的
 "Previous: v0.4.7" admonition 里，方便 re-baseline 对比。
 
-!!! note "状态：v1.0 sanity smoke 已过，完整 sweep 待跑"
+!!! note "v1.0 数字所用硬件"
 
-    v1.0 reference 单元仍为 `TBD`，要等完整的 30 000 iter × 4096 env
-    sweep 在 Genesis 1.0 上重跑后才能填。期间已在迁移过程中（S1，
-    PR #175）跑了一次 **50-iter G1-Velocity-Flat sanity smoke**，轨迹健康：
-
-    - Mean reward：iter 36 **−1.08** → iter 49 **−0.79**（单调改善）
-    - 吞吐量：**~53 000 steps / s**，RTX 4090（CUDA 13.0）下持续
-    - 墙钟：50 iter 共 ~1 min 39 s
-
-    Sanity smoke 证明 v1.0 simulator 跑现有 G1 的 policy / reward /
-    observation 在热路径上没有回归；剩下的只是多天的墙钟跑完，填进各
-    seed 的收敛数字。维护者跑完完整 sweep 后，请把 `TBD` 单元从对应
-    `eval.json` 里取出填入，并附上跑数所用的 GPU + 驱动组合。
+    - **Cartpole IP / DIP、Franka** — NVIDIA H200（141 GB HBM3），驱动
+      570.211.01，CUDA 12.8，`QD_GRAPH=0`（Hopper SM 90 没有
+      `graph_do_while` fatbin，必须设）。Cartpoles 用 `--parallel 3` 在
+      单张 GPU 上并行；Franka 用一卡一 seed 跑在 GPU 0–2 上。
+    - **G1-Velocity-Flat、G1-Tracking-Flat** — 4× NVIDIA GeForce RTX 4090
+      （每张 24 GB），驱动 580.159.03，CUDA 12.8。G1-Velocity 用一卡一
+      seed 跑在 GPU 0–2 上；G1-Tracking 的 seed 1 在 Phase A 与
+      Velocity 并行跑在 GPU 3 上，seed 2/3 在 Velocity 跑完后才在 GPU
+      0/1 上跑（Phase B）。跨任务在同一台机上并发触发了文档自身警告的
+      CPU 过订阅 —— reward 数字是确定性的不受影响，但下面的训练墙钟是
+      **并发跑的墙钟**，不是单 job 数字（同卡单 job 跑按 `train.log`
+      里的 `Time elapsed` 计数约快 3–6×）。
 
 ### `GeneLab-Inverted-Pendulum-v0`
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | 150 | TBD | TBD |
-| 2 | TBD | TBD | 150 | TBD | TBD |
-| 3 | TBD | TBD | 150 | TBD | TBD |
+| 1 | 39.977 | 0.002 | 150 | ~2.5 min | 12.6 s |
+| 2 | 39.994 | 0.001 | 150 | ~2.5 min | 12.4 s |
+| 3 | 39.986 | 0.001 | 150 | ~2.5 min | 12.6 s |
 
 三个 seed 的 eval `length_mean = 1000.0`（episode 跑满时间上限不倒），策略
 在预算上限解掉。`success_rate` 为 `null`（任务未 publish
@@ -135,9 +135,9 @@ GPU vectorized 慢很多。
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | 300 | TBD | TBD |
-| 2 | TBD | TBD | 300 | TBD | TBD |
-| 3 | TBD | TBD | 300 | TBD | TBD |
+| 1 | 59.933 | 0.020 | 300 | ~3.5 min | 16.3 s |
+| 2 | 59.914 | 0.174 | 300 | ~3.5 min | 16.4 s |
+| 3 | 59.897 | 0.023 | 300 | ~3.5 min | 16.4 s |
 
 三个 seed 的 eval `length_mean = 1200.0`。`success_rate` 为 `null`（同 IP）。
 
@@ -153,9 +153,9 @@ GPU vectorized 慢很多。
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | 30 000 | TBD | TBD |
-| 2 | TBD | TBD | 30 000 | TBD | TBD |
-| 3 | TBD | TBD | 30 000 | TBD | TBD |
+| 1 | 112.038 | 4.816 | 30 000 | ~28 h | 163.5 s |
+| 2 | 112.871 | 4.918 | 30 000 | ~28 h | 160.3 s |
+| 3 | 113.163 | 4.850 | 30 000 | ~28 h | 160.9 s |
 
 三个 seed 的 eval `length_mean = 1000.0`（play_env `episode_length_s =
 20 s` × 50 Hz）。`success_rate` 为 `null`。
@@ -172,9 +172,9 @@ GPU vectorized 慢很多。
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | 30 000 | TBD | TBD |
-| 2 | TBD | TBD | 30 000 | TBD | TBD |
-| 3 | TBD | TBD | 30 000 | TBD | TBD |
+| 1 | 138.444 | 0.006 | 30 000 | ~28 h | 227.3 s |
+| 2 | 137.980 | 0.008 | 30 000 | ~29 h | 301.6 s |
+| 3 | 138.060 | 0.004 | 30 000 | ~29 h | 236.9 s |
 
 Eval `length_mean = 1500.0`。Tracking play_env 默认 `episode_length_s =
 1e9` 是为 viewer 无限 playback 设的；`genelab eval` 把它 clamp 到 30 s，
@@ -194,13 +194,15 @@ Eval `length_mean = 1500.0`。Tracking play_env 默认 `episode_length_s =
 
 | Seed | 最终 `return_mean` | `return_std` | `success_rate` | 收敛 timestep | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | 2 000 000（预算上限）| TBD | TBD |
-| 2 | TBD | TBD | TBD | 2 000 000（预算上限）| TBD | TBD |
-| 3 | TBD | TBD | TBD | 2 000 000（预算上限）| TBD | TBD |
+| 1 | −6.122 | 13.307 | 0.990 | 2 000 000（预算上限）| ~67 min | 10.7 s |
+| 2 | −7.260 | 14.695 | 0.990 | 2 000 000（预算上限）| ~62 min | 10.4 s |
+| 3 | −8.790 | 18.275 | 0.970 | 2 000 000（预算上限）| ~64 min | 11.1 s |
 
 Eval `length_mean = 100.0`（固定 episode length）。`success_rate` 由
-manipulation 任务的 goal-reach termination 给出；每个 seed 的均值和三 seed
-之间的总体均值在 v1.0 跑完之后回填。
+manipulation 任务的 goal-reach termination 给出。三 seed 平均
+`success_rate ≈ 0.983 ± 0.012` —— 比 v0.4.7 那次明显更紧凑：v0.4.7 有一
+个 seed 因为末端朝向 drift 只到 0.89；v1.0 三个 seed 全部落在同一个
+紧凑区间内。
 
 !!! note "Previous: v0.4.7"
 
