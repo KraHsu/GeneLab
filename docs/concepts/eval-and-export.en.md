@@ -130,6 +130,7 @@ sliced back into their sub-spaces):
   "action_dim": 23,
   "action_range": [-1.0, 1.0],
   "normalization_baked": true,
+  "is_recurrent": false,
   "format": "torchscript",
   "exported_at": "2026-05-20T08:42:11+00:00",
   "torch_version": "2.4.0"
@@ -183,9 +184,52 @@ shape is uniform:
 > (`torch.onnx.export(..., dynamo=False)`): the `torch.export`-based default
 > (torch ≥ 2.9) can't trace SAC's `Normal` distribution construction.
 
+### Recurrent (RNN / LSTM / GRU) policy export
+
+Setting `rnn_type` on an `RslRlModelCfg` (`"lstm"` or `"gru"`) trains a recurrent
+policy — it is the single knob, automatically selecting rsl_rl's `RNNModel`:
+
+```python
+RslRlModelCfg(rnn_type="lstm", rnn_hidden_dim=256, rnn_num_layers=1)
+```
+
+`genelab export` then takes the recurrent path automatically (no extra flags). The
+metadata gains an `"is_recurrent": true` field plus a `"recurrent"` block recording
+`rnn_type`, `rnn_num_layers`, `rnn_hidden_dim`, the hidden-state shape, and the ONNX
+port names.
+
+The two formats expose the hidden state differently:
+
+- **TorchScript** keeps the hidden state *inside* the module, so the call shape stays
+  the single-input MLP form `forward(obs) -> actions`. The module also exposes a
+  `reset()` method — **call it at every episode boundary** to zero the hidden state.
+  The serialized buffer is fixed at batch size 1 (one deployed robot).
+
+  ```python
+  import torch
+  m = torch.jit.load("policy.ts"); m.eval()
+  m.reset()                       # at the start of each episode
+  actions = m(raw_obs)            # raw obs in; hidden state carried internally
+  ```
+
+- **ONNX** exposes the hidden state explicitly. Inputs are `obs`, `h_in` (and `c_in`
+  for LSTM); outputs are `actions`, `h_out` (and `c_out` for LSTM), each shaped
+  `(num_layers, batch, hidden_dim)`. Thread the returned state back in each step and
+  zero it on episode boundaries:
+
+  ```python
+  import numpy as np, onnxruntime as ort
+  sess = ort.InferenceSession("policy.onnx")
+  h = np.zeros((num_layers, 1, hidden_dim), np.float32)
+  c = np.zeros((num_layers, 1, hidden_dim), np.float32)   # LSTM only
+  actions, h, c = sess.run(None, {"obs": raw_obs, "h_in": h, "c_in": c})
+  # GRU: actions, h = sess.run(None, {"obs": raw_obs, "h_in": h})
+  ```
+
+Play and eval rollouts reset the hidden state automatically for environments whose
+episode just ended, so recurrent eval metrics are unbiased.
+
 ### Limitations
 
-- Recurrent policies (rsl_rl `rnn_type` set) are not yet supported — the
-  exported model has no hidden-state slot.
 - The exported model does **not** apply observation noise from `ObservationTermCfg.noise`;
   noise is part of training only.
