@@ -12,6 +12,7 @@
 | [Showcase](showcase.md) | `examples/genelab_showcase` | 传感器、ray cast、接触、地形、课程、执行器、录制。 |
 | [魔方](rubiks-cube.md) | `examples/genelab_examples` | 刚体组合与可视交互。 |
 | [舞肌手](wuji-hand.md) | `examples/wuji` | 灵巧手 playback 与资产打包。 |
+| [舞肌手重定向](wuji-reorient.md) | `examples/wuji` | SO(3) 手内 cube 重定向、RSL-RL PPO、自定义接触传感器 + DR。 |
 
 ## 安装示例
 
