@@ -131,9 +131,7 @@ class RslRlBackend:
         )
         runner.load(str(ctx.checkpoint))
         policy = runner.get_inference_policy(device=str(wrapped.device))
-        actor_module, actor_input_dim, is_recurrent = _extract_rsl_rl_actor(
-            runner, wrapped.num_obs
-        )
+        actor_module, actor_input_dim, is_recurrent = _extract_rsl_rl_actor(runner, wrapped.num_obs)
         # A recurrent inference policy maintains its hidden state across calls; the play /
         # eval loops must zero it for the envs whose episode just ended. ``policy`` is the
         # very model the loop calls, so resetting it targets the right hidden state.
