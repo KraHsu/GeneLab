@@ -53,13 +53,16 @@ stripped.
 Short GPU smoke (2048 envs, 400 iterations, RTX 5060 Ti) — a learning-signal check, not a
 release-grade policy:
 
-- Orientation-alignment reward rises from ~5 to ~9.4.
-- The policy reaches ~3.7 successive SO(3) goals per episode (`goals_reached` metric); most
-  episodes survive to time-out rather than dropping the cube.
-- Deterministic eval over 100 episodes: mean return ~327, mean episode length ~568 steps.
+- Orientation-alignment reward rises from ~5 to ~9.7; most episodes survive to time-out
+  rather than dropping the cube.
+- Deterministic eval over 100 episodes (`genelab eval`): **success rate ~0.33** (fraction of
+  episodes that reorient the cube to at least one *held* SO(3) goal — a goal requires staying
+  within tolerance for the full hold window), mean return ~328, mean episode length ~580.
 
-A full release-scale run (8192 envs, several thousand iterations) is left to the user and
-should push the per-goal success rate and goal count higher.
+The strict hold window is the bottleneck at this short budget: the policy gets the cube
+*near* goals (high orientation reward) but completes the held success in roughly a third of
+episodes. A full release-scale run (8192 envs, several thousand iterations) is left to the
+user and should push the success rate substantially higher.
 
 ## See also
 
