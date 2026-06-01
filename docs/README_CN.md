@@ -160,6 +160,34 @@ QD_GRAPH=0 genelab train …     # 或只针对单条命令
 
 </details>
 
+<details>
+<summary><b>Wayland 下 viewer 无法渲染（<code>--vis</code>）：<code>makeCurrent() failed</code> / <code>eglError: 3000</code></b></summary>
+
+<br>
+
+在 **Wayland** 会话下，Genesis viewer 的 Qt `QOpenGLWidget` 可能无法在合成器上激活其 EGL
+上下文，于是 `--vis` 打开的窗口不渲染，并在终端刷屏：
+
+```
+QWaylandGLContext::makeCurrent: eglError: 3000
+QOpenGLWidget: Failed to make context current
+qt.qpa.backingstore: composeAndFlush: makeCurrent() failed
+```
+
+（`eglError: 3000` 实际是 `EGL_SUCCESS` —— EGL 没报具体错误码，只是上下文激活失败；这是 Qt
+OpenGL 在 Wayland 上的经典上下文共享问题。）强制 Qt 走 **XWayland**（X11 后端），其 GLX/EGL 行为更稳定：
+
+```bash
+export QT_QPA_PLATFORM=xcb                          # 整个会话
+QT_QPA_PLATFORM=xcb genelab play <task> --vis       # 或只针对单条命令
+```
+
+若仍失败，再关掉 Qt 自动缩放（`QT_AUTO_SCREEN_SCALE_FACTOR=0`），或在混合显卡笔记本上锁定独显
+（`__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia`）。同时出现的 `QFont::fromString`
+和 `dubious mass` 行无害，可忽略。
+
+</details>
+
 ---
 
 <div align="center">
