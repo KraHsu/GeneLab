@@ -117,11 +117,23 @@ class InHandReorientCommand(CommandTerm):
 
     # ------------------------------------------------------------------ lifecycle
     def _resample_command(self, env_ids: torch.Tensor) -> None:
+        # Mid-episode goal switch: new goal + reset the per-goal hold state. NOTE: the
+        # cumulative ``goal_reach_count`` is intentionally NOT cleared here — only on a full
+        # episode reset (see ``reset``).
         self._sample_goal(env_ids)
         self._hold_counter[env_ids] = 0
         self._window_timer[env_ids] = 0
         self._reward_hold[env_ids] = 0
         self._in_window[env_ids] = False
+
+    def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
+        super().reset(env_ids)  # resamples goal + clears per-goal hold state
+        if env_ids is None:
+            self._goal_reach_count.zero_()
+        elif isinstance(env_ids, slice):
+            self._goal_reach_count[env_ids] = 0
+        else:
+            self._goal_reach_count[env_ids] = 0
 
     def _update_command(self) -> None:
         cube_quat = self._cube_quat()
@@ -167,6 +179,13 @@ class InHandReorientCommand(CommandTerm):
         if adv_ids.numel() > 0:
             self._resample_command(adv_ids)
             self._goal_switched[adv_ids] = True
+
+        # Publish a per-env success flag for the eval harness (gymnasium-style
+        # ``info["is_success"]``): an episode counts as a success if it reorients the cube to
+        # at least one SO(3) goal. Set before the env's per-step auto-reset clears the count.
+        extras = getattr(self._env, "_extras", None)
+        if extras is not None:
+            extras["is_success"] = self._goal_reach_count >= 1
 
     @property
     def success_achieved(self) -> torch.Tensor:
