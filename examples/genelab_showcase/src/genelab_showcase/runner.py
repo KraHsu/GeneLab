@@ -211,12 +211,25 @@ class ShowcaseRunner:
 
     # ------------------------------------------------------------------ play
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
         """Build the env, run the scripted loop, close cleanly.
 
         The kernel sets :py:attr:`env.viewer_closed` when the user closes the
         Genesis viewer; the loop polls that flag and breaks. No need to catch
         ``GenesisException`` here.
+
+        Loop length follows the same soft-config / hard-cap split as the RL play
+        helper (:func:`genelab.rl.runner.play_task`), so ``genelab play`` behaves
+        identically whichever runner backs the task:
+
+        * ``max_steps`` set (the ``--max-steps`` flag): a hard cap that always wins —
+          the loop stops after exactly that many steps, viewer open or not.
+        * else viewer shown (``vis=True``): unbounded — run until the user closes the
+          window. The soft ``simulation.steps`` config is ignored, exactly as it is
+          for RL playback with a viewer.
+        * else headless: cap at ``self.num_steps`` (the soft ``simulation.steps``
+          config, what ``--steps`` sets) so a no-window run is a bounded smoke rollout
+          instead of looping forever.
         """
 
         ensure_project_cache()
@@ -228,20 +241,29 @@ class ShowcaseRunner:
         self._spring_weight = 0.0
         self._spring_anchor_xy = None
         self._spring_target_z = None if self.spring is None else self.spring.target_z
-        last_step = self.num_steps
         # Debug drawing / pacing only make sense with a viewer (headless stays full-speed).
         viewer_shown = bool(self.env_cfg.simulation.vis)
+        # Resolve the loop bound: hard cap wins; else viewer => unbounded; else soft config.
+        # ``None`` means "no step bound — only ``viewer_closed`` ends the loop".
+        if max_steps is not None:
+            bound: int | None = int(max_steps)
+        elif viewer_shown:
+            bound = None
+        else:
+            bound = self.num_steps
         pace = self.realtime and viewer_shown
         step_budget = self._step_dt() / self.realtime_scale
         next_tick = time.monotonic()
+        last_step = 0
         try:
             env.reset()
-            for step in range(self.num_steps):
+            step = 0
+            while bound is None or step < bound:
                 action = self._scripted_action(env, step)
                 self._apply_spring(env)
                 env.step(action)
+                last_step = step
                 if env.viewer_closed:
-                    last_step = step
                     break
                 if step % self.log_interval == 0:
                     self._dump(env, step)
@@ -255,6 +277,7 @@ class ShowcaseRunner:
                     else:
                         # Fell behind (slow step); resync so we don't accumulate debt.
                         next_tick = time.monotonic()
+                step += 1
             # Dump one final frame so the last state is captured — but only when the
             # viewer is still open. If the user closed the window, the offscreen
             # renderer is torn down with it, so a final camera-backed ``_dump`` would
