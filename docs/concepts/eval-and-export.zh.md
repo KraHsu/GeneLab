@@ -120,6 +120,7 @@ goal-conditioned policy 切回各子空间）：
   "action_dim": 7,
   "action_range": [-1.0, 1.0],
   "normalization_baked": true,
+  "is_recurrent": false,
   "format": "torchscript",
   "exported_at": "2026-05-20T08:42:11+00:00",
   "torch_version": "2.4.0"
@@ -168,8 +169,48 @@ actor 通过 backend 各自的小 shim 取出来，包成统一的调用形态�
 > （`torch.onnx.export(..., dynamo=False)`）：基于 `torch.export` 的新默认导出器
 > （torch ≥ 2.9）无法 trace SAC 的 `Normal` 分布构造。
 
+### Recurrent（RNN / LSTM / GRU）policy 导出
+
+在 `RslRlModelCfg` 上设置 `rnn_type`（`"lstm"` 或 `"gru"`）即训练一个循环策略 ——
+这是唯一开关，会自动选用 rsl_rl 的 `RNNModel`：
+
+```python
+RslRlModelCfg(rnn_type="lstm", rnn_hidden_dim=256, rnn_num_layers=1)
+```
+
+`genelab export` 随后自动走循环导出路径（无需额外参数）。metadata 会多出
+`"is_recurrent": true` 以及一个 `"recurrent"` 块，记录 `rnn_type`、`rnn_num_layers`、
+`rnn_hidden_dim`、hidden state 形状和 ONNX 端口名。
+
+两种格式对 hidden state 的暴露方式不同：
+
+- **TorchScript** 把 hidden state 藏在模块*内部*，因此调用形态仍是单输入的 MLP 形式
+  `forward(obs) -> actions`。模块还额外暴露 `reset()` 方法 —— **每个 episode 边界都要
+  调用它**来清零 hidden state。序列化的 buffer 固定 batch size 为 1（单台部署机器人）。
+
+  ```python
+  import torch
+  m = torch.jit.load("policy.ts"); m.eval()
+  m.reset()                       # 每个 episode 开始时
+  actions = m(raw_obs)            # 喂 raw obs；hidden state 内部维护
+  ```
+
+- **ONNX** 显式暴露 hidden state。输入是 `obs`、`h_in`（LSTM 还有 `c_in`）；输出是
+  `actions`、`h_out`（LSTM 还有 `c_out`），形状均为 `(num_layers, batch, hidden_dim)`。
+  每步把返回的状态回灌，并在 episode 边界清零：
+
+  ```python
+  import numpy as np, onnxruntime as ort
+  sess = ort.InferenceSession("policy.onnx")
+  h = np.zeros((num_layers, 1, hidden_dim), np.float32)
+  c = np.zeros((num_layers, 1, hidden_dim), np.float32)   # 仅 LSTM
+  actions, h, c = sess.run(None, {"obs": raw_obs, "h_in": h, "c_in": c})
+  # GRU: actions, h = sess.run(None, {"obs": raw_obs, "h_in": h})
+  ```
+
+play / eval rollout 会对刚结束 episode 的环境自动清零 hidden state，因此循环策略的
+eval 指标不会被跨 episode 的残留状态污染。
+
 ### 限制
 
-- Recurrent policy（rsl_rl 设置 `rnn_type`）暂不支持 —— 导出的模型没有 hidden
-  state 槽。
 - 导出的模型不应用 `ObservationTermCfg.noise` —— noise 只在训练时启用。
