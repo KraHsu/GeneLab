@@ -26,6 +26,7 @@ RUNNER_KEYS: Final[frozenset[str]] = frozenset(
         "num_envs_per_gpu",
         "checkpoint",
         "max_iterations",
+        "max_steps",
         "seed",
         "log_dir",
         "agent",

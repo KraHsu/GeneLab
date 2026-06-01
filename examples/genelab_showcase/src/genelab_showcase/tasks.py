@@ -71,13 +71,16 @@ class _ShowcaseTaskBase:
             trainable=False,
         )
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
         # IMPORTANT: pass ``self.cfg.env`` (which the CLI may have mutated via
         # ``--vis`` / ``--steps`` / ``--env.x.y.z`` overrides) so the override actually
         # reaches the env build. Re-calling ``env_factory()`` here would discard the
         # patched cfg and silently ignore the CLI flags.
+        #
+        # ``max_steps`` is the ``--max-steps`` hard cap, threaded into the runner so the
+        # viewer-gated loop honors it exactly like RL playback does.
         env_cfg = cast(ManagerBasedRlEnvCfg, self.cfg.env)
-        self.runner_cls(env_cfg).play()
+        self.runner_cls(env_cfg).play(max_steps=max_steps)
 
     def train(self) -> None:
         raise NotImplementedError(f"showcase task {self.task_id} is play-only")
@@ -188,6 +191,7 @@ def register() -> None:
             cfg_type=TaskCfg,
             examples=[
                 f"genelab play {cls.task_id} --vis",
-                f"genelab play {cls.task_id} --vis --steps 400",
+                f"genelab play {cls.task_id} --vis --max-steps 400",
+                f"genelab play {cls.task_id} --steps 400",
             ],
         )
