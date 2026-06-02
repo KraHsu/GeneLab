@@ -249,11 +249,14 @@ def _curriculum_cfg(play: bool) -> dict[str, CurriculumTermCfg]:
 
 
 def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
-    """Reset events + (training-only) sim2real domain randomization & disturbance.
+    """Reset events + (training-only) sim2real / sim2sim domain randomization & disturbance.
 
-    DR is limited to ops Genesis supports (friction, mass, COM, PD gains, encoder bias);
-    the MuJoCo-specific sol_params / geom-size / inertia randomizations have no Genesis
-    equivalent and are omitted. Disabled in play (evaluation) mode for nominal physics.
+    Per-env DR covers the contact properties Genesis randomizes per-env — friction (hand +
+    cube), mass (hand links + cube), COM, PD gains, encoder bias. Genesis stores geom
+    solver params globally (not per-env), so contact ``sol_params`` is applied as a single
+    shared tune (:func:`events.soften_contact_sol_params`) rather than per-env DR; the
+    MuJoCo-specific geom-size / inertia randomizations have no Genesis equivalent and are
+    omitted. All of this is disabled in play (evaluation) mode for nominal physics.
     """
     robot = SceneEntityCfg("robot")
     cfg: dict[str, EventTermCfg] = {
@@ -270,7 +273,21 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
             "robot_friction": EventTermCfg(
                 func=mdp.dr.geom_friction,
                 mode="startup",
-                params={"asset_cfg": robot, "ranges": (0.7, 1.3)},
+                params={"asset_cfg": robot, "ranges": (0.5, 1.5)},
+            ),
+            "cube_physics": EventTermCfg(
+                func=events.randomize_cube_physics,
+                mode="startup",
+                params={
+                    "object_name": "object",
+                    "friction_range": (0.5, 1.5),
+                    "mass_shift_range": (-0.02, 0.02),
+                },
+            ),
+            "contact_sol_params": EventTermCfg(
+                func=events.soften_contact_sol_params,
+                mode="startup",
+                params={"robot_name": "robot", "object_name": "object", "timeconst": 0.04},
             ),
             "robot_mass": EventTermCfg(
                 func=mdp.dr.body_mass_offset,
