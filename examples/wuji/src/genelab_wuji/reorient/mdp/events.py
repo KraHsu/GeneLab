@@ -89,35 +89,32 @@ def randomize_cube_physics(
             pass
 
 
-def soften_contact_sol_params(
+def _kick(
+    handle: object,
+    getter: str,
+    setter: str,
     env: "EnvContext",
-    _env_ids: torch.Tensor | None,
-    robot_name: str = "robot",
-    object_name: str = "object",
-    timeconst: float = 0.04,
-    dampratio: float = 1.0,
+    env_ids: torch.Tensor,
+    n: int,
+    lo: float,
+    hi: float,
+    scale: float,
 ) -> None:
-    """Set one slightly-more-compliant constraint ``sol_params`` on the hand collision geoms
-    and the cube.
-
-    Genesis stores geom solver params in a global (non-batched) structure, so this is a
-    *shared* contact tune, not per-env DR. The nominal Genesis defaults already match
-    MuJoCo's ``(timeconst≈0.02, dampratio 1.0)``; softening ``timeconst`` brings the
-    effective contact closer to MuJoCo's more compliant behavior and reduces the policy's
-    sensitivity to contact stiffness — the dimension the sim2sim transfer is most fragile to.
-    ``sol_params`` layout: ``(timeconst, dampratio, dmin, dmax, width, mid, power)``."""
-    sol = [timeconst, dampratio, 0.9, 0.95, 1.0e-3, 0.5, 2.0]
-    robot = env.scene[robot_name].gs_handle  # type: ignore[index]
-    cube = env.scene[object_name].gs_handle  # type: ignore[index]
-    for handle in (robot, cube):
-        for geom in getattr(handle, "geoms", ()):  # type: ignore[union-attr]
-            fn = getattr(geom, "set_sol_params", None)
-            if fn is None:
-                continue
-            try:
-                fn(sol)
-            except Exception:  # noqa: BLE001 - Genesis raises pre-build (unit-test scaffolding)
-                pass
+    fn_get = getattr(handle, getter, None)
+    fn_set = getattr(handle, setter, None)
+    if fn_get is None or fn_set is None:
+        return
+    cur = torch.as_tensor(fn_get(), device=env.device, dtype=torch.float)
+    if cur.dim() == 1:
+        cur = cur.unsqueeze(0).expand(env.num_envs, -1)
+    direction = torch.randn(n, 3, device=env.device)
+    direction = direction / direction.norm(dim=-1, keepdim=True).clamp_min(1e-6)
+    mag = torch.empty(n, 1, device=env.device).uniform_(lo, lo + (hi - lo) * scale)
+    new = cur[env_ids] + direction * mag
+    try:
+        fn_set(new, envs_idx=env_ids)
+    except TypeError:
+        fn_set(new)
 
 
 def apply_velocity_disturbance(
@@ -126,26 +123,19 @@ def apply_velocity_disturbance(
     object_name: str = "object",
     min_speed: float = 0.05,
     max_speed: float = 0.15,
+    min_angular: float = 0.5,
+    max_angular: float = 2.0,
 ) -> None:
-    """Add a random-direction linear-velocity impulse to the cube (interval disturbance)."""
+    """Add a random linear + angular velocity impulse to the cube (interval disturbance).
+
+    The angular kick is the important robustness lever here: it perturbs the cube's rotation
+    mid-manipulation, so the policy must keep re-converging from contact-response surprises
+    instead of relying on one engine's exact contact feedback. Upper magnitudes ramp with the
+    adaptive-episode curriculum scale."""
     if env_ids is None or env_ids.numel() == 0:
         return
     n = int(env_ids.numel())
     handle = env.scene[object_name].gs_handle  # type: ignore[index]
-    cur = torch.as_tensor(handle.get_vel(), device=env.device, dtype=torch.float)
-    if cur.dim() == 1:
-        cur = cur.unsqueeze(0).expand(env.num_envs, -1)
-    direction = torch.randn(n, 3, device=env.device)
-    direction = direction / direction.norm(dim=-1, keepdim=True).clamp_min(1e-6)
-    # Ramp the upper speed with the adaptive-episode curriculum scale.
     scale = float(disturbance_scale_value(env)[0])
-    effective_max = min_speed + (max_speed - min_speed) * scale
-    speed = torch.empty(n, 1, device=env.device).uniform_(min_speed, effective_max)
-    new_vel = cur[env_ids] + direction * speed
-    set_vel = getattr(handle, "set_vel", None)
-    if set_vel is None:
-        return
-    try:
-        set_vel(new_vel, envs_idx=env_ids)
-    except TypeError:
-        set_vel(new_vel)
+    _kick(handle, "get_vel", "set_vel", env, env_ids, n, min_speed, max_speed, scale)
+    _kick(handle, "get_ang", "set_ang", env, env_ids, n, min_angular, max_angular, scale)

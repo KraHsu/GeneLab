@@ -22,6 +22,10 @@ if TYPE_CHECKING:
 class JointPositionOffsetEMAActionCfg(JointPositionActionCfg):
     ema_alpha: float = 0.5
     warmup_time_s: float = 0.4
+    # Per-step Gaussian action noise (std, in raw-action units) injected before the target is
+    # formed. Forces a control policy that doesn't rely on its exact action being executed —
+    # a key robustness lever against feedback overfit to one engine's contact response. 0 in eval.
+    action_noise_std: float = 0.0
 
     def __post_init__(self) -> None:
         if self.class_type is None:
@@ -42,6 +46,8 @@ class JointPositionOffsetEMAAction(JointPositionAction):
 
     def process_actions(self, actions: torch.Tensor) -> None:
         self._raw[:] = actions
+        if self.cfg.action_noise_std > 0.0:
+            actions = actions + torch.randn_like(actions) * self.cfg.action_noise_std
         bias = self._robot_state.encoder_bias.index_select(1, self._joint_indices)
         raw_target = (
             self._default.unsqueeze(0) + self._scale.unsqueeze(0) * actions.clamp(-1.0, 1.0) - bias

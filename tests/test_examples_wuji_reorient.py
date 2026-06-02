@@ -77,7 +77,6 @@ def test_reorient_env_cfg_structure(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in (
         "robot_friction",
         "cube_physics",
-        "contact_sol_params",
         "pd_gains",
         "encoder_bias",
         "object_disturbance",
@@ -94,7 +93,6 @@ def test_reorient_play_cfg_strips_domain_randomization(monkeypatch: pytest.Monke
     for key in (
         "robot_friction",
         "cube_physics",
-        "contact_sol_params",
         "pd_gains",
         "encoder_bias",
         "object_disturbance",
