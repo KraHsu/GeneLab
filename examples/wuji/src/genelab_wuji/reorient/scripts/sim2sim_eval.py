@@ -95,7 +95,7 @@ def build_model() -> mujoco.MjModel:
     cube.add_geom(
         type=mujoco.mjtGeom.mjGEOM_BOX,
         size=[edge, edge, edge],
-        mass=0.12,
+        density=580.0,  # match the training cube (RigidObjectCfg density=580 -> ~0.091 kg)
         contype=3,
         conaffinity=3,
         rgba=[0.85, 0.3, 0.3, 1.0],
