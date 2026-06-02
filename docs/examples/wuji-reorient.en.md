@@ -25,7 +25,8 @@ genelab play  Genelab-Reorient-Wuji-Hand-v0 --checkpoint logs/rsl_rl/wuji_reorie
 ## MDP design
 
 - **Action** — joint-position offset with EMA smoothing + startup warmup
-  (`JointPositionOffsetEMAAction`), 20-d, scaled around the home grasp keyframe.
+  (`JointPositionOffsetEMAAction`), 20-d, scaled around the home grasp keyframe; a small
+  per-step action noise is injected during training (see Domain randomization).
 - **Command** — `InHandReorientCommand`: samples goals uniformly on SO(3) in the tag frame;
   an APPROACHING → SUCCESS_WINDOW state machine counts in-tolerance steps and advances to a
   new goal after a hold window.
@@ -33,8 +34,11 @@ genelab play  Genelab-Reorient-Wuji-Hand-v0 --checkpoint logs/rsl_rl/wuji_reorie
   palm-relative AABB "cage" escape penalty, hand-pose / action-rate / torque regularizers,
   and contact terms (fingertip slide, palm-detach, finger self-collision) driven by a custom
   `get_contacts` hand-cube sensor.
-- **Observations** — policy: joint pos/vel, cube position in the tag frame, 6D goal-rotation
-  error, last action; critic adds command-state and cage-counter progress.
+- **Observations** — the actor sees a **3-step history** (term-major, matching the mjlab
+  reference) of: joint position relative to the home pose, joint velocity, cube position in
+  the tag frame, the 6D cube-to-goal rotation error, and the last action — 69 values per
+  step, 207 over the history. The critic adds command-state and cage-counter progress on a
+  single step.
 - **Termination** — time-out, or `cage_drop` when the cube leaves the palm cage long enough.
 - **Curriculum** (training only) — a success curriculum tightens the goal tolerance from
   loose (0.8 rad) to the target (0.2 rad) as the policy reliably reaches goals, and an
@@ -42,28 +46,59 @@ genelab play  Genelab-Reorient-Wuji-Hand-v0 --checkpoint logs/rsl_rl/wuji_reorie
 
 ## Domain randomization
 
-Training randomizes hand friction, link mass / COM, PD gains, and encoder bias, plus a
-periodic cube velocity disturbance; evaluation (`--play`) runs nominal physics with these
-stripped.
+Randomization here targets the *robustness of the closed-loop feedback gait*, not a match to
+any single physics parameter — the reason is in [Sim-to-sim transfer](#sim-to-sim-transfer).
+Training (stripped at evaluation, which runs nominal physics) applies:
 
-!!! note "Omitted contact randomization"
-    MuJoCo-specific contact DR — `sol_params` (soft-pad compliance), geom size, and inertia
-    tensors — has no Genesis equivalent (different contact solver; no per-env geom resizing
-    or inertia setter), so it is omitted.
+- per-env startup randomization of hand and cube friction, link mass / COM, cube mass, and PD
+  gains, plus encoder bias;
+- a per-step action noise and a heavier observation noise (joint position / velocity, cube
+  position, goal error);
+- a frequent linear + angular cube velocity disturbance.
+
+!!! note "Contact-solver randomization"
+    Genesis stores geom solver parameters (`sol_params`) globally rather than per-env, so
+    per-env contact-compliance randomization — and the MuJoCo-specific geom-size / inertia
+    randomizations — have no per-env Genesis equivalent and are omitted. The transfer gap
+    turned out not to live in those parameters anyway (see below).
 
 ## Convergence
 
 Reference-scale run (8192 envs, 5000 iterations, RTX 5060 Ti, ~5 h):
 
-- The success curriculum tightens the tolerance to the target 0.2 rad by ~iter 1000, after
-  which the policy keeps improving *at full difficulty* (~6.7 goals reached per episode by
-  the end, with a stable grip — `cage_drop` ≈ 0.2).
-- Deterministic eval over 100 episodes (`genelab eval`, 0.2 threshold): **success rate 0.99**
-  (fraction of episodes that reorient the cube to at least one *held* SO(3) goal), mean
-  return ~1060, mean episode length ~591.
+- The success curriculum tightens the tolerance to the target 0.2 rad by ~iter 1500, after
+  which the policy keeps improving *at full difficulty* (~4.9 goals reached per episode by
+  the end, under the active disturbance).
+- Deterministic eval over 256 episodes (0.2 threshold, nominal physics): **success rate
+  0.996** — the fraction of episodes that reorient the cube to at least one *held* SO(3) goal
+  — at ~4.4 goals reached per episode.
 
 The success curriculum is required: its loose→tight tolerance supplies the early reward
 signal that lets the heavily-regularized policy learn to reorient rather than just hold.
+
+## Sim-to-sim transfer { #sim-to-sim-transfer }
+
+`sim2sim_mjlab` evaluates the trained policy in the mjlab reference environment itself — its
+`scene_builder` (hand + cube + contacts), physics, action pipeline, goal sampling, and drop +
+hold/success criterion. Only the policy and an observation/action adapter come from GeneLab.
+The two observation layouts differ (mjlab: limit-normalized joint angles + joint-position
+target error + tag-frame goal error; GeneLab: joint-position-relative + joint velocity +
+world-frame goal error, both 3-step), so the adapter rebuilds the GeneLab actor observation
+from the mjlab scene state with the joint-major ↔ finger-major remap and the 3-step history.
+
+Over 100 trials × 3 seeds in the mjlab environment (0.2 threshold): **success rate ≈ 0.81**
+with **drop rate ≈ 0** — the grasp transfers fully; the residual is goals not *held* within
+the trial window. `play_mjlab` drives the same bridge through mjlab's native viewer (full
+scene + goal visualization) for inspection. Both run inside the wuji-mjlab environment with
+GeneLab on `PYTHONPATH`.
+
+!!! note "Why the randomization matters"
+    A policy trained without the robustness randomization holds the cube but barely reorients
+    it under mjlab (≈0 success): the regrasping gait overfits to Genesis's exact per-step
+    contact response. Sweeping friction, mass, timestep, actuator gains, and the contact
+    solver leaves that unchanged, while replaying the in-Genesis winning finger targets does
+    move the mjlab cube — so the gap is closed-loop feedback brittleness, which the action /
+    observation noise and angular cube disturbances address.
 
 ## See also
 
