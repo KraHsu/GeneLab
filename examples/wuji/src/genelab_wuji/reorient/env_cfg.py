@@ -9,7 +9,7 @@ import math
 
 from genelab import mdp
 from genelab.configs import InteractiveSceneCfg, SimulationCfg
-from genelab.entity import RigidObjectCfg
+from genelab.entity import ArticulationCfg, RigidObjectCfg
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
 from genelab.managers import (
     CurriculumTermCfg,
@@ -24,8 +24,9 @@ from genelab.managers.scene_entity_cfg import SceneEntityCfg
 from genelab.mdp import Gnoise, Unoise
 from genelab.sensor import SelfContactSensorCfg
 
-from genelab_wuji.reorient.asset import wuji_hand_reorient_cfg
+from genelab_wuji.reorient.asset import resolve_cube_mesh, wuji_hand_reorient_cfg
 from genelab_wuji.reorient.constants import (
+    GOAL_MARKER_POS,
     REORIENT_CUBE_HALF_EXTENT,
     REORIENT_CUBE_INIT_POS,
 )
@@ -82,6 +83,44 @@ def _critic_obs() -> ObservationGroupCfg:
     )
 
 
+def _scene_entities(play: bool, size: float) -> dict[str, ArticulationCfg | RigidObjectCfg]:
+    """Scene objects: a plain box for training (clean collision); for play, a UV-textured
+    cube (visible faces) plus a textured goal-marker the command poses at the target."""
+    if not play:
+        return {
+            "object": RigidObjectCfg(
+                morph="box",
+                size=(size, size, size),
+                init_pos=REORIENT_CUBE_INIT_POS,
+                init_quat=(1.0, 0.0, 0.0, 0.0),
+                fixed=False,
+                friction=1.0,
+                density=580.0,
+            )
+        }
+    cube_mesh = resolve_cube_mesh()
+    return {
+        "object": RigidObjectCfg(
+            morph="mesh",
+            file=cube_mesh,
+            init_pos=REORIENT_CUBE_INIT_POS,
+            init_quat=(1.0, 0.0, 0.0, 0.0),
+            fixed=False,
+            friction=1.0,
+            density=580.0,
+        ),
+        "goal_marker": RigidObjectCfg(
+            morph="mesh",
+            file=cube_mesh,
+            init_pos=GOAL_MARKER_POS,
+            init_quat=(1.0, 0.0, 0.0, 0.0),
+            fixed=False,
+            friction=1.0,
+            density=580.0,
+        ),
+    }
+
+
 def wuji_hand_reorient_env_cfg(play: bool = False, num_envs: int = 8192) -> ManagerBasedRlEnvCfg:
     """Build the WUJI-hand SO(3) reorientation task config."""
     size = 2.0 * REORIENT_CUBE_HALF_EXTENT
@@ -95,17 +134,7 @@ def wuji_hand_reorient_env_cfg(play: bool = False, num_envs: int = 8192) -> Mana
         ),
         scene=InteractiveSceneCfg(
             env_spacing=(0.75, 0.75),
-            entities={
-                "object": RigidObjectCfg(
-                    morph="box",
-                    size=(size, size, size),
-                    init_pos=REORIENT_CUBE_INIT_POS,
-                    init_quat=(1.0, 0.0, 0.0, 0.0),
-                    fixed=False,
-                    friction=1.0,
-                    density=580.0,
-                ),
-            },
+            entities=_scene_entities(play, size),
             sensors=(
                 HandObjectContactSensorCfg(
                     name="hand_object_contact", object_name="object", force_threshold=0.05

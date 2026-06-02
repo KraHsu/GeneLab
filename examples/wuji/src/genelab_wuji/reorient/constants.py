@@ -51,6 +51,9 @@ REORIENT_JOINT_POS: dict[str, float] = {
     "right_finger5_joint4": 0.407,
 }
 
+# Goal-marker world position in play/debug-vis mode — beside the hand, clear of the grasp.
+GOAL_MARKER_POS: tuple[float, float, float] = (0.10, 0.01, 0.56)
+
 TIP_SITE_NAMES: tuple[str, ...] = tuple(f"right_finger{i}_tip" for i in range(1, 6))
 TIP_BODY_NAMES: tuple[str, ...] = tuple(f"right_finger{i}_link4" for i in range(1, 6))
 PALM_BODY_NAME: str = "right_palm_link"

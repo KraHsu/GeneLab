@@ -46,27 +46,24 @@ Training randomizes hand friction, link mass / COM, PD gains, and encoder bias, 
 periodic cube velocity disturbance; evaluation (`--play`) runs nominal physics with these
 stripped.
 
-!!! note "Genesis vs MuJoCo contact DR"
-    The mjlab reference also randomizes MuJoCo-specific `sol_params` (soft-pad compliance),
-    geom size, and inertia tensors. Those have no Genesis equivalent (different contact
-    solver; no per-env geom resizing or inertia setter), so they are omitted here.
+!!! note "Omitted contact randomization"
+    MuJoCo-specific contact DR — `sol_params` (soft-pad compliance), geom size, and inertia
+    tensors — has no Genesis equivalent (different contact solver; no per-env geom resizing
+    or inertia setter), so it is omitted.
 
 ## Convergence
 
-Reference-scale run (8192 envs, 5000 iterations, RTX 5060 Ti, ~5 h) with the curriculum:
+Reference-scale run (8192 envs, 5000 iterations, RTX 5060 Ti, ~5 h):
 
 - The success curriculum tightens the tolerance to the target 0.2 rad by ~iter 1000, after
   which the policy keeps improving *at full difficulty* (~6.7 goals reached per episode by
   the end, with a stable grip — `cage_drop` ≈ 0.2).
-- Deterministic eval over 100 episodes (`genelab eval`, tight 0.2 threshold): **success rate
-  0.99** (fraction of episodes that reorient the cube to at least one *held* SO(3) goal),
-  mean return ~1060, mean episode length ~591.
+- Deterministic eval over 100 episodes (`genelab eval`, 0.2 threshold): **success rate 0.99**
+  (fraction of episodes that reorient the cube to at least one *held* SO(3) goal), mean
+  return ~1060, mean episode length ~591.
 
-!!! note "The curriculum is essential"
-    Without the success curriculum, the mjlab-aligned reward weights (heavy torque /
-    action-rate / cage penalties) over-regularize into a static hold and reach **0%** at a
-    short budget; with the curriculum they reach the release-level 0.99. A short run without
-    the curriculum and with lighter Genesis-tuned weights reaches ~0.33.
+The success curriculum is required: its loose→tight tolerance supplies the early reward
+signal that lets the heavily-regularized policy learn to reorient rather than just hold.
 
 ## See also
 
