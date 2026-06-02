@@ -39,22 +39,27 @@ _JOINTS = (r"right_finger[1-5]_joint[1-4]",)
 _FAR_RESAMPLE = (1.0e6, 1.0e6)  # command runs its own state machine; never auto-resample
 
 
-def _policy_obs() -> ObservationGroupCfg:
+def _policy_obs(play: bool) -> ObservationGroupCfg:
+    # Heavier observation noise (training only) is a robustness lever: it stops the policy from
+    # relying on precise state estimates, which is part of why the learned feedback gait
+    # overfits to one engine's exact contact response. Eval (play) runs nominal/clean.
     return ObservationGroupCfg(
-        enable_corruption=True,
+        enable_corruption=not play,
         terms={
             "joint_pos": ObservationTermCfg(
-                func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.06, n_max=0.06)
+                func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.10, n_max=0.10)
             ),
-            "joint_vel": ObservationTermCfg(func=mdp.joint_vel_rel),
+            "joint_vel": ObservationTermCfg(
+                func=mdp.joint_vel_rel, noise=Unoise(n_min=-0.5, n_max=0.5)
+            ),
             "cube_pos_in_tag": ObservationTermCfg(
                 func=observations.cube_pos_in_tag,
-                noise=Unoise(n_min=-0.008, n_max=0.008),
+                noise=Unoise(n_min=-0.02, n_max=0.02),
             ),
             "goal_rot_err_6d": ObservationTermCfg(
                 func=observations.goal_rot_err_6d,
                 params={"command_name": "reorient_command"},
-                noise=Gnoise(std=0.05),
+                noise=Gnoise(std=0.08),
             ),
             "last_action": ObservationTermCfg(func=mdp.last_action),
         },
@@ -154,9 +159,10 @@ def wuji_hand_reorient_env_cfg(play: bool = False, num_envs: int = 8192) -> Mana
                 use_default_offset=True,
                 ema_alpha=0.5,
                 warmup_time_s=0.4,
+                action_noise_std=0.0 if play else 0.1,
             )
         },
-        observations_cfg={"policy": _policy_obs(), "critic": _critic_obs()},
+        observations_cfg={"policy": _policy_obs(play), "critic": _critic_obs()},
         commands_cfg={
             "reorient_command": InHandReorientCommandCfg(
                 asset_name="robot",
@@ -249,14 +255,14 @@ def _curriculum_cfg(play: bool) -> dict[str, CurriculumTermCfg]:
 
 
 def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
-    """Reset events + (training-only) sim2real / sim2sim domain randomization & disturbance.
+    """Reset events + (training-only) robustness domain randomization & disturbance.
 
-    Per-env DR covers the contact properties Genesis randomizes per-env — friction (hand +
-    cube), mass (hand links + cube), COM, PD gains, encoder bias. Genesis stores geom
-    solver params globally (not per-env), so contact ``sol_params`` is applied as a single
-    shared tune (:func:`events.soften_contact_sol_params`) rather than per-env DR; the
-    MuJoCo-specific geom-size / inertia randomizations have no Genesis equivalent and are
-    omitted. All of this is disabled in play (evaluation) mode for nominal physics.
+    The sim2sim transfer gap is a closed-loop feedback overfit (the policy learns a gait
+    tuned to Genesis's exact contact response), so the DR here targets *robustness of the
+    feedback loop* rather than matching any single contact parameter: per-env friction (hand
+    + cube), mass (hand links + cube), COM, PD gains, encoder bias, plus a frequent linear +
+    angular cube velocity disturbance. Action noise (in the action term) and heavier
+    observation noise (policy obs group) complete the recipe. All disabled in play (eval).
     """
     robot = SceneEntityCfg("robot")
     cfg: dict[str, EventTermCfg] = {
@@ -283,11 +289,6 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
                     "friction_range": (0.5, 1.5),
                     "mass_shift_range": (-0.02, 0.02),
                 },
-            ),
-            "contact_sol_params": EventTermCfg(
-                func=events.soften_contact_sol_params,
-                mode="startup",
-                params={"robot_name": "robot", "object_name": "object", "timeconst": 0.04},
             ),
             "robot_mass": EventTermCfg(
                 func=mdp.dr.body_mass_offset,
@@ -319,8 +320,13 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
             "object_disturbance": EventTermCfg(
                 func=events.apply_velocity_disturbance,
                 mode="interval",
-                interval_range_s=(0.6, 1.8),
-                params={"min_speed": 0.05, "max_speed": 0.15},
+                interval_range_s=(0.4, 1.2),
+                params={
+                    "min_speed": 0.05,
+                    "max_speed": 0.15,
+                    "min_angular": 0.5,
+                    "max_angular": 2.0,
+                },
             ),
         }
     )
