@@ -52,6 +52,74 @@ def reset_cage_state(env: "EnvContext", env_ids: torch.Tensor | None) -> None:
         counter[env_ids] = 0.0
 
 
+def _startup_ids(env: "EnvContext", env_ids: torch.Tensor | None) -> torch.Tensor:
+    if env_ids is None:
+        return torch.arange(env.num_envs, device=env.device)
+    return env_ids
+
+
+def randomize_cube_physics(
+    env: "EnvContext",
+    env_ids: torch.Tensor | None,
+    object_name: str = "object",
+    friction_range: tuple[float, float] = (0.5, 1.5),
+    mass_shift_range: tuple[float, float] = (-0.02, 0.02),
+) -> None:
+    """Per-env startup contact DR on the cube: friction ratio + additive mass shift.
+
+    The cube is a :class:`RigidObject` (single link), not an articulation, so the stock
+    ``mdp.dr`` helpers — which resolve articulations and fall back to the robot — can't
+    target it; we write through its Genesis handle directly (the same access pattern as
+    :func:`reset_object_orientation`). Friction and mass are the contact properties Genesis
+    randomizes *per-env* (``set_friction_ratio`` / ``set_mass_shift``)."""
+    ids = _startup_ids(env, env_ids)
+    if ids.numel() == 0:
+        return
+    n = int(ids.numel())
+    handle = env.scene[object_name].gs_handle  # type: ignore[index]
+    friction = torch.empty(n, 1, device=env.device).uniform_(*friction_range)
+    mass_shift = torch.empty(n, 1, device=env.device).uniform_(*mass_shift_range)
+    for setter, value in (("set_friction_ratio", friction), ("set_mass_shift", mass_shift)):
+        fn = getattr(handle, setter, None)
+        if fn is None:
+            continue
+        try:
+            fn(value, links_idx_local=[0], envs_idx=ids)
+        except Exception:  # noqa: BLE001 - Genesis raises pre-build (unit-test scaffolding)
+            pass
+
+
+def soften_contact_sol_params(
+    env: "EnvContext",
+    _env_ids: torch.Tensor | None,
+    robot_name: str = "robot",
+    object_name: str = "object",
+    timeconst: float = 0.04,
+    dampratio: float = 1.0,
+) -> None:
+    """Set one slightly-more-compliant constraint ``sol_params`` on the hand collision geoms
+    and the cube.
+
+    Genesis stores geom solver params in a global (non-batched) structure, so this is a
+    *shared* contact tune, not per-env DR. The nominal Genesis defaults already match
+    MuJoCo's ``(timeconst≈0.02, dampratio 1.0)``; softening ``timeconst`` brings the
+    effective contact closer to MuJoCo's more compliant behavior and reduces the policy's
+    sensitivity to contact stiffness — the dimension the sim2sim transfer is most fragile to.
+    ``sol_params`` layout: ``(timeconst, dampratio, dmin, dmax, width, mid, power)``."""
+    sol = [timeconst, dampratio, 0.9, 0.95, 1.0e-3, 0.5, 2.0]
+    robot = env.scene[robot_name].gs_handle  # type: ignore[index]
+    cube = env.scene[object_name].gs_handle  # type: ignore[index]
+    for handle in (robot, cube):
+        for geom in getattr(handle, "geoms", ()):  # type: ignore[union-attr]
+            fn = getattr(geom, "set_sol_params", None)
+            if fn is None:
+                continue
+            try:
+                fn(sol)
+            except Exception:  # noqa: BLE001 - Genesis raises pre-build (unit-test scaffolding)
+                pass
+
+
 def apply_velocity_disturbance(
     env: "EnvContext",
     env_ids: torch.Tensor | None,

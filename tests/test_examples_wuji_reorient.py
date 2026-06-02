@@ -74,7 +74,14 @@ def test_reorient_env_cfg_structure(monkeypatch: pytest.MonkeyPatch) -> None:
     sensor_names = {s.name for s in cfg.scene.sensors}
     assert {"hand_object_contact", "finger_collision"} <= sensor_names
     # training DR present
-    for key in ("robot_friction", "pd_gains", "encoder_bias", "object_disturbance"):
+    for key in (
+        "robot_friction",
+        "cube_physics",
+        "contact_sol_params",
+        "pd_gains",
+        "encoder_bias",
+        "object_disturbance",
+    ):
         assert key in cfg.events_cfg
     # training curriculum present; success threshold starts loose
     assert {"success_curriculum", "adaptive_episode"} <= set(cfg.curriculum_cfg)
@@ -84,7 +91,14 @@ def test_reorient_env_cfg_structure(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_reorient_play_cfg_strips_domain_randomization(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = _patched_cfg(monkeypatch, play=True)
     # evaluation runs nominal physics: DR + disturbance removed, resets kept.
-    for key in ("robot_friction", "pd_gains", "encoder_bias", "object_disturbance"):
+    for key in (
+        "robot_friction",
+        "cube_physics",
+        "contact_sol_params",
+        "pd_gains",
+        "encoder_bias",
+        "object_disturbance",
+    ):
         assert key not in cfg.events_cfg
     assert "reset_object" in cfg.events_cfg
     # no curriculum in eval; tight target success threshold
