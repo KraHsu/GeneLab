@@ -47,19 +47,19 @@ def _policy_obs(play: bool) -> ObservationGroupCfg:
         enable_corruption=not play,
         terms={
             "joint_pos": ObservationTermCfg(
-                func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.10, n_max=0.10)
+                func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.12, n_max=0.12)
             ),
             "joint_vel": ObservationTermCfg(
-                func=mdp.joint_vel_rel, noise=Unoise(n_min=-0.5, n_max=0.5)
+                func=mdp.joint_vel_rel, noise=Unoise(n_min=-0.7, n_max=0.7)
             ),
             "cube_pos_in_tag": ObservationTermCfg(
                 func=observations.cube_pos_in_tag,
-                noise=Unoise(n_min=-0.02, n_max=0.02),
+                noise=Unoise(n_min=-0.025, n_max=0.025),
             ),
             "goal_rot_err_6d": ObservationTermCfg(
                 func=observations.goal_rot_err_6d,
                 params={"command_name": "reorient_command"},
-                noise=Gnoise(std=0.08),
+                noise=Gnoise(std=0.10),
             ),
             "last_action": ObservationTermCfg(func=mdp.last_action),
         },
@@ -159,7 +159,7 @@ def wuji_hand_reorient_env_cfg(play: bool = False, num_envs: int = 8192) -> Mana
                 use_default_offset=True,
                 ema_alpha=0.5,
                 warmup_time_s=0.4,
-                action_noise_std=0.0 if play else 0.1,
+                action_noise_std=0.0 if play else 0.15,
             )
         },
         observations_cfg={"policy": _policy_obs(play), "critic": _critic_obs()},
@@ -279,15 +279,15 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
             "robot_friction": EventTermCfg(
                 func=mdp.dr.geom_friction,
                 mode="startup",
-                params={"asset_cfg": robot, "ranges": (0.5, 1.5)},
+                params={"asset_cfg": robot, "ranges": (0.4, 1.6)},
             ),
             "cube_physics": EventTermCfg(
                 func=events.randomize_cube_physics,
                 mode="startup",
                 params={
                     "object_name": "object",
-                    "friction_range": (0.5, 1.5),
-                    "mass_shift_range": (-0.02, 0.02),
+                    "friction_range": (0.4, 1.6),
+                    "mass_shift_range": (-0.025, 0.025),
                 },
             ),
             "robot_mass": EventTermCfg(
@@ -308,8 +308,8 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
                 mode="startup",
                 params={
                     "asset_cfg": robot,
-                    "stiffness_range": (0.75, 1.5),
-                    "damping_range": (0.5, 2.0),
+                    "stiffness_range": (0.6, 1.8),
+                    "damping_range": (0.4, 2.5),
                 },
             ),
             "encoder_bias": EventTermCfg(
@@ -320,7 +320,7 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
             "object_disturbance": EventTermCfg(
                 func=events.apply_velocity_disturbance,
                 mode="interval",
-                interval_range_s=(0.4, 1.2),
+                interval_range_s=(0.3, 1.0),
                 params={
                     "min_speed": 0.05,
                     "max_speed": 0.15,
