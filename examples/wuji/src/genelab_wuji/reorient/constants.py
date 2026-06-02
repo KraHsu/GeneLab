@@ -17,6 +17,9 @@ REORIENT_CUBE_INIT_POS: tuple[float, float, float] = (-0.0967, 0.0100, 0.5599)
 REORIENT_CUBE_INIT_ROT: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
 REORIENT_CUBE_HALF_EXTENT: float = 0.027  # 54 mm dex cube
 
+# Actor observation history length (term-major), matching the mjlab reference.
+REORIENT_HISTORY_LEN: int = 3
+
 # Tag (wrist marker) <-> palm_link rigid transform.
 #   tag_in_palm pos = (0.0262, 0, -0.0563), quat (wxyz) = R_y(+90deg)
 TAG_IN_PALM_POS: tuple[float, float, float] = (0.0262, 0.0, -0.0563)
