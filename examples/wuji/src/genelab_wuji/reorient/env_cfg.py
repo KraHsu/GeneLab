@@ -40,28 +40,29 @@ _FAR_RESAMPLE = (1.0e6, 1.0e6)  # command runs its own state machine; never auto
 
 
 def _policy_obs(play: bool) -> ObservationGroupCfg:
-    # Heavier observation noise (training only) is a robustness lever: it stops the policy from
-    # relying on precise state estimates, which is part of why the learned feedback gait
-    # overfits to one engine's exact contact response. Eval (play) runs nominal/clean.
+    # 3-step observation history (term-major) matches mjlab's actor obs. Heavier observation
+    # noise (training only) is a robustness lever: it stops the policy from relying on precise
+    # state estimates, part of why the learned feedback gait overfits to one engine's exact
+    # contact response. Eval (play) runs nominal/clean.
     return ObservationGroupCfg(
         enable_corruption=not play,
         terms={
             "joint_pos": ObservationTermCfg(
-                func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.12, n_max=0.12)
+                func=observations.joint_pos_rel_history, noise=Unoise(n_min=-0.12, n_max=0.12)
             ),
             "joint_vel": ObservationTermCfg(
-                func=mdp.joint_vel_rel, noise=Unoise(n_min=-0.7, n_max=0.7)
+                func=observations.joint_vel_rel_history, noise=Unoise(n_min=-0.7, n_max=0.7)
             ),
             "cube_pos_in_tag": ObservationTermCfg(
-                func=observations.cube_pos_in_tag,
+                func=observations.cube_pos_in_tag_history,
                 noise=Unoise(n_min=-0.025, n_max=0.025),
             ),
             "goal_rot_err_6d": ObservationTermCfg(
-                func=observations.goal_rot_err_6d,
+                func=observations.goal_rot_err_6d_history,
                 params={"command_name": "reorient_command"},
                 noise=Gnoise(std=0.10),
             ),
-            "last_action": ObservationTermCfg(func=mdp.last_action),
+            "last_action": ObservationTermCfg(func=observations.last_action_history),
         },
     )
 

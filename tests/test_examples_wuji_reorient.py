@@ -116,7 +116,7 @@ def test_reorient_env_builds_and_steps(genesis_runtime: Any) -> None:
     env = ManagerBasedRlEnv(cfg)
     assert env.num_actions == 20
     obs = env.observation_manager.compute()
-    assert obs["policy"].shape == (4, 69)
+    assert obs["policy"].shape == (4, 207)  # 3-step history of the 69-dim actor obs
     assert obs["critic"].shape == (4, 74)
     act = torch.zeros(env.num_envs, env.num_actions)
     for _ in range(8):
