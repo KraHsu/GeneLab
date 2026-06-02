@@ -109,6 +109,8 @@ class HandObjectContactSensor(Sensor[HandObjectContactData]):
             valid = torch.ones_like(la, dtype=torch.bool)
         else:
             valid = torch.ones_like(la, dtype=torch.bool) if valid is None else valid.to(dev)
+        if la.shape[1] == 0:  # no contact pairs this step — nothing to aggregate
+            return self._zeros()
         ls, le = int(robot.link_start), int(robot.link_end)
         a_is_robot = (la >= ls) & (la < le)
         robot_link = torch.where(a_is_robot, la, lb) - ls  # (B, nc) local link

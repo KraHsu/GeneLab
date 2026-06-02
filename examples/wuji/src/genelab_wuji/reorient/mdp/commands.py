@@ -18,6 +18,7 @@ from genelab.managers.command_manager import CommandTerm, CommandTermCfg
 from genelab.utils.math import quat_error_magnitude, quat_mul
 
 from genelab_wuji.reorient.constants import (
+    GOAL_MARKER_POS,
     REORIENT_ROBOT_ROOT_ROT,
     TAG_IN_PALM_QUAT_WXYZ,
 )
@@ -35,6 +36,9 @@ class InHandReorientCommandCfg(CommandTermCfg):
     goal_switch_delay: int = 20
     tag_in_palm_quat: tuple[float, float, float, float] = TAG_IN_PALM_QUAT_WXYZ
     robot_root_rot: tuple[float, float, float, float] = REORIENT_ROBOT_ROOT_ROT
+    # debug_vis (play): pose a textured marker entity at the goal orientation.
+    marker_name: str = "goal_marker"
+    marker_pos: tuple[float, float, float] = GOAL_MARKER_POS
     class_type: type[CommandTerm] | None = None
 
     def __post_init__(self) -> None:
@@ -196,6 +200,29 @@ class InHandReorientCommand(CommandTerm):
         extras = getattr(self._env, "_extras", None)
         if extras is not None:
             extras["is_success"] = self._goal_reach_count >= 1
+
+        if self.cfg.debug_vis:
+            self._pose_goal_marker()
+
+    def _pose_goal_marker(self) -> None:
+        """Place a textured marker entity at the goal orientation (viewer only)."""
+        scene = self._env.scene
+        try:
+            handle = scene[self.cfg.marker_name].gs_handle  # type: ignore[index]
+        except (KeyError, Exception):  # noqa: BLE001 - marker absent (e.g. training scene)
+            return
+        n = self.num_envs
+        pos = torch.tensor(self.cfg.marker_pos, device=self.device).expand(n, -1)
+        zeros = torch.zeros(n, 3, device=self.device)
+        for setter, value in (
+            ("set_pos", pos),
+            ("set_quat", self._goal_quat_w),
+            ("set_vel", zeros),
+            ("set_ang", zeros),
+        ):
+            fn = getattr(handle, setter, None)
+            if fn is not None:
+                fn(value)
 
     @property
     def success_achieved(self) -> torch.Tensor:

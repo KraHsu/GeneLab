@@ -34,6 +34,20 @@ _MESHES: Final = AssetSpec(
     archive_member="wuji_hand_reorient/meshes/right/right_palm_link.STL",
 )
 
+# 54 mm UV-textured cube (visible faces) for the viewer: the held object and the goal marker.
+_CUBE: Final = AssetSpec(
+    name="wuji_cube",
+    url="https://raw.githubusercontent.com/KraHsu/genelab-assets/main/wuji_cube/wuji_cube.tar.gz",
+    md5="f77eff83a9ca8ade2966d5202b5d337d",
+    filename="wuji_cube.tar.gz",
+    archive_member="wuji_cube/dex_cube.obj",
+)
+
+
+def resolve_cube_mesh() -> str:
+    """Download (once) and return the path to the 54 mm textured cube OBJ."""
+    return str(fetch_asset(_CUBE))
+
 
 def resolve_reorient_mjcf() -> Path:
     """Fetch the reorient meshes and return a Genesis-loadable MJCF path.
