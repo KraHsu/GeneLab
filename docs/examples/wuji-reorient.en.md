@@ -3,7 +3,9 @@
 SO(3) in-hand cube reorientation for the WUJI Hand: a fixed-base, palm-up dexterous hand
 must rotate a free cube to a stream of random orientation goals (expressed in the wrist
 "tag" frame) and hold each within a tolerance window without dropping it. The task is a
-Genesis-adapted port of the mjlab `reorient` reference, trained with RSL-RL PPO.
+Genesis-adapted port of the [wuji-mjlab](https://github.com/wuji-technology/wuji-mjlab)
+`reorient` reference, trained with RSL-RL PPO; that same wuji-mjlab environment is the
+sim2sim transfer target evaluated in [Sim-to-sim transfer](#sim-to-sim-transfer).
 
 ## Task
 
@@ -46,21 +48,20 @@ genelab play  Genelab-Reorient-Wuji-Hand-v0 --checkpoint logs/rsl_rl/wuji_reorie
 
 ## Domain randomization
 
-Randomization here targets the *robustness of the closed-loop feedback gait*, not a match to
-any single physics parameter — the reason is in [Sim-to-sim transfer](#sim-to-sim-transfer).
-Training (stripped at evaluation, which runs nominal physics) applies:
+Training applies domain randomization, stripped at evaluation (which runs nominal physics).
+Each term and its role:
 
 - per-env startup randomization of hand and cube friction, link mass / COM, cube mass, and PD
-  gains, plus encoder bias;
+  gains, plus encoder bias — models the calibration error the policy must tolerate;
 - a per-step action noise and a heavier observation noise (joint position / velocity, cube
-  position, goal error);
-- a frequent linear + angular cube velocity disturbance.
+  position, goal error) — keep the policy from relying on exact actuation or precise state;
+- a frequent linear + angular cube velocity disturbance — perturbs the cube mid-manipulation
+  so the policy keeps re-converging.
 
 !!! note "Contact-solver randomization"
     Genesis stores geom solver parameters (`sol_params`) globally rather than per-env, so
     per-env contact-compliance randomization — and the MuJoCo-specific geom-size / inertia
-    randomizations — have no per-env Genesis equivalent and are omitted. The transfer gap
-    turned out not to live in those parameters anyway (see below).
+    randomizations — have no per-env Genesis equivalent and are omitted.
 
 ## Convergence
 
@@ -93,14 +94,6 @@ peaks mid-run (~iter 3500–3800), so the best-transfer checkpoint is not necess
 one. `play_mjlab` drives the same bridge through mjlab's native viewer (full scene + goal
 visualization) for inspection. Both run inside the wuji-mjlab environment with GeneLab on
 `PYTHONPATH`.
-
-!!! note "Why the randomization matters"
-    A policy trained without the robustness randomization holds the cube but barely reorients
-    it under mjlab (≈0 success): the regrasping gait overfits to Genesis's exact per-step
-    contact response. Sweeping friction, mass, timestep, actuator gains, and the contact
-    solver leaves that unchanged, while replaying the in-Genesis winning finger targets does
-    move the mjlab cube — so the gap is closed-loop feedback brittleness, which the action /
-    observation noise and angular cube disturbances address.
 
 ## See also
 
