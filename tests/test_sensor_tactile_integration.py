@@ -21,6 +21,8 @@ torch = pytest.importorskip("torch")
 gs = pytest.importorskip("genesis")
 
 from genelab.sensor.kinematic_contact import KinematicContactSensorCfg  # noqa: E402
+from genelab.sensor.kinematic_depth import KinematicDepthSensorCfg  # noqa: E402
+from genelab.sensor.kinematic_tactile import KinematicTactileSensorCfg  # noqa: E402
 from genelab.sensor.proximity import ProximitySensorCfg  # noqa: E402
 from genelab.sensor.tactile_elastomer import ElastomerTactileSensorCfg  # noqa: E402
 from genelab.sensor.tactile_pointcloud import PointCloudTactileSensorCfg  # noqa: E402
@@ -161,6 +163,53 @@ def test_elastomer_tactile_real_scene(gs_initialized: None) -> None:
     # ElastomerTaxel.read() → (B, P, 3) float displacement vector per probe.
     assert data.raw.dtype == torch.float32
     assert data.raw.shape == (2, 1, 3)
+
+
+def test_kinematic_depth_real_scene(gs_initialized: None) -> None:
+    del gs_initialized
+    cfg = KinematicDepthSensorCfg(
+        name="depth",
+        link_name="box_link",
+        probe_local_pos=((0.0, 0.0, -0.025),),
+        probe_radius=0.01,
+    )
+    scene, sensors = _build_scene_with_sensors(cfg)
+    for _ in range(3):
+        scene.step()
+        sensors["depth"].update(0.02)
+
+    data = sensors["depth"].data
+    # ContactDepthProbe.read() → (B, P) float penetration depth (metres), non-negative.
+    assert data.depth.dtype == torch.float32
+    assert data.depth.shape == (2, 1)
+    assert bool((data.depth >= 0).all())
+    # ``raw`` aliases ``depth`` for the generic reward primitives.
+    assert torch.equal(data.raw, data.depth)
+
+
+def test_kinematic_tactile_real_scene(gs_initialized: None) -> None:
+    del gs_initialized
+    cfg = KinematicTactileSensorCfg(
+        name="taxel",
+        link_name="box_link",
+        probe_local_pos=((0.0, 0.0, -0.025),),
+        probe_local_normal=(0.0, 0.0, 1.0),
+        probe_radius=0.01,
+        normal_stiffness=1000.0,
+    )
+    scene, sensors = _build_scene_with_sensors(cfg)
+    for _ in range(3):
+        scene.step()
+        sensors["taxel"].update(0.02)
+
+    data = sensors["taxel"].data
+    # KinematicTaxel.read() → KinematicTaxelData(force=(B, P, 3), torque=(B, P, 3)), link frame.
+    assert data.force.dtype == torch.float32
+    assert data.force.shape == (2, 1, 3)
+    assert data.torque.dtype == torch.float32
+    assert data.torque.shape == (2, 1, 3)
+    # ``raw`` aliases ``force`` for the generic reward primitives.
+    assert torch.equal(data.raw, data.force)
 
 
 def test_pointcloud_tactile_real_scene(gs_initialized: None) -> None:
