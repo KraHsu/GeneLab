@@ -24,6 +24,16 @@ from genelab.sensor.kinematic_contact import (
     KinematicContactSensor,
     KinematicContactSensorCfg,
 )
+from genelab.sensor.kinematic_depth import (
+    KinematicDepthData,
+    KinematicDepthSensor,
+    KinematicDepthSensorCfg,
+)
+from genelab.sensor.kinematic_tactile import (
+    KinematicTactileData,
+    KinematicTactileSensor,
+    KinematicTactileSensorCfg,
+)
 from genelab.sensor.mesh_ray_cast import (
     MeshGridPattern,
     MeshRayCastData,
@@ -93,6 +103,12 @@ __all__ = [
     "KinematicContactData",
     "KinematicContactSensor",
     "KinematicContactSensorCfg",
+    "KinematicDepthData",
+    "KinematicDepthSensor",
+    "KinematicDepthSensorCfg",
+    "KinematicTactileData",
+    "KinematicTactileSensor",
+    "KinematicTactileSensorCfg",
     "MeshGridPattern",
     "MeshRayCastData",
     "MeshRayCastSensor",

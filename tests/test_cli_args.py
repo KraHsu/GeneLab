@@ -89,6 +89,23 @@ def test_cli_parses_gpus_flag_into_runner_args() -> None:
     assert overrides == {}
 
 
+def test_cli_parses_max_steps_flag_into_runner_args() -> None:
+    from genelab.cli import RUNNER_KEYS, parse_run_args, split_runner_keys
+
+    # ``--max-steps`` is a runner key, not an env override, so it must NOT be rewritten
+    # onto ``env.simulation.*`` (that path is ``--steps``); it routes to runner_args where
+    # dispatch reads it as the hard playback cap.
+    assert "max_steps" in RUNNER_KEYS
+    task_id, overrides = parse_run_args(["External-Fake-Task-v0", "--max-steps", "5"])
+
+    assert task_id == "External-Fake-Task-v0"
+    assert overrides == {"max_steps": "5"}
+
+    runner_args = split_runner_keys(overrides)
+    assert runner_args == {"max_steps": "5"}
+    assert overrides == {}
+
+
 def test_configured_task_train_mode_retargets_steps_to_max_iterations() -> None:
     """In train mode, ``--steps N`` is the short form for ``--max_iterations N``.
 

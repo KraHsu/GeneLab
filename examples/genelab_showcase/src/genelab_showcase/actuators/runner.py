@@ -8,9 +8,11 @@ commanded target plus each arm's achieved position and tracking error as live py
   learned residual) and ``robot_ideal`` (plain IdealPD) — so the two curves overlay "with
   residual" vs "without residual".
 
-Four sliders retune the demo live: ``kp`` / ``kv`` write straight into every arm's PD gains
-(under-damped jitter vs over-damped lag), and ``amplitude`` / ``period`` reshape the sine.
-Nothing is written to disk.
+Four sliders retune the demo live, docked into the Genesis viewer's ImGui overlay (via
+``SimulationCfg.viewer_imgui`` + :func:`genelab.scene.register_viewer_panels`): ``kp`` / ``kv``
+write straight into every arm's PD gains (under-damped jitter vs over-damped lag), and
+``amplitude`` / ``period`` reshape the sine. The tracking curves stay in their own pyqtgraph
+window — controls in the viewport, telemetry in the plot window. Nothing is written to disk.
 """
 
 import math
@@ -29,13 +31,6 @@ _HISTORY = 400  # samples kept in the rolling plot window
 _ACTION_SCALE = 0.5  # matches the actuator's action_scale in env_cfg (target = default + scale*raw)
 _ARM_GROUP = "panda_arm"  # the arm actuator group name within each Franka
 _TARGET_RGB = (255, 200, 40)
-# Live-slider spec: (attr, label, slider min, slider max, value-per-tick, format).
-_SLIDERS: tuple[tuple[str, str, int, int, float, str], ...] = (
-    ("_kp", "kp (stiffness)", 0, 800, 1.0, "{:.0f}"),
-    ("_kv", "kv (damping)", 0, 160, 1.0, "{:.0f}"),
-    ("_amp", "sine amplitude (rad)", 0, 120, 0.01, "{:.2f}"),
-    ("_period", "sine period (steps)", 40, 400, 1.0, "{:.0f}"),
-)
 
 
 class _Arm:
@@ -82,6 +77,7 @@ class ActuatorShowcaseRunner(ShowcaseRunner):
         self._qt = LazyQtWindows()
         self._win: Any = None
         self._c_target: Any = None
+        self._panel_registered = False  # ImGui slider panel registered once, lazily
 
     def _resolve(self, env: "ManagerBasedRlEnv") -> None:
         """Resolve each arm's joint-1 action slot + actuator handle (once, on the first step)."""
@@ -122,6 +118,7 @@ class ActuatorShowcaseRunner(ShowcaseRunner):
     def _post_step(self, env: "ManagerBasedRlEnv", step: int) -> None:
         if not self._ready:
             return
+        self._ensure_panel(env)
         # env.step only refreshes the primary articulation's data cache, so pull fresh state for
         # every robot we read (the second arm is non-primary and would otherwise read stale zeros).
         for name in self._robot_names:
@@ -141,13 +138,43 @@ class ActuatorShowcaseRunner(ShowcaseRunner):
             arm.curve_error.setData(xs, list(arm.error))
         self._qt.process()
 
+    def _ensure_panel(self, env: "ManagerBasedRlEnv") -> None:
+        """Register the PD / sine slider panel into the viewer's ImGui overlay, once.
+
+        No-op without a viewer or overlay (e.g. ``viewer_imgui`` off because the ``imgui``
+        extra is missing); :func:`register_viewer_panels` warns and the showcase still runs.
+        """
+        if self._panel_registered:
+            return
+        self._panel_registered = True  # set first so a failed attempt is not retried per step
+        viewer = getattr(getattr(env.scene, "gs_scene", None), "viewer", None)
+        if viewer is None:
+            return
+        from genelab.scene import register_viewer_panels
+
+        register_viewer_panels(viewer, [self._draw_sliders])
+
+    def _draw_sliders(self, imgui: Any) -> None:
+        """ImGui panel callback: four sliders writing straight into the live PD / sine state.
+
+        Runs on the viewer thread; the float/int writes are atomic under the GIL and read by
+        :meth:`_scripted_action` on the loop thread, so no lock is needed.
+        """
+        imgui.separator_text("Actuator teleop")
+        _, self._kp = imgui.slider_float("kp (stiffness)", self._kp, 0.0, 800.0)
+        _, self._kv = imgui.slider_float("kv (damping)", self._kv, 0.0, 160.0)
+        _, self._amp = imgui.slider_float("sine amplitude (rad)", self._amp, 0.0, 1.2)
+        changed, period = imgui.slider_int("sine period (steps)", int(self._period), 40, 400)
+        if changed:
+            self._period = float(period)
+
     def _build_window(self, app: Any) -> None:
         import pyqtgraph as pg
-        from pyqtgraph.Qt import QtCore, QtWidgets
+        from pyqtgraph.Qt import QtWidgets
 
         root = QtWidgets.QWidget()
-        root.setWindowTitle("actuator tracking — joint 1 (PD / sine sliders)")
-        root.resize(820, 620)
+        root.setWindowTitle("actuator tracking — joint 1")
+        root.resize(820, 520)
         vbox = QtWidgets.QVBoxLayout(root)
 
         glw = pg.GraphicsLayoutWidget()
@@ -163,32 +190,6 @@ class ActuatorShowcaseRunner(ShowcaseRunner):
         for arm in self._arms:
             arm.curve_actual = p_track.plot(pen=pg.mkPen(arm.rgb, width=2), name=arm.label)
             arm.curve_error = p_err.plot(pen=pg.mkPen(arm.rgb, width=2), name=arm.label)
-
-        grid = QtWidgets.QGridLayout()
-        vbox.addLayout(grid)
-        for row, (attr, label, lo, hi, step_val, fmt) in enumerate(_SLIDERS):
-            current = getattr(self, attr)
-            tag = QtWidgets.QLabel(f"{label}: {fmt.format(current)}")
-            slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
-            slider.setMinimum(lo)
-            slider.setMaximum(hi)
-            slider.setValue(round(current / step_val))
-
-            def on_change(
-                ticks: int,
-                attr: str = attr,
-                label: str = label,
-                step_val: float = step_val,
-                fmt: str = fmt,
-                tag: QtWidgets.QLabel = tag,
-            ) -> None:
-                value = ticks * step_val
-                setattr(self, attr, value)
-                tag.setText(f"{label}: {fmt.format(value)}")
-
-            slider.valueChanged.connect(on_change)
-            grid.addWidget(tag, row, 0)
-            grid.addWidget(slider, row, 1)
 
         root.show()
         self._win = root

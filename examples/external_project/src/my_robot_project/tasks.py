@@ -17,7 +17,9 @@ class MyPickPlaceTask:
             trainable=False,
         )
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
+        # This demo drives its own fixed playback loop, so the ``--max-steps`` hard cap
+        # (``max_steps``) does not apply; accepted to satisfy the ``Runnable`` contract.
         if not isinstance(self.cfg.env, MyEnvCfg):
             raise TypeError("MyPickPlaceTask requires MyEnvCfg")
         MyPickPlaceEnv(self.cfg.env).play()

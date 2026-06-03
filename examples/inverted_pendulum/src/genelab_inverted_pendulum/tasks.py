@@ -72,10 +72,10 @@ class InvertedPendulumTask:
             trainable=True,
         )
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
         from genelab.rl import play_task
 
-        play_task(self.cfg.name, checkpoint=None)
+        play_task(self.cfg.name, checkpoint=None, max_steps=max_steps)
 
     def train(self) -> None:
         from genelab.rl import RslRlOnPolicyRunnerCfg, train_task
@@ -106,10 +106,10 @@ class InvertedPendulumSkrlTask:
             trainable=True,
         )
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
         from genelab.rl import play_task
 
-        play_task(self.cfg.name, checkpoint=None)
+        play_task(self.cfg.name, checkpoint=None, max_steps=max_steps)
 
     def train(self) -> None:
         from genelab.rl import SkrlAgentCfg, train_task
@@ -134,10 +134,10 @@ class DoubleInvertedPendulumTask:
             trainable=True,
         )
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
         from genelab.rl import play_task
 
-        play_task(self.cfg.name, checkpoint=None)
+        play_task(self.cfg.name, checkpoint=None, max_steps=max_steps)
 
     def train(self) -> None:
         from genelab.rl import RslRlOnPolicyRunnerCfg, train_task
@@ -176,10 +176,10 @@ class _MemoryTask:
     def _agent_cfg():
         raise NotImplementedError
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
         from genelab.rl import play_task
 
-        play_task(self.cfg.name, checkpoint=None)
+        play_task(self.cfg.name, checkpoint=None, max_steps=max_steps)
 
     def train(self) -> None:
         from genelab.rl import RslRlOnPolicyRunnerCfg, train_task

@@ -209,6 +209,8 @@ nav:
       - Sensors:
           - ProximitySensor: reference/sensors/proximity.md
           - KinematicContactSensor: reference/sensors/kinematic_contact.md
+          - KinematicDepthSensor: reference/sensors/kinematic_depth.md
+          - KinematicTactileSensor: reference/sensors/kinematic_tactile.md
           - TemperatureGridSensor: reference/sensors/temperature_grid.md
           - ElastomerTactileSensor: reference/sensors/tactile_elastomer.md
           - PointCloudTactileSensor: reference/sensors/tactile_pointcloud.md
