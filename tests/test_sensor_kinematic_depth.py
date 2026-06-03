@@ -89,3 +89,27 @@ def test_read_before_pre_build_asserts() -> None:
     sensor = KinematicDepthSensorCfg(name="kd", link_name="tip").build()
     with pytest.raises(AssertionError, match="read before pre_build_genesis"):
         _ = sensor.data
+
+
+def test_link_resolution_falls_back_to_gs_handle_links() -> None:
+    """In a real env the GeneLab wrapper's ``link_names`` is empty pre-build; the sensor must
+    resolve the link index from ``gs_handle.links`` (which Genesis populates at ``add_entity``)."""
+    from dataclasses import dataclass
+
+    @dataclass
+    class _Link:
+        name: str
+
+    class _RealishEntity:
+        # Mimics the Articulation wrapper at pre-build: empty link_names, but gs_handle.links set.
+        link_names: list[str] = []
+
+        class gs_handle:  # noqa: N801 - stub attribute namespace
+            idx = 0
+            links = [_Link("base"), _Link("tip")]
+
+    cfg = KinematicDepthSensorCfg(name="kd", link_name="tip")
+    sensor = cfg.build()
+    sensor.pre_build_genesis(FakeGsScene(), {"robot": _RealishEntity()})
+    assert sensor._gs_sensor is not None  # type: ignore[attr-defined]
+    assert sensor._gs_sensor.opts.link_idx_local == 1  # type: ignore[attr-defined]
