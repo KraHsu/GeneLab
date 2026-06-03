@@ -96,7 +96,7 @@ class UniformVelocityCommand(CommandTerm):
         self._is_forward = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         self._is_world = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         # When True, ``_resample_command`` becomes a no-op so play-time bridges
-        # (keyboard / DearPyGui teleop) own ``_command`` exclusively. Toggle via
+        # (keyboard / ImGui teleop) own ``_command`` exclusively. Toggle via
         # :py:meth:`set_external_source`.
         self._external_source: bool = False
 
@@ -123,7 +123,7 @@ class UniformVelocityCommand(CommandTerm):
     def set_external_source(self, enabled: bool) -> None:
         """Hand the command buffer over to (or back from) an external driver.
 
-        Called by play-time bridges (keyboard / DearPyGui teleop) on attach so a
+        Called by play-time bridges (keyboard / ImGui teleop) on attach so a
         per-step write to ``_command`` survives :py:meth:`compute` *and* any
         subsequent env-level reset. While enabled:
 
