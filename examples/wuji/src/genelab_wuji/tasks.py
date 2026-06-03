@@ -52,3 +52,7 @@ def register() -> None:
             description="Example fixed-trajectory Wuji hand Genesis scene.",
             cfg_type=TaskCfg,
         )
+
+    from genelab_wuji.reorient import task as reorient_task
+
+    reorient_task.register()

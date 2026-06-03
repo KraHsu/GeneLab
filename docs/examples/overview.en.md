@@ -13,6 +13,7 @@ code to `src/genelab/`.
 | [Showcase](showcase.md) | `examples/genelab_showcase` | Sensors, ray casts, contact, terrains, curricula, actuators, recording. |
 | [Rubik's Cube](rubiks-cube.md) | `examples/genelab_examples` | Rigid-object composition and visual interaction. |
 | [Wuji Hand](wuji-hand.md) | `examples/wuji` | Articulated hand playback and asset packaging. |
+| [Wuji Hand Reorientation](wuji-reorient.md) | `examples/wuji` | SO(3) in-hand cube reorientation, RSL-RL PPO, custom contact sensor + DR. |
 
 ## Installing examples
 
