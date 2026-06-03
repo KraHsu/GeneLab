@@ -48,19 +48,19 @@ def _policy_obs(play: bool) -> ObservationGroupCfg:
         enable_corruption=not play,
         terms={
             "joint_pos": ObservationTermCfg(
-                func=observations.joint_pos_rel_history, noise=Unoise(n_min=-0.12, n_max=0.12)
+                func=observations.joint_pos_rel_history, noise=Unoise(n_min=-0.10, n_max=0.10)
             ),
             "joint_vel": ObservationTermCfg(
-                func=observations.joint_vel_rel_history, noise=Unoise(n_min=-0.7, n_max=0.7)
+                func=observations.joint_vel_rel_history, noise=Unoise(n_min=-0.5, n_max=0.5)
             ),
             "cube_pos_in_tag": ObservationTermCfg(
                 func=observations.cube_pos_in_tag_history,
-                noise=Unoise(n_min=-0.025, n_max=0.025),
+                noise=Unoise(n_min=-0.02, n_max=0.02),
             ),
             "goal_rot_err_6d": ObservationTermCfg(
                 func=observations.goal_rot_err_6d_history,
                 params={"command_name": "reorient_command"},
-                noise=Gnoise(std=0.10),
+                noise=Gnoise(std=0.08),
             ),
             "last_action": ObservationTermCfg(func=observations.last_action_history),
         },
@@ -160,7 +160,7 @@ def wuji_hand_reorient_env_cfg(play: bool = False, num_envs: int = 8192) -> Mana
                 use_default_offset=True,
                 ema_alpha=0.5,
                 warmup_time_s=0.4,
-                action_noise_std=0.0 if play else 0.15,
+                action_noise_std=0.0 if play else 0.1,
             )
         },
         observations_cfg={"policy": _policy_obs(play), "critic": _critic_obs()},
@@ -280,15 +280,15 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
             "robot_friction": EventTermCfg(
                 func=mdp.dr.geom_friction,
                 mode="startup",
-                params={"asset_cfg": robot, "ranges": (0.4, 1.6)},
+                params={"asset_cfg": robot, "ranges": (0.5, 1.5)},
             ),
             "cube_physics": EventTermCfg(
                 func=events.randomize_cube_physics,
                 mode="startup",
                 params={
                     "object_name": "object",
-                    "friction_range": (0.4, 1.6),
-                    "mass_shift_range": (-0.025, 0.025),
+                    "friction_range": (0.5, 1.5),
+                    "mass_shift_range": (-0.02, 0.02),
                 },
             ),
             "robot_mass": EventTermCfg(
@@ -309,8 +309,8 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
                 mode="startup",
                 params={
                     "asset_cfg": robot,
-                    "stiffness_range": (0.6, 1.8),
-                    "damping_range": (0.4, 2.5),
+                    "stiffness_range": (0.75, 1.5),
+                    "damping_range": (0.5, 2.0),
                 },
             ),
             "encoder_bias": EventTermCfg(
@@ -321,7 +321,7 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
             "object_disturbance": EventTermCfg(
                 func=events.apply_velocity_disturbance,
                 mode="interval",
-                interval_range_s=(0.3, 1.0),
+                interval_range_s=(0.4, 1.2),
                 params={
                     "min_speed": 0.05,
                     "max_speed": 0.15,
