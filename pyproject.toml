@@ -50,12 +50,13 @@ recording = [
     "PyQt5>=5.15",
     "matplotlib>=3.8",
 ]
-# GUI / teleop bridges for ``genelab.bridges``. Today this is only DearPyGui;
-# future bridges (gamepad, websocket, ROS2) get their own extras as their
-# transports settle. The keyboard bridge has no extra dependencies — it uses
-# Genesis's built-in viewer keybind mechanism.
-teleop = [
-    "dearpygui>=1.10",
+# Genesis's built-in ImGui viewer overlay: in-viewport custom panels
+# (``SimulationCfg.panels``) and slider teleop (``ImGuiTwistBridge``). ``imgui-bundle`` is
+# what Genesis's own ``render`` extra pulls; the overlay lazy-imports it. The keyboard twist
+# bridge needs no extra (it uses Genesis's built-in viewer keybinds); future bridges
+# (gamepad, websocket, ROS2) get their own extras as their transports settle.
+imgui = [
+    "imgui-bundle",
 ]
 docs = [
     "mkdocs>=1.6",
@@ -81,7 +82,7 @@ dev = [
     "ruff>=0.8.0",
     "import-linter>=2.11",
 ]
-# Mirrors of the `rl` / `recording` / `teleop` / `docs` extras so they get
+# Mirrors of the `rl` / `recording` / `imgui` / `docs` extras so they get
 # installed by default in this checkout (via `default-groups`) without forcing
 # downstream `pip install genelab[...]` users to also pull them. Keep the dep
 # specs identical to the matching `[project.optional-dependencies]` entries.
@@ -103,8 +104,8 @@ recording = [
     "PyQt5>=5.15",
     "matplotlib>=3.8",
 ]
-teleop = [
-    "dearpygui>=1.10",
+imgui = [
+    "imgui-bundle",
 ]
 docs = [
     "mkdocs>=1.6",
@@ -125,7 +126,7 @@ packages = ["src/genelab"]
 [tool.uv]
 # These groups install on every `uv sync` / `uv run` in this checkout, so daily
 # dev only needs to pick a torch extra (e.g. `uv sync --extra torch-cu126`).
-default-groups = ["dev", "rl", "skrl", "sb3", "recording", "teleop", "docs"]
+default-groups = ["dev", "rl", "skrl", "sb3", "recording", "imgui", "docs"]
 conflicts = [
     [
         { extra = "torch-cpu" },

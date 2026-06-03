@@ -15,8 +15,9 @@ Lifecycle:
    so its post-build introspection lands.
 """
 
+import logging
 import os
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any
 
 import torch
@@ -31,7 +32,60 @@ if TYPE_CHECKING:
     from genelab.sensor.camera import CameraSensor
 
 
+_logger = logging.getLogger(__name__)
+
 _pyrender_save_patch_applied = False
+_imgui_overlay_patch_applied = False
+
+
+def find_imgui_panel_host(viewer: Any) -> Any | None:
+    """Return the viewer plugin exposing ``register_panel`` (Genesis's ImGui overlay), or None.
+
+    Genesis appends an ``ImGuiOverlayPlugin`` to ``viewer._viewer_plugins`` when the scene is
+    built with ``ViewerOptions(enable_gui=True)``. We duck-type rather than import the plugin
+    class so this stays robust across Genesis point releases — any plugin that exposes a
+    ``register_panel`` callable is a valid host.
+    """
+    for plugin in getattr(viewer, "_viewer_plugins", None) or []:
+        if callable(getattr(plugin, "register_panel", None)):
+            return plugin
+    return None
+
+
+def register_viewer_panels(
+    viewer: Any,
+    panels: Iterable[Callable[[Any], None]],
+    *,
+    section: str = "side",
+    logger: logging.Logger | None = None,
+) -> int:
+    """Forward each ``panel(imgui)`` callback to the viewer's ImGui overlay.
+
+    This is the whole of GeneLab's "GUI wrapping": a user appends a plain
+    ``callback(imgui)`` to :attr:`SimulationCfg.panels` and GeneLab calls
+    :meth:`ImGuiOverlayPlugin.register_panel` for them after ``scene.build`` — so adding a
+    GUI element costs exactly one function, same as raw Genesis. Returns the number of
+    panels registered; logs a warning and returns ``0`` when the viewer has no ImGui overlay
+    (i.e. the scene was built without ``enable_gui=True``).
+    """
+    panel_list = list(panels)
+    if not panel_list:
+        return 0
+    host = find_imgui_panel_host(viewer)
+    # Any overlay user (managed InteractiveScene or a bespoke ``gs.Scene``) gets the
+    # overlay close-crash / reversed-scroll fixes for free by going through this helper.
+    _patch_imgui_overlay()
+    if host is None:
+        if logger is not None:
+            logger.warning(
+                "register_viewer_panels: %d panel(s) requested but the viewer has no ImGui "
+                "overlay (build the scene with viewer_imgui=True / enable_gui=True); ignored.",
+                len(panel_list),
+            )
+        return 0
+    for panel in panel_list:
+        host.register_panel(panel, section=section)
+    return len(panel_list)
 
 
 def _patch_pyrender_save_filename() -> None:
@@ -67,6 +121,56 @@ def _patch_pyrender_save_filename() -> None:
 
     _PyrenderViewer._get_save_filename = _genelab_get_save_filename  # type: ignore[method-assign]  # pyright: ignore[reportPrivateUsage]
     _pyrender_save_patch_applied = True
+
+
+def _patch_imgui_overlay() -> None:
+    """Work around two Genesis ``ImGuiOverlayPlugin`` bugs that surface once the overlay is on.
+
+    1. **Close crash.** ``on_close`` calls ``self._impl.shutdown()`` →
+       ``imgui.get_platform_io()``, which on the pyglet / ``imgui_bundle`` backend asserts
+       ``No current context`` when the window closes (the imgui context is already gone on the
+       calling thread). The viewer thread stores that as ``_exception``; the main thread's
+       ``is_alive()`` re-raises it as ``GenesisException("Unexpected viewer error.")``, so
+       ``play`` exits with a traceback even though the viewer rendered fine. We wrap
+       ``on_close`` to swallow teardown errors — the viewer is closing, so any leaked GL /
+       imgui state is freed at process exit and the normal ``"Viewer closed."`` path takes over.
+
+    2. **Reversed scroll.** Genesis forwards pyglet's ``scroll_y`` straight to the backend,
+       which negates it (``add_mouse_wheel_event(0, -scroll)``) — so the wheel scrolls overlay
+       panels the wrong way. We wrap ``on_mouse_scroll`` to flip ``dy``, restoring the expected
+       direction (panel scroll only; camera zoom is a separate handler).
+
+    We can't modify Genesis, so both are class-level wraps (mirrors
+    :func:`_patch_pyrender_save_filename`). Idempotent; only matters when ``viewer_imgui`` /
+    ``panels`` enabled the overlay.
+    """
+    global _imgui_overlay_patch_applied
+    if _imgui_overlay_patch_applied:
+        return
+    try:
+        from genesis.ext.pyrender.overlay.plugin import ImGuiOverlayPlugin
+    except Exception:
+        return
+
+    original_on_close = ImGuiOverlayPlugin.on_close
+
+    def _genelab_safe_on_close(self: Any) -> None:
+        try:
+            original_on_close(self)
+        except Exception:
+            _logger.debug(
+                "ImGui overlay on_close teardown failed; ignoring on viewer close",
+                exc_info=True,
+            )
+
+    original_on_scroll = ImGuiOverlayPlugin.on_mouse_scroll
+
+    def _genelab_on_mouse_scroll(self: Any, x: Any, y: Any, dx: Any, dy: Any) -> Any:
+        return original_on_scroll(self, x, y, dx, -dy)
+
+    ImGuiOverlayPlugin.on_close = _genelab_safe_on_close  # type: ignore[method-assign]
+    ImGuiOverlayPlugin.on_mouse_scroll = _genelab_on_mouse_scroll  # type: ignore[method-assign]
+    _imgui_overlay_patch_applied = True
 
 
 def _resolve_use_gpu(gpu: bool | None, device: str) -> bool:
@@ -203,10 +307,15 @@ class InteractiveScene:
         # ``_visualizer.update`` via ``ViewerOptions.max_FPS``. We only construct
         # ``ViewerOptions`` when the viewer is enabled so headless training stays
         # untouched.
+        # A non-empty ``panels`` list implies the ImGui overlay even if ``viewer_imgui`` was
+        # left False, so "add a panel" is a one-liner that just works.
+        enable_gui = bool(self._sim_cfg.viewer_imgui) or bool(
+            getattr(self._sim_cfg, "panels", None)
+        )
         viewer_options = (
             gs.options.ViewerOptions(
                 max_FPS=self._sim_cfg.render_fps,
-                enable_gui=self._sim_cfg.viewer_imgui,
+                enable_gui=enable_gui,
             )
             if self._sim_cfg.vis
             else None
@@ -215,6 +324,9 @@ class InteractiveScene:
             # Workaround for an upstream pyrender bug that saves videos with a .png
             # extension. Applied once per process; no-op when not built.
             _patch_pyrender_save_filename()
+            if enable_gui:
+                # Workaround for Genesis/imgui_bundle overlay bugs (close crash, reversed scroll).
+                _patch_imgui_overlay()
         scene_kwargs: dict[str, Any] = dict(
             sim_options=sim_options,
             renderer=renderer,
@@ -240,6 +352,12 @@ class InteractiveScene:
             # fully constructed rigid solver. Post-build registration deadlocks the sim/viewer
             # loop in some Genesis builds.
             self._gs_scene.viewer.add_plugin(MouseInteractionPlugin(use_force=True))
+
+        # Forward any custom ImGui panels to the overlay. ``register_panel`` only appends to a
+        # copy-on-write list (drawn post-build on the viewer thread), so pre-build registration
+        # is safe and keeps the panel host attached before ``build`` snapshots the viewer.
+        if self._sim_cfg.vis and getattr(self._sim_cfg, "panels", None):
+            register_viewer_panels(self._gs_scene.viewer, self._sim_cfg.panels, logger=_logger)
 
         # Pre-build sensors: instantiate every sensor and let it register any Genesis
         # resources (e.g. BatchRenderer cameras) before ``gs_scene.build`` snapshots

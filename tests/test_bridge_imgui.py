@@ -123,6 +123,24 @@ def test_on_build_registers_panel_when_plugin_present() -> None:
     assert bridge._enabled is True  # pyright: ignore[reportPrivateUsage]
 
 
+def test_on_build_seeds_command_buffer_from_defaults() -> None:
+    # The DPG bridge was retired in favour of this one; its default-seeding behaviour
+    # (first obs in-distribution) must carry over so callers like unitree G1 keep working.
+    cfg = ImGuiTwistBridgeCfg(
+        vx_range=(-2.0, 2.0),
+        vy_range=(-1.0, 1.0),
+        wz_range=(-0.7, 0.7),
+        default_vx=0.3,
+    )
+    bridge = cfg.class_type(cfg)  # type: ignore[misc]
+    plugin = _FakeImGuiPlugin()
+    term = _FakeCommandTerm()
+    env = _FakeEnv(plugin, term)
+    assert bridge._vx == pytest.approx(0.3)  # pyright: ignore[reportPrivateUsage]
+    bridge.on_build(env)  # type: ignore[arg-type]
+    assert torch.allclose(term.command, torch.tensor([0.3, 0.0, 0.0]).expand_as(term.command))
+
+
 def test_on_build_is_no_op_when_plugin_missing() -> None:
     bridge, env, _plugin, term = _build(with_plugin=False)
     bridge.on_build(env)  # type: ignore[arg-type]
