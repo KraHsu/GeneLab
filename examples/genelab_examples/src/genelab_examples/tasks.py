@@ -5,6 +5,8 @@ from genelab.registry import TASKS, register_task
 
 from genelab_examples import envs, robots
 from genelab_examples.envs import create_rubiks_env, create_wuji_env
+from genelab_examples.gui_panels.config import GuiPanelsEnvCfg
+from genelab_examples.gui_panels.env import create_gui_panels_env
 from genelab_examples.rubiks.config import RubiksEnvCfg
 from genelab_examples.wuji_hand.config import WujiEnvCfg
 
@@ -28,6 +30,11 @@ class RegisteredTask:
             if not isinstance(self.cfg.env, WujiEnvCfg):
                 raise TypeError("wuji-hand-playback tasks require WujiEnvCfg")
             create_wuji_env(self.cfg.env).play()
+            return
+        if self.cfg.env_name == "gui-panels-demo":
+            if not isinstance(self.cfg.env, GuiPanelsEnvCfg):
+                raise TypeError("gui-panels-demo tasks require GuiPanelsEnvCfg")
+            create_gui_panels_env(self.cfg.env).play()
             return
         raise RuntimeError(f"no play runner for env {self.cfg.env_name!r}")
 
@@ -57,6 +64,16 @@ def wuji_hand_playback_task_cfg() -> TaskCfg:
     )
 
 
+def gui_panels_demo_task_cfg() -> TaskCfg:
+    return TaskCfg(
+        name="GeneLab-GUI-Panels-Demo-v0",
+        env_name="gui-panels-demo",
+        robot_name="none",
+        env=GuiPanelsEnvCfg(),
+        trainable=False,
+    )
+
+
 def create_task(cfg: TaskCfg) -> RegisteredTask:
     return RegisteredTask(cfg)
 
@@ -77,4 +94,12 @@ def register() -> None:
             lambda: create_task(wuji_hand_playback_task_cfg()),
             description="Example fixed-trajectory Wuji hand Genesis scene.",
             cfg_type=TaskCfg,
+        )
+    if "GeneLab-GUI-Panels-Demo-v0" not in TASKS:
+        register_task(
+            "GeneLab-GUI-Panels-Demo-v0",
+            lambda: create_task(gui_panels_demo_task_cfg()),
+            description="Cookbook of common ImGui viewer panels (sliders, toggles, dropdowns…).",
+            cfg_type=TaskCfg,
+            examples=["genelab play GeneLab-GUI-Panels-Demo-v0 --vis"],
         )
