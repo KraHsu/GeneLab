@@ -1,11 +1,12 @@
 # GeneLab visual showcase
 
-Play-only GeneLab extension that wires every M1–M4 building block into an eight-task viewer
+Play-only GeneLab extension that wires every M1–M4 building block into a nine-task viewer
 demo. Each task drops a real robot (Franka or Unitree G1) into a `ManagerBasedRlEnv`,
 runs a scripted action loop, and dumps the relevant sensor / curriculum / terrain state
 so the visual behaviour can be checked by eye.
 
 - `GeneLab-Sensors-Showcase-v0` — Franka with `CameraSensor` (RGB+depth → PNG), `IMUSensor`, `FrameTransformerSensor`, and `ForceTorqueSensor`.
+- `GeneLab-Tactile-Showcase-v0` — a flat dense tactile plate (`KinematicDepthSensor`, 32×32 SDF probes) presses and drags across three dynamic shapes (two balls + a cube); per-probe penetration depth renders a live pressure heatmap whose imprints brighten with force and track sideways as the balls roll and the cube slides under the plate.
 - `GeneLab-RayCast-Showcase-v0` — Franka with three `RayCastSensor` instances mounted side by side (`GridPattern` + `RingPattern` + `HemispherePattern`), all three dumped in parallel.
 - `GeneLab-Contact-Showcase-v0` — Unitree G1 with `ContactSensor`, air-time tracking on both feet.
 - `GeneLab-Terrain-Showcase-v0` — Unitree G1 dropped on a 1×5 row that tiles every built-in sub-terrain (`flat` + `stairs` + `rough` + `slope` + `wave`) in a single scene.
@@ -58,6 +59,7 @@ examples/genelab_showcase/
     ├── tasks.py               # register() + RegisteredTask dispatcher
     ├── runner.py              # ShowcaseRunner base class
     ├── sensors/               # Camera + IMU + FrameTransformer + ForceTorque
+    ├── tactile/               # Flat dense tactile plate → pressure heatmap of shapes
     ├── raycast/               # Grid / Ring / Hemisphere
     ├── contact/               # G1 foot air-time
     ├── terrain/               # 5 sub-terrains + mixed
