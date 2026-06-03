@@ -1,6 +1,6 @@
 # 舞肌手重定向
 
-舞肌手的 SO(3) 手内 cube 重定向：一只固定基座、掌心朝上的灵巧手，需要把一个自由 cube 旋转到一连串随机朝向目标（在腕部 "tag" 系下表达），并在容差窗口内稳定握持而不掉落。本任务是 mjlab `reorient` 参考实现的 Genesis 适配移植，用 RSL-RL PPO 训练。
+舞肌手的 SO(3) 手内 cube 重定向：一只固定基座、掌心朝上的灵巧手，需要把一个自由 cube 旋转到一连串随机朝向目标（在腕部 "tag" 系下表达），并在容差窗口内稳定握持而不掉落。本任务是 [wuji-mjlab](https://github.com/wuji-technology/wuji-mjlab) `reorient` 参考实现的 Genesis 适配移植，用 RSL-RL PPO 训练；该 wuji-mjlab 环境同时是[跨模拟器迁移](#sim-to-sim-transfer)所评测的 sim2sim 目标。
 
 ## 任务
 
@@ -29,14 +29,14 @@ genelab play  Genelab-Reorient-Wuji-Hand-v0 --checkpoint logs/rsl_rl/wuji_reorie
 
 ## 域随机化
 
-这里的随机化针对的是**闭环反馈步态的鲁棒性**，而非去匹配某个具体物理参数——原因见[跨模拟器迁移](#sim-to-sim-transfer)。训练时施加以下项（评估时全部剥离、跑标称物理）：
+训练时施加域随机化（评估时全部剥离、跑标称物理）。各项及其作用：
 
-- 逐环境 startup 随机化：手部与 cube 摩擦、link 质量/质心、cube 质量、PD 增益，以及编码器偏置；
-- 一个逐步动作噪声，以及更强的观测噪声（关节位置/速度、cube 位置、目标误差）；
-- 一个频繁的线速度 + 角速度 cube 扰动。
+- 逐环境 startup 随机化：手部与 cube 摩擦、link 质量/质心、cube 质量、PD 增益、以及编码器偏置——作用是模拟策略必须容忍的标定误差；
+- 一个逐步动作噪声，以及更强的观测噪声（关节位置/速度、cube 位置、目标误差）——作用是让策略不依赖精确的作动或状态估计；
+- 一个频繁的线速度 + 角速度 cube 扰动——作用是在操作中途扰动 cube，迫使策略持续重新收敛。
 
 !!! note "接触求解器随机化"
-    Genesis 把 geom 求解器参数（`sol_params`）按全局而非逐环境存储，因此逐环境的接触柔顺度随机化——以及 MuJoCo 专属的 geom 尺寸/惯量随机化——在 Genesis 没有逐环境对应，故略去。况且迁移差距并不在这些参数上（见下文）。
+    Genesis 把 geom 求解器参数（`sol_params`）按全局而非逐环境存储，因此逐环境的接触柔顺度随机化——以及 MuJoCo 专属的 geom 尺寸/惯量随机化——在 Genesis 没有逐环境对应，故略去。
 
 ## 收敛情况
 
@@ -52,9 +52,6 @@ genelab play  Genelab-Reorient-Wuji-Hand-v0 --checkpoint logs/rsl_rl/wuji_reorie
 `sim2sim_mjlab` 直接在 mjlab 参考环境本身里评估训练好的策略——它的 `scene_builder`（手 + cube + 接触）、物理、动作管线、目标采样，以及掉落 + 保持/成功判据。只有策略和一个观测/动作适配器来自 GeneLab。两边的观测布局不同（mjlab：limit-normalized 关节角 + 关节位置目标误差 + tag 系目标误差；GeneLab：相对关节位置 + 关节速度 + 世界系目标误差，且都是 3 步历史），所以适配器从 mjlab 的场景状态、用 joint-major ↔ finger-major 重排和 3 步历史重建出 GeneLab 的 actor 观测。
 
 在 mjlab 环境中跑 100 次试验 × 3 个随机种子（0.2 阈值）：**成功率 ≈ 0.65**（最佳 checkpoint ≈ 0.67）、**掉落率 ≈ 0**——抓握完全迁移,剩下的是没能在试验窗口内**保持**住目标。迁移率**对训练非单调**、在训练中段见顶（约 iter 3500–3800），所以迁移最优的 checkpoint 不一定是最后一个。`play_mjlab` 用同一套桥接驱动 mjlab 的原生 viewer（完整场景 + 目标可视化）以供观察。两者都在 wuji-mjlab 环境中运行，并把 GeneLab 挂到 `PYTHONPATH`。
-
-!!! note "为什么随机化很关键"
-    不带上述鲁棒性随机化训练出的策略，在 mjlab 下能握住 cube 却几乎无法重定向（成功率 ≈ 0）：再抓握步态过拟合到了 Genesis 精确的逐步接触响应。扫摩擦、质量、时间步、作动器增益和接触求解器都改变不了这一点，而把 Genesis 内取胜的手指目标序列回放到 mjlab 里确实能让 cube 转动——所以差距是闭环反馈的脆弱性，正是动作/观测噪声与角速度 cube 扰动所针对的。
 
 ## 另见
 
