@@ -10,6 +10,7 @@ from genelab.registry import TASKS
 
 _EXPECTED_TASK_IDS: tuple[str, ...] = (
     "GeneLab-Sensors-Showcase-v0",
+    "GeneLab-Tactile-Showcase-v0",
     "GeneLab-RayCast-Showcase-v0",
     "GeneLab-Contact-Showcase-v0",
     "GeneLab-Terrain-Showcase-v0",

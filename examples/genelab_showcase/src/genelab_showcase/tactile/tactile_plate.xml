@@ -1,0 +1,19 @@
+<mujoco model="tactile_plate">
+  <!-- Minimal fixed-base "robot" for the tactile showcase: a flat square plate on two slide
+       joints — ``press_z`` (vertical, to press the dense tactile underside onto the shapes) and
+       ``slide_x`` (horizontal, to drag the plate sideways so the dynamic shapes roll / slide
+       under it). GeneLab drives both with an ImplicitPD actuator. Inertia is derived from the
+       geometry so no explicit <inertial> is needed. -->
+  <compiler inertiafromgeom="true" angle="radian"/>
+  <option gravity="0 0 -9.81"/>
+  <default>
+    <geom density="500"/>
+  </default>
+  <worldbody>
+    <body name="plate" pos="0 0 0.13">
+      <joint name="slide_x" type="slide" axis="1 0 0" range="-0.25 0.25" damping="3"/>
+      <joint name="press_z" type="slide" axis="0 0 1" range="-0.3 0.3" damping="3"/>
+      <geom name="plate_geom" type="box" size="0.1 0.1 0.008" friction="1 0.01 0.001" rgba="0.3 0.5 0.9 1"/>
+    </body>
+  </worldbody>
+</mujoco>
