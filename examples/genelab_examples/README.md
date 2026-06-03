@@ -1,9 +1,14 @@
 # GeneLab Example Extension
 
-This directory is a normal external GeneLab project that registers two tasks:
+This directory is a normal external GeneLab project that registers three tasks:
 
 - `GeneLab-Rubiks-Play-v0`
 - `GeneLab-Wuji-Hand-Playback-v0`
+- `GeneLab-GUI-Panels-Demo-v0` — cookbook showing how to add common ImGui viewer widgets
+  (sliders, checkboxes, dropdowns, color pickers, …) to the Genesis viewer via
+  `SimulationCfg.panels`. One copy-paste recipe per widget family lives in
+  `src/genelab_examples/gui_panels/widgets.py`. Needs the ImGui overlay dependency:
+  `uv sync --extra imgui`.
 
 From the repository root, run the examples without installing this package by importing its
 registration module:
@@ -12,6 +17,7 @@ registration module:
 PYTHONPATH=examples/genelab_examples/src uv run genelab --import genelab_examples.tasks list tasks
 PYTHONPATH=examples/genelab_examples/src uv run genelab --import genelab_examples.tasks play GeneLab-Rubiks-Play-v0 --steps 240
 PYTHONPATH=examples/genelab_examples/src uv run genelab --import genelab_examples.tasks play GeneLab-Wuji-Hand-Playback-v0 --steps 240
+PYTHONPATH=examples/genelab_examples/src uv run genelab --import genelab_examples.tasks play GeneLab-GUI-Panels-Demo-v0 --vis
 ```
 
 Or install the example project once, then use the entry point auto-loading path:
