@@ -10,12 +10,12 @@ from genelab.registry import (
     register_task,
 )
 
-from genelab_franka_pick_and_place.env_cfg import franka_pick_and_place_env_cfg
-from genelab_franka_pick_and_place.robot import (
+from genelab_franka.env_cfg import franka_pick_and_place_env_cfg
+from genelab_franka.robot import (
     FrankaPickAndPlaceRobotCfg,
     get_franka_pick_and_place_robot_cfg,
 )
-from genelab_franka_pick_and_place.sb3_cfg import franka_pick_and_place_sb3_cfg
+from genelab_franka.sb3_cfg import franka_pick_and_place_sb3_cfg
 
 TASK_ID = "GeneLab-Franka-Pick-And-Place-v0"
 ROBOT_NAME = "franka-pick-and-place"
@@ -32,7 +32,7 @@ class FrankaPickAndPlaceTask:
     """Trainable Franka pick-and-place task (Stable-Baselines3 SAC + HER).
 
     The training path expects the replay buffer to be pre-filled with FSM
-    demonstrations from ``genelab_franka_pick_and_place.collect_demos`` — set
+    demonstrations from ``genelab_franka.collect_demos`` — set
     ``GENELAB_SB3_DEMO_PATH`` or :attr:`Sb3AgentCfg.demo_path` to the saved
     ``.npz`` file. Without demos, SAC+HER plateaus at the table-only scoot
     strategy (~30% success); with them it reaches 95%+ inside 1.5 M steps."""
@@ -90,7 +90,7 @@ def register() -> None:
             cfg_type=TaskCfg,
             examples=[
                 f"genelab play {TASK_ID} --vis",
-                "python -m genelab_franka_pick_and_place.collect_demos "
+                "python -m genelab_franka.collect_demos "
                 "--num-envs 32 --steps 6400 --out /tmp/franka_pp_demos.npz",
                 f"GENELAB_SB3_DEMO_PATH=/tmp/franka_pp_demos.npz "
                 f"genelab train {TASK_ID} --gpu --num-envs 32 --max-iterations 2000000",

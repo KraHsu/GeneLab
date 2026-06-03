@@ -10,7 +10,7 @@ import numpy as np
 
 from genelab.rl import Sb3AgentCfg, Sb3ExperimentCfg, Sb3HerCfg, Sb3PolicyCfg
 
-from genelab_franka_pick_and_place.constants import CUBE_HALF, DISTANCE_THRESHOLD
+from genelab_franka.constants import CUBE_HALF, DISTANCE_THRESHOLD
 
 
 def franka_pick_and_place_compute_reward(
@@ -21,7 +21,7 @@ def franka_pick_and_place_compute_reward(
     ``-1`` while the cube is farther than ``DISTANCE_THRESHOLD`` from the goal,
     ``0`` once within threshold, **plus** a per-step lift bonus that ramps from
     ``0`` (cube on table) to ``+0.2`` (cube 10 cm above table). The lift term
-    mirrors :func:`genelab_franka_pick_and_place.mdp.lift_bonus` exactly so the
+    mirrors :func:`genelab_franka.mdp.lift_bonus` exactly so the
     online env reward and HER's relabelled reward share one shape — HER
     relabels ``desired_goal`` only, so the cube-z component of ``achieved_goal``
     is identical in both branches. Vectorized over a batch of goal pairs
