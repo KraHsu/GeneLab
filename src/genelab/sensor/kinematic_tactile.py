@@ -25,6 +25,7 @@ from typing import Any
 
 import torch
 
+from genelab.sensor._entity import prebuild_link_names
 from genelab.sensor.sensor import Sensor, SensorCfg
 
 
@@ -96,12 +97,13 @@ class KinematicTactileSensor(Sensor[KinematicTactileData]):
                 f"KinematicTactileSensorCfg(name={self._cfg.name!r}) requires link_name"
             )
         entity = entities[self._cfg.entity_name]
+        link_names = prebuild_link_names(entity)
         try:
-            link_idx = entity.link_names.index(self._cfg_typed.link_name)
+            link_idx = link_names.index(self._cfg_typed.link_name)
         except ValueError as exc:
             raise ValueError(
                 f"sensor {self._cfg.name!r}: link {self._cfg_typed.link_name!r} not in "
-                f"link_names={entity.link_names!r}"
+                f"link_names={link_names!r}"
             ) from exc
 
         import genesis as gs
