@@ -67,11 +67,11 @@ Training (stripped at evaluation, which runs nominal physics) applies:
 Reference-scale run (8192 envs, 5000 iterations, RTX 5060 Ti, ~5 h):
 
 - The success curriculum tightens the tolerance to the target 0.2 rad by ~iter 1500, after
-  which the policy keeps improving *at full difficulty* (~4.9 goals reached per episode by
-  the end, under the active disturbance).
+  which the policy keeps improving *at full difficulty* (~5 goals reached per episode by the
+  end, under the active disturbance).
 - Deterministic eval over 256 episodes (0.2 threshold, nominal physics): **success rate
-  0.996** — the fraction of episodes that reorient the cube to at least one *held* SO(3) goal
-  — at ~4.4 goals reached per episode.
+  ≈ 1.0** — the fraction of episodes that reorient the cube to at least one *held* SO(3) goal
+  — at ~5 goals reached per episode.
 
 The success curriculum is required: its loose→tight tolerance supplies the early reward
 signal that lets the heavily-regularized policy learn to reorient rather than just hold.
@@ -86,11 +86,13 @@ target error + tag-frame goal error; GeneLab: joint-position-relative + joint ve
 world-frame goal error, both 3-step), so the adapter rebuilds the GeneLab actor observation
 from the mjlab scene state with the joint-major ↔ finger-major remap and the 3-step history.
 
-Over 100 trials × 3 seeds in the mjlab environment (0.2 threshold): **success rate ≈ 0.81**
-with **drop rate ≈ 0** — the grasp transfers fully; the residual is goals not *held* within
-the trial window. `play_mjlab` drives the same bridge through mjlab's native viewer (full
-scene + goal visualization) for inspection. Both run inside the wuji-mjlab environment with
-GeneLab on `PYTHONPATH`.
+Over 100 trials × 3 seeds in the mjlab environment (0.2 threshold): **success rate ≈ 0.65**
+(best checkpoint ≈ 0.67) with **drop rate ≈ 0** — the grasp transfers fully; the residual is
+goals not *held* within the trial window. Transfer is **non-monotonic in training** and
+peaks mid-run (~iter 3500–3800), so the best-transfer checkpoint is not necessarily the last
+one. `play_mjlab` drives the same bridge through mjlab's native viewer (full scene + goal
+visualization) for inspection. Both run inside the wuji-mjlab environment with GeneLab on
+`PYTHONPATH`.
 
 !!! note "Why the randomization matters"
     A policy trained without the robustness randomization holds the cube but barely reorients
