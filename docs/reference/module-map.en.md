@@ -48,7 +48,7 @@ documented as the owner of the API in question.
 |---|---|
 | `genelab.rl` | RSL-RL configs, VecEnv wrapper, `train_task`, `play_task`, distributed helpers, and profiler integration. |
 | `genelab.recording` | Declarative recording configs for plots, files, and camera video. |
-| `genelab.bridges` | Runtime input/control bridges, including keyboard twist and DearPyGui twist controls. |
+| `genelab.bridges` | Runtime input/control bridges, including keyboard twist and in-viewport ImGui twist controls. |
 | `genelab.utils` | Math and asset download helpers used by higher-level modules. |
 
 ## Choosing the right layer
