@@ -54,7 +54,7 @@ buffer never sees a successful trajectory:
 # 1. Collect demos via the scripted FSM (one-shot, seed-independent).
 #    --num-envs must match the task's train num_envs (currently 64); the
 #    prefill loader asserts the shapes match.
-python -m genelab_franka_pick_and_place.collect_demos \
+python -m genelab_franka.collect_demos \
     --num-envs 64 --steps 1000 \
     --out logs/reference/franka-pp/demos.npz
 
