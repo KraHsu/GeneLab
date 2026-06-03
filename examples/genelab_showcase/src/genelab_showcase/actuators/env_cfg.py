@@ -15,6 +15,8 @@ keep it genuinely tracking. The hand keeps :class:`ImplicitPDActuator` (a stiff 
 Genesis's internal solver handles well).
 """
 
+import importlib.util
+
 from genelab import mdp
 from genelab.actuator import (
     ActuatorBaseCfg,
@@ -93,7 +95,7 @@ def _hand_action(asset_name: str) -> JointPositionActionCfg:
 
 
 def _sim(num_envs: int) -> SimulationCfg:
-    return SimulationCfg(
+    sim = SimulationCfg(
         num_envs=num_envs,
         dt=_SIM_DT,
         substeps=1,
@@ -101,6 +103,13 @@ def _sim(num_envs: int) -> SimulationCfg:
         vis=False,
         gpu=True,
     )
+    # Enable the Genesis ImGui overlay so the runner can dock its PD / sine sliders into the
+    # viewport. Gated on the overlay's dependency (the ``imgui`` extra) so the showcase still
+    # runs without it — just without the in-viewport sliders. ``find_spec`` avoids importing
+    # the ~heavy library at cfg-build time.
+    if importlib.util.find_spec("imgui_bundle") is not None:
+        sim.viewer_imgui = True
+    return sim
 
 
 def actuator_showcase_env_cfg() -> ManagerBasedRlEnvCfg:

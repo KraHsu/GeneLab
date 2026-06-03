@@ -7,8 +7,9 @@ checkpoint。
 ## Play
 
 ```bash
-genelab play TASK_ID --steps 128
-genelab play TASK_ID --vis --steps 500
+genelab play TASK_ID --steps 128            # 无头：128 步冒烟回放
+genelab play TASK_ID --vis                   # viewer：一直运行到你关闭窗口
+genelab play TASK_ID --vis --max-steps 500   # viewer：500 步后停止
 genelab play TASK_ID --agent random --steps 128
 ```
 
@@ -48,6 +49,21 @@ genelab play TASK_ID \
     无头回放是有界的：没有窗口可关，它会在 `simulation.steps`（用 `--steps`
     设置，默认 240）步后停止，而不会一直运行。用 `--max-steps N` 覆盖。
 
+### 回放长度：`--steps` vs `--max-steps` {#playback-length}
+
+这两个旋钮是刻意区分的，且在 RL 回放与非 RL 场景回放 / showcase runner 上行为一致：
+
+| | `--steps N` | `--max-steps N` |
+|---|---|---|
+| 是什么 | 软配置（`env.simulation.steps`） | genelab 强制的硬上界 |
+| 挂在哪 | env 配置上（可在代码中修改） | runner 上（不写进 cfg） |
+| 有 viewer（`--vis`） | **被忽略**——一直运行到你关闭窗口 | 即使开着窗口也在 `N` 步后停止 |
+| 无头 | 在 `N` 步封顶 | 在 `N` 步封顶（优先于 `--steps`） |
+| 默认 | 240 | 未设（交由软配置决定） |
+
+一句话：`--steps` 是你（或你的代码）可以改、也可能被忽略的建议长度；`--max-steps` 是 genelab
+永远强制生效的硬上限。要给开着窗口的回放设上界,就用 `--max-steps`。
+
 ## 简写标志
 
 `play` 和 `train` 都会把以下简写改写为 `env.simulation.*` override：
@@ -57,7 +73,7 @@ genelab play TASK_ID \
 | `-v`、`--vis` | `env.simulation.vis=true` |
 | `--headless` | `env.simulation.vis=false`（与 `--vis` 互斥） |
 | `--gpu` | `env.simulation.gpu=true` |
-| `--steps N` | play: `env.simulation.steps=N`；train: 等价于 `--max_iterations N` |
+| `--steps N` | play: 软长度 `env.simulation.steps=N`（开 `--vis` 时被忽略,见[上文](#playback-length)）；train: 等价于 `--max_iterations N` |
 | `--dt SECONDS` | `env.simulation.dt=SECONDS` |
 | `--a.b.c VALUE` | 任意 dotted cfg path |
 

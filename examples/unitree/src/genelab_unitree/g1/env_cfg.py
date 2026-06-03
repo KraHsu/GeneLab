@@ -546,15 +546,18 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         )
 
     if play:
-        # Auto-attach the DearPyGui teleop bridge. It self-disables when num_envs
-        # != 1 (per-axis sliders make no sense across parallel envs), so the
-        # default play (num_envs=50) keeps the existing random-command rollout.
-        # ImportError swallowed so users without the 'teleop' extra still get a
-        # working play path.
+        # Auto-attach the in-viewport ImGui teleop bridge. It self-disables when num_envs
+        # != 1 (per-axis sliders make no sense across parallel envs), so the default play
+        # (num_envs=50) keeps the existing random-command rollout. The whole block is
+        # guarded on ``imgui_bundle`` (the overlay's dependency, the 'imgui' extra) so a
+        # user without it still gets a working play path — just no sliders.
         try:
-            from genelab.bridges.dearpygui import DearPyGuiTwistBridgeCfg
+            import imgui_bundle  # noqa: F401  # the ImGui overlay needs it at draw time
 
-            cfg.bridges_cfg["teleop"] = DearPyGuiTwistBridgeCfg(
+            from genelab.bridges.imgui import ImGuiTwistBridgeCfg
+
+            cfg.simulation.viewer_imgui = True  # enable the overlay that hosts the sliders
+            cfg.bridges_cfg["teleop"] = ImGuiTwistBridgeCfg(
                 command_name="twist",
                 vx_range=(-2.0, 2.0),
                 vy_range=(-1.0, 1.0),

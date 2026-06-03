@@ -5,6 +5,8 @@ from typing import Any, Protocol, cast
 
 from genelab.registry import ENVS, register_env
 
+from genelab_examples.gui_panels.config import GuiPanelsEnvCfg
+from genelab_examples.gui_panels.env import create_gui_panels_env
 from genelab_examples.robots import create_rubiks_robot
 from genelab_examples.rubiks.assets import RubiksCubeSpec
 from genelab_examples.rubiks.config import RubiksEnvCfg
@@ -174,4 +176,12 @@ def register() -> None:
             lambda: create_rubiks_env(),
             description="Example Genesis scene for the force-driven Rubik's cube.",
             cfg_type=RubiksEnvCfg,
+        )
+    if "gui-panels-demo" not in ENVS:
+        register_env(
+            "gui-panels-demo",
+            lambda: create_gui_panels_env(),
+            description="Cookbook scene showing how to add common ImGui widgets to the viewer.",
+            cfg_type=GuiPanelsEnvCfg,
+            examples=["genelab play GeneLab-GUI-Panels-Demo-v0 --vis"],
         )

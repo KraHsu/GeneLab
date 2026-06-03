@@ -8,6 +8,7 @@
 |---|---|
 | 传感器 | Body velocity、IMU-like state、contact、ray-cast、terrain height、joint force/torque。 |
 | 接触 | 接触力、air time、landing 和 slip metric。 |
+| 触觉 | 一块密集 SDF 触觉探针平板压向并横向拖过动态物体（滚动的球、滑动的方块），实时成像为压力热力图。 |
 | 地形 | 生成式地形网格和 height scan。 |
 | Curriculum | terrain-level progression。 |
 | 执行器 | 切换 actuator 模型（IdealPD、MLP-residual）和 action 行为。 |

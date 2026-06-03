@@ -43,7 +43,10 @@ def test_play_help_documents_runner_keys(capsys: pytest.CaptureFixture[str]) -> 
 
     main(["play", "--help"])
 
-    out = _strip_ansi(capsys.readouterr().out)
+    # The help spells some flags with hyphens (e.g. ``--max-steps``) and others with
+    # underscores (``--num_envs``); the freeform parser accepts both. Normalize hyphens to
+    # underscores so this coverage check is about *documentation presence*, not spelling.
+    out = _strip_ansi(capsys.readouterr().out).replace("-", "_")
     for key in RUNNER_KEYS:
         assert key in out, f"runner key {key!r} missing from `play --help`"
 

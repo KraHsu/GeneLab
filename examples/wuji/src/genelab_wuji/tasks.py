@@ -14,7 +14,10 @@ class RegisteredTask:
     def __init__(self, cfg: TaskCfg) -> None:
         self.cfg = cfg
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
+        # Wuji playback is a fixed-trajectory scene demo with its own loop, so the
+        # ``--max-steps`` cap (``max_steps``) does not apply; accepted to satisfy the
+        # ``Runnable`` contract.
         if self.cfg.env_name == "wuji-hand-playback":
             if not isinstance(self.cfg.env, WujiEnvCfg):
                 raise TypeError("wuji-hand-playback tasks require WujiEnvCfg")

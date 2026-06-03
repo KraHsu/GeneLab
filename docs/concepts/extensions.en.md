@@ -53,12 +53,18 @@ CLI's `play` / `train` commands dispatch against:
 ```python
 class Runnable(Protocol):
     cfg: object
-    def play(self) -> None: ...
+    def play(self, *, max_steps: int | None = None) -> None: ...
     def train(self) -> None: ...
 ```
 
 A task type therefore exposes its config as `.cfg` and implements `play()` / `train()`. The bundled
 task types already satisfy this; third-party task types should implement the same shape.
+
+`play` takes a keyword-only `max_steps` — the hard cap forwarded from the `--max-steps` CLI flag.
+When it is not `None` the playback loop must stop after that many steps regardless of the viewer or
+the soft `simulation.steps` config; `None` (what a plain `task.play()` call passes) leaves the soft
+config in charge (headless caps at `simulation.steps`, a viewer runs until the window closes). A task
+that drives no step loop may accept and ignore it.
 
 ## The `Backend` contract
 

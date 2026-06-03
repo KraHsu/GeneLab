@@ -1,4 +1,4 @@
-"""Showcase task registrations: eight play-only TaskCfgs.
+"""Showcase task registrations: nine play-only TaskCfgs.
 
 Each task is a thin wrapper around a :class:`~genelab_showcase.runner.ShowcaseRunner`
 subclass. The factory is the task class itself (matching the
@@ -38,10 +38,13 @@ from genelab_showcase.recording.runner import RecordingShowcaseRunner
 from genelab_showcase.runner import ShowcaseRunner
 from genelab_showcase.sensors.env_cfg import sensors_showcase_env_cfg
 from genelab_showcase.sensors.runner import SensorsShowcaseRunner
+from genelab_showcase.tactile.env_cfg import tactile_showcase_env_cfg
+from genelab_showcase.tactile.runner import TactileShowcaseRunner
 from genelab_showcase.terrain.env_cfg import terrain_showcase_env_cfg
 from genelab_showcase.terrain.runner import TerrainShowcaseRunner
 
 SENSORS_TASK_ID = "GeneLab-Sensors-Showcase-v0"
+TACTILE_TASK_ID = "GeneLab-Tactile-Showcase-v0"
 RAYCAST_TASK_ID = "GeneLab-RayCast-Showcase-v0"
 CONTACT_TASK_ID = "GeneLab-Contact-Showcase-v0"
 TERRAIN_TASK_ID = "GeneLab-Terrain-Showcase-v0"
@@ -71,13 +74,16 @@ class _ShowcaseTaskBase:
             trainable=False,
         )
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
         # IMPORTANT: pass ``self.cfg.env`` (which the CLI may have mutated via
         # ``--vis`` / ``--steps`` / ``--env.x.y.z`` overrides) so the override actually
         # reaches the env build. Re-calling ``env_factory()`` here would discard the
         # patched cfg and silently ignore the CLI flags.
+        #
+        # ``max_steps`` is the ``--max-steps`` hard cap, threaded into the runner so the
+        # viewer-gated loop honors it exactly like RL playback does.
         env_cfg = cast(ManagerBasedRlEnvCfg, self.cfg.env)
-        self.runner_cls(env_cfg).play()
+        self.runner_cls(env_cfg).play(max_steps=max_steps)
 
     def train(self) -> None:
         raise NotImplementedError(f"showcase task {self.task_id} is play-only")
@@ -89,6 +95,14 @@ class SensorsShowcaseTask(_ShowcaseTaskBase):
     robot_name = "franka"
     runner_cls = SensorsShowcaseRunner
     env_factory = staticmethod(sensors_showcase_env_cfg)
+
+
+class TactileShowcaseTask(_ShowcaseTaskBase):
+    task_id = TACTILE_TASK_ID
+    env_name = "tactile-showcase-env"
+    robot_name = "tactile-plate"
+    runner_cls = TactileShowcaseRunner
+    env_factory = staticmethod(tactile_showcase_env_cfg)
 
 
 class RayCastShowcaseTask(_ShowcaseTaskBase):
@@ -149,6 +163,7 @@ class RecordingShowcaseTask(_ShowcaseTaskBase):
 
 _TASK_CLASSES: tuple[type[_ShowcaseTaskBase], ...] = (
     SensorsShowcaseTask,
+    TactileShowcaseTask,
     RayCastShowcaseTask,
     ContactShowcaseTask,
     TerrainShowcaseTask,
@@ -163,6 +178,9 @@ _DESCRIPTIONS: dict[str, str] = {
     SENSORS_TASK_ID: (
         "Franka with CameraSensor + IMUSensor + FrameTransformerSensor + ForceTorqueSensor."
     ),
+    TACTILE_TASK_ID: (
+        "Flat dense tactile plate pressing a relief of shapes; per-probe depth → live heatmap."
+    ),
     RAYCAST_TASK_ID: "Franka with RayCastSensor in three patterns (grid / ring / hemisphere).",
     CONTACT_TASK_ID: "Unitree G1 with ContactSensor air-time tracking on both feet.",
     TERRAIN_TASK_ID: "Unitree G1 dropped on a 1×5 row of the five built-in sub-terrains.",
@@ -176,7 +194,7 @@ _DESCRIPTIONS: dict[str, str] = {
 
 
 def register() -> None:
-    """Register all eight showcase tasks. Idempotent under repeated imports."""
+    """Register all nine showcase tasks. Idempotent under repeated imports."""
 
     for cls in _TASK_CLASSES:
         if cls.task_id in TASKS:
@@ -188,6 +206,7 @@ def register() -> None:
             cfg_type=TaskCfg,
             examples=[
                 f"genelab play {cls.task_id} --vis",
-                f"genelab play {cls.task_id} --vis --steps 400",
+                f"genelab play {cls.task_id} --vis --max-steps 400",
+                f"genelab play {cls.task_id} --steps 400",
             ],
         )
