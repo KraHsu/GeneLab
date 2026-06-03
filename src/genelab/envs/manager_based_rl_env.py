@@ -71,7 +71,7 @@ class ManagerBasedRlEnvCfg(ManagerBasedEnvCfg):
     curriculum_cfg: dict[str, CurriculumTermCfg] = field(default_factory=dict)
     metrics_cfg: dict[str, MetricsTermCfg] = field(default_factory=dict)
     # Play-only: consumed by ``genelab.rl.runner.play_task`` to drive live I/O
-    # (keyboard teleop, DearPyGui sliders, ROS2 publishers, …). ``train_task``
+    # (keyboard teleop, ImGui sliders, ROS2 publishers, …). ``train_task``
     # ignores this field. Empty by default — bridges are opt-in per env cfg.
     bridges_cfg: dict[str, BridgeCfg] = field(default_factory=dict)
 

@@ -2,6 +2,43 @@
 
 All notable changes to GeneLab are recorded here.
 
+## [Unreleased]
+
+### Added
+
+- **In-viewport ImGui panels:** `SimulationCfg.panels` takes a list of
+  `callback(imgui)` functions that GeneLab forwards to Genesis's ImGui overlay
+  after build (a non-empty list auto-enables the overlay). Adding a viewer GUI
+  element is now one function — no `Bridge` subclass required. New public helpers
+  `register_viewer_panels` / `find_imgui_panel_host` exported from `genelab.scene`;
+  new `imgui` extra (`imgui-bundle`). See the `GeneLab-GUI-Panels-Demo-v0` cookbook
+  in `examples/genelab_examples`.
+- **ImGui twist bridge seeding:** `ImGuiTwistBridgeCfg` gained `default_vx/vy/wz`,
+  seeded into the slider state and command buffer at attach (parity with the
+  removed DearPyGui bridge).
+
+### Fixed
+
+- **ImGui overlay close crash:** closing a viewer built with `viewer_imgui` /
+  `panels` no longer exits with `GenesisException: Unexpected viewer error.` —
+  `InteractiveScene` now wraps Genesis's `ImGuiOverlayPlugin.on_close` (a
+  Genesis/`imgui_bundle` teardown bug that asserts `No current context` on window
+  close), mirroring the existing pyrender save-filename patch.
+
+### Removed
+
+- **DearPyGui twist bridge and `teleop` extra:** `genelab.bridges.dearpygui` and
+  the `teleop` (DearPyGui) extra are removed — the in-viewport `ImGuiTwistBridge`
+  covers the same `(vx, vy, ωz)` teleop with no separate window, thread, or third
+  GUI toolkit. Migrate `--extra teleop` → `--extra imgui` and
+  `DearPyGuiTwistBridgeCfg` → `ImGuiTwistBridgeCfg` (plus `simulation.viewer_imgui=True`).
+
+### Examples
+
+- **ImGui migration:** the Unitree G1 play teleop and the `actuators` showcase
+  sliders now render in the viewport ImGui overlay instead of a separate DearPyGui /
+  PyQt window (the actuator tracking curves stay in their pyqtgraph window).
+
 ## [0.3.1] — 2026-05-31
 
 Patch release. Adds a Genesis-backed mesh ray-caster to the sensor zoo and a

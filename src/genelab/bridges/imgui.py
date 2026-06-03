@@ -2,9 +2,10 @@
 built-in ImGui overlay.
 
 Drives a 3-component velocity-twist command term (``vx``, ``vy``, ``ωz``). Same
-output shape as the keyboard + DearPyGui twist bridges, but uses Genesis 1.0's
-built-in ``ImGuiOverlayPlugin`` (enabled via ``SimulationCfg.viewer_imgui=True``
-since S1) so no extra GUI dependency is needed.
+output shape as the keyboard twist bridge, but renders sliders in Genesis 1.0's
+built-in ``ImGuiOverlayPlugin`` (enabled via ``SimulationCfg.viewer_imgui=True``)
+instead of a separate window — no extra OS window or background thread. Needs the
+``imgui`` extra (``imgui-bundle``), which the overlay lazy-imports.
 
 The bridge:
 
@@ -24,6 +25,12 @@ Caveats:
   lock.
 * Closing the ImGui panel does **not** terminate the play loop — close the
   Genesis viewer or hit Ctrl-C.
+
+For a **display-only** panel that does not need to write into the command buffer every
+step (a slider whose effect is applied inside the callback, a toggle, a readout), prefer
+:attr:`SimulationCfg.panels` — a plain ``callback(imgui)`` list that GeneLab forwards to the
+overlay after build. That path has no per-step lifecycle, so it is as light as raw Genesis.
+Reach for this bridge only when the widget must drive the policy's command each step.
 """
 
 import logging
@@ -61,6 +68,14 @@ class ImGuiTwistBridgeCfg(BridgeCfg):
     command_name: str = "twist"
     """Name of the command term to drive."""
 
+    default_vx: float = 0.0
+    default_vy: float = 0.0
+    default_wz: float = 0.0
+    """Initial slider values, also written into the command buffer at attach so the very
+    first obs the policy sees is in-distribution. Defaults are zero (robot-agnostic safe
+    state); override when the policy is weak at sustained ``[0, 0, 0]`` and you want to
+    start in a known-good locomotion regime."""
+
     panel_section: str = "side"
     """``ImGuiOverlayPlugin.register_panel`` section — ``"side"`` (default) docks the
     sliders into the main control panel; ``"overlay"`` makes a floating window."""
@@ -76,18 +91,24 @@ class ImGuiTwistBridge:
     def __init__(self, cfg: ImGuiTwistBridgeCfg) -> None:
         self.cfg = cfg
         # Slider state — read by :meth:`pre_step`, mutated by the ImGui panel callback.
-        self._vx: float = 0.0
-        self._vy: float = 0.0
-        self._wz: float = 0.0
+        # Seeded from the cfg defaults so the widget, the command term, and the policy all
+        # start on the same value.
+        self._vx: float = cfg.default_vx
+        self._vy: float = cfg.default_vy
+        self._wz: float = cfg.default_wz
         self._enabled: bool = False
 
     def on_build(self, env: "EnvContext") -> None:
+        # Lazy import keeps the heavy ``genelab.scene`` (torch/entity/sensor) off the import
+        # path of ``genelab.bridges``; this only runs at play time.
+        from genelab.scene import find_imgui_panel_host
+
         viewer = getattr(getattr(env.scene, "gs_scene", None), "viewer", None)
         if viewer is None:
             _logger.warning("ImGuiTwistBridge: scene has no viewer; bridge disabled.")
             return
 
-        plugin = _find_imgui_plugin(viewer)
+        plugin = find_imgui_panel_host(viewer)
         if plugin is None:
             _logger.warning(
                 "ImGuiTwistBridge: no ImGuiOverlayPlugin on the viewer "
@@ -99,6 +120,10 @@ class ImGuiTwistBridge:
         pin = getattr(term, "set_external_source", None)
         if callable(pin):
             pin(enabled=True)
+        # Seed the command buffer with the slider defaults so the first obs the policy
+        # reads is already in-distribution (``set_external_source`` zeroed it).
+        buf = term.command
+        buf[:] = torch.tensor([self._vx, self._vy, self._wz], device=buf.device, dtype=buf.dtype)
 
         plugin.register_panel(self._draw_panel, section=self.cfg.panel_section)
         self._enabled = True
@@ -141,18 +166,3 @@ class ImGuiTwistBridge:
             self._vx = 0.0
             self._vy = 0.0
             self._wz = 0.0
-
-
-def _find_imgui_plugin(viewer: Any) -> Any | None:
-    """Find the ``ImGuiOverlayPlugin`` attached to ``viewer``, or return ``None``.
-
-    Duck-types against Genesis 1.0's private ``viewer._viewer_plugins`` list: any
-    plugin that exposes ``register_panel`` (the panel-registration API the bridge
-    relies on) is acceptable. Returning ``None`` lets
-    :meth:`ImGuiTwistBridge.on_build` log a useful warning instead of crashing.
-    """
-    plugins = getattr(viewer, "_viewer_plugins", None) or []
-    for p in plugins:
-        if callable(getattr(p, "register_panel", None)):
-            return p
-    return None

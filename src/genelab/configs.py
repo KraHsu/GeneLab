@@ -1,5 +1,6 @@
 """Core configuration objects and CLI override helpers."""
 
+from collections.abc import Callable
 from dataclasses import dataclass, field, is_dataclass
 from pathlib import Path
 from types import UnionType
@@ -42,8 +43,21 @@ class SimulationCfg:
     render_fps: int | None = 60
     # ImGui overlay toggle for the Genesis viewer (v1.0+). Forwarded to
     # ``gs.options.ViewerOptions(enable_gui=...)`` when ``vis=True``. Off by default so
-    # headless / scripted runs don't allocate the overlay.
+    # headless / scripted runs don't allocate the overlay. Setting ``panels`` (below)
+    # turns the overlay on automatically, so this flag only matters when you want the
+    # overlay's built-in controls without registering any custom panel.
     viewer_imgui: bool = False
+
+    # Custom ImGui panels drawn in the Genesis viewer's overlay. Each entry is a
+    # ``callback(imgui)`` invoked once per frame on the viewer thread with the live
+    # ``imgui`` module (``imgui_bundle``); inside it you call ``imgui.slider_float(...)``,
+    # ``imgui.checkbox(...)`` etc. exactly as you would in raw Genesis — GeneLab only
+    # forwards each callback to the overlay's ``register_panel`` after ``scene.build``
+    # (see :class:`~genelab.scene.InteractiveScene`). Adding a GUI element is therefore
+    # no heavier than in Genesis: append one function here. A non-empty list implies the
+    # ImGui overlay (no need to also set ``viewer_imgui=True``). Requires the ``imgui``
+    # extra (``uv sync --extra imgui``); ignored entirely when ``vis=False``.
+    panels: list[Callable[[Any], None]] = field(default_factory=list)
 
     # --- Genesis rigid-solver options (ROADMAP M3.7) ---------------------------------------
     # All optional; ``None`` = "use the Genesis default". Mapped to ``gs.options.RigidOptions``
