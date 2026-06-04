@@ -8,7 +8,10 @@ single-rigid MJCFs). Two-phase usage:
 """
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from genelab.materials import MaterialCfg, SurfaceCfg
 
 
 @dataclass
@@ -24,6 +27,12 @@ class RigidObjectCfg:
     friction on the object being grasped — the Genesis fallback is too low to hold a
     cube between parallel fingers.
 
+    ``material`` attaches an explicit :mod:`genelab.materials` cfg — a non-rigid one
+    (MPM / FEM / PBD / SPH / SF) turns the object deformable / fluid and makes
+    :class:`~genelab.scene.InteractiveScene` enable that solver. When set it takes
+    precedence over the ``friction`` / ``density`` shortcut. ``surface`` attaches a
+    rendering surface cfg (``gs.surfaces.*``), orthogonal to the physics material.
+
     ``use_visual_raycasting`` opts the object's visual mesh into Genesis's BVH ray-cast, so
     a :class:`~genelab.sensor.MeshRayCastSensor`'s rays can hit it. Off by default (the BVH
     only includes opted-in meshes).
@@ -37,6 +46,8 @@ class RigidObjectCfg:
     fixed: bool = True
     friction: float | None = None
     density: float | None = None
+    material: "MaterialCfg | None" = None
+    surface: "SurfaceCfg | None" = None
     use_visual_raycasting: bool = False
 
 
@@ -95,31 +106,38 @@ class RigidObject:
             )
         else:  # pragma: no cover - exhaustive Literal
             raise ValueError(f"unknown rigid-object morph: {morph_kind!r}")
+        add_kwargs: dict[str, Any] = {}
         material = self._material_or_default(gs)
-        self._gs_handle = (
-            gs_scene.add_entity(morph, material=material)
-            if material is not None
-            else gs_scene.add_entity(morph)
-        )
+        if material is not None:
+            add_kwargs["material"] = material
+        if self.cfg.surface is not None:
+            add_kwargs["surface"] = self.cfg.surface.build(gs)
+        self._gs_handle = gs_scene.add_entity(morph, **add_kwargs)
 
     def _material_or_default(self, gs: Any) -> Any:
-        """Build a ``gs.materials.Rigid`` only if the cfg overrides a default —
-        otherwise return ``None`` so ``add_entity`` falls back to its built-in
-        material and behavior stays unchanged for callers that don't opt in."""
+        """Resolve the entity's Genesis material.
+
+        An explicit ``cfg.material`` wins. Otherwise fall back to the
+        ``friction`` / ``density`` / ``use_visual_raycasting`` shortcut, which builds a
+        ``gs.materials.Rigid`` only when one of those is set — returning ``None`` so
+        ``add_entity`` keeps its built-in default and behavior is unchanged for callers
+        that don't opt in."""
+        if self.cfg.material is not None:
+            return self.cfg.material.build(gs)
         if (
             self.cfg.friction is None
             and self.cfg.density is None
             and not self.cfg.use_visual_raycasting
         ):
             return None
-        kwargs: dict[str, Any] = {}
-        if self.cfg.friction is not None:
-            kwargs["friction"] = float(self.cfg.friction)
-        if self.cfg.density is not None:
-            kwargs["rho"] = float(self.cfg.density)
-        if self.cfg.use_visual_raycasting:
-            kwargs["use_visual_raycasting"] = True
-        return gs.materials.Rigid(**kwargs)
+        from genelab.materials import RigidMaterialCfg
+
+        shortcut = RigidMaterialCfg(
+            friction=self.cfg.friction,
+            rho=self.cfg.density,
+            use_visual_raycasting=self.cfg.use_visual_raycasting or None,
+        )
+        return shortcut.build(gs)
 
     @property
     def gs_handle(self) -> Any:
