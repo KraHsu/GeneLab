@@ -13,7 +13,7 @@ GeneLab 自带任务的**复现地基**。按任务 × seed 列出收敛后的 r
 | `GeneLab-Inverted-Pendulum-v0` | rsl_rl PPO | 150 iter × 4096 envs | 小 cartpole；当 smoke target 用。 |
 | `GeneLab-Double-Inverted-Pendulum-v0` | rsl_rl PPO | 300 iter × 4096 envs | 难一些的 cartpole。 |
 | `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 平地速度跟踪。 |
-| `Genelab-Velocity-Rough-Unitree-G1-v0` | rsl_rl PPO | 50k iter × 4096 envs | Unitree G1 崎岖高度场地形速度跟踪。 |
+| `Genelab-Velocity-Rough-Unitree-G1-v0` | rsl_rl PPO | 6k iter × 4096 envs | Unitree G1 在 10 级混合地形课程上的速度跟踪。 |
 | `Genelab-Tracking-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 平地动作跟踪。 |
 | `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 64 envs | 目标条件抓取；需要离线 demo 预填（见下方协议）。 |
 
@@ -173,12 +173,15 @@ GPU vectorized 慢很多。
 
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | TBD | TBD | 50 000 | TBD | TBD |
-| 2 | TBD | TBD | 50 000 | TBD | TBD |
-| 3 | TBD | TBD | 50 000 | TBD | TBD |
+| 1 | 83.95 | 23.86 | 6 000 | ~4.8 h | 145 s |
+| 2 | 87.17 | 12.47 | 6 000 | ~4.9 h | 145 s |
+| 3 | 84.41 | 17.67 | 6 000 | ~4.9 h | 145 s |
 
-三个 seed 的 eval `length_mean = 1000.0`（play_env `episode_length_s =
-20 s` × 50 Hz）。`success_rate` 为 `null`。Eval terrain seed = 0（确定性）。
+三个 seed 的 eval `length_mean` = 899 / 966 / 935（满值 1000;play_env
+`episode_length_s = 20 s` × 50 Hz）—— 策略在混合崎岖地形上能走完约 90–97% 的完整
+episode。`success_rate` 为 `null`。Eval terrain seed = 0(确定性)。课程在 terrain
+~4.5 级自平衡;训练在 6k 收敛、全程无 de-learning(action std 始终维持在 0.3 下限)。
+硬件:H200(每块 GPU 跑一个 seed);Hopper SM90 上 `QD_GRAPH=0` 让每步约慢 2×。
 
 > Maintainer sweep protocol: `genelab train
 > Genelab-Velocity-Rough-Unitree-G1-v0 --seeds 1,2,3 --parallel 1 --log_dir
