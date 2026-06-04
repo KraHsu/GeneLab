@@ -29,6 +29,18 @@ from genelab_showcase.actuators.runner import (
 )
 from genelab_showcase.contact.env_cfg import contact_showcase_env_cfg
 from genelab_showcase.contact.runner import ContactShowcaseRunner
+from genelab_showcase.materials.runner import MaterialsDemoRunner
+from genelab_showcase.materials.scenes import (
+    FLOAT_DENSITY_RANGE,
+    SOFT_STIFFNESS_RANGE,
+    MaterialsDemoCfg,
+    fluid_demo_cfg,
+    get_float_density,
+    get_soft_stiffness,
+    set_float_density,
+    set_soft_stiffness,
+    soft_body_demo_cfg,
+)
 from genelab_showcase.curriculum.env_cfg import curriculum_showcase_env_cfg
 from genelab_showcase.curriculum.runner import CurriculumShowcaseRunner
 from genelab_showcase.raycast.env_cfg import raycast_showcase_env_cfg
@@ -52,6 +64,8 @@ CURRICULUM_TASK_ID = "GeneLab-Curriculum-Showcase-v0"
 ACTUATOR_TASK_ID = "GeneLab-Actuator-Showcase-v0"
 MLP_RESIDUAL_ACTUATOR_TASK_ID = "GeneLab-MlpResidual-Actuator-Showcase-v0"
 RECORDING_TASK_ID = "GeneLab-Recording-Showcase-v0"
+SOFTBODY_TASK_ID = "GeneLab-SoftBody-Showcase-v0"
+FLUID_TASK_ID = "GeneLab-Fluid-Showcase-v0"
 
 
 class _ShowcaseTaskBase:
@@ -161,6 +175,77 @@ class RecordingShowcaseTask(_ShowcaseTaskBase):
     env_factory = staticmethod(recording_showcase_env_cfg)
 
 
+class _MaterialsDemoTask:
+    """Material demo wrapper exposing one material property as a viewer slider.
+
+    Unlike :class:`_ShowcaseTaskBase`, the env is a plain :class:`MaterialsDemoCfg`
+    (``simulation`` + ``scene``), not a ``ManagerBasedRlEnvCfg`` — so ``genelab play``
+    routes it to this class's own ``play()`` instead of the RL helper. The ``--vis`` /
+    ``--steps`` / ``--env.scene.*`` overrides still land on ``cfg.env`` exactly as for
+    every other task, and the runner reads the (possibly overridden) slider value back
+    from the cfg before play.
+    """
+
+    task_id: str = ""
+    env_name: str = ""
+    cfg_factory: "Callable[[], MaterialsDemoCfg] | None" = None
+    slider_label: str = ""
+    slider_range: tuple[float, float] = (0.0, 1.0)
+    get_value: "Callable[[MaterialsDemoCfg], float] | None" = None
+    apply_value: "Callable[[MaterialsDemoCfg, float], None] | None" = None
+
+    def __init__(self) -> None:
+        if self.cfg_factory is None:
+            raise RuntimeError(f"{type(self).__name__}.cfg_factory is unset")
+        self.cfg = TaskCfg(
+            name=self.task_id,
+            env_name=self.env_name,
+            robot_name="none",
+            env=self.cfg_factory(),
+            trainable=False,
+        )
+
+    def play(self, *, max_steps: int | None = None) -> None:
+        env = cast(MaterialsDemoCfg, self.cfg.env)
+        assert self.get_value is not None and self.apply_value is not None
+        MaterialsDemoRunner(
+            env,
+            slider_label=self.slider_label,
+            slider_range=self.slider_range,
+            slider_value=self.get_value(env),
+            apply_value=self.apply_value,
+        ).play(max_steps=max_steps)
+
+    def train(self) -> None:
+        raise NotImplementedError(f"material demo {self.task_id} is play-only")
+
+
+class SoftBodyShowcaseTask(_MaterialsDemoTask):
+    task_id = SOFTBODY_TASK_ID
+    env_name = "softbody-showcase-env"
+    cfg_factory = staticmethod(soft_body_demo_cfg)
+    slider_label = "stiffness"
+    slider_range = SOFT_STIFFNESS_RANGE
+    get_value = staticmethod(get_soft_stiffness)
+    apply_value = staticmethod(set_soft_stiffness)
+
+
+class FluidShowcaseTask(_MaterialsDemoTask):
+    task_id = FLUID_TASK_ID
+    env_name = "fluid-showcase-env"
+    cfg_factory = staticmethod(fluid_demo_cfg)
+    slider_label = "float density"
+    slider_range = FLOAT_DENSITY_RANGE
+    get_value = staticmethod(get_float_density)
+    apply_value = staticmethod(set_float_density)
+
+
+_MATERIAL_TASK_CLASSES: tuple[type[_MaterialsDemoTask], ...] = (
+    SoftBodyShowcaseTask,
+    FluidShowcaseTask,
+)
+
+
 _TASK_CLASSES: tuple[type[_ShowcaseTaskBase], ...] = (
     SensorsShowcaseTask,
     TactileShowcaseTask,
@@ -190,13 +275,23 @@ _DESCRIPTIONS: dict[str, str] = {
         "Franka with MlpResidualActuator on the arm (DC-motor base + TorchScript residual)."
     ),
     RECORDING_TASK_ID: "Franka with live PyQt/MPL plots and NPZ/CSV data dumps from an IMU.",
+    SOFTBODY_TASK_ID: (
+        "A FEM-elastic jelly ball dropped onto the ground, with a viewer stiffness slider."
+    ),
+    FLUID_TASK_ID: (
+        "An MPM-liquid pool with a light box floating and a gold ball sinking (density slider)."
+    ),
 }
 
 
 def register() -> None:
-    """Register all nine showcase tasks. Idempotent under repeated imports."""
+    """Register every showcase task. Idempotent under repeated imports."""
 
-    for cls in _TASK_CLASSES:
+    all_classes: tuple[type[_ShowcaseTaskBase] | type[_MaterialsDemoTask], ...] = (
+        *_TASK_CLASSES,
+        *_MATERIAL_TASK_CLASSES,
+    )
+    for cls in all_classes:
         if cls.task_id in TASKS:
             continue
         register_task(
