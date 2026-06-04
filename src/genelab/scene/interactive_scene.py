@@ -36,6 +36,7 @@ _logger = logging.getLogger(__name__)
 
 _pyrender_save_patch_applied = False
 _imgui_overlay_patch_applied = False
+_viewer_title_patch_applied = False
 
 
 def find_imgui_panel_host(viewer: Any) -> Any | None:
@@ -171,6 +172,40 @@ def _patch_imgui_overlay() -> None:
     ImGuiOverlayPlugin.on_close = _genelab_safe_on_close  # type: ignore[method-assign]
     ImGuiOverlayPlugin.on_mouse_scroll = _genelab_on_mouse_scroll  # type: ignore[method-assign]
     _imgui_overlay_patch_applied = True
+
+
+def _patch_viewer_window_title() -> None:
+    """Rebrand the viewer's OS window caption from ``Genesis <ver>`` to ``GeneLab <ver>``.
+
+    Genesis hard-codes ``viewer_flags={"window_title": f"Genesis {gs.__version__}"}`` when it
+    constructs the pyrender viewer (``genesis/vis/viewer.py``), and the pyrender ``Viewer``
+    applies that flag as the window caption during ``__init__``. We can't modify Genesis, so we
+    wrap the pyrender ``Viewer.__init__`` at the class level (mirrors
+    :func:`_patch_pyrender_save_filename`) and rewrite the incoming ``window_title`` before the
+    original runs — only when it carries the ``Genesis`` default, so a caller-supplied title is
+    left untouched. Idempotent; only matters when the viewer is enabled.
+    """
+    global _viewer_title_patch_applied
+    if _viewer_title_patch_applied:
+        return
+    try:
+        from genesis.ext.pyrender.viewer import Viewer as _PyrenderViewer
+
+        from genelab import __version__ as _genelab_version
+    except Exception:
+        return
+    original_init = _PyrenderViewer.__init__
+
+    def _genelab_viewer_init(self: Any, *args: Any, **kwargs: Any) -> None:
+        viewer_flags = kwargs.get("viewer_flags")
+        if isinstance(viewer_flags, dict):
+            title = viewer_flags.get("window_title")
+            if isinstance(title, str) and title.startswith("Genesis"):
+                viewer_flags["window_title"] = f"GeneLab {_genelab_version}"
+        original_init(self, *args, **kwargs)
+
+    _PyrenderViewer.__init__ = _genelab_viewer_init  # type: ignore[method-assign]
+    _viewer_title_patch_applied = True
 
 
 def _resolve_use_gpu(gpu: bool | None, device: str) -> bool:
@@ -324,6 +359,8 @@ class InteractiveScene:
             # Workaround for an upstream pyrender bug that saves videos with a .png
             # extension. Applied once per process; no-op when not built.
             _patch_pyrender_save_filename()
+            # Rebrand the viewer window caption from "Genesis <ver>" to "GeneLab <ver>".
+            _patch_viewer_window_title()
             if enable_gui:
                 # Workaround for Genesis/imgui_bundle overlay bugs (close crash, reversed scroll).
                 _patch_imgui_overlay()
