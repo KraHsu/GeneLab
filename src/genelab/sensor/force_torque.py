@@ -1,10 +1,10 @@
-"""Joint force-torque sensor (ROADMAP M3.5).
+"""Joint force-torque sensor.
 
 Reports each selected joint's internal reaction force/torque — Genesis's
 ``get_dofs_force`` (the total internal DoF force: constraint + actuation), as opposed
 to the *commanded* torque (``get_dofs_control_force``) cached in
 ``RobotState.applied_torque``. For revolute / prismatic joints this is the scalar
-reaction about / along the joint axis (the "joint-FT" of ROADMAP M3.5; a full 6-axis
+reaction about / along the joint axis (a full 6-axis
 wrench / fingertip pressure array is deferred).
 """
 

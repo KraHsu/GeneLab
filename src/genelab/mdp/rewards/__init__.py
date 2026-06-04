@@ -1,6 +1,6 @@
 """Reusable reward term functions for locomotion tasks.
 
-Split into per-family modules (ADR-0015): :mod:`~genelab.mdp.rewards.tracking`,
+Split into per-family modules: :mod:`~genelab.mdp.rewards.tracking`,
 :mod:`~genelab.mdp.rewards.regularization`, and :mod:`~genelab.mdp.rewards.gait`.
 This package re-exports every public term so ``from genelab.mdp.rewards import
 <term>`` and ``genelab.mdp.rewards.<term>`` resolve exactly as before the split.

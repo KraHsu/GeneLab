@@ -1,9 +1,9 @@
-"""Smoke test: the importlinter contracts stay configured (ADR-0009 R9.6).
+"""Smoke test: the importlinter contracts stay configured.
 
 The layering gate is only as strong as its config. If the ``[tool.importlinter]``
 section were accidentally deleted (or a contract dropped), ``lint-imports`` would
 report "0 contracts, 0 broken" and pass *vacuously* — silently disabling the
-required CI check flipped on in R7.3d. This test asserts the expected contracts are
+required CI check. This test asserts the expected contracts are
 present so that regression fails the suite instead.
 """
 
@@ -12,7 +12,7 @@ from pathlib import Path
 
 _PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
 
-# The full contract set as of R7.3d (ADR-0009). Adding a contract is fine; removing
+# The full expected contract set. Adding a contract is fine; removing
 # or renaming one of these must be a deliberate edit that updates this set too.
 _EXPECTED_CONTRACTS = frozenset(
     {

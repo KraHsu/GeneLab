@@ -23,7 +23,7 @@ class _FakeArticulation:
         self.joint_pos_limits = (
             joint_pos_limits if joint_pos_limits is not None else torch.empty(0, 2)
         )
-        # M3.6 S3b: event terms read default_joint_pos via the articulation (asset-routed),
+        # Event terms read default_joint_pos via the articulation (asset-routed),
         # mirroring the real env where env.default_joint_pos delegates to articulation.
         self.default_joint_pos = (
             default_joint_pos if default_joint_pos is not None else torch.zeros(0)

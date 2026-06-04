@@ -1,4 +1,4 @@
-"""Multi-robot foundation (ROADMAP M3.6 / ADR-0012 slice S1).
+"""Multi-robot foundation.
 
 Genesis-free: covers the entity-cfg resolution + primary selection + the entity-aware
 ``SceneEntityCfg.resolve`` seam. The actual multi-robot env *build* is exercised by the
@@ -49,7 +49,7 @@ class _FakeArticulation:
 
 
 class _MultiEntityEnv:
-    """Fake env exposing the M3.6 ``articulations`` accessor."""
+    """Fake env exposing the ``articulations`` accessor."""
 
     def __init__(self) -> None:
         self.device = "cpu"
@@ -92,7 +92,7 @@ def test_scene_entity_cfg_fallback_without_articulations() -> None:
     assert cfg.link_ids == (0,)
 
 
-# ---------------------------------------------------------------- S2: asset_name routing
+# ---------------------------------------------------------------- asset_name routing
 
 
 class _PrimaryOnlyEnv:
@@ -149,7 +149,7 @@ def test_joint_position_action_routes_to_named_entity() -> None:
     assert env._a.written is None  # primary left untouched
 
 
-# ---------------------------------------------------------------- S4: sensor entity routing
+# ---------------------------------------------------------------- sensor entity routing
 
 
 def test_sensor_entity_resolvers_pick_named_else_primary() -> None:
@@ -198,15 +198,15 @@ def test_force_torque_sensor_routes_to_named_entity() -> None:
     assert torch.allclose(sensor.data.force, force_b[:, [1, 2]])  # robot_b's dofs from its handle
 
 
-# ---------------------------------------------------------------- S6: flip + acceptance
+# ---------------------------------------------------------------- flip + acceptance
 
 
 def test_singular_entity_accessors_removed() -> None:
-    """The flip (ADR-0012 S6): the singular entity accessors are gone — reach by name."""
+    """The singular entity accessors are gone — reach by name."""
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
     for removed in ("robot", "robot_state", "articulation", "joint_names", "default_joint_pos"):
-        assert not hasattr(ManagerBasedRlEnv, removed), f"env.{removed} should be removed (M3.6 S6)"
+        assert not hasattr(ManagerBasedRlEnv, removed), f"env.{removed} should be removed"
     # The name-keyed accessor remains.
     assert hasattr(ManagerBasedRlEnv, "articulations")
 

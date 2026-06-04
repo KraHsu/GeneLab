@@ -1,4 +1,4 @@
-"""Unit tests for termination term functions (M2.3).
+"""Unit tests for termination term functions.
 
 A minimal fake env provides ``joint_pos_limits`` (the per-actuated-joint
 ``(lower, upper)`` table the real env exposes via ``Articulation.joint_pos_limits``)

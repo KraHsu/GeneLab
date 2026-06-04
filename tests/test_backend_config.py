@@ -1,4 +1,4 @@
-"""Typed backend-config dispatch (ADR-0016 step 2).
+"""Typed backend-config dispatch.
 
 Every config the backend registry dispatches on subclasses ``BackendConfig``, and
 ``select_backend`` resolves each to its backend. The config imports are RL-library

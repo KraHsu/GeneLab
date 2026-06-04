@@ -1,4 +1,4 @@
-"""Articulation binding — the binding seam of ``Articulation`` (ADR-0019).
+"""Articulation binding — the binding seam of ``Articulation``.
 
 ``ArticulationBinder`` runs the post-build introspection: joint / link enumeration,
 joint-pattern matching, joint-limit caching, and actuator assembly. :meth:`bind`

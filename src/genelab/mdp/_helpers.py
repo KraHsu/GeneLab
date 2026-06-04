@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 def resolve_articulation(env: "EnvContext", name: str) -> "Articulation":
     """Return the articulation named ``name``, else the primary ``env.articulation``.
 
-    Action / command terms route by ``cfg.asset_name`` (ROADMAP M3.6 / ADR-0012 S2): the
+    Action / command terms route by ``cfg.asset_name``: the
     named entity when ``env.articulations`` exists and holds ``name``, otherwise the singular
     primary — so single-robot terms and fake-env tests (which expose only ``env.articulation``)
     are unchanged.
@@ -53,7 +53,7 @@ def resolve_robot_state(env: "EnvContext", name: str) -> "RobotState":
 
 
 def asset_state(env: "EnvContext", asset_cfg: "SceneEntityCfg | None") -> "RobotState":
-    """``RobotState`` for ``asset_cfg``'s entity (M3.6 / ADR-0012 S3); ``None`` → primary.
+    """``RobotState`` for ``asset_cfg``'s entity; ``None`` → primary.
 
     Term functions accept an optional ``asset_cfg`` and read state through this so a
     multi-robot task can point any reward / observation / termination at a specific

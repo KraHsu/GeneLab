@@ -1,7 +1,7 @@
 """Play / train dispatch for registered GeneLab tasks.
 
-Factored out of ``cli/__init__.py`` (ADR-0004 / ROADMAP §9 PR R4.3 — final
-sub-PR of the CLI dispatcher decomposition). The ``play`` / ``train`` Typer
+Factored out of ``cli/__init__.py`` (the final sub-PR of the CLI dispatcher
+decomposition). The ``play`` / ``train`` Typer
 command callbacks in ``cli/__init__.py`` are the only callers; this module
 imports the distributed helpers from ``cli/_distributed.py`` and the agent-kind
 picker from ``cli/_interactive.py``, and references nothing in ``genelab.cli``
@@ -9,7 +9,7 @@ itself at runtime, so no import cycle is introduced.
 
 The profiler-kwarg coercion (``_coerce_prof_kwargs`` + its ``_parse_*`` helpers)
 and the ``_AGENT_KINDS`` set live here rather than in ``cli/__init__.py`` (where
-ADR-0004 originally placed them) because the two dispatch functions are their
+they were originally placed) because the two dispatch functions are their
 only users; co-locating keeps this module a self-contained leaf and avoids a
 runtime ``cli -> _dispatch -> cli`` cycle.
 """

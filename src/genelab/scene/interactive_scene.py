@@ -316,7 +316,7 @@ class InteractiveScene:
             dt=float(self._sim_cfg.dt),
             substeps=int(self._sim_cfg.substeps),
         )
-        # Optional rigid-solver tuning (ROADMAP M3.7). The cfg keeps ``integrator`` as a
+        # Optional rigid-solver tuning. The cfg keeps ``integrator`` as a
         # string (so ``configs`` stays Genesis-free); resolve it to ``gs.integrator.<name>``
         # here. ``rigid_options`` is only passed when the user set at least one field, so an
         # untouched config leaves Genesis's defaults exactly as before.
@@ -636,6 +636,6 @@ if TYPE_CHECKING:
 
     from genelab.contracts import SceneContext
 
-    # ADR-0014: InteractiveScene is the adapter for the SceneContext port. Type-only
+    # InteractiveScene is the adapter for the SceneContext port. Type-only
     # assignment; pyright fails CI if the scene stops conforming.
     _scene_context_conformance: SceneContext = cast("InteractiveScene", ...)

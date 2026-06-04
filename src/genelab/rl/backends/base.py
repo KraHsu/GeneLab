@@ -73,7 +73,7 @@ class TrainContext:
     log_root: Path | None = None
     resume_from: Path | None = None
     profile: ProfileArgs = field(default_factory=ProfileArgs)
-    # Periodic in-training eval (M1.2). Driven by runner.train_task, not by the backend.
+    # Periodic in-training eval. Driven by runner.train_task, not by the backend.
     eval_callback: Any = None  # genelab.rl.eval_callback.EvalCallbackCfg | None
 
 

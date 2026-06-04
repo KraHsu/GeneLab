@@ -6,7 +6,7 @@ env config, build the ``ManagerBasedRlEnv`` (and bridges, for play), then hand a
 that owns the task's agent config (see :mod:`genelab.rl.backends`). The RSL-RL and
 skrl library-specific code lives in ``genelab.rl.backends.rsl_rl`` / ``.skrl``.
 
-Per ADR-0001, the helpers shared by every backend (bridge lifecycle, rollout
+The helpers shared by every backend (bridge lifecycle, rollout
 loop, log-dir resolution, run-param dumps, zero/random policies) live in
 :mod:`genelab.rl._helpers`; we re-export them here so external callers using
 ``from genelab.rl.runner import build_env, resolve_env_cfg, …`` continue to
