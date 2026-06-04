@@ -1,9 +1,11 @@
 # Unitree G1 examples
 
-GeneLab extension that ships two PPO tasks for the Unitree G1 humanoid on flat ground:
+GeneLab extension that ships three PPO tasks for the Unitree G1 humanoid:
 
-- **`Genelab-Velocity-Flat-Unitree-G1-v0`** — velocity-tracking baseline (follow a commanded
-  body-frame twist).
+- **`Genelab-Velocity-Flat-Unitree-G1-v0`** — velocity-tracking baseline on flat ground
+  (follow a commanded body-frame twist).
+- **`Genelab-Velocity-Rough-Unitree-G1-v0`** — the same velocity task on a RandomRough
+  heightfield, with a torso height-scan observation and a terrain-difficulty curriculum.
 - **`Genelab-Tracking-Flat-Unitree-G1-v0`** — motion imitation (BeyondMimic-style; tracks a
   recorded clip per-body).
 
@@ -17,10 +19,12 @@ examples/unitree/
 ├── pyproject.toml
 ├── README.md
 └── src/genelab_unitree/
-    ├── tasks.py                     # registers both tasks into genelab's registry
+    ├── tasks.py                     # registers all tasks into genelab's registry
     └── g1/
-        ├── env_cfg.py               # velocity-tracking env cfg
+        ├── env_cfg.py               # velocity-tracking env cfg (flat; shared base helper)
         ├── ppo_cfg.py               # velocity-tracking PPO cfg
+        ├── rough_env_cfg.py         # velocity-tracking env cfg (rough terrain)
+        ├── rough_ppo_cfg.py         # velocity-tracking PPO cfg (rough terrain)
         ├── tracking_env_cfg.py      # motion-imitation env cfg
         └── tracking_ppo_cfg.py      # motion-imitation PPO cfg
 ```
@@ -38,6 +42,7 @@ uv pip install -e examples/unitree
 
 uv run genelab list tasks
 # -> Genelab-Velocity-Flat-Unitree-G1-v0
+# -> Genelab-Velocity-Rough-Unitree-G1-v0
 # -> Genelab-Tracking-Flat-Unitree-G1-v0
 ```
 

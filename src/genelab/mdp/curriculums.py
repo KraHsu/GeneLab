@@ -15,6 +15,7 @@ def terrain_levels_vel(
     env: "EnvContext",
     env_ids: torch.Tensor | slice | None,
     distance_threshold: float,
+    command_name: str = "twist",
     demote_ratio: float = 0.5,
     spawn_clearance: float = 0.1,
     asset_cfg: "SceneEntityCfg | None" = None,
@@ -23,10 +24,12 @@ def terrain_levels_vel(
 
     Computes the horizontal (XY) distance between the env's current root position and
     its last recorded spawn position. Envs that walked more than ``distance_threshold``
-    move up one level (capped at ``cfg.num_rows - 1``); envs that walked less than
-    ``distance_threshold * demote_ratio`` move down (floored at 0). Levels then drive a
-    fresh spawn origin lookup on the importer, and the curriculum writes the new root
-    pose into the sim so the next episode starts on the new sub-terrain.
+    move up one level (capped at ``cfg.num_rows - 1``); envs that covered less than
+    ``demote_ratio`` of the distance they were *commanded* to walk (command speed ×
+    episode length) move down (floored at 0), so the curriculum self-balances at each
+    policy's capability. Levels then drive a fresh spawn origin lookup on the importer,
+    and the curriculum writes the new root pose into the sim so the next episode starts
+    on the new sub-terrain.
 
     The new origins carry only the planar cell center (``z`` = terrain root height), so
     the base is reseated at the sampled surface height plus the asset's standing height
@@ -55,7 +58,15 @@ def terrain_levels_vel(
     walked = torch.linalg.vector_norm(current_pos[:, :2] - spawn_pos[:, :2], dim=-1)
 
     move_up = walked > distance_threshold
-    move_down = walked < distance_threshold * demote_ratio
+    # Isaac-Lab-aligned capability-relative demote: an env that covered less than half the
+    # distance it was *commanded* to walk (i.e. failed to track on harder terrain) drops a
+    # level, so the curriculum self-balances at each policy's capability instead of pushing
+    # every env to the top.
+    commanded = env.command_manager.get_command(command_name)[env_ids, :2]
+    commanded_dist = torch.linalg.vector_norm(commanded, dim=-1) * float(
+        getattr(env, "max_episode_length_s", 1.0) or 1.0
+    )
+    move_down = (walked < commanded_dist * demote_ratio) & ~move_up
     delta = move_up.long() - move_down.long()
     levels = terrain.terrain_levels
     new_levels = (levels[env_ids] + delta).clamp(0, terrain.cfg.num_rows - 1)

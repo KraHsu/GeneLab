@@ -7,6 +7,7 @@ functions to read what they need. No Genesis runtime required.
 
 import math
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
 import torch
@@ -107,6 +108,9 @@ class _FakeRewardEnv:
     command: torch.Tensor
     device: str = "cpu"
     sensors: dict[str, Any] = field(default_factory=dict)
+    # ``feet_swing_height`` reads ``env.scene.terrain`` to measure swing relative to
+    # the surface; ``None`` keeps these flat-ground tests on absolute world z.
+    scene: Any = field(default_factory=lambda: SimpleNamespace(terrain=None))
     robot: _FakeRewardRobot | None = None
     # Per-actuated-joint (lower, upper) limits exposed by the real env via
     # ``Articulation.joint_pos_limits``. Populated lazily so tests that don't
