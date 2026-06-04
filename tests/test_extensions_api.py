@@ -1,4 +1,4 @@
-"""Public extension API surface (ADR-0008 / ROADMAP §9 R7 PR7.1).
+"""Public extension API surface.
 
 ``genelab.extensions`` is the single import path third parties use to register the
 four extension kinds (robot / env / task / RL backend) and to reference the

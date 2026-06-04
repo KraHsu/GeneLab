@@ -807,7 +807,7 @@ def test_self_collision_cost_rejects_wrong_sensor_type() -> None:
         raise AssertionError("expected TypeError for non-SelfContactSensor wiring")
 
 
-# --------------------------------------------------------------------- base hard-constraints (M2.4)
+# --------------------------------------------------------------------- base hard-constraints
 
 
 def test_lin_vel_z_l2_penalizes_vertical_velocity_only() -> None:

@@ -59,7 +59,7 @@ class SimulationCfg:
     # extra (``uv sync --extra imgui``); ignored entirely when ``vis=False``.
     panels: list[Callable[[Any], None]] = field(default_factory=list)
 
-    # --- Genesis rigid-solver options (ROADMAP M3.7) ---------------------------------------
+    # --- Genesis rigid-solver options ---------------------------------------
     # All optional; ``None`` = "use the Genesis default". Mapped to ``gs.options.RigidOptions``
     # by :class:`~genelab.scene.InteractiveScene`, which only passes ``rigid_options`` to
     # ``gs.Scene`` when at least one is set — so an unset config keeps the historic behaviour
@@ -107,7 +107,7 @@ class SimulationCfg:
         CLI retargets these keys onto ``play_env.simulation.<field>``. Owning the
         list here (rather than as a private constant in ``cli/__init__.py``) keeps
         the set of play-retargetable simulation overrides next to the fields
-        themselves (ADR-0005 / R3.2).
+        themselves.
         """
         return (
             "env.simulation.vis",

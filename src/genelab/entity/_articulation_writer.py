@@ -1,4 +1,4 @@
-"""Articulation write-back — the write seam of ``Articulation`` (ADR-0019).
+"""Articulation write-back — the write seam of ``Articulation``.
 
 Owns the methods that push state into the Genesis sim: joint / root write-back,
 reset to the home pose, and the per-substep actuator target routing. ``Articulation``

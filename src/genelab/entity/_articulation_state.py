@@ -1,4 +1,4 @@
-"""Per-step articulation state — the read seam of ``Articulation`` (ADR-0019).
+"""Per-step articulation state — the read seam of ``Articulation``.
 
 ``RobotState`` is the cached buffer MDP / sensor code reads through the env; it is
 re-exported from :mod:`genelab.entity.articulation` (and ``genelab.entity``) so the
@@ -60,7 +60,7 @@ class ArticulationState:
     """Owns the cached :class:`RobotState` and the per-step refresh that fills it.
 
     Behaviour-preserving extraction of ``Articulation.refresh`` and its state buffer
-    (ADR-0019 read seam). Created at ``Articulation.bind`` once the joints / links and
+    (the read seam). Created at ``Articulation.bind`` once the joints / links and
     actuated DoF index are known.
     """
 

@@ -250,7 +250,7 @@ def test_dc_motor_saturation_curve() -> None:
     assert tau is not None and pytest.approx(tau.item(), rel=1e-6) == 20.0
 
 
-# ---------------------------------------------------------------------- MlpResidual (M2.5)
+# ---------------------------------------------------------------------- MlpResidual
 
 
 def _save_residual_net(tmp_path: Any, weight: list[float], bias: float) -> str:
@@ -311,7 +311,7 @@ def test_mlp_residual_clamps_corrected_effort_to_budget(tmp_path: Any) -> None:
     assert tau is not None and pytest.approx(tau.item(), rel=1e-6) == 100.0
 
 
-# ---------------------------------------------------------------------- DR: gains + deadzone (M2.1)
+# ---------------------------------------------------------------------- DR: gains + deadzone
 
 
 @dataclass

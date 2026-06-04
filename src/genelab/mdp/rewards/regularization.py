@@ -1,4 +1,4 @@
-"""Regularization and base hard-constraint reward terms (M2.4).
+"""Regularization and base hard-constraint reward terms.
 
 Effort/rate penalties, base pose/orientation shaping, joint-limit excursions, and
 the speed-dependent posture reward — terms that keep the policy well-behaved
@@ -92,7 +92,7 @@ def joint_acc_l2(env: EnvContext) -> torch.Tensor:
     if not _joint_acc_l2_warned:
         warnings.warn(
             "joint_acc_l2 is a stub: returns 0. A real implementation needs prior-step "
-            "joint_vel history (tracked under ROADMAP M2 actuator/DR work).",
+            "joint_vel history (tracked under actuator/DR work).",
             UserWarning,
             stacklevel=2,
         )

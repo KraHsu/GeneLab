@@ -64,7 +64,7 @@ class SceneEntityCfg:
     name: str = "robot"
     """Scene-entity name selecting which articulation this term acts on.
 
-    Resolved against ``env.articulations[name]`` (ROADMAP M3.6 / ADR-0012). Defaults to the
+    Resolved against ``env.articulations[name]``. Defaults to the
     primary ``"robot"``; multi-robot terms set it to e.g. ``"robot_b"``. Falls back to the
     env's primary joint/link tables when ``env`` predates the multi-entity accessor."""
 
@@ -102,7 +102,7 @@ class SceneEntityCfg:
         """The object whose ``joint_names`` / ``link_names`` tables back this entity.
 
         ``env.articulations[self.name]`` when the multi-entity accessor exists and holds
-        ``name`` (ROADMAP M3.6); otherwise ``env`` itself — its singular ``joint_names`` /
+        ``name``; otherwise ``env`` itself — its singular ``joint_names`` /
         ``link_names`` are the primary entity's, preserving single-robot behaviour.
         """
         arts = getattr(env, "articulations", None)
