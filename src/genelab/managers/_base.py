@@ -37,7 +37,7 @@ def instantiate_class_term(term_cfg: ManagerTermBaseCfg, env: "EnvContext") -> N
 class BaseTermManager(Generic[TCfg]):
     """Common base for term-keyed managers (rewards, terminations).
 
-    Pulled out per ADR-0002 / R2.5. Each subclass used to repeat the same
+    Each subclass used to repeat the same
     ``__init__`` body — deepcopy cfg, instantiate parallel
     ``_term_names`` / ``_term_cfgs`` lists, and run
     :func:`instantiate_class_term` per term — before appending its

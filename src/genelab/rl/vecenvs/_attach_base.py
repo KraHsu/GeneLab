@@ -6,8 +6,7 @@ declares a vec-env adapter (``RslRlVecEnvWrapper`` / ``GenelabSkrlWrapper`` /
 upstream library's vec-env base class **only when that optional library is
 installed**. The three former helpers (``_attach_rsl_rl_base`` /
 ``_attach_skrl_base`` / ``_attach_sb3_base``) implemented the same recipe
-verbatim (jaccard 0.984–1.000); per ADR-0003 / R2.2 they are collapsed
-into the single :func:`attach_optional_base` below.
+verbatim; they are collapsed into the single :func:`attach_optional_base` below.
 
 The optional-library import is deferred through ``importlib`` so this module
 stays importable regardless of which RL backends are installed (preserves
@@ -24,7 +23,7 @@ The helper rebinds the wrapper class in the caller's module namespace via the
     )
 
 Lives under ``rl/vecenvs/`` next to its three callers (relocated here from the
-flat ``rl/_attach_base.py`` in R6 / ADR-0007).
+flat ``rl/_attach_base.py``).
 """
 
 from __future__ import annotations

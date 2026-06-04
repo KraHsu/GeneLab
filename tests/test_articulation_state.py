@@ -1,6 +1,6 @@
 """Behaviour-pinning tests for :class:`~genelab.entity.articulation.Articulation`.
 
-ADR-0019 PR-A: the prerequisite test net for the Phase 5 decomposition. These
+The prerequisite test net for the articulation decomposition. These
 tests run **without Genesis** by injecting a stateful fake robot handle that
 stores what the write-back methods push and returns it from the read getters,
 so a ``write_* -> refresh -> data`` cycle is a true round-trip. They pin:

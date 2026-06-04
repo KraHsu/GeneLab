@@ -1,6 +1,6 @@
-"""Regression guard for the ``rl.runner ↔ rl.backends`` cycle break (ADR-0001, R1).
+"""Regression guard for the ``rl.runner ↔ rl.backends`` cycle break.
 
-Before R1, ``rl/runner.py`` defined nine helpers (``build_bridges``,
+Before the refactor, ``rl/runner.py`` defined nine helpers (``build_bridges``,
 ``build_env``, ``close_bridges``, ``make_random_policy``, ``make_zero_policy``,
 ``resolve_env_cfg``, ``resolve_log_dir``, ``run_play_loop``, ``save_run_params``)
 that every backend imported back, forming the static cycle:
@@ -13,11 +13,11 @@ deferring concrete backend imports to first ``select_backend()`` call. Any
 contributor who moved a backend ``import`` to module top level (e.g. for
 type-checking convenience) would have broken the package at import time.
 
-After R1 the helpers live in ``rl/_helpers.py`` and the backends import from
+After the refactor the helpers live in ``rl/_helpers.py`` and the backends import from
 there. ``rl/runner.py`` re-exports the same names so external callers using
 ``from genelab.rl.runner import build_env, …`` keep working.
 
-ADR-0001 §Migration plan describes this test as "imports
+An earlier design described this test as "imports
 ``genelab.rl.backends.sb3`` in a subprocess and asserts ``genelab.rl.runner``
 is not in ``sys.modules`` afterwards." That spec turned out to be flawed:
 ``rl/__init__.py`` imports ``rl.runner`` for its public ``play_task`` /
@@ -27,11 +27,11 @@ during parent-package init *before* the backend module's own import runs. The
 modules.
 
 We instead test the *static* import graph via ``grimp`` (a transitive
-dependency of ``import-linter``, which R0.3 / ADR-0009 already pin). The
+dependency of ``import-linter``, which the project already pins). The
 invariant we want is "no top-level ``from genelab.rl.runner import …`` or
 ``import genelab.rl.runner`` statement in any ``rl/backends/*.py``" — exactly
 what ``grimp.find_modules_directly_imported_by`` reports. This complements
-the equivalent ``[tool.importlinter]`` contract from R0.3 with a runtime test
+the equivalent ``[tool.importlinter]`` contract with a runtime test
 that fails the suite, not just a non-blocking CI lint.
 """
 
@@ -58,8 +58,8 @@ def test_backend_does_not_directly_import_runner(backend: str, genelab_import_gr
     """``{backend}`` must not have a top-level dependency on ``genelab.rl.runner``."""
     direct = genelab_import_graph.find_modules_directly_imported_by(backend)
     assert "genelab.rl.runner" not in direct, (
-        f"{backend} directly imports genelab.rl.runner — the cycle the R1 "
+        f"{backend} directly imports genelab.rl.runner — the cycle the "
         f"refactor broke has been reintroduced.\n\nBackends must import "
-        f"helpers from genelab.rl._helpers (see ADR-0001 §Migration plan).\n"
+        f"helpers from genelab.rl._helpers.\n"
         f"Direct imports of {backend}: {sorted(direct)}"
     )

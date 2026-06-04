@@ -1,7 +1,7 @@
 """Shared helpers used by every RL backend.
 
 This module exists to break the import cycle between ``rl.runner`` and
-``rl.backends`` documented in ADR-0001. Each backend
+``rl.backends``. Each backend
 (``rl.backends.{rsl_rl, skrl, sb3}``) imports the helpers from here;
 ``rl.runner`` re-exports them so callers of the public path
 (``from genelab.rl.runner import build_env, resolve_env_cfg, …``)

@@ -3,7 +3,7 @@
 The cache directory lives at the repository root (``<repo>/.cache``). These constants
 live in ``utils`` (the bottom infrastructure band) so ``utils.download`` can resolve the
 asset cache without importing up into ``genelab.cache`` — ``genelab.cache`` re-exports
-them and owns the cache-population side effects (ADR-0009 / ROADMAP §9 R7.3d).
+them and owns the cache-population side effects.
 """
 
 from pathlib import Path

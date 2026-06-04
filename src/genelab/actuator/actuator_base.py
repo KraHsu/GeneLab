@@ -93,7 +93,7 @@ class ActuatorBase:
             if cfg.velocity_limit is not None
             else None
         )
-        # Per-env, per-joint DR state (ROADMAP M2.1). Gain scales multiply the
+        # Per-env, per-joint DR state. Gain scales multiply the
         # configured kp/kv; deadzone half-widths zero small efforts. Defaults
         # (ones / cfg.deadzone) make every term a no-op until a DR event writes them.
         self._kp_scale = torch.ones(num_envs, self._num_joints, device=device)
@@ -213,7 +213,7 @@ class ActuatorBase:
         Used by :class:`~genelab.actuator.ideal_pd.IdealPDActuator` (``kp = kv = zeros`` to
         disable the simulator-side PD so Python-side ``compute`` drives ``control_dofs_force``)
         and :class:`~genelab.actuator.implicit_pd.ImplicitPDActuator` (``kp = self._stiffness``,
-        ``kv = self._damping`` so Genesis's internal PD runs natively). Per ADR-0003 / R2.4.
+        ``kv = self._damping`` so Genesis's internal PD runs natively).
         """
         set_kp = getattr(gs_handle, "set_dofs_kp", None)
         set_kv = getattr(gs_handle, "set_dofs_kv", None)
@@ -228,7 +228,7 @@ class ActuatorBase:
             except TypeError:
                 set_kv(kv_values, dofs_idx_local=self._dof_ids)
 
-    # ------------------------------------------------------------------ domain randomization (M2.1)
+    # ------------------------------------------------------------------ domain randomization
 
     def set_gain_scale(
         self, env_ids: torch.Tensor, kp_scale: torch.Tensor, kv_scale: torch.Tensor

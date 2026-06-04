@@ -18,7 +18,7 @@ def resolve_link_indices(env: "EnvContext", asset_cfg: SceneEntityCfg) -> list[i
     that's the natural "act on every link" semantic (Isaac Lab matches this). The
     manager-level resolve pass runs before this is called, so a present
     ``link_names`` always has matching ``link_ids``. The "all links" count comes from
-    ``asset_cfg``'s entity (M3.6).
+    ``asset_cfg``'s entity.
     """
     if asset_cfg.link_ids is None:
         return list(range(len(asset_articulation(env, asset_cfg).link_names)))

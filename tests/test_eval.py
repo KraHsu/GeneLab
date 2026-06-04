@@ -129,7 +129,7 @@ def test_run_evaluation_respects_max_steps_cap() -> None:
 def test_eval_cli_payload_schema_matches_roadmap() -> None:
     """Smoke-check the JSON shape ``eval_task`` would emit, built directly from EvalResult.
 
-    This is the schema documented under ROADMAP §M1.1; downstream tools (best-model
+    This is the documented eval-result schema; downstream tools (best-model
     selection in :mod:`genelab.rl.eval_callback`, reference-runs docs) read these
     keys verbatim, so the shape is load-bearing.
     """

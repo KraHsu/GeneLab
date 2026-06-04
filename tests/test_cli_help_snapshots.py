@@ -1,4 +1,4 @@
-"""CLI ``--help`` snapshot baseline (ROADMAP §9 Phase R0.1).
+"""CLI ``--help`` snapshot baseline.
 
 Locks the user-facing ``--help`` output of every Typer command so later
 refactors — R3 (domain-owned parsing) and R4 (CLI decomposition) in

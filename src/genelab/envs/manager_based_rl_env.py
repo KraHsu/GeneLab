@@ -55,7 +55,7 @@ class ManagerBasedRlEnvCfg(ManagerBasedEnvCfg):
     scale_rewards_by_dt: bool = True
 
     robot: ArticulationCfg = field(default_factory=ArticulationCfg)
-    # Multi-robot (ROADMAP M3.6 / ADR-0012, slice S1): when non-empty, ``robots`` spawns
+    # Multi-robot: when non-empty, ``robots`` spawns
     # one articulation per entry (keyed by name) and ``robot`` is ignored. When empty, the
     # env falls back to ``{"robot": robot}`` — so single-robot tasks are unchanged. The
     # entity named ``"robot"`` (or the first key) is the *primary*, backing the singular
@@ -112,7 +112,7 @@ class ManagerBasedRlEnv:
         }
         self._primary_name = _primary_entity_name(entity_cfgs)
         # ``_articulation`` is the primary entity, backing the singular ``env.robot`` /
-        # ``env.robot_state`` accessors (removed in a later M3.6 slice once terms route by name).
+        # ``env.robot_state`` accessors (removed in a later slice once terms route by name).
         self._articulation: Articulation = self._articulations[self._primary_name]
 
         self._episode_length_buf = torch.zeros(
@@ -208,7 +208,7 @@ class ManagerBasedRlEnv:
 
     @property
     def articulations(self) -> dict[str, Articulation]:
-        """All spawned articulations keyed by name (ROADMAP M3.6 / ADR-0012 S1).
+        """All spawned articulations keyed by name.
 
         Multi-robot terms / sensors select an entity via ``env.articulations[name]``
         (``name`` from ``SceneEntityCfg.name`` / ``asset_name``). Single-robot tasks have
@@ -225,7 +225,7 @@ class ManagerBasedRlEnv:
         """Per-env world-frame offset ``[num_envs, 3]``; zeros when Genesis uses local frames."""
         return self._scene.env_origins
 
-    # M3.6 / ADR-0012 S6: the singular entity accessors (``robot`` / ``robot_state`` /
+    # The singular entity accessors (``robot`` / ``robot_state`` /
     # ``articulation``) and the name-table convenience properties (``joint_names`` /
     # ``link_names`` / ``default_joint_pos`` / ``actuators`` / ``joint_*_limits``) were
     # removed. Reach an entity by name: ``env.articulations[name]`` (its ``.gs_handle`` /
@@ -342,6 +342,6 @@ if TYPE_CHECKING:
 
     from genelab.contracts import EnvContext
 
-    # ADR-0014: ManagerBasedRlEnv is the adapter for the EnvContext port. This
+    # ManagerBasedRlEnv is the adapter for the EnvContext port. This
     # type-only assignment makes pyright fail CI if the env stops conforming.
     _env_context_conformance: EnvContext = cast("ManagerBasedRlEnv", ...)

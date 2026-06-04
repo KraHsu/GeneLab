@@ -1,7 +1,7 @@
 """Multi-seed train orchestration for ``genelab train --seeds 1,2,3``.
 
 Fans a single ``genelab train`` invocation out into one subprocess per seed,
-factored out of ``cli/__init__.py`` (ADR-0004 / ROADMAP §9 PR R4.2). The CLI
+factored out of ``cli/__init__.py``. The CLI
 dispatcher (``train_cmd``) is the only caller; this module imports the argv-strip
 helpers from ``cli/_distributed.py`` and nothing from ``genelab.cli`` itself at
 runtime, so no import cycle is introduced.

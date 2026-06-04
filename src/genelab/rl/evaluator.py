@@ -3,8 +3,7 @@
 ``run_evaluation`` drives a loaded :class:`~genelab.rl.backends.base.InferenceSetup`
 through a vectorized rollout until at least ``cfg.episodes`` complete episodes have
 been collected, then aggregates per-episode return, length, and (optional) success
-into a :class:`EvalResult`. ``rl/eval_task.py`` writes the result to ``eval.json``
-in the schema documented under ROADMAP M1.1.
+into a :class:`EvalResult`. ``rl/eval_task.py`` writes the result to ``eval.json``.
 
 The success-rate signal follows a gymnasium-style convention: a task opts in by
 publishing a per-env ``bool`` tensor at ``extras["is_success"]`` from its

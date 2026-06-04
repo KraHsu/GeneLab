@@ -33,7 +33,7 @@ def test_sub_terrain_cfgs_emit_genesis_strings() -> None:
     assert RandomRoughCfg().genesis_type() == "random_uniform_terrain"
     assert SlopeCfg().genesis_type() == "sloped_terrain"
     assert WaveCfg().genesis_type() == "wave_terrain"
-    # M3.2 additions (each maps to a real Genesis parse_terrain branch).
+    # Additional terrain types (each maps to a real Genesis parse_terrain branch).
     assert DiscreteObstaclesCfg().genesis_type() == "discrete_obstacles_terrain"
     assert SteppingStonesCfg().genesis_type() == "stepping_stones_terrain"
     assert FractalCfg().genesis_type() == "fractal_terrain"
