@@ -130,6 +130,7 @@ plugins:
             Asset zoo: 资产库
             Extensions: 扩展加载
             Scene and entities: 场景与实体
+            Materials: 材料
             Examples: 示例
             Inverted Pendulum: 倒立摆
             Unitree G1: Unitree G1
@@ -231,6 +232,7 @@ nav:
       - RL runner: concepts/rl-runner.md
       - Eval and export: concepts/eval-and-export.md
       - Scene and entities: concepts/scene.md
+      - Materials: concepts/materials.md
       - Actuators: concepts/actuators.md
       - Sensors: concepts/sensors.md
       - Recording and plotting: concepts/recording.md

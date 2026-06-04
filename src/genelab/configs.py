@@ -10,6 +10,11 @@ from typing import TYPE_CHECKING, Any, cast, get_args, get_origin, get_type_hint
 # torch in through entity / sensor / terrains. Resolution happens lazily inside
 # ``_field_annotation`` via ``get_type_hints``; that call is guarded against the
 # NameError that fires when the heavy modules have not been imported yet.
+# ``genelab.materials`` is a pure-dataclass module (no torch / genesis at import),
+# so importing the solver-options group here is cheap and does not undo the lazy-import
+# discipline the rest of this module follows for the heavy entity / sensor packages.
+from genelab.materials.options import SolverOptionsCfg
+
 if TYPE_CHECKING:
     from genelab.entity import ArticulationCfg, RigidObjectCfg
     from genelab.recording import RecordingCfg
@@ -141,6 +146,11 @@ class InteractiveSceneCfg:
     # each entry describes a data source and one or more output sinks (live plots, file
     # writers, video). See :mod:`genelab.recording` for the dataclass surface.
     recordings: "tuple[RecordingCfg, ...]" = field(default_factory=tuple)
+    # Per-solver options for non-rigid materials. The scene auto-enables a deformable /
+    # fluid solver with Genesis defaults whenever an entity carries a material of that
+    # family; set the matching field here (e.g. ``solvers.mpm``) to tune domain bounds or
+    # iteration counts instead. An untouched group leaves rigid-only scenes unchanged.
+    solvers: SolverOptionsCfg = field(default_factory=SolverOptionsCfg)
 
 
 @dataclass
