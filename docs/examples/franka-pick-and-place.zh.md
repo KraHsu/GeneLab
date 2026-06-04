@@ -18,20 +18,20 @@ Action 向量为 `(dx, dy, dz, gripper)`——七个手臂关节上的
 ## 安装扩展
 
 ```bash
-uv pip install -e examples/franka_pick_and_place
+uv pip install -e examples/franka
 genelab list tasks | grep Franka
 ```
 
 不安装时：
 
 ```bash
-PYTHONPATH=examples/franka_pick_and_place/src \
-  genelab --import genelab_franka_pick_and_place.tasks list tasks
+PYTHONPATH=examples/franka/src \
+  genelab --import genelab_franka.tasks list tasks
 ```
 
 第一次运行会下载 Franka MJCF 资产并构建 Genesis kernel cache。
 
-## Smoke 训练
+## smoke 训练
 
 ```bash
 genelab train GeneLab-Franka-Pick-And-Place-v0 \
@@ -53,7 +53,7 @@ HER 单独无法学会抬起方块——sparse goal reward 在空中目标区域
 
 ```bash
 # 1. 收集 demo（num-envs 32 大约一分钟）。
-python -m genelab_franka_pick_and_place.collect_demos \
+python -m genelab_franka.collect_demos \
   --num-envs 32 --steps 6400 --out /tmp/franka_pp_demos.npz
 
 # 2. 带 demo prefill 训练。

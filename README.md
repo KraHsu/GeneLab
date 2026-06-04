@@ -12,6 +12,7 @@ lightweight simulation backend — no USD/Kit, no vendor lock-in.
 ![Python](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Genesis](https://img.shields.io/badge/sim-Genesis-FF6F00)
 ![uv](https://img.shields.io/badge/deps-uv-DE5FE9)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 [**中文**](docs/README_CN.md) · [**Documentation**](https://krahsu.github.io/GeneLab/) · [**Examples**](examples/README.md)
 
@@ -164,6 +165,53 @@ Note: `QD_GRAPH=0` disables CUDA-graph batching and noticeably slows **contact-h
 prefer a non-Hopper GPU (Ada / Ampere) for heavy locomotion training.
 
 </details>
+
+<details>
+<summary><b>Viewer won't render on Wayland (<code>--vis</code>): <code>makeCurrent() failed</code> / <code>eglError: 3000</code></b></summary>
+
+<br>
+
+On a **Wayland** session the Genesis viewer's Qt `QOpenGLWidget` can fail to activate its EGL
+context against the compositor, so `--vis` opens a window that never draws and floods the terminal
+with:
+
+```
+QWaylandGLContext::makeCurrent: eglError: 3000
+QOpenGLWidget: Failed to make context current
+qt.qpa.backingstore: composeAndFlush: makeCurrent() failed
+```
+
+(`eglError: 3000` is actually `EGL_SUCCESS` — EGL reports no error code, the context activation just
+fails; this is the well-known Qt-OpenGL-on-Wayland context-sharing issue.) Force Qt onto **XWayland**
+(the X11 backend), which has stable GLX/EGL behavior:
+
+```bash
+export QT_QPA_PLATFORM=xcb                          # for the session
+QT_QPA_PLATFORM=xcb genelab play <task> --vis       # or for a single command
+```
+
+If it still fails, also disable Qt auto-scaling (`QT_AUTO_SCREEN_SCALE_FACTOR=0`), or on a
+hybrid-GPU laptop pin the discrete GPU
+(`__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia`). The unrelated `QFont::fromString`
+and `dubious mass` lines in the same output are harmless and can be ignored.
+
+</details>
+
+## 📚 Citation
+
+If you use GeneLab in your research, please cite it. GitHub renders a
+**Cite this repository** button from [`CITATION.cff`](CITATION.cff); or use the
+BibTeX below:
+
+```bibtex
+@software{zhang_genelab,
+  author  = {Zhang, Chenhao},
+  title   = {{GeneLab: An Isaac Lab--style API for RL \& robotics research on Genesis}},
+  url     = {https://github.com/KraHsu/GeneLab},
+  version = {0.3.0},
+  license = {Apache-2.0}
+}
+```
 
 ---
 

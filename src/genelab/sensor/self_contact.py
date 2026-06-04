@@ -6,18 +6,18 @@ Counterpart to the existing :class:`~genelab.sensor.contact.ContactSensor`,
 which only sees per-link *net* contact force from all sources (and so cannot
 distinguish foot-vs-ground from limb-vs-limb).
 
-Use case: the ``self_collision_cost`` reward (mjlab parity) needs a robust
+Use case: the ``self_collision_cost`` reward (reference parity) needs a robust
 "is the robot kicking / hitting itself" signal — typically with a short
 ``history_length`` window so transient sub-step impacts don't slip between
-policy steps. mjlab's reference G1 config uses ``history_length=4`` on a
+policy steps. The reference's reference G1 config uses ``history_length=4`` on a
 ``num_slots=1, reduce="none"`` setup; the reward counts how many substeps
 in the window saw at least one self-contact pair above threshold.
 
-The any-pair-above-threshold compression matches mjlab's
+The any-pair-above-threshold compression matches the reference's
 ``force_history.any(dim=pair_axis).sum(dim=-1)`` behavior — distinct from
 the pre-parity implementation which thresholded the *sum* of all pair
 forces. Genesis's contact-pair indices reshuffle every step, so tracking
-``(B, N_pairs, H, 3)`` like mjlab is not meaningful here; collapsing to
+``(B, N_pairs, H, 3)`` like the reference is not meaningful here; collapsing to
 the per-step bool before history saves nothing of value to the reward.
 """
 
@@ -77,7 +77,7 @@ class SelfContactSensor(Sensor[SelfContactData]):
         self._latest_force = torch.zeros(env.num_envs, device=env.device)
         self._latest_any_above = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
         if self._cfg_typed.history_length > 0:
-            # Bool history of "any pair above threshold this substep" — mjlab parity.
+            # Bool history of "any pair above threshold this substep" — reference parity.
             self._force_history = torch.zeros(
                 env.num_envs,
                 self._cfg_typed.history_length,

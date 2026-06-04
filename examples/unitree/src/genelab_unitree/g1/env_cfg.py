@@ -1,8 +1,8 @@
 """Velocity-tracking env config for the Unitree G1 on flat ground.
 
-1:1 mirror of mjlab's ``unitree_g1_flat_env_cfg`` (``mjlab.tasks.velocity.config.g1``),
+1:1 mirror of the reference's ``unitree_g1_flat_env_cfg`` (``tasks.velocity.config.g1``),
 adapted to GeneLab's slim manager surface. Every reward / event / curriculum from
-the mjlab reference is wired through the GeneLab core abstractions landed in
+The reference is wired through the GeneLab core abstractions landed in
 phases P1–P5 of the parity work:
 
 * P1 — locomotion gait rewards (``feet_clearance`` / ``feet_swing_height`` /
@@ -19,8 +19,8 @@ phases P1–P5 of the parity work:
 * P5 — diagnostic ``MetricsManager`` (``mean_action_acc``), ``SceneEntityCfg``
   used uniformly for every link/joint selector.
 
-Knob values match mjlab exactly except for the simulation timestep — GeneLab
-keeps ``dt=0.002, decimation=10`` (Genesis solver) instead of mjlab's
+Knob values match the reference exactly except for the simulation timestep — GeneLab
+keeps ``dt=0.002, decimation=10`` (Genesis solver) instead of the reference's
 ``dt=0.005, decimation=4`` (MuJoCo). Control frequency stays at 50 Hz so the
 policy sees the same control cadence.
 """
@@ -62,20 +62,20 @@ if TYPE_CHECKING:
 _IMU_OFFSET = (0.04525, 0.0, -0.08339)
 
 # Foot-site offset from each ankle_roll_link origin; matches g1.xml's
-# <site name="left_foot"/"right_foot" pos="0.04 0 -0.037">. mjlab evaluates
+# <site name="left_foot"/"right_foot" pos="0.04 0 -0.037">. The reference evaluates
 # feet_clearance / feet_swing_height / feet_slip and foot_height_scan at the
 # site, not at the link origin — sitting ~0.037 m lower matters next to the
 # 0.1 m target swing height.
 _G1_FOOT_SITE_OFFSET: tuple[float, float, float] = (0.04, 0.0, -0.037)
 
-# Link names — Genesis-side equivalents of the body names mjlab uses.
+# Link names — Genesis-side equivalents of the body names the reference uses.
 _TORSO_LINK = "torso_link"
 _PELVIS_LINK = "pelvis"
 _G1_FOOT_LINKS: tuple[str, ...] = ("left_ankle_roll_link", "right_ankle_roll_link")
 
 # Per-joint posture standard deviations used by the ``pose`` reward. Smaller std =
 # tighter tolerance. Lower body looser at running speed; arms/wrists looser to allow
-# natural swing. Mirrors mjlab's G1 std table verbatim.
+# natural swing. Mirrors the reference's G1 std table verbatim.
 _G1_POSE_STD_WALKING: dict[str, float] = {
     # Lower body.
     r".*hip_pitch.*": 0.3,
@@ -115,11 +115,11 @@ _G1_POSE_STD_RUNNING: dict[str, float] = {
 
 
 def _feet_cfg() -> SceneEntityCfg:
-    """Reusable selector pointing at the two foot links + the mjlab foot site.
+    """Reusable selector pointing at the two foot links + the reference foot site.
 
     The ``link_offsets`` make feet_clearance / feet_swing_height / feet_slip
     evaluate at the ``left_foot``/``right_foot`` *site* (G1 XML `g1.xml:100,149`),
-    matching mjlab's reward signal.
+    matching the reference's reward signal.
     """
     return SceneEntityCfg(
         name="robot",
@@ -131,10 +131,10 @@ def _feet_cfg() -> SceneEntityCfg:
 def _obs_terms() -> dict[str, ObservationTermCfg]:
     """Actor / critic-shared observation terms.
 
-    Noise levels match mjlab's reference 1:1. The ``joint_vel`` term has no extra
-    ``scale`` factor (mjlab parity) — the policy reads raw rad/s + noise.
+    Noise levels match the reference 1:1. The ``joint_vel`` term has no extra
+    ``scale`` factor (reference parity) — the policy reads raw rad/s + noise.
     """
-    # Order matches ``mjlab.tasks.velocity.velocity_env_cfg.make_velocity_env_cfg``'s
+    # Order matches ``tasks.velocity.velocity_env_cfg.make_velocity_env_cfg``'s
     # actor_terms dict — important for the policy net's input concat layout when
     # comparing training curves across the two backends.
     return {
@@ -185,7 +185,7 @@ def _critic_obs_group() -> ObservationGroupCfg:
 def _command_vel_stages() -> list[dict]:
     """Three-stage command-range expansion driven by ``env.common_step_counter``.
 
-    Matches mjlab's G1 cfg verbatim: starts at modest range, widens after 5k
+    Matches the reference's G1 cfg verbatim: starts at modest range, widens after 5k
     iterations × 24 steps and again at 10k × 24. The schedule scaffolds the
     policy from "track easy commands" up to "track aggressive ones" without
     blowing the early-training rewards.
@@ -249,7 +249,7 @@ def _velocity_env_cfg_base(
                     offset=_IMU_OFFSET,
                     measure="ang_vel",
                 ),
-                # mjlab parity: per-foot contact for slip / clearance / first-contact rewards.
+                # reference parity: per-foot contact for slip / clearance / first-contact rewards.
                 # ``history_length`` is left at 0 because the velocity task doesn't sample the
                 # contact-force history window — ``self_collision`` (below) owns that signal.
                 ContactSensorCfg(
@@ -257,7 +257,7 @@ def _velocity_env_cfg_base(
                     link_names=_G1_FOOT_LINKS,
                     track_air_time=True,
                 ),
-                # ``foot_height_scan`` (mjlab parity): single down-pointing ray per foot,
+                # ``foot_height_scan`` (reference parity): single down-pointing ray per foot,
                 # ``reduction="min"`` so a multi-ray pattern stays a no-op on flat ground.
                 # On a heightfield, the inner ``RayCastSensor`` walks the terrain mesh.
                 # ``link_offsets`` anchors the ray at the ``left_foot``/``right_foot`` site
@@ -271,10 +271,10 @@ def _velocity_env_cfg_base(
                     reduction="min",
                     link_offsets=(_G1_FOOT_SITE_OFFSET,) * len(_G1_FOOT_LINKS),
                 ),
-                # mjlab's ``self_collision`` ContactSensor used a subtree-vs-subtree filter on
+                # the reference's ``self_collision`` ContactSensor used a subtree-vs-subtree filter on
                 # the pelvis subtree; in GeneLab the SelfContactSensor reads Genesis's pair
                 # list and reports a per-env scalar (sum of |F| across self-contact pairs).
-                # ``history_length=4`` matches mjlab so the cost counts hits in a 4-step window.
+                # ``history_length=4`` matches the reference so the cost counts hits in a 4-step window.
                 SelfContactSensorCfg(
                     name="self_collision",
                     force_threshold=10.0,
@@ -292,7 +292,7 @@ def _velocity_env_cfg_base(
         robot=robot_entity_cfg,
         actions_cfg={
             # ``scale=None`` inherits the per-actuator-group ``0.25 * effort/stiffness`` set in
-            # ``asset_zoo/unitree_g1.py`` — same formula as mjlab's ``G1_ACTION_SCALE`` dict.
+            # ``asset_zoo/unitree_g1.py`` — same formula as the reference's ``G1_ACTION_SCALE`` dict.
             "joint_pos": JointPositionActionCfg(
                 asset_name="robot",
                 joint_names=(".*",),
@@ -307,7 +307,7 @@ def _velocity_env_cfg_base(
             "twist": UniformVelocityCommandCfg(
                 asset_name="robot",
                 resampling_time_range=(3.0, 8.0),
-                # mjlab G1 splits the 4096 envs into 4 groups: 10% standing, 30% heading-driven
+                # the reference G1 splits the 4096 envs into 4 groups: 10% standing, 30% heading-driven
                 # ωz, 20% strict forward (vx≥0.3, no ωz), 40% free random. The forward slice
                 # is the one that broke the pre-P2 training — heading_command=True alone made
                 # every non-standing env heading-driven, and the policy never saw a "track vx
@@ -340,7 +340,7 @@ def _velocity_env_cfg_base(
             "upright": RewardTermCfg(
                 func=mdp.upright_exp,
                 weight=1.0,
-                # mjlab targets ``torso_link`` (not pelvis) so the reward penalises
+                # the reference targets ``torso_link`` (not pelvis) so the reward penalises
                 # torso tilt — the part of the body humans "read" as posture — rather
                 # than the floating base. When the waist joints flex, the two diverge.
                 params={
@@ -374,7 +374,7 @@ def _velocity_env_cfg_base(
             ),
             "dof_pos_limits": RewardTermCfg(func=mdp.joint_pos_limits, weight=-1.0),
             "action_rate_l2": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.1),
-            # Diverges from mjlab parity: 2026-05-17 training showed gait collapse
+            # Diverges from reference parity: 2026-05-17 training showed gait collapse
             # (peak swing ≈2.4cm, air_time ≈55ms), so we turn ``air_time`` on for
             # positive stepping signal and quadruple ``foot_swing_height`` so the
             # peak-vs-target landing penalty actually drives the policy. See the
@@ -463,7 +463,7 @@ def _velocity_env_cfg_base(
                     "velocity_range": {},
                 },
             ),
-            # mjlab uses ``reset_joints_by_offset`` with (0, 0) ranges — effectively default
+            # the reference uses ``reset_joints_by_offset`` with (0, 0) ranges — effectively default
             # pose, but the function is the same call site as the offset variant.
             "reset_robot_joints": EventTermCfg(
                 mode="reset",
@@ -482,11 +482,11 @@ def _velocity_env_cfg_base(
             **(extra_curriculum or {}),
         },
         metrics_cfg={
-            # Logged to ``Episode_Metrics/<name>``; values mirror mjlab's
+            # Logged to ``Episode_Metrics/<name>``; values mirror the reference's
             # ``Metrics/<name>_mean`` cross-(env, foot) writes from inside the
-            # reward bodies (see ``mjlab/.../velocity/mdp/rewards.py:205, 229,
+            # reward bodies (see ``.../velocity/mdp/rewards.py:205, 229,
             # 317, 352, 373``). GeneLab's MetricsManager averages over the
-            # episode and reports at reset; mjlab averages over the rollout via
+            # episode and reports at reset; the reference averages over the rollout via
             # rsl-rl. Per-step scalars match; the time horizons differ.
             "mean_action_acc": MetricsTermCfg(func=mdp.mean_action_acc),
             "angular_momentum_mean": MetricsTermCfg(
@@ -547,7 +547,7 @@ def _velocity_env_cfg_base(
                 "shared_random": True,
             },
         )
-        # Pelvis COM offset: mjlab uses torso_link in its config but the comment in
+        # Pelvis COM offset: the reference uses torso_link in its config but the comment in
         # tasks/velocity/config/g1/env_cfgs.py points at the same body.
         cfg.events_cfg["base_com"] = EventTermCfg(
             mode="startup",
@@ -575,15 +575,18 @@ def _velocity_env_cfg_base(
         )
 
     if play:
-        # Auto-attach the DearPyGui teleop bridge. It self-disables when num_envs
-        # != 1 (per-axis sliders make no sense across parallel envs), so the
-        # default play (num_envs=50) keeps the existing random-command rollout.
-        # ImportError swallowed so users without the 'teleop' extra still get a
-        # working play path.
+        # Auto-attach the in-viewport ImGui teleop bridge. It self-disables when num_envs
+        # != 1 (per-axis sliders make no sense across parallel envs), so the default play
+        # (num_envs=50) keeps the existing random-command rollout. The whole block is
+        # guarded on ``imgui_bundle`` (the overlay's dependency, the 'imgui' extra) so a
+        # user without it still gets a working play path — just no sliders.
         try:
-            from genelab.bridges.dearpygui import DearPyGuiTwistBridgeCfg
+            import imgui_bundle  # noqa: F401  # the ImGui overlay needs it at draw time
 
-            cfg.bridges_cfg["teleop"] = DearPyGuiTwistBridgeCfg(
+            from genelab.bridges.imgui import ImGuiTwistBridgeCfg
+
+            cfg.simulation.viewer_imgui = True  # enable the overlay that hosts the sliders
+            cfg.bridges_cfg["teleop"] = ImGuiTwistBridgeCfg(
                 command_name="twist",
                 vx_range=(-2.0, 2.0),
                 vy_range=(-1.0, 1.0),

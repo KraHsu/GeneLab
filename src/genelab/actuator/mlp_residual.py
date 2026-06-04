@@ -1,13 +1,13 @@
-"""Learned-residual actuator — DCMotor analytic base + an MLP correction (ROADMAP M2.5).
+"""Learned-residual actuator — DCMotor analytic base + an MLP correction.
 
 Models the gap between an idealized torque-speed motor curve and a real actuator by adding
 a learned residual to the :class:`~genelab.actuator.dc_motor.DCMotorActuator` effort:
 
     effort = clamp(dcmotor_base(q, q̇, q*) + scale · net([q* − q, q̇]), ±effort_budget)
 
-The residual network is a TorchScript module loaded from ``network_file`` (per the M2.5
-design: GeneLab only *loads and runs* the net — training the weights lives in ``examples/``
-or a downstream project). Its contract is single-step and per-joint:
+The residual network is a TorchScript module loaded from ``network_file`` (GeneLab
+only *loads and runs* the net — training the weights lives in ``examples/`` or a
+downstream project). Its contract is single-step and per-joint:
 
 * **input** ``(…, 2)`` — last dim is ``[target_pos − joint_pos, joint_vel]`` per joint,
 * **output** ``(…, 1)`` — the residual torque per joint.

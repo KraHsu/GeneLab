@@ -7,8 +7,9 @@ task provides an agent config. The post-training runtime subcommands —
 ## Play
 
 ```bash
-genelab play TASK_ID --steps 128
-genelab play TASK_ID --vis --steps 500
+genelab play TASK_ID --steps 128            # headless: 128-step smoke rollout
+genelab play TASK_ID --vis                   # viewer: run until you close the window
+genelab play TASK_ID --vis --max-steps 500   # viewer: stop after 500 steps
 genelab play TASK_ID --agent random --steps 128
 ```
 
@@ -45,6 +46,26 @@ genelab play TASK_ID \
       --checkpoint <ckpt> --headless
     ```
 
+    Headless playback is bounded: with no window to close, it stops after
+    `simulation.steps` steps (set with `--steps`, default 240) instead of running
+    forever. Pass `--max-steps N` to override.
+
+### Playback length: `--steps` vs `--max-steps` {#playback-length}
+
+The two knobs are deliberately different and behave identically across RL playback and the
+non-RL scene-playback / showcase runners:
+
+| | `--steps N` | `--max-steps N` |
+|---|---|---|
+| What it is | Soft config (`env.simulation.steps`) | Hard, genelab-enforced cap |
+| Lives on | The env config (editable in code) | The runner (not stored on the cfg) |
+| With a viewer (`--vis`) | **Ignored** — runs until you close the window | Stops after `N` steps even with the window open |
+| Headless | Caps the rollout at `N` | Caps the rollout at `N` (wins over `--steps`) |
+| Default | 240 | unset (soft config decides) |
+
+In short: `--steps` is an advisory length you (or your code) can change or have ignored; `--max-steps`
+is a hard ceiling genelab always enforces. To bound a windowed run, reach for `--max-steps`.
+
 ## Shortcut flags
 
 Both `play` and `train` rewrite the following shortcuts into `env.simulation.*` overrides:
@@ -54,9 +75,12 @@ Both `play` and `train` rewrite the following shortcuts into `env.simulation.*` 
 | `-v`, `--vis` | `env.simulation.vis=true` |
 | `--headless` | `env.simulation.vis=false` (mutually exclusive with `--vis`) |
 | `--gpu` | `env.simulation.gpu=true` |
-| `--steps N` | play: `env.simulation.steps=N`; train: alias for `--max_iterations N` |
+| `--steps N` | play: soft length `env.simulation.steps=N` (ignored with `--vis`; see [above](#playback-length)); train: alias for `--max_iterations N` |
 | `--dt SECONDS` | `env.simulation.dt=SECONDS` |
 | `--a.b.c VALUE` | Any dotted cfg path |
+
+`--max-steps N` is **not** an env override — it is a runner flag (the hard playback cap, play only),
+so it is not in this table. See [Playback length](#playback-length).
 
 ## Train
 

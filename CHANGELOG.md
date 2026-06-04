@@ -11,6 +11,16 @@ All notable changes to GeneLab are recorded here.
   Isaac Lab's `ROUGH_TERRAINS_CFG`) driven by `terrain_levels_vel` with capability-relative
   demotion, a `height_scan` actor observation, and a 6k-iter PPO budget. Reference: 4-seed
   sweep, deterministic eval `return_mean` 84–87 on rough terrain (`docs/best-practices/reference-runs`).
+- **In-viewport ImGui panels:** `SimulationCfg.panels` takes a list of
+  `callback(imgui)` functions that GeneLab forwards to Genesis's ImGui overlay
+  after build (a non-empty list auto-enables the overlay). Adding a viewer GUI
+  element is now one function — no `Bridge` subclass required. New public helpers
+  `register_viewer_panels` / `find_imgui_panel_host` exported from `genelab.scene`;
+  new `imgui` extra (`imgui-bundle`). See the `GeneLab-GUI-Panels-Demo-v0` cookbook
+  in `examples/genelab_examples`.
+- **ImGui twist bridge seeding:** `ImGuiTwistBridgeCfg` gained `default_vx/vy/wz`,
+  seeded into the slider state and command buffer at attach (parity with the
+  removed DearPyGui bridge).
 
 ### Fixed
 
@@ -42,6 +52,58 @@ All notable changes to GeneLab are recorded here.
   `height_field`, so per-cell difficulty is honoured. Affects every same-type
   multi-difficulty layout, including `Genelab-Velocity-Rough-Unitree-G1-v0` and the
   curriculum showcase.
+- **ImGui overlay close crash:** closing a viewer built with `viewer_imgui` /
+  `panels` no longer exits with `GenesisException: Unexpected viewer error.` —
+  `InteractiveScene` now wraps Genesis's `ImGuiOverlayPlugin.on_close` (a
+  Genesis/`imgui_bundle` teardown bug that asserts `No current context` on window
+  close), mirroring the existing pyrender save-filename patch.
+
+### Removed
+
+- **DearPyGui twist bridge and `teleop` extra:** `genelab.bridges.dearpygui` and
+  the `teleop` (DearPyGui) extra are removed — the in-viewport `ImGuiTwistBridge`
+  covers the same `(vx, vy, ωz)` teleop with no separate window, thread, or third
+  GUI toolkit. Migrate `--extra teleop` → `--extra imgui` and
+  `DearPyGuiTwistBridgeCfg` → `ImGuiTwistBridgeCfg` (plus `simulation.viewer_imgui=True`).
+
+### Examples
+
+- **ImGui migration:** the Unitree G1 play teleop and the `actuators` showcase
+  sliders now render in the viewport ImGui overlay instead of a separate DearPyGui /
+  PyQt window (the actuator tracking curves stay in their pyqtgraph window).
+
+## [0.3.1] — 2026-05-31
+
+Patch release. Adds a Genesis-backed mesh ray-caster to the sensor zoo and a
+live-image recording sink, and converts every bundled `genelab_showcase`
+example to real-time on-screen display instead of writing files to disk.
+
+### Added
+
+- **Mesh ray-cast sensor:** added `MeshRayCastSensor` (with `MeshRayCastSensorCfg`
+  and `MeshRayCastData`) over Genesis's native BVH `Raycaster`, plus the
+  `MeshGridPattern` / `MeshSphericalPattern` ray patterns — exported from
+  `genelab.sensor` and `genelab.lab`. It complements the existing analytic
+  `RayCastSensor` (terrain height-field scan) by ray-casting real mesh geometry.
+  `RigidObjectCfg.use_visual_raycasting` opts an object's visual mesh into the BVH.
+- **Live-image recording sink:** added `MPLImagePlotCfg` to `genelab.recording`,
+  a Matplotlib image output for camera-style `(H, W, C)` recording sources.
+
+### Fixed
+
+- **Recorder warning noise:** the recording bridge now filters Genesis's repeated
+  `start_thread(): Processor thread already exists` warning around `save_on_reset`
+  flushes (Genesis restarts the still-running recorder thread each episode; the
+  restart is a harmless no-op). Benefits any env with threaded `save_on_reset`
+  recorders, not only the showcases.
+
+### Examples
+
+- **Real-time showcases:** converted all eight bundled `genelab_showcase` examples
+  (sensors, ray-cast, contact, terrain, curriculum, actuator, MLP-residual actuator,
+  recording) from silent disk-dumping to live Qt / pyqtgraph display. Added a shared
+  `LazyQtWindows` helper and a virtual-spring base class for the showcase runners;
+  file dumps, where still available, are opt-in and documented.
 
 ## [0.3.0] — 2026-05-29
 

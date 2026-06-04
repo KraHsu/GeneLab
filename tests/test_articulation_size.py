@@ -1,6 +1,6 @@
 """Size guard for the ``entity`` articulation modules.
 
-After ADR-0019 the articulation implementation is split across an ``Articulation``
+The articulation implementation is split across an ``Articulation``
 facade and three private collaborators behind it — the read seam
 (``_articulation_state``), write seam (``_articulation_writer``), and binding seam
 (``_articulation_binder``). This guard keeps any one of them from quietly growing

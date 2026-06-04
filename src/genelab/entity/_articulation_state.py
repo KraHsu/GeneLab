@@ -1,4 +1,4 @@
-"""Per-step articulation state — the read seam of ``Articulation`` (ADR-0019).
+"""Per-step articulation state — the read seam of ``Articulation``.
 
 ``RobotState`` is the cached buffer MDP / sensor code reads through the env; it is
 re-exported from :mod:`genelab.entity.articulation` (and ``genelab.entity``) so the
@@ -48,7 +48,7 @@ class RobotState:
         # ``JointPositionAction.process_actions`` subtracts it from the PD target
         # so the real joint sits ``bias`` away from the policy's nominal command;
         # ``mdp.joint_pos_rel`` returns the raw ``joint_pos − default`` and surfaces
-        # that offset to the policy — mjlab parity for joint-encoder-bias sim2real DR.
+        # that offset to the policy — Isaac Lab parity for joint-encoder-bias sim2real DR.
         self.encoder_bias = z(num_envs, num_dofs)
         # Per-env, per-actuated-DoF realized actuator torque (Genesis control force),
         # refreshed each step via ``get_dofs_control_force``. Used by
@@ -60,7 +60,7 @@ class ArticulationState:
     """Owns the cached :class:`RobotState` and the per-step refresh that fills it.
 
     Behaviour-preserving extraction of ``Articulation.refresh`` and its state buffer
-    (ADR-0019 read seam). Created at ``Articulation.bind`` once the joints / links and
+    (the read seam). Created at ``Articulation.bind`` once the joints / links and
     actuated DoF index are known.
     """
 

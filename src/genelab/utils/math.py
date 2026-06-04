@@ -1,6 +1,6 @@
 """Quaternion + transform helpers (wxyz convention).
 
-Ported from ``mjlab.utils.lab_api.math``; trimmed to the surface used by GeneLab's MDP.
+Ported from ``utils.lab_api.math``; trimmed to the surface used by GeneLab's MDP.
 All quaternions use the ``(w, x, y, z)`` convention.
 """
 

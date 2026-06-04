@@ -1,5 +1,6 @@
 """Core configuration objects and CLI override helpers."""
 
+from collections.abc import Callable
 from dataclasses import dataclass, field, is_dataclass
 from pathlib import Path
 from types import UnionType
@@ -9,6 +10,11 @@ from typing import TYPE_CHECKING, Any, cast, get_args, get_origin, get_type_hint
 # torch in through entity / sensor / terrains. Resolution happens lazily inside
 # ``_field_annotation`` via ``get_type_hints``; that call is guarded against the
 # NameError that fires when the heavy modules have not been imported yet.
+# ``genelab.materials`` is a pure-dataclass module (no torch / genesis at import),
+# so importing the solver-options group here is cheap and does not undo the lazy-import
+# discipline the rest of this module follows for the heavy entity / sensor packages.
+from genelab.materials.options import SolverOptionsCfg
+
 if TYPE_CHECKING:
     from genelab.entity import ArticulationCfg, RigidObjectCfg
     from genelab.recording import RecordingCfg
@@ -42,10 +48,23 @@ class SimulationCfg:
     render_fps: int | None = 60
     # ImGui overlay toggle for the Genesis viewer (v1.0+). Forwarded to
     # ``gs.options.ViewerOptions(enable_gui=...)`` when ``vis=True``. Off by default so
-    # headless / scripted runs don't allocate the overlay.
+    # headless / scripted runs don't allocate the overlay. Setting ``panels`` (below)
+    # turns the overlay on automatically, so this flag only matters when you want the
+    # overlay's built-in controls without registering any custom panel.
     viewer_imgui: bool = False
 
-    # --- Genesis rigid-solver options (ROADMAP M3.7) ---------------------------------------
+    # Custom ImGui panels drawn in the Genesis viewer's overlay. Each entry is a
+    # ``callback(imgui)`` invoked once per frame on the viewer thread with the live
+    # ``imgui`` module (``imgui_bundle``); inside it you call ``imgui.slider_float(...)``,
+    # ``imgui.checkbox(...)`` etc. exactly as you would in raw Genesis — GeneLab only
+    # forwards each callback to the overlay's ``register_panel`` after ``scene.build``
+    # (see :class:`~genelab.scene.InteractiveScene`). Adding a GUI element is therefore
+    # no heavier than in Genesis: append one function here. A non-empty list implies the
+    # ImGui overlay (no need to also set ``viewer_imgui=True``). Requires the ``imgui``
+    # extra (``uv sync --extra imgui``); ignored entirely when ``vis=False``.
+    panels: list[Callable[[Any], None]] = field(default_factory=list)
+
+    # --- Genesis rigid-solver options ---------------------------------------
     # All optional; ``None`` = "use the Genesis default". Mapped to ``gs.options.RigidOptions``
     # by :class:`~genelab.scene.InteractiveScene`, which only passes ``rigid_options`` to
     # ``gs.Scene`` when at least one is set — so an unset config keeps the historic behaviour
@@ -93,7 +112,7 @@ class SimulationCfg:
         CLI retargets these keys onto ``play_env.simulation.<field>``. Owning the
         list here (rather than as a private constant in ``cli/__init__.py``) keeps
         the set of play-retargetable simulation overrides next to the fields
-        themselves (ADR-0005 / R3.2).
+        themselves.
         """
         return (
             "env.simulation.vis",
@@ -127,6 +146,11 @@ class InteractiveSceneCfg:
     # each entry describes a data source and one or more output sinks (live plots, file
     # writers, video). See :mod:`genelab.recording` for the dataclass surface.
     recordings: "tuple[RecordingCfg, ...]" = field(default_factory=tuple)
+    # Per-solver options for non-rigid materials. The scene auto-enables a deformable /
+    # fluid solver with Genesis defaults whenever an entity carries a material of that
+    # family; set the matching field here (e.g. ``solvers.mpm``) to tune domain bounds or
+    # iteration counts instead. An untouched group leaves rigid-only scenes unchanged.
+    solvers: SolverOptionsCfg = field(default_factory=SolverOptionsCfg)
 
 
 @dataclass

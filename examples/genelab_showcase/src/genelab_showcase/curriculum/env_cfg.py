@@ -1,40 +1,50 @@
-"""Curriculum showcase env: 16 envs on a 5×5 RandomRough grid + terrain_levels_vel.
+"""Curriculum showcase env: 25 spring-held G1s on a 5×5 difficulty grid.
 
-Each row of the grid is a difficulty level (level 0 = lowest roughness, level 4 =
-highest). The curriculum term :func:`genelab.mdp.curriculums.terrain_levels_vel`
-promotes envs that walk past ``distance_threshold`` and demotes envs that don't —
-the runner scripts a tiny XY drift on the root so promotion fires consistently.
+Each row of the grid is a difficulty level, rendered as a distinct terrain type that escalates
+flat → wave → rough → stairs → slope (level 0 = flat, level 4 = steep slope).
+The 25 envs fill the 5×5 grid (one robot per cell), held upright by a virtual spring. The
+runner drives a controlled terrain-level curriculum (promote / demote) and shows the live
+level distribution as a histogram, colouring each robot's head marker by its level — so the
+curriculum's redistribution is visible without a trained walking policy.
 """
 
 from genelab import mdp
 from genelab.asset_zoo import UnitreeG1Cfg
 from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
-from genelab.managers import (
-    CurriculumTermCfg,
-    EventTermCfg,
-    TerminationTermCfg,
-)
+from genelab.managers import EventTermCfg, TerminationTermCfg
 from genelab.mdp.actions.joint_position import JointPositionActionCfg
-from genelab.mdp.curriculums import terrain_levels_vel
-from genelab.terrains import RandomRoughCfg, TerrainGeneratorCfg
+from genelab.terrains import (
+    FlatPatchCfg,
+    PyramidStairsCfg,
+    RandomRoughCfg,
+    SlopeCfg,
+    SubTerrainCfg,
+    TerrainGeneratorCfg,
+    WaveCfg,
+)
 
 
 def curriculum_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
-    """16-env G1 stack on a 5×5 RandomRough grid driven by ``terrain_levels_vel``."""
+    """25-env G1 grid on a 5×5 difficulty grid (one robot per cell, one terrain type per row)."""
 
     robot_cfg = UnitreeG1Cfg()
-    # Five rows of increasing roughness; columns are independent samples.
-    sub_terrains = {
-        f"rough_l{level}": RandomRoughCfg(
-            min_height=-0.02 - 0.025 * level,
-            max_height=0.02 + 0.025 * level,
-            step=0.02,
-            proportion=1.0,
-        )
-        for level in range(5)
+    # Each difficulty LEVEL is a *distinct* terrain type, escalating flat → wave → rough →
+    # stairs → slope. They must be distinct genesis types: Genesis keys terrain parameters by
+    # type, so five RandomRoughCfg with different amplitudes collapse to a single shape and the
+    # rows render identically. Distinct types give an unmistakable visual gradient.
+    sub_terrains: dict[str, SubTerrainCfg] = {
+        "l0_flat": FlatPatchCfg(proportion=1.0),
+        "l1_wave": WaveCfg(num_waves=3.0, amplitude=0.12, proportion=1.0),
+        "l2_rough": RandomRoughCfg(
+            min_height=-0.14, max_height=0.14, step=0.05, downsampled_scale=1.0, proportion=1.0
+        ),
+        "l3_stairs": PyramidStairsCfg(step_width=0.5, step_height=-0.14, proportion=1.0),
+        "l4_slope": SlopeCfg(slope=-0.5, proportion=1.0),
     }
-    layout = tuple(tuple(f"rough_l{level}" for _ in range(5)) for level in range(5))
+    # Row r (= difficulty level r) is tiled entirely with that level's terrain type.
+    level_keys = ("l0_flat", "l1_wave", "l2_rough", "l3_stairs", "l4_slope")
+    layout = tuple((key,) * 5 for key in level_keys)
     terrain = TerrainGeneratorCfg(
         num_rows=5,
         num_cols=5,
@@ -44,17 +54,12 @@ def curriculum_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
         pos=(-15.0, -15.0, 0.0),
         sub_terrains=sub_terrains,
         layout=layout,
-        curriculum=True,
     )
     return ManagerBasedRlEnvCfg(
         simulation=SimulationCfg(
-            num_envs=16,
-            # The known-good G1 tasks (Velocity-Flat / Tracking-Flat) run this robot
-            # at dt=0.002 because the Genesis rigid solver is unstable for the G1 at
-            # dt=0.005 (constraint forces diverge to NaN even from a clean stance).
-            # Match them: dt=0.002 + decimation=10 keeps the control rate at 50 Hz, so
-            # the curriculum/teleport schedule and the 2 s episode (100 control steps)
-            # are unchanged.
+            num_envs=25,
+            # The G1 rigid solver is unstable at dt=0.005 (constraint forces diverge to NaN);
+            # the known-good G1 tasks run at dt=0.002 + decimation=10 (50 Hz control). Match.
             dt=0.002,
             substeps=1,
             steps=400,
@@ -66,7 +71,8 @@ def curriculum_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
             terrain=terrain,
         ),
         decimation=10,
-        episode_length_s=2.0,
+        # Long episode so the controlled curriculum runs continuously (no auto-reset).
+        episode_length_s=1000.0,
         device="cuda",
         robot=robot_cfg,
         actions_cfg={
@@ -84,17 +90,6 @@ def curriculum_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
                 mode="reset",
                 func=mdp.reset_joints_to_default,
                 params={"pos_jitter": 0.0, "vel_jitter": 0.0},
-            ),
-        },
-        curriculum_cfg={
-            "terrain_levels": CurriculumTermCfg(
-                func=terrain_levels_vel,
-                # Tuned so that a falling/rolling G1 does NOT auto-promote: a
-                # natural drop on RandomRough drifts the root by <1 m in 2 s, well
-                # below 5 m. The runner explicitly teleports half the envs ~6 m
-                # forward of spawn to trip the promote branch while leaving the
-                # other half to demote.
-                params={"distance_threshold": 5.0, "demote_ratio": 0.4},
             ),
         },
     )

@@ -15,7 +15,7 @@ from genelab.registry import TASKS, load_extension_module
 
 
 def test_config_overrides_update_nested_task_config() -> None:
-    load_extension_module("genelab_examples.tasks")
+    load_extension_module("genelab_wuji.tasks")
     task = TASKS.get("GeneLab-Wuji-Hand-Playback-v0")
 
     apply_overrides(
@@ -89,6 +89,23 @@ def test_cli_parses_gpus_flag_into_runner_args() -> None:
     assert overrides == {}
 
 
+def test_cli_parses_max_steps_flag_into_runner_args() -> None:
+    from genelab.cli import RUNNER_KEYS, parse_run_args, split_runner_keys
+
+    # ``--max-steps`` is a runner key, not an env override, so it must NOT be rewritten
+    # onto ``env.simulation.*`` (that path is ``--steps``); it routes to runner_args where
+    # dispatch reads it as the hard playback cap.
+    assert "max_steps" in RUNNER_KEYS
+    task_id, overrides = parse_run_args(["External-Fake-Task-v0", "--max-steps", "5"])
+
+    assert task_id == "External-Fake-Task-v0"
+    assert overrides == {"max_steps": "5"}
+
+    runner_args = split_runner_keys(overrides)
+    assert runner_args == {"max_steps": "5"}
+    assert overrides == {}
+
+
 def test_configured_task_train_mode_retargets_steps_to_max_iterations() -> None:
     """In train mode, ``--steps N`` is the short form for ``--max_iterations N``.
 
@@ -98,7 +115,7 @@ def test_configured_task_train_mode_retargets_steps_to_max_iterations() -> None:
     """
     from genelab.cli import _configured_task
 
-    load_extension_module("genelab_examples.tasks")
+    load_extension_module("genelab_wuji.tasks")
     task, runner_args, _ = _configured_task(
         ["GeneLab-Wuji-Hand-Playback-v0", "--steps", "20"],
         command="train",
@@ -113,7 +130,7 @@ def test_configured_task_train_mode_rejects_steps_with_explicit_max_iterations()
     """Passing both ``--steps`` and ``--max_iterations`` in train mode is a hard error."""
     from genelab.cli import _configured_task
 
-    load_extension_module("genelab_examples.tasks")
+    load_extension_module("genelab_wuji.tasks")
     with pytest.raises(SystemExit) as excinfo:
         _configured_task(
             ["GeneLab-Wuji-Hand-Playback-v0", "--steps", "20", "--max_iterations", "100"],
@@ -126,7 +143,7 @@ def test_configured_task_play_mode_keeps_steps_as_env_simulation_steps() -> None
     """Play mode behavior is unchanged: ``--steps`` lands on ``env.simulation.steps``."""
     from genelab.cli import _configured_task
 
-    load_extension_module("genelab_examples.tasks")
+    load_extension_module("genelab_wuji.tasks")
     task, runner_args, _ = _configured_task(
         ["GeneLab-Wuji-Hand-Playback-v0", "--steps", "5"],
         command="play",

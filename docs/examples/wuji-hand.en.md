@@ -12,7 +12,7 @@ GeneLab-Wuji-Hand-Playback-v0
 ## Running
 
 ```bash
-uv pip install -e examples/genelab_examples
+uv pip install -e examples/wuji
 genelab play GeneLab-Wuji-Hand-Playback-v0 --vis --steps 500
 ```
 

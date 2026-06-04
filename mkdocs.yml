@@ -17,6 +17,8 @@ exclude_docs: |
 theme:
   name: material
   language: en
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
   font:
     text: Inter
     code: JetBrains Mono
@@ -98,6 +100,8 @@ plugins:
             Design a Task: 设计任务
             Build an Extension Project: 构建扩展项目
             Run RL Experiments: 运行 RL 实验
+            Reference Runs: 参考指标
+            Harden for Sim2Real: 为 Sim2Real 加固
             Debug Common Failures: 调试常见问题
             Reference: 参考
             Module Map: 模块地图
@@ -105,29 +109,35 @@ plugins:
             CLI Reference: CLI 参考
             CLI: 命令行
             Overview: 总览
+            CLI Overview: CLI 总览
             'Discovery: list and info': '发现：list 与 info'
-            Play and Train: play 与 train
-            Project New: 新建项目
+            'Runtime: play and train': '运行时：play 与 train'
+            Profiling: 性能剖析
+            'Project: project new': '项目：project new'
             Concepts: 核心概念
+            Architecture: 架构
             Registry: 注册表
             Configs: 配置系统
             Contracts: 契约/端口
             Managers and MDP terms: Manager 与 MDP term
             MDP terms reference: MDP term 参考
             RL runner: RL runner
+            Eval and export: Eval 与 Export
+            Actuators: 执行器
             Sensors: 传感器
-            Recording and plotting: 数据录制与绘图
+            Recording and plotting: 数据录制与实时绘图
             Terrains: 地形
             Asset zoo: 资产库
             Extensions: 扩展加载
             Scene and entities: 场景与实体
+            Materials: 材料
             Examples: 示例
             Inverted Pendulum: 倒立摆
             Unitree G1: Unitree G1
             Franka Pick-and-Place: Franka 抓取放置
-            Showcase: 可视化 showcase
+            Showcase: Showcase
             "Rubik's Cube": 魔方
-            Wuji Hand: 五指手
+            Wuji Hand: 舞肌手
             API Reference: API 参考
             Contributing: 贡献指南
   - mkdocstrings:
@@ -167,7 +177,11 @@ markdown_extensions:
         - .
         - docs
       check_paths: true
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.tasklist:
@@ -196,6 +210,8 @@ nav:
       - Sensors:
           - ProximitySensor: reference/sensors/proximity.md
           - KinematicContactSensor: reference/sensors/kinematic_contact.md
+          - KinematicDepthSensor: reference/sensors/kinematic_depth.md
+          - KinematicTactileSensor: reference/sensors/kinematic_tactile.md
           - TemperatureGridSensor: reference/sensors/temperature_grid.md
           - ElastomerTactileSensor: reference/sensors/tactile_elastomer.md
           - PointCloudTactileSensor: reference/sensors/tactile_pointcloud.md
@@ -207,6 +223,7 @@ nav:
       - Profiling: cli/profiling.md
       - 'Project: project new': cli/project-new.md
   - Concepts:
+      - Architecture: concepts/architecture.md
       - Registry: concepts/registry.md
       - Configs: concepts/configs.md
       - Contracts: concepts/contracts.md
@@ -215,6 +232,7 @@ nav:
       - RL runner: concepts/rl-runner.md
       - Eval and export: concepts/eval-and-export.md
       - Scene and entities: concepts/scene.md
+      - Materials: concepts/materials.md
       - Actuators: concepts/actuators.md
       - Sensors: concepts/sensors.md
       - Recording and plotting: concepts/recording.md
@@ -229,4 +247,5 @@ nav:
       - Showcase: examples/showcase.md
       - "Rubik's Cube": examples/rubiks-cube.md
       - Wuji Hand: examples/wuji-hand.md
+      - Wuji Hand Reorientation: examples/wuji-reorient.md
   - Contributing: contributing.md

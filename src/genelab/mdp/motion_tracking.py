@@ -1,6 +1,6 @@
 """Motion-imitation reward terms (e.g. the Unitree G1 tracking task).
 
-Factored out of ``mdp/rewards.py`` (ADR-0006 / ROADMAP §9 PR R5.1) so the
+Factored out of ``mdp/rewards.py`` so the
 generic reward library stays a coherent "any task may use this" surface and the
 motion-tracking family has one home. Consumers reach these via the
 ``genelab.mdp`` package namespace; ``mdp/rewards.py`` keeps a back-compat
@@ -66,7 +66,7 @@ def motion_body_error_exp(
 ) -> torch.Tensor:
     """Per-body L2 error of a kinematic ``quantity`` vs the reference motion, exp-kernelled.
 
-    Shared body of the three jaccard-1.000 motion-tracking rewards (position in the
+    Shared body of the three near-identical motion-tracking rewards (position in the
     anchor-relative frame; linear / angular velocity in world frame). ``quantity``
     selects the ``(reference, robot)`` attribute pair on the :class:`MotionCommand`;
     the error is summed over the spatial axis, averaged over the selected bodies, and

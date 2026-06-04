@@ -46,7 +46,7 @@ GeneLab 的公开模块到它们各自负责的系统边界的映射。已知要
 |---|---|
 | `genelab.rl` | RSL-RL 配置、VecEnv wrapper、`train_task`、`play_task`、分布式 helper、profiler 集成。 |
 | `genelab.recording` | 声明式录制配置：实时曲线、文件、相机视频。 |
-| `genelab.bridges` | 运行时输入/控制桥，包括键盘 twist 和 DearPyGui twist 控制。 |
+| `genelab.bridges` | 运行时输入/控制桥，包括键盘 twist 和视口内 ImGui twist 控制。 |
 | `genelab.utils` | 数学与资产下载 helper。 |
 
 ## 选层规则

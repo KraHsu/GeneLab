@@ -13,7 +13,7 @@ Caveats (and why the chunk-driven design is acceptable):
   Genesis init". Set ``eval_every_iters`` to ≥ 50 for short tasks.
 * For off-policy algorithms (SAC / TD3 / DDPG via skrl or sb3), reloading from a
   checkpoint between chunks loses the replay buffer. Tasks tolerate this but
-  sample efficiency degrades. See ROADMAP M2 for a possible callback-API fix.
+  sample efficiency degrades. A future callback-API change could address this.
 """
 
 import json
@@ -49,9 +49,9 @@ class EvalCallbackCfg:
         chunked training where each chunk ends with a deterministic eval and best-
         model promotion (see :func:`run_with_eval_callback`).
 
-        Moved here from ``cli/__init__.py:_build_eval_callback`` per ADR-0005
-        (R3): the domain config owns the parsing of its own runner args, so the
-        CLI dispatcher just forwards the raw flag dict.
+        Moved here from ``cli/__init__.py:_build_eval_callback``: the domain
+        config owns the parsing of its own runner args, so the CLI dispatcher
+        just forwards the raw flag dict.
         """
         eval_every_raw = runner_args.get("eval_every")
         if eval_every_raw is None:

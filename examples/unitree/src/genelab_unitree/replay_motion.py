@@ -14,8 +14,8 @@ import numpy as np
 import torch
 
 from genelab.asset_zoo.unitree_g1_motions import (
-    G1_MJLAB_BODY_NAMES,
-    G1_MJLAB_JOINT_NAMES,
+    G1_MOTION_BODY_NAMES,
+    G1_MOTION_JOINT_NAMES,
     g1_lafan1_dance1_subject2,
 )
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
@@ -31,9 +31,9 @@ def main() -> None:
     npz = np.load(g1_lafan1_dance1_subject2())
     device = env.device
 
-    pelvis_idx = G1_MJLAB_BODY_NAMES.index("pelvis")
+    pelvis_idx = G1_MOTION_BODY_NAMES.index("pelvis")
     joint_perm = torch.tensor(
-        [G1_MJLAB_JOINT_NAMES.index(n) for n in env.articulations["robot"].joint_names],
+        [G1_MOTION_JOINT_NAMES.index(n) for n in env.articulations["robot"].joint_names],
         dtype=torch.long,
         device=device,
     )

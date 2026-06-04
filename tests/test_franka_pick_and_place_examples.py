@@ -4,7 +4,7 @@ from genelab.registry import ENVS, ROBOTS, TASKS, load_extension_module
 
 
 def test_franka_pick_and_place_extension_registers() -> None:
-    load_extension_module("genelab_franka_pick_and_place.tasks")
+    load_extension_module("genelab_franka.tasks")
 
     assert "GeneLab-Franka-Pick-And-Place-v0" in TASKS.names()
     assert "franka-pick-and-place" in ROBOTS.names()
@@ -12,7 +12,7 @@ def test_franka_pick_and_place_extension_registers() -> None:
 
 
 def test_franka_pick_and_place_task_is_goal_conditioned() -> None:
-    load_extension_module("genelab_franka_pick_and_place.tasks")
+    load_extension_module("genelab_franka.tasks")
     task = TASKS.get("GeneLab-Franka-Pick-And-Place-v0")
 
     from genelab.rl import Sb3AgentCfg, select_backend
@@ -41,7 +41,7 @@ def test_franka_pick_and_place_task_is_goal_conditioned() -> None:
 def test_franka_pick_and_place_runs_on_gpu_backend() -> None:
     """Guard against the CPU-backend perf regression: ``SimulationCfg.gpu`` defaults
     to False (gs.cpu), which would run the sim on CPU while tensors sit on cuda."""
-    load_extension_module("genelab_franka_pick_and_place.tasks")
+    load_extension_module("genelab_franka.tasks")
     task = TASKS.get("GeneLab-Franka-Pick-And-Place-v0")
     assert task.cfg.env.simulation.gpu is True
     assert task.cfg.play_env.simulation.gpu is True

@@ -1,11 +1,10 @@
 """Play-time bridges: ``Bridge`` protocol + reference implementations.
 
-``DearPyGuiTwistBridge`` is not re-exported here because its module performs a
-lazy ``import dearpygui`` at first use; importing the symbol unconditionally
-would still go through the module body (no ``dearpygui`` import there), but we
-keep the surface minimal and ask GUI users to take the longer path:
-
-    from genelab.bridges.dearpygui import DearPyGuiTwistBridgeCfg
+Two twist-teleop bridges ship here: :class:`KeyboardTwistBridge` (Genesis's built-in
+keybinds, zero extra deps) and :class:`ImGuiTwistBridge` (sliders in the Genesis viewer's
+ImGui overlay, needs the ``imgui`` extra). For a **display-only** viewer panel that does not
+drive the policy every step, prefer :attr:`SimulationCfg.panels` over a bridge — see
+:func:`genelab.scene.register_viewer_panels`.
 """
 
 from genelab.bridges.base import Bridge, BridgeCfg

@@ -1,11 +1,11 @@
-"""RSL-RL configuration dataclasses (mirror of ``mjlab.rl.config`` with tensorboard default)."""
+"""RSL-RL configuration dataclasses (mirror of ``rl.config`` with tensorboard default)."""
 
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
 
 class BackendConfig:
-    """Marker base for the agent/runner config an RL backend dispatches on (ADR-0016 step 2).
+    """Marker base for the agent/runner config an RL backend dispatches on.
 
     Every config ``select_backend`` keys on subclasses this, so the backend registry
     is typed (``dict[type[BackendConfig], Backend]``) rather than keyed on a bare
@@ -27,6 +27,24 @@ class RslRlModelCfg:
     rnn_hidden_dim: int = 256
     rnn_num_layers: int = 1
     class_name: str = "MLPModel"
+
+    def __post_init__(self) -> None:
+        # ``rnn_type`` is the single knob for a recurrent policy: setting it selects
+        # rsl_rl's ``RNNModel`` automatically so callers don't also have to flip
+        # ``class_name`` (which stays an internal rsl_rl detail). An explicit non-default
+        # ``class_name`` (e.g. ``"CNNModel"``) is left untouched.
+        if self.rnn_type is not None:
+            if self.rnn_type not in ("lstm", "gru"):
+                raise ValueError(
+                    f"rnn_type must be 'lstm' or 'gru' (or None for an MLP policy); "
+                    f"got {self.rnn_type!r}"
+                )
+            if self.class_name == "MLPModel":
+                self.class_name = "RNNModel"
+        elif self.class_name == "RNNModel":
+            # ``RNNModel`` needs a concrete rnn_type; without one rsl_rl would crash deep
+            # in ``RNN.__init__`` (``None.lower()``). Fail early with a clear message.
+            raise ValueError("class_name='RNNModel' requires rnn_type='lstm' or 'gru'")
 
 
 @dataclass

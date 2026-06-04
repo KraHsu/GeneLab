@@ -58,10 +58,10 @@ class G1VelocityTask:
             trainable=True,
         )
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
         from genelab.rl import play_task
 
-        play_task(self.cfg.name, checkpoint=None)
+        play_task(self.cfg.name, checkpoint=None, max_steps=max_steps)
 
     def train(self) -> None:
         from genelab.rl import RslRlOnPolicyRunnerCfg, train_task
@@ -119,10 +119,10 @@ class G1TrackingTask:
             trainable=True,
         )
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
         from genelab.rl import play_task
 
-        play_task(self.cfg.name, agent="zero")
+        play_task(self.cfg.name, agent="zero", max_steps=max_steps)
 
     def train(self) -> None:
         from genelab.rl import RslRlOnPolicyRunnerCfg, train_task
@@ -167,7 +167,7 @@ def register() -> None:
                 f"genelab play {VELOCITY_TASK_ID} --agent random",
                 f"genelab play {VELOCITY_TASK_ID} --agent trained --checkpoint PATH/model.pt",
                 f"genelab play {VELOCITY_TASK_ID} --num_envs 1 --checkpoint PATH/model.pt  "
-                "# DearPyGui sliders (uv sync --extra teleop)",
+                "# in-viewport ImGui sliders (uv sync --extra imgui)",
                 f"genelab train {VELOCITY_TASK_ID} --num_envs 4096",
                 f"genelab train {VELOCITY_TASK_ID} --num_envs 4096 --gpus 2",
             ],

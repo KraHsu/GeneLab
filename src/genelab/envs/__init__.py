@@ -5,7 +5,7 @@ Keep project-specific environments in your own Python package and register them 
 """
 
 from genelab.configs import ManagerBasedEnvCfg
-from genelab.entity import RobotState  # re-export; canonical home is genelab.entity (M3.6 S6)
+from genelab.entity import RobotState  # re-export; canonical home is genelab.entity
 from genelab.envs.manager_based_rl_env import (
     ManagerBasedRlEnv,
     ManagerBasedRlEnvCfg,

@@ -46,7 +46,7 @@ def _foot_cfg(
 
     When ``offsets`` is provided, the cfg carries per-link site offsets — the
     foot rewards then evaluate at ``link_pos + R · offset`` for position and
-    ``v_link + ω × (R · offset)`` for velocity, matching mjlab's site-frame
+    ``v_link + ω × (R · offset)`` for velocity, matching the reference's site-frame
     reward signal (G1 ``left_foot``/``right_foot`` sites sit
     ``(0.04, 0, -0.037)`` below the ankle_roll_link origins).
     """
@@ -231,7 +231,7 @@ def test_upright_exp_link_mode_picks_up_link_quat_tilt() -> None:
 
 
 def test_upright_exp_pelvis_vs_torso_diverge_under_waist_flex() -> None:
-    """Regression for the mjlab parity gap: ``upright_exp`` with root mode and
+    """Regression for the reference parity gap: ``upright_exp`` with root mode and
     with ``asset_cfg=torso_link`` give DIFFERENT signals when the torso is
     rotated relative to the pelvis (waist joint flexed).
 
@@ -291,11 +291,11 @@ def test_feet_clearance_zero_when_command_below_threshold() -> None:
 
 
 def test_feet_clearance_gate_uses_l1_xy_plus_abs_yaw_not_l2_of_three() -> None:
-    """mjlab parity: gate is ``||cmd_xy|| + |cmd_z|``, not ``||cmd[:3]||``.
+    """Reference parity: gate is ``||cmd_xy|| + |cmd_z|``, not ``||cmd[:3]||``.
 
     For ``cmd=(0.03, 0, 0.03)`` and threshold ``0.05``:
 
-    * mjlab gate: ``0.03 + 0.03 = 0.06`` → active (penalty fires).
+    * the reference gate: ``0.03 + 0.03 = 0.06`` → active (penalty fires).
     * Pre-parity L2 gate: ``√(0.03² + 0.03²) ≈ 0.042`` → silent.
 
     Picking these numbers also keeps the threshold-boundary diagnostic simple:
@@ -358,7 +358,7 @@ def test_feet_clearance_penalty_uses_link_z_when_no_sensor() -> None:
 
 
 def test_feet_clearance_link_offset_shifts_height_under_identity_rotation() -> None:
-    """mjlab parity: ``link_offsets`` moves the evaluation point to the foot site.
+    """Reference parity: ``link_offsets`` moves the evaluation point to the foot site.
 
     With identity link quaternion, a site offset of ``(0.04, 0, -0.037)`` puts the
     evaluated height ``0.037 m`` *below* the link origin — important when the
@@ -392,7 +392,7 @@ def test_feet_clearance_link_offset_shifts_height_under_identity_rotation() -> N
 
 
 def test_feet_slip_link_offset_adds_omega_cross_r_to_foot_velocity() -> None:
-    """mjlab parity: foot xy-velocity is ``v_link + ω × (R · offset)``.
+    """Reference parity: foot xy-velocity is ``v_link + ω × (R · offset)``.
 
     With offset ``r=(0.1, 0, 0)`` and link spinning about +z at ``ω_z=2`` rad/s,
     the cross-product contributes ``(0, 0.2, 0)`` to xy. Combined with the
@@ -616,7 +616,7 @@ class _StubSensor:
 
 
 def test_angular_momentum_penalty_returns_squared_magnitude() -> None:
-    """``L=(3, 4, 0)`` ⇒ ``||L||² = 25`` per env (mjlab parity: squared norm)."""
+    """``L=(3, 4, 0)`` ⇒ ``||L||² = 25`` per env (reference parity: squared norm)."""
     env = _make_env()
     env.sensors["L"] = _StubSensor(
         torch.tensor([[3.0, 4.0, 0.0], [0.0, 0.0, 1.0]], dtype=torch.float)
@@ -629,7 +629,7 @@ def test_angular_momentum_penalty_returns_squared_magnitude() -> None:
 
 
 def test_track_linear_velocity_penalises_z_velocity() -> None:
-    """mjlab parity: ``exp(-((cmd-vel_xy)² + vel_z²) / std²)``.
+    """Reference parity: ``exp(-((cmd-vel_xy)² + vel_z²) / std²)``.
 
     A perfectly tracked xy command with a non-zero z velocity should NOT score 1 —
     the z² term shows up in the error.
@@ -645,7 +645,7 @@ def test_track_linear_velocity_penalises_z_velocity() -> None:
 
 
 def test_track_angular_velocity_penalises_xy_angular_rates() -> None:
-    """mjlab parity: ``exp(-((cmd_z-vel_z)² + ||vel_xy||²) / std²)``."""
+    """Reference parity: ``exp(-((cmd_z-vel_z)² + ||vel_xy||²) / std²)``."""
     env = _make_env(command_xyz=(0.0, 0.0, 0.3))
     assert env.robot_state.root_ang_vel_b is not None
     env.robot_state.root_ang_vel_b[:, 2] = 0.3  # tracks z command
@@ -776,7 +776,7 @@ class _FakeSelfContactSensor(SelfContactSensor):
 
 
 def test_self_collision_cost_history_counts_any_above_substeps() -> None:
-    """4-step bool history with two ``True`` substeps ⇒ cost=2 (mjlab parity)."""
+    """4-step bool history with two ``True`` substeps ⇒ cost=2 (reference parity)."""
     env = _make_env(num_envs=1)
     # History stores the per-step "any pair above threshold" bool (the sensor
     # does the thresholding before history accumulation, since Genesis pair
@@ -811,7 +811,7 @@ def test_self_collision_cost_rejects_wrong_sensor_type() -> None:
         raise AssertionError("expected TypeError for non-SelfContactSensor wiring")
 
 
-# --------------------------------------------------------------------- base hard-constraints (M2.4)
+# --------------------------------------------------------------------- base hard-constraints
 
 
 def test_lin_vel_z_l2_penalizes_vertical_velocity_only() -> None:

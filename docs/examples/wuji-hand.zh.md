@@ -1,6 +1,6 @@
-# 五指手
+# 舞肌手
 
-五指手示例是 play-only 灵巧手 playback task，展示资产打包和脚本化关节轨迹回放。
+舞肌手示例是 play-only 灵巧手 playback task，展示资产打包和脚本化关节轨迹回放。
 
 ## 任务
 
@@ -11,7 +11,7 @@ GeneLab-Wuji-Hand-Playback-v0
 ## 运行
 
 ```bash
-uv pip install -e examples/genelab_examples
+uv pip install -e examples/wuji
 genelab play GeneLab-Wuji-Hand-Playback-v0 --vis --steps 500
 ```
 

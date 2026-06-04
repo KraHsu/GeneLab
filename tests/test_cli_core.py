@@ -43,7 +43,10 @@ def test_play_help_documents_runner_keys(capsys: pytest.CaptureFixture[str]) -> 
 
     main(["play", "--help"])
 
-    out = _strip_ansi(capsys.readouterr().out)
+    # The help spells some flags with hyphens (e.g. ``--max-steps``) and others with
+    # underscores (``--num_envs``); the freeform parser accepts both. Normalize hyphens to
+    # underscores so this coverage check is about *documentation presence*, not spelling.
+    out = _strip_ansi(capsys.readouterr().out).replace("-", "_")
     for key in RUNNER_KEYS:
         assert key in out, f"runner key {key!r} missing from `play --help`"
 
@@ -140,10 +143,15 @@ def test_example_extension_registers_robots_envs_and_tasks() -> None:
     load_extension_module("genelab_examples.tasks")
 
     assert "rubiks-cube" in ROBOTS.names()
-    assert "wuji-hand" in ROBOTS.names()
     assert "rubiks-play" in ENVS.names()
-    assert "wuji-hand-playback" in ENVS.names()
     assert "GeneLab-Rubiks-Play-v0" in TASKS.names()
+
+
+def test_wuji_extension_registers_robots_envs_and_tasks() -> None:
+    load_extension_module("genelab_wuji.tasks")
+
+    assert "wuji-hand" in ROBOTS.names()
+    assert "wuji-hand-playback" in ENVS.names()
     assert "GeneLab-Wuji-Hand-Playback-v0" in TASKS.names()
 
 
@@ -154,7 +162,6 @@ def test_list_tasks_shows_registered_bindings(capsys: pytest.CaptureFixture[str]
     assert "GeneLab-Rubiks-Play-v0" in out
     assert "env=rubiks-play" in out
     assert "robot=rubiks-cube" in out
-    assert "GeneLab-Wuji-Hand-Playback-v0" in out
 
 
 def test_package_positions_genelab_as_genesis_powered_lab_api() -> None:

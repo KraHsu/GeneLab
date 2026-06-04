@@ -14,7 +14,7 @@ Two intersection backends:
 Three built-in patterns share an informal protocol (``num_rays() -> int`` and
 ``generate(device) -> (starts, dirs)``):
 
-* :class:`GridPattern` — 2D rectangular grid, all rays parallel. Default; mirrors mjlab.
+* :class:`GridPattern` — 2D rectangular grid, all rays parallel. Default; mirrors the reference.
 * :class:`RingPattern` — multi-line LIDAR-style sweep around the +z axis.
 * :class:`HemispherePattern` — Fibonacci-distributed rays on a spherical cap.
 """
@@ -232,7 +232,7 @@ class RayCastSensorCfg(SensorCfg):
     link_offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
     """Local-frame offset of the ray-pattern origin relative to ``link_name``.
 
-    mjlab parity: foot height scans anchor at the ``left_foot``/``right_foot``
+    reference parity: foot height scans anchor at the ``left_foot``/``right_foot``
     site (offset ``(0.04, 0, -0.037)`` from ``ankle_roll_link`` in G1's XML),
     not at the link origin. Set to non-zero when you need site-frame ray casts.
     """

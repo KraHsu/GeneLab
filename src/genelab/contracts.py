@@ -1,4 +1,4 @@
-"""Structural contracts (ports) for the domain layer (ADR-0014).
+"""Structural contracts (ports) for the domain layer.
 
 Domain terms, managers, and sensors type-hint against these ``Protocol``s instead
 of importing the concrete :class:`~genelab.envs.manager_based_rl_env.ManagerBasedRlEnv`
@@ -62,7 +62,7 @@ class EnvContext(Protocol):
     """The env surface domain terms / managers use — port for ``ManagerBasedRlEnv``.
 
     Derived from the attributes the domain actually touches today. Widen
-    additively as later redirects need more (ADR-0014 R14.1). Rollout-only methods
+    additively as later redirects need more. Rollout-only methods
     (``step`` / ``reset`` / ``close``) are intentionally excluded — they are not
     term-facing. Members ``ManagerBasedRlEnv`` exposes as read-only ``@property`` are
     declared as properties here; its read-write instance attributes (``cfg``, the
@@ -125,7 +125,7 @@ class EnvContext(Protocol):
 
 @dataclass
 class NoiseCfg(ABC):
-    """Base config for additive observation noise (ADR-0014).
+    """Base config for additive observation noise.
 
     Relocated here from ``mdp.noise`` so ``managers`` (the observation manager) can
     hint it without importing ``mdp`` — removing the ``managers → mdp`` back-edge. The

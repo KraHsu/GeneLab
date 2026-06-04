@@ -183,7 +183,7 @@ def _resolve_demo_path(agent_cfg: Sb3AgentCfg) -> str | None:
 def _maybe_prefill_demos(model: Any, agent_cfg: Sb3AgentCfg, vec_env: Any) -> None:
     """Replay an ``.npz`` of offline transitions into ``model.replay_buffer``.
 
-    The file layout matches what ``genelab_franka_pick_and_place.collect_demos``
+    The file layout matches what ``genelab_franka.collect_demos``
     writes: time-major arrays shaped ``(T, num_envs, ...)`` for ``obs_*``,
     ``next_obs_*``, ``actions``, ``rewards``, ``dones``, ``truncateds``. The
     function walks the time axis and calls ``replay_buffer.add(...)`` once per
