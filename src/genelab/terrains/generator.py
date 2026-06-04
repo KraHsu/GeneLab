@@ -73,7 +73,7 @@ class TerrainGenerator:
             return rows
         names = list(cfg.sub_terrains.keys())
         if cfg.curriculum:
-            # Difficulty-ordered rows (M3.3): sort the sub-terrains by ``difficulty`` and map
+            # Difficulty-ordered rows: sort the sub-terrains by ``difficulty`` and map
             # row 0 → easiest, last row → hardest, spreading evenly when the counts differ.
             # ``terrain_levels_vel`` indexes rows by the env's terrain level, so this makes
             # "promote to a higher level" mean "harder terrain". Every cell in a row uses the

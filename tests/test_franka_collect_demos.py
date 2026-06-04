@@ -1,6 +1,6 @@
 """Regression test for the Franka demo-collection FSM + collect() pipeline.
 
-Guards against the vNext ``env.robot_state.*`` removal (ADR-0019): the demo FSM must
+Guards against the ``env.robot_state.*`` removal: the demo FSM must
 read EE/joint state through ``env.articulations["robot"].data.*``. Drives the REAL
 ``FrankaPickAndPlaceFsm`` and ``collect()`` against a lightweight fake env (current
 Articulation API) — no Genesis runtime — then round-trips the ``.npz`` and asserts the

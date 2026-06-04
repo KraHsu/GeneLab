@@ -21,7 +21,7 @@ from genelab.entity._articulation_binder import (
     build_per_joint_tensor as _build_per_joint_tensor,
 )
 from genelab.entity._articulation_state import (
-    RobotState as RobotState,  # re-export: canonical home is _articulation_state (ADR-0019)
+    RobotState as RobotState,  # re-export: canonical home is _articulation_state
     ArticulationState,
 )
 from genelab.entity._articulation_writer import ArticulationWriter
@@ -131,7 +131,7 @@ class Articulation:
             raise RuntimeError(f"Articulation(name={self.name!r}).bind called before spawn")
         self._num_envs = num_envs
         self._device = device
-        # Binding seam (ADR-0019): introspection + actuator assembly produce the metadata
+        # Binding seam: introspection + actuator assembly produce the metadata
         # the properties / state / writer read; store the results on the facade.
         result = ArticulationBinder(self.cfg, self.name, self._gs_handle, num_envs, device).bind()
         self._joint_names = result.joint_names
@@ -156,7 +156,7 @@ class Articulation:
             device=device,
             actuated_dof_idx=self._actuated_dof_idx,
         )
-        # Shares the joint-target buffer + actuator dict by reference (ADR-0019 write seam).
+        # Shares the joint-target buffer + actuator dict by reference (the write seam).
         self._writer = ArticulationWriter(
             self._gs_handle,
             actuated_dof_idx=self._actuated_dof_idx,
@@ -177,7 +177,7 @@ class Articulation:
     def refresh(self) -> None:
         """Update the cached :class:`RobotState` in place from the Genesis handle.
 
-        Delegates to :class:`ArticulationState` (ADR-0019 read seam); a no-op before
+        Delegates to :class:`ArticulationState` (the read seam); a no-op before
         :meth:`bind`.
         """
         if self._state is not None:
@@ -217,7 +217,7 @@ class Articulation:
     ) -> None:
         """Stash a slice of joint position targets, then dispatch each actuator.
 
-        Delegates to :class:`ArticulationWriter` (ADR-0019 write seam); a no-op before
+        Delegates to :class:`ArticulationWriter` (the write seam); a no-op before
         :meth:`bind`. ``local_joint_ids`` indexes the actuated joint list (same space as
         :attr:`joint_names`); ``target`` has shape ``(num_envs, len(local_joint_ids))``.
         """

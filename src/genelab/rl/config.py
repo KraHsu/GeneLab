@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 
 class BackendConfig:
-    """Marker base for the agent/runner config an RL backend dispatches on (ADR-0016 step 2).
+    """Marker base for the agent/runner config an RL backend dispatches on.
 
     Every config ``select_backend`` keys on subclasses this, so the backend registry
     is typed (``dict[type[BackendConfig], Backend]``) rather than keyed on a bare

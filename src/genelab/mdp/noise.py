@@ -1,6 +1,6 @@
 """Additive noise models for observation corruption (matches Isaac Lab's ``Unoise`` / ``Gnoise``).
 
-The ``NoiseCfg`` base lives in :mod:`genelab.contracts` (ADR-0014, so the observation
+The ``NoiseCfg`` base lives in :mod:`genelab.contracts` (so the observation
 manager can hint it without a ``managers → mdp`` back-edge) and is re-exported here
 alongside the concrete models below.
 """

@@ -1433,7 +1433,7 @@ def test_root_angular_momentum_zero_when_get_mass_unavailable() -> None:
     assert torch.all(sensor.data == 0.0)
 
 
-# ---------------------------------------------------------------------- ForceTorqueSensor (M3.5)
+# ---------------------------------------------------------------------- ForceTorqueSensor
 
 
 class _FakeForceRobot:
@@ -1447,7 +1447,7 @@ class _FakeForceRobot:
 class _FakeArticulation:
     def __init__(self, actuated_dof_ids: torch.Tensor, joint_names: list[str]) -> None:
         self.actuated_dof_ids = actuated_dof_ids
-        # M3.6 S4: the FT sensor resolves joints against the entity's joint_names.
+        # The FT sensor resolves joints against the entity's joint_names.
         self.joint_names = joint_names
 
 

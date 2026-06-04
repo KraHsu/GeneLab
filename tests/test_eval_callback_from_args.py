@@ -1,6 +1,6 @@
-"""Tests for ``EvalCallbackCfg.from_args`` (ROADMAP §9 R3.1 / ADR-0005).
+"""Tests for ``EvalCallbackCfg.from_args``.
 
-R3 moves the `--eval-*` runner-arg parsing out of
+This moves the `--eval-*` runner-arg parsing out of
 ``cli/__init__.py:_build_eval_callback`` and onto the domain config
 (``EvalCallbackCfg.from_args``). These tests pin the parse behaviour —
 the matrix of which `--eval-*` flags are set — directly against the

@@ -2,11 +2,11 @@
 
 Backend-agnostic eval orchestration: resolve the task's play env, build it, run a
 deterministic rollout through the chosen backend's ``make_inference_setup``, and
-build the ``eval.json`` payload (schema under ROADMAP §M1.1). Lives in the ``rl``
-layer (its only dependencies are ``cache`` / ``registry`` / ``rl.*``); both the
-``genelab eval`` CLI command and the in-training ``EvalCallback`` call it, so it
-must not live above them in ``cli`` (ADR-0009 / ROADMAP §9 R7.3 — removes the
-former ``rl.eval_callback -> cli._eval`` layering violation).
+build the ``eval.json`` payload. Lives in the ``rl`` layer (its only dependencies
+are ``cache`` / ``registry`` / ``rl.*``); both the ``genelab eval`` CLI command
+and the in-training ``EvalCallback`` call it, so it must not live above them in
+``cli`` (which would re-form the ``rl.eval_callback -> cli._eval`` layering
+violation).
 """
 
 import datetime as dt

@@ -1,4 +1,4 @@
-"""Name-keyed entity resolution for sensors (ROADMAP M3.6 / ADR-0012 S4).
+"""Name-keyed entity resolution for sensors.
 
 Sensors attach to / read from one scene entity named by ``SensorCfg.entity_name``. These
 helpers look it up in ``env.articulations[name]`` and fall back to the singular primary

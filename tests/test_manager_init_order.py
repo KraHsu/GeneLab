@@ -1,6 +1,6 @@
-"""Init-order gate test for the BaseTermManager refactor (ROADMAP §9 R2.5 / ADR-0002).
+"""Init-order gate test for the BaseTermManager refactor.
 
-ADR-0002 §Risks identifies the load-bearing risk for R2.5 as
+The load-bearing risk for this refactor is
 *init-order preservation*: after we pull ``RewardManager.__init__`` and
 ``TerminationManager.__init__`` registration loops up to
 ``BaseTermManager``, the subclass-specific buffer allocations
@@ -12,8 +12,7 @@ and ``_term_dones`` would be empty dicts and the manager's
 per-term tallies.
 
 These assertions are deliberately observational ("does the invariant
-hold today?") rather than aspirational. They ship in the same PR as
-the R2.5 refactor (commit 1 = this test, commit 2 = the refactor)
+hold today?") rather than aspirational. They ship alongside the refactor
 so any future contributor catches an init-order regression at test
 time, not at the next CUDA-sync surprise.
 """

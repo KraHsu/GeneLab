@@ -8,7 +8,7 @@ packages in :data:`_SOURCE_MODULES` and caches the result. ``__all__`` stays an
 explicit literal — it is the *blessed* public surface (guarded by
 ``tests/test_public_api_snapshot.py`` and honoured by ``from genelab.lab import
 *``), while ``__getattr__`` makes any public name in a source package reachable
-without editing this file (ADR-0017).
+without editing this file.
 """
 
 from __future__ import annotations

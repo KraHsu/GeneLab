@@ -1,6 +1,6 @@
-"""Numerical-equivalence gate for the R5.2 motion-tracking parameterization.
+"""Numerical-equivalence gate for the motion-tracking parameterization.
 
-ROADMAP §9 PR R5.2 / ADR-0006: the three jaccard-1.000 body-error rewards
+The three near-identical body-error rewards
 (`motion_relative_body_position_error_exp`,
 `motion_global_body_linear_velocity_error_exp`,
 `motion_global_body_angular_velocity_error_exp`) were collapsed onto the shared
@@ -56,7 +56,7 @@ def _index_filter(cmd: _FakeMotionCommand, body_names: tuple[str, ...] | None) -
     ]
 
 
-# --- Reference implementations: verbatim copies of the pre-R5.2 function bodies. -----
+# --- Reference implementations: verbatim copies of the pre-refactor function bodies. -----
 
 
 def _ref_position(env, command_name, std, body_names=None):
