@@ -49,10 +49,17 @@ def test_rough_cfg_adds_terrain_height_scan_and_curriculum() -> None:
     rough = _rough_cfg(play=True)
     flat = _flat_cfg(play=True)
 
-    # Rough swaps the flat ground for a 5-level (rows) x 10-column heightfield.
+    # Rough swaps the flat ground for a 10-level (rows) x 10-column mixed heightfield.
     assert rough.scene.terrain is not None
     assert flat.scene.terrain is None
-    assert (rough.scene.terrain.num_rows, rough.scene.terrain.num_cols) == (5, 10)
+    assert (rough.scene.terrain.num_rows, rough.scene.terrain.num_cols) == (10, 10)
+
+    # The two terrain-sensitive foot penalties are lightened on rough terrain only;
+    # the flat task keeps the heavier shared weights.
+    assert rough.rewards_cfg["foot_clearance"].weight == -0.5
+    assert rough.rewards_cfg["foot_swing_height"].weight == -0.25
+    assert flat.rewards_cfg["foot_clearance"].weight == -2.0
+    assert flat.rewards_cfg["foot_swing_height"].weight == -1.0
 
     # height_scan observation added to the actor (and a clean copy to the critic).
     assert "height_scan" in rough.observations_cfg["policy"].terms
@@ -69,7 +76,8 @@ def test_rough_cfg_adds_terrain_height_scan_and_curriculum() -> None:
     # terrain_levels curriculum sits alongside the inherited command_vel term.
     assert "terrain_levels" in rough.curriculum_cfg
     assert rough.curriculum_cfg["terrain_levels"].func is terrain_levels_vel
-    assert rough.curriculum_cfg["terrain_levels"].params["distance_threshold"] == 8.0
+    assert rough.curriculum_cfg["terrain_levels"].params["distance_threshold"] == 4.0
+    assert rough.curriculum_cfg["terrain_levels"].params["command_name"] == "twist"
     assert "command_vel" in rough.curriculum_cfg
     assert "terrain_levels" not in flat.curriculum_cfg
 
@@ -84,7 +92,14 @@ def test_rough_task_registers_and_is_trainable() -> None:
     assert task.cfg.env is not None
     assert task.cfg.play_env is not None
     assert isinstance(task.cfg.agent, RslRlOnPolicyRunnerCfg)
-    assert task.cfg.agent.max_iterations == 50_000
+    assert task.cfg.agent.max_iterations == 6_000
+    # State-dependent action std with an exploration floor: this is the fix that makes
+    # the curriculum trainable without de-learning (a global std over-specialises and
+    # floors the adaptive LR; the floor keeps minimum exploration).
+    dist = task.cfg.agent.actor.distribution_cfg
+    assert dist is not None
+    assert dist["class_name"] == "HeteroscedasticGaussianDistribution"
+    assert dist["std_range"] == (0.3, 2.0)
     # Same GPU-backend guard the flat tasks carry; play renders, so it needs it too.
     assert task.cfg.env.simulation.gpu is True
     assert task.cfg.play_env.simulation.gpu is True
