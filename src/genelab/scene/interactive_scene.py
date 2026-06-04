@@ -373,6 +373,7 @@ class InteractiveScene:
             scene_kwargs["rigid_options"] = gs.options.RigidOptions(**rigid_kwargs)
         if viewer_options is not None:
             scene_kwargs["viewer_options"] = viewer_options
+        self._add_solver_options(gs, scene_kwargs)
         self._gs_scene = gs.Scene(**scene_kwargs)
         if self._terrain is None:
             self._gs_scene.add_entity(gs.morphs.Plane())
@@ -434,6 +435,34 @@ class InteractiveScene:
         if self._terrain is not None:
             self._terrain.init_per_env_state(self._num_envs, self._device)
         self._built = True
+
+    def _add_solver_options(self, gs: Any, scene_kwargs: dict[str, Any]) -> None:
+        """Enable the deformable / fluid solvers this scene's materials require.
+
+        Collects the union of ``required_solvers()`` across every entity material (plus
+        any solver the user explicitly tuned via ``scene_cfg.solvers``) and sets the
+        matching ``*_options`` kwarg on ``gs.Scene``. A solver the user tuned uses that
+        cfg; one needed only because of a material gets Genesis defaults. Rigid /
+        kinematic need no extra options, so a rigid-only scene leaves ``scene_kwargs``
+        untouched — byte-for-byte identical to before materials existed.
+        """
+        from genelab.materials.options import SOLVER_SCENE_KWARGS
+
+        required: set[str] = set()
+        for entity in self._entities.values():
+            material = getattr(entity.cfg, "material", None)
+            if material is not None:
+                required |= material.required_solvers()
+        required &= set(SOLVER_SCENE_KWARGS)  # drop rigid / kinematic
+
+        solvers_cfg = getattr(self._scene_cfg, "solvers", None)
+        for family, (scene_kwarg, options_cls, attr) in SOLVER_SCENE_KWARGS.items():
+            user_cfg = getattr(solvers_cfg, attr, None) if solvers_cfg is not None else None
+            if user_cfg is None and family not in required:
+                continue
+            scene_kwargs[scene_kwarg] = (
+                user_cfg.build(gs) if user_cfg is not None else getattr(gs.options, options_cls)()
+            )
 
     def _compute_env_origins(self) -> torch.Tensor:
         scene_origins = getattr(self._gs_scene, "envs_offset", None)
