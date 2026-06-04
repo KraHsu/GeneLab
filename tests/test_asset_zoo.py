@@ -27,6 +27,7 @@ from genelab.asset_zoo import (
     UnitreeGo1Cfg,
     UnitreeH1Cfg,
     UR10eCfg,
+    WujiHandCfg,
 )
 from genelab.entity import ArticulationCfg
 from genelab.registry import ROBOTS, load_bundled_asset_zoo
@@ -169,6 +170,30 @@ def test_anymal_c_registered(monkeypatch: pytest.MonkeyPatch) -> None:
     # Hind legs use mirrored HFE / KFE so the robot spawns in a stable stand pose.
     assert cfg.default_joint_pos[r"(LH|RH)_HFE"] == -0.4
     assert cfg.default_joint_pos[r"(LH|RH)_KFE"] == 0.8
+
+
+def test_wuji_hand_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_path = FIXTURES_DIR / "cartpole.xml"
+    monkeypatch.setattr("genelab.asset_zoo.wuji_hand.fetch_asset", lambda spec: fake_path)
+    for side in ("right", "left"):
+        cfg = WujiHandCfg(side)
+        assert isinstance(cfg, ArticulationCfg)
+        assert set(cfg.actuators) == {"fingers"}  # one uniform group over all 20 joints
+        assert cfg.foot_link_names == ()  # dexterous hand, no feet
+        fingers = cfg.actuators["fingers"]
+        assert fingers.target_names_expr == (rf"{side}_finger[1-5]_joint[1-4]",)
+        assert fingers.stiffness == pytest.approx(0.5)
+        assert fingers.damping == pytest.approx(0.02)
+        # finger1_joint1's lower limit is above 0, so the rest pose lifts it off the bound.
+        assert cfg.default_joint_pos == {f"{side}_finger1_joint1": 0.1}
+    assert "wuji_hand_right" in ROBOTS.names()
+    assert "wuji_hand_left" in ROBOTS.names()
+    assert ROBOTS.entry("wuji_hand_right").description.startswith("WUJI Hand")
+
+
+def test_wuji_hand_rejects_unknown_side() -> None:
+    with pytest.raises(ValueError, match="side must be"):
+        WujiHandCfg("middle")
 
 
 @pytest.fixture

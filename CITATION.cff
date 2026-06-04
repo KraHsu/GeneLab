@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use GeneLab in your research, please cite it as below."
+title: "GeneLab: An Isaac Lab–style API for RL & robotics research on Genesis"
+abstract: >-
+  GeneLab is a manager-based reinforcement-learning research scaffold for the
+  Genesis simulator, shaped to mirror Isaac Lab's API but lightweight (no
+  USD/Kit, no NVIDIA lock-in). It ships registered robots/environments/tasks,
+  manager-based MDP configs, a Typer CLI, and three RL backends (rsl_rl, skrl,
+  stable_baselines3).
+type: software
+authors:
+  - family-names: "Zhang"
+    given-names: "Chenhao"
+    alias: "KraHsu"
+version: "0.3.0"
+license: Apache-2.0
+repository-code: "https://github.com/KraHsu/GeneLab"
+url: "https://krahsu.github.io/GeneLab/"
+keywords:
+  - reinforcement-learning
+  - robotics
+  - genesis
+  - simulation
+  - isaac-lab
+  - rl

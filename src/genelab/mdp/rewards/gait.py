@@ -1,6 +1,6 @@
 """Locomotion gait-shaping reward terms.
 
-Port of mjlab's body / foot gait-shaping rewards from ``tasks/velocity/mdp/rewards.py``.
+Port of the reference's body / foot gait-shaping rewards from ``tasks/velocity/mdp/rewards.py``.
 Each gates on ``command magnitude > command_threshold`` so the penalty is silent when the
 policy is asked to stand still — otherwise the standing envs would pile up free penalty.
 """
@@ -30,8 +30,8 @@ if TYPE_CHECKING:
 def body_angular_velocity_penalty(env: EnvContext, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     """``Σ ω_xy²`` across the links named by ``asset_cfg`` (typical G1 use: torso only).
 
-    mjlab: ``tasks/velocity/mdp/rewards.py::body_angular_velocity_penalty``. With a
-    single ``link_names=("torso_link",)`` selector the output matches mjlab's
+    the reference: ``tasks/velocity/mdp/rewards.py::body_angular_velocity_penalty``. With a
+    single ``link_names=("torso_link",)`` selector the output matches the reference's
     single-body variant; multiple links sum their contributions.
     """
     indices = list(_link_ids(asset_cfg))
@@ -51,9 +51,9 @@ def feet_clearance(
 
     Penalises foot height deviation from ``target_height`` weighted by horizontal foot
     velocity — so feet are pushed toward the target swing height only while they're
-    actually moving. mjlab: ``feet_clearance``.
+    actually moving. The reference: ``feet_clearance``.
 
-    Honors ``asset_cfg.link_offsets`` (mjlab site parity): when set, the foot
+    Honors ``asset_cfg.link_offsets`` (the reference site parity): when set, the foot
     velocity used here is ``v_link + ω × (R · offset)`` and, when no height
     sensor is given, the fallback height uses the site-frame z. The
     ``height_sensor_name`` path delegates to a multi-frame
@@ -89,8 +89,8 @@ def feet_slip(
 ) -> torch.Tensor:
     """``Σ_foot ||v_xy||² · in_contact`` — penalise horizontal foot slip while grounded.
 
-    mjlab: ``feet_slip``. Gated by command magnitude so standing envs don't accumulate.
-    Honors ``asset_cfg.link_offsets`` for site-frame velocity (mjlab parity).
+    the reference: ``feet_slip``. Gated by command magnitude so standing envs don't accumulate.
+    Honors ``asset_cfg.link_offsets`` for site-frame velocity (reference parity).
     """
     indices = list(_link_ids(asset_cfg))
     in_contact = _contact_sensor(env, sensor_name).data.found.float()
@@ -108,7 +108,7 @@ def soft_landing(
 ) -> torch.Tensor:
     """``Σ_foot |F| · first_contact`` — penalise contact force spikes at touchdown.
 
-    mjlab: ``soft_landing``. Reads ``ContactData.first_contact`` (added in this PR) so the
+    the reference: ``soft_landing``. Reads ``ContactData.first_contact`` (added in this PR) so the
     impulse is only charged on the step a foot transitions air→contact. Requires
     ``track_air_time=True`` on the sensor.
     """
@@ -123,9 +123,9 @@ class feet_swing_height:
 
     Tracks per-foot peak height during the current swing phase, then at the moment of
     foot touchdown emits a cost proportional to how far the swing apex was from
-    ``target_height``. mjlab: ``feet_swing_height``.
+    ``target_height``. The reference: ``feet_swing_height``.
 
-    Honors ``asset_cfg.link_offsets`` (mjlab site parity): the tracked height is the
+    Honors ``asset_cfg.link_offsets`` (the reference site parity): the tracked height is the
     site-frame z, ``link_z + (R_link · offset)_z``, so a foot site sitting 0.037 m
     below the ankle_roll_link origin measures swing height correctly.
 
@@ -186,8 +186,8 @@ def angular_momentum_penalty(env: EnvContext, sensor_name: str) -> torch.Tensor:
     """``||L||₂²`` — squared magnitude of root-frame angular momentum.
 
     Reads :class:`~genelab.sensor.RootAngularMomentumSensor`'s ``(B, 3)`` vector
-    and returns its squared Euclidean norm. mjlab parity — see
-    ``mjlab/tasks/velocity/mdp/rewards.py::angular_momentum_penalty``, which
+    and returns its squared Euclidean norm. Reference parity — see
+    ``tasks/velocity/mdp/rewards.py::angular_momentum_penalty``, which
     returns ``angmom_magnitude_sq`` (i.e. squared norm). The quadratic curve
     penalises large momenta much harder than small ones; with weight −0.02 the
     G1 reference uses this shape to discourage flailing.
@@ -208,7 +208,7 @@ def self_collision_cost(
     Reads :class:`~genelab.sensor.SelfContactSensor`. When the sensor was configured
     with ``history_length > 0`` the result counts how many substeps in the rolling
     window saw at least one self-contact pair above the sensor's ``force_threshold``
-    — mjlab's ``self_collision_cost`` semantic (``force_history.any(dim=pair_axis).sum``),
+    — the reference's ``self_collision_cost`` semantic (``force_history.any(dim=pair_axis).sum``),
     used in G1 with a 4-step window. Without history (``history_length=0``) the
     result is the single-step bool cast to float.
 
@@ -240,7 +240,7 @@ def feet_air_time(
 ) -> torch.Tensor:
     """Count of feet whose current air time is in ``(threshold_min, threshold_max)``.
 
-    mjlab parity (``feet_air_time``): reads ``ContactSensor.current_air_time`` and
+    reference parity (``feet_air_time``): reads ``ContactSensor.current_air_time`` and
     counts how many feet are mid-swing within the configured window — encourages
     stepping cadence without rewarding pathologically long swings.
 
@@ -249,7 +249,7 @@ def feet_air_time(
     doesn't get a free signal while standing.
 
     Note: GeneLab's pre-P5 stub used a foot-z height proxy. This implementation
-    now matches mjlab; the G1 reference cfg sets weight=0 so the term doesn't
+    now matches the reference; the G1 reference cfg sets weight=0 so the term doesn't
     fire during training there.
     """
     data = _contact_sensor(env, sensor_name).data

@@ -78,9 +78,9 @@ def encoder_bias(
     (:func:`genelab.mdp.observations.joint_pos_rel`) returns the raw
     ``joint_pos − default`` and therefore exposes that offset directly — the
     policy must learn to compensate, which is the sim2real-hardening behaviour
-    mjlab gets from the same DR.
+    Isaac Lab gets from the same DR.
 
-    mjlab uses ``(-0.015, 0.015)`` rad (≈0.86°) for the G1 velocity task.
+    Isaac Lab uses ``(-0.015, 0.015)`` rad (≈0.86°) for the G1 velocity task.
     """
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)

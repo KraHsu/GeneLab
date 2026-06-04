@@ -2,7 +2,7 @@
 
 ``PROJECT_ROOT`` / ``CACHE_DIR`` live in :mod:`genelab.utils.paths` (the bottom infra
 band) so ``utils.download`` can resolve the asset cache without importing up into this
-module (ADR-0009 / R7.3d); they are re-exported here for back-compat.
+module; they are re-exported here for back-compat.
 """
 
 import os

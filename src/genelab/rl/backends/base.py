@@ -73,7 +73,7 @@ class TrainContext:
     log_root: Path | None = None
     resume_from: Path | None = None
     profile: ProfileArgs = field(default_factory=ProfileArgs)
-    # Periodic in-training eval (M1.2). Driven by runner.train_task, not by the backend.
+    # Periodic in-training eval. Driven by runner.train_task, not by the backend.
     eval_callback: Any = None  # genelab.rl.eval_callback.EvalCallbackCfg | None
 
 
@@ -118,9 +118,17 @@ class InferenceSetup:
     * ``policy`` — ``policy(obs) -> action_tensor`` callable for the rollout loop.
     * ``actor_module`` — bare ``nn.Module`` taking a single flat policy-obs tensor
       and emitting an action tensor. ``None`` when the backend cannot extract it
-      (e.g. zero / random play paths). Required for ``genelab export``.
+      (e.g. zero / random play paths). Required for ``genelab export``. For a recurrent
+      policy this is the raw model exposing ``as_jit()`` / ``as_onnx()`` (the exporter
+      handles the hidden-state wiring); see ``is_recurrent``.
     * ``actor_input_dim`` — flat dim of the policy obs tensor the actor expects.
       Used to build dummy inputs for tracing / ONNX export.
+    * ``is_recurrent`` — ``True`` when the policy carries hidden state (RNN/LSTM/GRU).
+      The exporter then uses the recurrent export path, and the play / eval loops call
+      ``reset_hidden`` on episode boundaries.
+    * ``reset_hidden`` — ``reset_hidden(dones)`` zeros the policy's hidden state for the
+      environments whose episode just ended. ``None`` for stateless policies (the loops
+      then skip it). Always paired with ``is_recurrent``.
     """
 
     wrapper: Any
@@ -128,6 +136,8 @@ class InferenceSetup:
     policy: Callable[[Any], Any]
     actor_module: "nn.Module | None" = None
     actor_input_dim: int | None = None
+    is_recurrent: bool = False
+    reset_hidden: Callable[[Any], None] | None = None
 
 
 @runtime_checkable

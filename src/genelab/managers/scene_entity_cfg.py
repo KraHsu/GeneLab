@@ -6,9 +6,9 @@ manager-construction pipeline (``managers._base.instantiate_class_term``) calls
 :meth:`SceneEntityCfg.resolve` once at startup to convert those names into
 integer index tuples. Terms then index ``robot_state`` tensors directly.
 
-mjlab parity for ``SceneEntityCfg``, slimmed to GeneLab's surface:
+Isaac Lab parity for ``SceneEntityCfg``, slimmed to GeneLab's surface:
 
-* ``link_names`` / ``link_ids`` (mjlab: ``body_names`` — same concept, just the
+* ``link_names`` / ``link_ids`` (Isaac Lab: ``body_names`` — same concept, just the
   Genesis-side name).
 * ``link_offsets`` — optional per-link local-frame offsets ``(x, y, z)``. Lets
   consumers point at a named *site* on the link (e.g. ``left_foot`` at
@@ -48,7 +48,7 @@ class SceneEntityCfg:
                 "asset_cfg": SceneEntityCfg(
                     "robot",
                     link_names=("left_ankle_roll_link", "right_ankle_roll_link"),
-                    # mjlab parity: foot rewards evaluate at the ``left_foot``/``right_foot``
+                    # Isaac Lab parity: foot rewards evaluate at the ``left_foot``/``right_foot``
                     # sites, which sit (0.04, 0, -0.037) from the ankle_roll_link origin.
                     link_offsets=((0.04, 0.0, -0.037), (0.04, 0.0, -0.037)),
                 ),
@@ -64,7 +64,7 @@ class SceneEntityCfg:
     name: str = "robot"
     """Scene-entity name selecting which articulation this term acts on.
 
-    Resolved against ``env.articulations[name]`` (ROADMAP M3.6 / ADR-0012). Defaults to the
+    Resolved against ``env.articulations[name]``. Defaults to the
     primary ``"robot"``; multi-robot terms set it to e.g. ``"robot_b"``. Falls back to the
     env's primary joint/link tables when ``env`` predates the multi-entity accessor."""
 
@@ -75,7 +75,7 @@ class SceneEntityCfg:
     """Populated by :meth:`resolve` from ``link_names``. Don't set manually."""
 
     link_offsets: tuple[tuple[float, float, float], ...] | None = None
-    """Optional per-link local-frame offsets (mjlab-style site positions).
+    """Optional per-link local-frame offsets (Isaac Lab-style site positions).
 
     When set, must have the same length as ``link_names``. Each entry is the
     site position in the corresponding link's body frame. Foot rewards
@@ -102,7 +102,7 @@ class SceneEntityCfg:
         """The object whose ``joint_names`` / ``link_names`` tables back this entity.
 
         ``env.articulations[self.name]`` when the multi-entity accessor exists and holds
-        ``name`` (ROADMAP M3.6); otherwise ``env`` itself — its singular ``joint_names`` /
+        ``name``; otherwise ``env`` itself — its singular ``joint_names`` /
         ``link_names`` are the primary entity's, preserving single-robot behaviour.
         """
         arts = getattr(env, "articulations", None)

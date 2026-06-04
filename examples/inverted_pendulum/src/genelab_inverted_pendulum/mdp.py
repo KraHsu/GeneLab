@@ -119,3 +119,60 @@ def push_cart_by_setting_joint_velocity(
     target_vel = current[env_ids]
     target_pos = env.articulations["robot"].data.joint_pos[env_ids]
     env.articulations["robot"].write_joint_state(target_pos, target_vel, env_ids)
+
+
+# ---- "recall the target" memory task ---------------------------------------------
+# A per-episode cart target is shown only for the first ``cue_steps``, then hidden. With
+# frequent pushes knocking the cart around, a memoryless policy cannot return to the (now
+# unobserved) target — it must have remembered it. This is the task recurrence is for.
+
+_CART_TARGET_ATTR = "_cart_memory_target"
+
+
+def _cart_target_buf(env: "ManagerBasedRlEnv") -> torch.Tensor:
+    """Per-env cart target, lazily allocated and stashed on the env object.
+
+    Created on first access (which is the episode-0 reset, so ``reset_cart_target`` fills it
+    before any observation/reward reads it). A different ``num_envs`` always means a freshly
+    built env, hence a fresh attribute — no resize path is needed.
+    """
+    buf = getattr(env, _CART_TARGET_ATTR, None)
+    if buf is None:
+        buf = torch.zeros(env.num_envs, device=env.device)
+        setattr(env, _CART_TARGET_ATTR, buf)
+    return buf
+
+
+def reset_cart_target(
+    env: "ManagerBasedRlEnv",
+    env_ids: torch.Tensor | None,
+    target_range: tuple[float, float] = (-1.0, 1.0),
+) -> None:
+    """Reset-mode: sample a fresh hidden cart target for each reset env."""
+    if env_ids is None or env_ids.numel() == 0:
+        return
+    buf = _cart_target_buf(env)
+    lo, hi = target_range
+    buf[env_ids] = torch.empty(int(env_ids.numel()), device=env.device).uniform_(lo, hi)
+
+
+def cart_target_cue(env: "ManagerBasedRlEnv", cue_steps: int = 30) -> torch.Tensor:
+    """Observation term: the cart target during the first ``cue_steps``, then ``0``.
+
+    After the cue window the term is identical (zero) regardless of the true target, so a
+    memoryless policy has no way to recover it — only a recurrent policy that stored it
+    during the cue window can keep tracking it.
+    """
+    buf = _cart_target_buf(env)
+    active = (env.episode_length_buf < cue_steps).to(buf.dtype)
+    return (buf * active).unsqueeze(-1)
+
+
+def cart_target_tracking_l2(
+    env: "ManagerBasedRlEnv", joint_name: str = "cart_slide"
+) -> torch.Tensor:
+    """Squared distance of the cart from its (hidden) target — the thing to minimise."""
+    buf = _cart_target_buf(env)
+    idx = _joint_index(env, joint_name)
+    x = env.articulations["robot"].data.joint_pos[:, idx]
+    return (x - buf).square()

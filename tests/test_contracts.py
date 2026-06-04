@@ -1,4 +1,4 @@
-"""Conformance + drift guard for the ``genelab.contracts`` ports (ADR-0014).
+"""Conformance + drift guard for the ``genelab.contracts`` ports.
 
 Two layers protect the ``EnvContext`` / ``SceneContext`` protocols:
 

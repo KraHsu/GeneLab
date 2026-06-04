@@ -7,13 +7,12 @@ collects the recorder handle so the env-side ``bind_env`` hook can patch its
 ``_steps_per_sample`` to the control-step decimation when appropriate.
 """
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from genelab.recording.cfg import (
     CSVFileCfg,
+    MPLImagePlotCfg,
     MPLPlotCfg,
     NPZFileCfg,
     OutputCfg,
@@ -104,6 +103,12 @@ def _to_genesis_options(rec_cfg: RecordingCfg, output_cfg: OutputCfg) -> Any:
             labels=output_cfg.labels,
             window_size=output_cfg.window_size,
             history_length=output_cfg.history_length,
+        )
+    if isinstance(output_cfg, MPLImagePlotCfg):
+        return gs_recorders.MPLImagePlot(
+            **common,
+            title=output_cfg.title or title_default,
+            window_size=output_cfg.window_size,
         )
     if isinstance(output_cfg, NPZFileCfg):
         if not output_cfg.filename:

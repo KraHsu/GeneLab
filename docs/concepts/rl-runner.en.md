@@ -46,7 +46,10 @@ and checkpoints. RSL-RL logs under `logs/rsl_rl/`, skrl under `logs/skrl/`, SB3 
 | `random` | Uniform random actions. |
 | `trained` | Loads a checkpoint and calls the backend's inference policy. |
 
-Playback exits cleanly when the Genesis viewer closes or when `max_steps` is reached.
+Playback length is gated on the viewer, not the agent kind: with a viewer
+(`vis=true`) it runs until the window is closed; headless (`vis=false`) it stops
+after `simulation.steps` steps (what `--steps` sets) for every agent kind, so a
+headless run can't hang. An explicit `max_steps` (`--max-steps`) overrides both.
 
 ## Distributed training
 

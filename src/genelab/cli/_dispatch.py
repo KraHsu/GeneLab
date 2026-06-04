@@ -1,7 +1,7 @@
 """Play / train dispatch for registered GeneLab tasks.
 
-Factored out of ``cli/__init__.py`` (ADR-0004 / ROADMAP §9 PR R4.3 — final
-sub-PR of the CLI dispatcher decomposition). The ``play`` / ``train`` Typer
+Factored out of ``cli/__init__.py`` (the final sub-PR of the CLI dispatcher
+decomposition). The ``play`` / ``train`` Typer
 command callbacks in ``cli/__init__.py`` are the only callers; this module
 imports the distributed helpers from ``cli/_distributed.py`` and the agent-kind
 picker from ``cli/_interactive.py``, and references nothing in ``genelab.cli``
@@ -9,7 +9,7 @@ itself at runtime, so no import cycle is introduced.
 
 The profiler-kwarg coercion (``_coerce_prof_kwargs`` + its ``_parse_*`` helpers)
 and the ``_AGENT_KINDS`` set live here rather than in ``cli/__init__.py`` (where
-ADR-0004 originally placed them) because the two dispatch functions are their
+they were originally placed) because the two dispatch functions are their
 only users; co-locating keeps this module a self-contained leaf and avoids a
 runtime ``cli -> _dispatch -> cli`` cycle.
 """
@@ -97,6 +97,15 @@ def _dispatch_play(task: Runnable, runner_args: dict[str, str], prof_args: dict[
     # resolver so the mutual-exclusion guard fires on misuse.
     num_envs_per_rank = _resolve_per_rank_num_envs(runner_args, gpus=1)
 
+    # ``--max-steps`` is the hard, genelab-enforced playback cap: when set it always wins
+    # over the soft ``env.simulation.steps`` config and over the viewer gate (the loop
+    # stops after this many steps even with a window open). Threaded into every play path
+    # — the RL helper (``play_task``) and each task's own ``play()`` — so the semantics are
+    # identical regardless of which runner backs the task. ``None`` leaves the soft config
+    # in charge (headless: ``simulation.steps``; viewer: run until the window closes).
+    max_steps_raw = runner_args.get("max_steps")
+    max_steps = int(max_steps_raw) if max_steps_raw is not None else None
+
     # The CLI's already-overridden cfg (play_env when configured): TASKS.get returns a
     # fresh task each call, so the runner re-resolving would discard the --vis / --gpu /
     # --a.env.* overrides applied above.
@@ -127,7 +136,7 @@ def _dispatch_play(task: Runnable, runner_args: dict[str, str], prof_args: dict[
                 f"{', '.join(ignored)} and running its built-in playback.",
                 file=sys.stderr,
             )
-        task.play()
+        task.play(max_steps=max_steps)
         return
 
     if (
@@ -137,7 +146,7 @@ def _dispatch_play(task: Runnable, runner_args: dict[str, str], prof_args: dict[
         and agent_cfg is None
         and not prof_args
     ):
-        task.play()
+        task.play(max_steps=max_steps)
         return
     from genelab.rl import AgentKind, play_task
 
@@ -150,6 +159,7 @@ def _dispatch_play(task: Runnable, runner_args: dict[str, str], prof_args: dict[
         checkpoint=Path(checkpoint_raw) if checkpoint_raw is not None else None,
         num_envs=num_envs_per_rank,
         agent=cast("AgentKind | None", agent_raw),
+        max_steps=max_steps,
         **_coerce_prof_kwargs(prof_args),
     )
 

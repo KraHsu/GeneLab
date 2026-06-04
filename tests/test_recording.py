@@ -14,6 +14,7 @@ import pytest
 import torch
 
 from genelab.recording import (
+    MPLImagePlotCfg,
     NPZFileCfg,
     PyQtPlotCfg,
     RecorderBridge,
@@ -212,6 +213,70 @@ def test_validate_rejects_plot_with_camera_source() -> None:
             ),
             bridge,
         )
+
+
+def test_validate_accepts_image_plot_with_camera_source() -> None:
+    # MPLImagePlotCfg is an image sink (not a line plot), so it is allowed to consume a
+    # camera frame — validate must NOT raise.
+    cam = _FakeCameraSensor(_FakeCameraData(rgb=torch.zeros(2, 4, 4, 3, dtype=torch.uint8)))
+    bridge = _bridge_with_sensors(cam=cam)
+    validate_output_compatibility(
+        RecordingCfg(
+            name="r",
+            source="cam",
+            field="rgb",
+            outputs=(MPLImagePlotCfg(title="rgb"),),
+        ),
+        bridge,
+    )
+
+
+def test_validate_allows_image_plot_with_callable_source() -> None:
+    # A callable source may legitimately return frames; the camera-requirement only
+    # applies to sensor-name sources, so an image plot on a callable must NOT raise.
+    bridge = _bridge_with_sensors()
+    validate_output_compatibility(
+        RecordingCfg(
+            name="r",
+            source=lambda env: env.foo,
+            outputs=(MPLImagePlotCfg(title="frames"),),
+        ),
+        bridge,
+    )
+
+
+def test_validate_rejects_image_plot_with_non_camera_source() -> None:
+    imu = _FakeSensor(_FakeIMUData(orientation=torch.zeros(2, 4), lin_acc_b=torch.zeros(2, 3)))
+    bridge = _bridge_with_sensors(imu=imu)
+    with pytest.raises(ValueError, match="CameraSensor"):
+        validate_output_compatibility(
+            RecordingCfg(
+                name="r",
+                source="imu",
+                field="orientation",
+                outputs=(MPLImagePlotCfg(title="bad"),),
+            ),
+            bridge,
+        )
+
+
+def test_resolve_camera_field_for_image_plot_indexes_env() -> None:
+    # A camera ``field="rgb"`` paired with an image plot resolves through the generic
+    # sensor path and squeezes to the selected env's (H, W, 3) frame.
+    rgb = torch.arange(2 * 4 * 4 * 3, dtype=torch.uint8).reshape(2, 4, 4, 3)
+    cam = _FakeCameraSensor(_FakeCameraData(rgb=rgb))
+    bridge = _bridge_with_sensors(cam=cam)
+    rec_cfg = RecordingCfg(
+        name="r",
+        source="cam",
+        field="rgb",
+        env_idx=1,
+        outputs=(MPLImagePlotCfg(title="rgb"),),
+    )
+    frame = resolve_data_func(rec_cfg, bridge)()
+    assert isinstance(frame, torch.Tensor)
+    assert frame.shape == (4, 4, 3)
+    assert torch.equal(frame, rgb[1])
 
 
 def test_is_sensor_source_predicate() -> None:

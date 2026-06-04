@@ -1,4 +1,4 @@
-"""Optional-dep boundary test (ROADMAP §9 Phase R0.2).
+"""Optional-dep boundary test.
 
 Locks invariant #1 from ``CLAUDE.md``::
 
@@ -12,8 +12,8 @@ subsequent ``import name`` raise ``ImportError`` per Python's
 documented behaviour for sentinel ``None`` entries), then attempts to
 import one target module.  A non-zero exit code means the target leaks
 one of the optional libraries at module-load time and must move the
-offending import into a function body before R7 can flip
-``import-linter`` from lint-only to blocking.
+offending import into a function body before ``import-linter`` can flip
+from lint-only to blocking.
 
 The four targets are the load-bearing entry points: ``genelab.rl``
 itself (re-exports the configs, the backend registry, the runner) plus
@@ -52,7 +52,7 @@ TARGETS: tuple[str, ...] = (
     "genelab.rl.backends.rsl_rl",
     "genelab.rl.backends.skrl",
     "genelab.rl.backends.sb3",
-    # VecEnv adapters (ADR-0007 / R6): each must import without its RL library —
+    # VecEnv adapters: each must import without its RL library —
     # the "subclass the upstream base if installed" step defers via importlib.
     "genelab.rl.vecenvs.rsl_rl",
     "genelab.rl.vecenvs.skrl",

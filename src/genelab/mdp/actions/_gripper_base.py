@@ -4,7 +4,7 @@
 finger joints, allocate the same buffers, and push targets the same way — they
 differ only in how a scalar policy output maps to a finger-width target
 (:meth:`process_actions`). This base owns everything they share so that mapping is
-the only thing each subclass defines (ADR-0018).
+the only thing each subclass defines.
 """
 
 from __future__ import annotations

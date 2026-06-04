@@ -67,6 +67,58 @@ def test_cli_routes_agent_through_play_task(monkeypatch: pytest.MonkeyPatch) -> 
     assert captured["agent"] == "random"
 
 
+def test_cli_forwards_max_steps_to_play_task(monkeypatch: pytest.MonkeyPatch) -> None:
+    # ``--max-steps`` is parsed as a runner key and threaded into the RL play helper as
+    # the hard cap (an int, not the raw string).
+    from genelab import cli as cli_module
+
+    captured: dict[str, object] = {}
+
+    def _fake_play(task_id: str, **kwargs: object) -> None:
+        captured["task_id"] = task_id
+        captured.update(kwargs)
+
+    fake_rl = type("FakeRl", (), {"play_task": staticmethod(_fake_play), "AgentKind": str})
+    monkeypatch.setitem(sys.modules, "genelab.rl", fake_rl)
+
+    cli_module.main(
+        [
+            "--import",
+            "tests.fake_extension",
+            "play",
+            "External-Fake-RL-Task-v0",
+            "--agent",
+            "random",
+            "--max-steps",
+            "7",
+        ]
+    )
+
+    assert captured["max_steps"] == 7
+
+
+def test_cli_forwards_max_steps_to_non_rl_task_play(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Non-RL scene/showcase tasks run their own ``task.play()``; the hard cap is threaded
+    # there too. ``FakeTask.play`` echoes the resolved bound, so a captured "for 9 steps"
+    # proves ``max_steps`` reached it.
+    from genelab import cli as cli_module
+
+    cli_module.main(
+        [
+            "--import",
+            "tests.fake_extension",
+            "play",
+            "External-Fake-Task-v0",
+            "--max-steps",
+            "9",
+        ]
+    )
+
+    assert "for 9 steps" in capsys.readouterr().out
+
+
 def test_play_non_rl_task_ignores_rl_flags_and_runs_demo(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

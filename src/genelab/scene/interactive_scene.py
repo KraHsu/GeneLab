@@ -15,8 +15,9 @@ Lifecycle:
    so its post-build introspection lands.
 """
 
+import logging
 import os
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any
 
 import torch
@@ -31,7 +32,61 @@ if TYPE_CHECKING:
     from genelab.sensor.camera import CameraSensor
 
 
+_logger = logging.getLogger(__name__)
+
 _pyrender_save_patch_applied = False
+_imgui_overlay_patch_applied = False
+_viewer_title_patch_applied = False
+
+
+def find_imgui_panel_host(viewer: Any) -> Any | None:
+    """Return the viewer plugin exposing ``register_panel`` (Genesis's ImGui overlay), or None.
+
+    Genesis appends an ``ImGuiOverlayPlugin`` to ``viewer._viewer_plugins`` when the scene is
+    built with ``ViewerOptions(enable_gui=True)``. We duck-type rather than import the plugin
+    class so this stays robust across Genesis point releases — any plugin that exposes a
+    ``register_panel`` callable is a valid host.
+    """
+    for plugin in getattr(viewer, "_viewer_plugins", None) or []:
+        if callable(getattr(plugin, "register_panel", None)):
+            return plugin
+    return None
+
+
+def register_viewer_panels(
+    viewer: Any,
+    panels: Iterable[Callable[[Any], None]],
+    *,
+    section: str = "side",
+    logger: logging.Logger | None = None,
+) -> int:
+    """Forward each ``panel(imgui)`` callback to the viewer's ImGui overlay.
+
+    This is the whole of GeneLab's "GUI wrapping": a user appends a plain
+    ``callback(imgui)`` to :attr:`SimulationCfg.panels` and GeneLab calls
+    :meth:`ImGuiOverlayPlugin.register_panel` for them after ``scene.build`` — so adding a
+    GUI element costs exactly one function, same as raw Genesis. Returns the number of
+    panels registered; logs a warning and returns ``0`` when the viewer has no ImGui overlay
+    (i.e. the scene was built without ``enable_gui=True``).
+    """
+    panel_list = list(panels)
+    if not panel_list:
+        return 0
+    host = find_imgui_panel_host(viewer)
+    # Any overlay user (managed InteractiveScene or a bespoke ``gs.Scene``) gets the
+    # overlay close-crash / reversed-scroll fixes for free by going through this helper.
+    _patch_imgui_overlay()
+    if host is None:
+        if logger is not None:
+            logger.warning(
+                "register_viewer_panels: %d panel(s) requested but the viewer has no ImGui "
+                "overlay (build the scene with viewer_imgui=True / enable_gui=True); ignored.",
+                len(panel_list),
+            )
+        return 0
+    for panel in panel_list:
+        host.register_panel(panel, section=section)
+    return len(panel_list)
 
 
 def _patch_pyrender_save_filename() -> None:
@@ -67,6 +122,90 @@ def _patch_pyrender_save_filename() -> None:
 
     _PyrenderViewer._get_save_filename = _genelab_get_save_filename  # type: ignore[method-assign]  # pyright: ignore[reportPrivateUsage]
     _pyrender_save_patch_applied = True
+
+
+def _patch_imgui_overlay() -> None:
+    """Work around two Genesis ``ImGuiOverlayPlugin`` bugs that surface once the overlay is on.
+
+    1. **Close crash.** ``on_close`` calls ``self._impl.shutdown()`` →
+       ``imgui.get_platform_io()``, which on the pyglet / ``imgui_bundle`` backend asserts
+       ``No current context`` when the window closes (the imgui context is already gone on the
+       calling thread). The viewer thread stores that as ``_exception``; the main thread's
+       ``is_alive()`` re-raises it as ``GenesisException("Unexpected viewer error.")``, so
+       ``play`` exits with a traceback even though the viewer rendered fine. We wrap
+       ``on_close`` to swallow teardown errors — the viewer is closing, so any leaked GL /
+       imgui state is freed at process exit and the normal ``"Viewer closed."`` path takes over.
+
+    2. **Reversed scroll.** Genesis forwards pyglet's ``scroll_y`` straight to the backend,
+       which negates it (``add_mouse_wheel_event(0, -scroll)``) — so the wheel scrolls overlay
+       panels the wrong way. We wrap ``on_mouse_scroll`` to flip ``dy``, restoring the expected
+       direction (panel scroll only; camera zoom is a separate handler).
+
+    We can't modify Genesis, so both are class-level wraps (mirrors
+    :func:`_patch_pyrender_save_filename`). Idempotent; only matters when ``viewer_imgui`` /
+    ``panels`` enabled the overlay.
+    """
+    global _imgui_overlay_patch_applied
+    if _imgui_overlay_patch_applied:
+        return
+    try:
+        from genesis.ext.pyrender.overlay.plugin import ImGuiOverlayPlugin
+    except Exception:
+        return
+
+    original_on_close = ImGuiOverlayPlugin.on_close
+
+    def _genelab_safe_on_close(self: Any) -> None:
+        try:
+            original_on_close(self)
+        except Exception:
+            _logger.debug(
+                "ImGui overlay on_close teardown failed; ignoring on viewer close",
+                exc_info=True,
+            )
+
+    original_on_scroll = ImGuiOverlayPlugin.on_mouse_scroll
+
+    def _genelab_on_mouse_scroll(self: Any, x: Any, y: Any, dx: Any, dy: Any) -> Any:
+        return original_on_scroll(self, x, y, dx, -dy)
+
+    ImGuiOverlayPlugin.on_close = _genelab_safe_on_close  # type: ignore[method-assign]
+    ImGuiOverlayPlugin.on_mouse_scroll = _genelab_on_mouse_scroll  # type: ignore[method-assign]
+    _imgui_overlay_patch_applied = True
+
+
+def _patch_viewer_window_title() -> None:
+    """Rebrand the viewer's OS window caption from ``Genesis <ver>`` to ``GeneLab <ver>``.
+
+    Genesis hard-codes ``viewer_flags={"window_title": f"Genesis {gs.__version__}"}`` when it
+    constructs the pyrender viewer (``genesis/vis/viewer.py``), and the pyrender ``Viewer``
+    applies that flag as the window caption during ``__init__``. We can't modify Genesis, so we
+    wrap the pyrender ``Viewer.__init__`` at the class level (mirrors
+    :func:`_patch_pyrender_save_filename`) and rewrite the incoming ``window_title`` before the
+    original runs — only when it carries the ``Genesis`` default, so a caller-supplied title is
+    left untouched. Idempotent; only matters when the viewer is enabled.
+    """
+    global _viewer_title_patch_applied
+    if _viewer_title_patch_applied:
+        return
+    try:
+        from genesis.ext.pyrender.viewer import Viewer as _PyrenderViewer
+
+        from genelab import __version__ as _genelab_version
+    except Exception:
+        return
+    original_init = _PyrenderViewer.__init__
+
+    def _genelab_viewer_init(self: Any, *args: Any, **kwargs: Any) -> None:
+        viewer_flags = kwargs.get("viewer_flags")
+        if isinstance(viewer_flags, dict):
+            title = viewer_flags.get("window_title")
+            if isinstance(title, str) and title.startswith("Genesis"):
+                viewer_flags["window_title"] = f"GeneLab {_genelab_version}"
+        original_init(self, *args, **kwargs)
+
+    _PyrenderViewer.__init__ = _genelab_viewer_init  # type: ignore[method-assign]
+    _viewer_title_patch_applied = True
 
 
 def _resolve_use_gpu(gpu: bool | None, device: str) -> bool:
@@ -177,7 +316,7 @@ class InteractiveScene:
             dt=float(self._sim_cfg.dt),
             substeps=int(self._sim_cfg.substeps),
         )
-        # Optional rigid-solver tuning (ROADMAP M3.7). The cfg keeps ``integrator`` as a
+        # Optional rigid-solver tuning. The cfg keeps ``integrator`` as a
         # string (so ``configs`` stays Genesis-free); resolve it to ``gs.integrator.<name>``
         # here. ``rigid_options`` is only passed when the user set at least one field, so an
         # untouched config leaves Genesis's defaults exactly as before.
@@ -203,10 +342,15 @@ class InteractiveScene:
         # ``_visualizer.update`` via ``ViewerOptions.max_FPS``. We only construct
         # ``ViewerOptions`` when the viewer is enabled so headless training stays
         # untouched.
+        # A non-empty ``panels`` list implies the ImGui overlay even if ``viewer_imgui`` was
+        # left False, so "add a panel" is a one-liner that just works.
+        enable_gui = bool(self._sim_cfg.viewer_imgui) or bool(
+            getattr(self._sim_cfg, "panels", None)
+        )
         viewer_options = (
             gs.options.ViewerOptions(
                 max_FPS=self._sim_cfg.render_fps,
-                enable_gui=self._sim_cfg.viewer_imgui,
+                enable_gui=enable_gui,
             )
             if self._sim_cfg.vis
             else None
@@ -215,6 +359,11 @@ class InteractiveScene:
             # Workaround for an upstream pyrender bug that saves videos with a .png
             # extension. Applied once per process; no-op when not built.
             _patch_pyrender_save_filename()
+            # Rebrand the viewer window caption from "Genesis <ver>" to "GeneLab <ver>".
+            _patch_viewer_window_title()
+            if enable_gui:
+                # Workaround for Genesis/imgui_bundle overlay bugs (close crash, reversed scroll).
+                _patch_imgui_overlay()
         scene_kwargs: dict[str, Any] = dict(
             sim_options=sim_options,
             renderer=renderer,
@@ -224,6 +373,7 @@ class InteractiveScene:
             scene_kwargs["rigid_options"] = gs.options.RigidOptions(**rigid_kwargs)
         if viewer_options is not None:
             scene_kwargs["viewer_options"] = viewer_options
+        self._add_solver_options(gs, scene_kwargs)
         self._gs_scene = gs.Scene(**scene_kwargs)
         if self._terrain is None:
             self._gs_scene.add_entity(gs.morphs.Plane())
@@ -240,6 +390,12 @@ class InteractiveScene:
             # fully constructed rigid solver. Post-build registration deadlocks the sim/viewer
             # loop in some Genesis builds.
             self._gs_scene.viewer.add_plugin(MouseInteractionPlugin(use_force=True))
+
+        # Forward any custom ImGui panels to the overlay. ``register_panel`` only appends to a
+        # copy-on-write list (drawn post-build on the viewer thread), so pre-build registration
+        # is safe and keeps the panel host attached before ``build`` snapshots the viewer.
+        if self._sim_cfg.vis and getattr(self._sim_cfg, "panels", None):
+            register_viewer_panels(self._gs_scene.viewer, self._sim_cfg.panels, logger=_logger)
 
         # Pre-build sensors: instantiate every sensor and let it register any Genesis
         # resources (e.g. BatchRenderer cameras) before ``gs_scene.build`` snapshots
@@ -279,6 +435,34 @@ class InteractiveScene:
         if self._terrain is not None:
             self._terrain.init_per_env_state(self._num_envs, self._device)
         self._built = True
+
+    def _add_solver_options(self, gs: Any, scene_kwargs: dict[str, Any]) -> None:
+        """Enable the deformable / fluid solvers this scene's materials require.
+
+        Collects the union of ``required_solvers()`` across every entity material (plus
+        any solver the user explicitly tuned via ``scene_cfg.solvers``) and sets the
+        matching ``*_options`` kwarg on ``gs.Scene``. A solver the user tuned uses that
+        cfg; one needed only because of a material gets Genesis defaults. Rigid /
+        kinematic need no extra options, so a rigid-only scene leaves ``scene_kwargs``
+        untouched — byte-for-byte identical to before materials existed.
+        """
+        from genelab.materials.options import SOLVER_SCENE_KWARGS
+
+        required: set[str] = set()
+        for entity in self._entities.values():
+            material = getattr(entity.cfg, "material", None)
+            if material is not None:
+                required |= material.required_solvers()
+        required &= set(SOLVER_SCENE_KWARGS)  # drop rigid / kinematic
+
+        solvers_cfg = getattr(self._scene_cfg, "solvers", None)
+        for family, (scene_kwarg, options_cls, attr) in SOLVER_SCENE_KWARGS.items():
+            user_cfg = getattr(solvers_cfg, attr, None) if solvers_cfg is not None else None
+            if user_cfg is None and family not in required:
+                continue
+            scene_kwargs[scene_kwarg] = (
+                user_cfg.build(gs) if user_cfg is not None else getattr(gs.options, options_cls)()
+            )
 
     def _compute_env_origins(self) -> torch.Tensor:
         scene_origins = getattr(self._gs_scene, "envs_offset", None)
@@ -481,6 +665,6 @@ if TYPE_CHECKING:
 
     from genelab.contracts import SceneContext
 
-    # ADR-0014: InteractiveScene is the adapter for the SceneContext port. Type-only
+    # InteractiveScene is the adapter for the SceneContext port. Type-only
     # assignment; pyright fails CI if the scene stops conforming.
     _scene_context_conformance: SceneContext = cast("InteractiveScene", ...)

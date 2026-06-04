@@ -3,8 +3,8 @@
 Both :mod:`genelab.rl.backends.sb3.config` and :mod:`genelab.rl.backends.skrl.config` previously
 declared their own copies of these two frozensets verbatim. They are the same
 taxonomy — on-policy algorithms learn from a rollout buffer, off-policy
-algorithms learn from a replay buffer — so per ADR-0003 / R2.1 they live here
-and the configs re-export them.
+algorithms learn from a replay buffer — so they live here and the configs
+re-export them.
 
 Adding a new algorithm symbol means editing exactly one file. Each backend
 config still keeps its own ``<Backend>Algorithm`` Literal so the type-checker

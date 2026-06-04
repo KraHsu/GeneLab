@@ -1,15 +1,15 @@
-"""Public-API ``__all__`` snapshot baseline (vNext Phase 0 / ADR-0017).
+"""Public-API ``__all__`` snapshot baseline.
 
 Pins the two ``__all__``-guarded public facades — :mod:`genelab.lab` (the
-Isaac-Lab-mirroring surface) and :mod:`genelab.extensions` (the plugin port,
-ADR-0008) — against checked-in expected name sets. Any add or removal must
+Isaac-Lab-mirroring surface) and :mod:`genelab.extensions` (the plugin port)
+— against checked-in expected name sets. Any add or removal must
 update the expected set in this file in the same PR, making public-surface
 changes explicit and reviewable.
 
-This is the guardrail the later phases rely on: Phase 1 (ADR-0017) performs
-clean-cut renames/removals (e.g. dropping ``GenesisBackendCfg``, renaming the
-env protocol) and updates the expected set here in the same change. The test
-guards against *accidental* drift, not against deliberate, reviewed changes.
+This is the guardrail later changes rely on: clean-cut renames/removals
+(e.g. dropping ``GenesisBackendCfg``, renaming the env protocol) update the
+expected set here in the same change. The test guards against *accidental*
+drift, not against deliberate, reviewed changes.
 
 The expected sets are inline ``frozenset`` literals (not external snapshot
 files) so drift surfaces as a readable code diff right next to the assertion.
@@ -34,9 +34,11 @@ EXPECTED_LAB_ALL = frozenset(
         "BiasDrift",
         "Bridge",
         "BridgeCfg",
+        "BsdfCfg",
         "CameraData",
         "CameraSensor",
         "CameraSensorCfg",
+        "ColorTextureCfg",
         "ContactData",
         "ContactSensor",
         "ContactSensorCfg",
@@ -44,6 +46,11 @@ EXPECTED_LAB_ALL = frozenset(
         "DCMotorActuator",
         "DCMotorActuatorCfg",
         "DiscreteObstaclesCfg",
+        "EmissionCfg",
+        "FemClothCfg",
+        "FemElasticCfg",
+        "FemMuscleCfg",
+        "FemOptionsCfg",
         "FlatPatchCfg",
         "ForceTorqueData",
         "ForceTorqueSensor",
@@ -52,25 +59,49 @@ EXPECTED_LAB_ALL = frozenset(
         "FrameTransformerData",
         "FrameTransformerSensor",
         "FrameTransformerSensorCfg",
+        "GlassCfg",
         "Gnoise",
         "GridPattern",
         "HemispherePattern",
+        "HybridMaterialCfg",
         "IMUData",
         "IMUSensor",
         "IMUSensorCfg",
         "IdealPDActuator",
         "IdealPDActuatorCfg",
+        "ImageTextureCfg",
         "ImplicitPDActuator",
         "ImplicitPDActuatorCfg",
         "InteractiveScene",
         "InteractiveSceneCfg",
         "KeyboardTwistBridge",
         "KeyboardTwistBridgeCfg",
+        "KinematicMaterialCfg",
         "ManagerBasedEnvCfg",
         "ManagerBasedEnvProtocol",
+        "MaterialCfg",
+        "MeshGridPattern",
+        "MeshRayCastData",
+        "MeshRayCastSensor",
+        "MeshRayCastSensorCfg",
+        "MeshSphericalPattern",
+        "MetalCfg",
         "MlpResidualActuator",
         "MlpResidualActuatorCfg",
+        "MpmElasticCfg",
+        "MpmElastoPlasticCfg",
+        "MpmLiquidCfg",
+        "MpmMuscleCfg",
+        "MpmOptionsCfg",
+        "MpmSandCfg",
+        "MpmSnowCfg",
         "NoiseCfg",
+        "PbdClothCfg",
+        "PbdElasticCfg",
+        "PbdLiquidCfg",
+        "PbdOptionsCfg",
+        "PbdParticleCfg",
+        "PlasticCfg",
         "PyramidStairsCfg",
         "RandomRoughCfg",
         "RayCastData",
@@ -78,6 +109,7 @@ EXPECTED_LAB_ALL = frozenset(
         "RayCastSensorCfg",
         "Registry",
         "RegistryEntry",
+        "RigidMaterialCfg",
         "RigidObject",
         "RigidObjectCfg",
         "RingPattern",
@@ -85,9 +117,15 @@ EXPECTED_LAB_ALL = frozenset(
         "ScaledNoise",
         "Sensor",
         "SensorCfg",
+        "SfOptionsCfg",
+        "SfSmokeCfg",
         "SimulationCfg",
+        "SolverOptionsCfg",
+        "SphLiquidCfg",
+        "SphOptionsCfg",
         "SteppingStonesCfg",
         "SubTerrainCfg",
+        "SurfaceCfg",
         "TargetFrameCfg",
         "TaskCfg",
         "TerrainGenerator",
@@ -95,6 +133,9 @@ EXPECTED_LAB_ALL = frozenset(
         "TerrainHeightSensor",
         "TerrainHeightSensorCfg",
         "TerrainImporter",
+        "TextureCfg",
+        "ToolMaterialCfg",
+        "ToolOptionsCfg",
         "Unoise",
         "apply_overrides",
         "load_bundled_asset_zoo",
@@ -103,7 +144,7 @@ EXPECTED_LAB_ALL = frozenset(
     }
 )
 
-# Frozen baseline of ``genelab.extensions.__all__`` (the ADR-0008 plugin port).
+# Frozen baseline of ``genelab.extensions.__all__`` (the plugin port).
 EXPECTED_EXTENSIONS_ALL = frozenset(
     {
         "ENVS",

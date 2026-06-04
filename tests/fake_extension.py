@@ -43,10 +43,11 @@ class FakeTask:
             trainable=False,
         )
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
         if not isinstance(self.cfg.env, FakeEnvCfg):
             raise TypeError("FakeTask requires FakeEnvCfg")
-        print(f"played {self.cfg.name} for {self.cfg.env.simulation.steps} steps")
+        bound = max_steps if max_steps is not None else self.cfg.env.simulation.steps
+        print(f"played {self.cfg.name} for {bound} steps")
 
     def train(self) -> None:
         raise NotImplementedError("training is not implemented for fake extension")
@@ -65,7 +66,7 @@ class FakeRlTask:
             trainable=False,
         )
 
-    def play(self) -> None:
+    def play(self, *, max_steps: int | None = None) -> None:
         raise AssertionError("RL-capable task must route through play_task, not task.play()")
 
     def train(self) -> None:

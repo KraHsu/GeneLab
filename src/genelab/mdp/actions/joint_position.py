@@ -48,7 +48,7 @@ class JointPositionAction(ActionTerm):
         super().__init__(cfg, env)
         import re
 
-        # Route to the entity named by ``cfg.asset_name`` (M3.6 / ADR-0012 S2); the joint
+        # Route to the entity named by ``cfg.asset_name``; the joint
         # indices, scale, defaults and write all target that one articulation.
         self._articulation = resolve_articulation(env, cfg.asset_name)
         self._robot_state = resolve_robot_state(env, cfg.asset_name)

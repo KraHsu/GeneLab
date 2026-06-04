@@ -14,13 +14,20 @@ class Runnable(Protocol):
 
     A task exposes its config (``cfg``) and the two entry points the CLI dispatches
     to (``play`` / ``train``). Promoted from the former private ``cli._RunnableTask``
-    so third-party task implementations have a documented, public contract to follow
-    (ADR-0008 / ROADMAP §9 R7).
+    so third-party task implementations have a documented, public contract to follow.
     """
 
     cfg: object
 
-    def play(self) -> None: ...
+    def play(self, *, max_steps: int | None = None) -> None:
+        """Run playback. ``max_steps`` is the hard, genelab-enforced cap forwarded from
+        the ``--max-steps`` CLI flag: when not ``None`` the playback loop stops after
+        that many steps regardless of the viewer or the soft ``simulation.steps`` config.
+        ``None`` (the default, and what plain ``task.play()`` callers get) leaves the soft
+        config in charge — headless caps at ``simulation.steps``; a viewer runs until the
+        window closes. Implementations that drive no step loop may accept and ignore it.
+        """
+        ...
 
     def train(self) -> None: ...
 

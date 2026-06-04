@@ -1,7 +1,7 @@
 """Tests for ``genelab.configs`` domain-config helpers.
 
-Currently covers ``SimulationCfg.play_retargeted_keys`` (ROADMAP §9 R3.2 /
-ADR-0005) — the set of override paths the CLI rewrites ``env.`` →
+Currently covers ``SimulationCfg.play_retargeted_keys`` — the set of
+override paths the CLI rewrites ``env.`` →
 ``play_env.`` in play mode. The list moved off a private constant in
 ``cli/__init__.py`` onto the domain config so it lives next to the
 ``SimulationCfg`` fields the shortcut flags target.

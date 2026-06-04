@@ -1,4 +1,4 @@
-"""Actuator-level domain randomization (ROADMAP M2.1): per-env torque deadzone."""
+"""Actuator-level domain randomization: per-env torque deadzone."""
 
 from typing import TYPE_CHECKING
 

@@ -21,7 +21,10 @@ _ARM_JOINTS = [f"joint{i}" for i in range(1, 8)]
 def _arm_cfg() -> MlpResidualActuatorCfg:
     from genelab_showcase.actuators.env_cfg import mlp_residual_actuator_showcase_env_cfg
 
-    arm = mlp_residual_actuator_showcase_env_cfg().robot.actuators["panda_arm"]
+    # The showcase spawns two robots; the residual arm is on the primary "robot".
+    cfg = mlp_residual_actuator_showcase_env_cfg()
+    robot = cfg.robots["robot"] if cfg.robots else cfg.robot
+    arm = robot.actuators["panda_arm"]
     assert isinstance(arm, MlpResidualActuatorCfg)
     return arm
 
@@ -51,11 +54,11 @@ def test_showcase_residual_net_round_trips() -> None:
 
     net = torch.jit.load(residual_net_path()).eval()
     # Contract: last dim [pos_error, joint_vel] -> per-joint residual torque.
-    feats = torch.tensor([[[0.0, 2.0]]])  # (B=1, J=1, 2)
+    feats = torch.tensor([[[0.5, 2.0]]])  # (B=1, J=1, 2)
     out = net(feats)
     assert out.shape == (1, 1, 1)
-    # Generated net applies residual = -0.05 * joint_vel.
-    assert out.reshape(-1).item() == pytest.approx(-0.1, abs=1e-6)
+    # Generated net applies residual = 80 * pos_error (velocity weight 0).
+    assert out.reshape(-1).item() == pytest.approx(40.0, abs=1e-4)
 
 
 def test_showcase_residual_path_executes() -> None:
@@ -64,16 +67,16 @@ def test_showcase_residual_path_executes() -> None:
     actuator = _build_arm_actuator(cfg)
     fallback = _build_arm_actuator(dataclasses.replace(cfg, network_file=None))
 
-    # Unsaturated operating point (target == pos, small velocity) so the residual
-    # is not masked by the effort clamp.
+    # Unsaturated operating point (small position error, zero velocity) so the residual
+    # (driven by pos_error) is exercised and not masked by the effort clamp.
     joint_pos = torch.zeros(1, len(_ARM_JOINTS))
-    joint_vel = torch.full((1, len(_ARM_JOINTS)), 0.5)
-    target = torch.zeros(1, len(_ARM_JOINTS))
+    joint_vel = torch.zeros(1, len(_ARM_JOINTS))
+    target = torch.full((1, len(_ARM_JOINTS)), 0.1)
 
     tau = actuator.compute(joint_pos, joint_vel, target)
     tau_fallback = fallback.compute(joint_pos, joint_vel, target)
     diff = (tau - tau_fallback)[0]
-    # residual = residual_scale * (-0.05 * joint_vel) = -0.025 on every arm joint.
-    # atol 1e-4 absorbs float32 noise from the (cancelling) DC-motor base; the -0.025
+    # residual = residual_scale * (80 * pos_error) = 80 * 0.1 = 8.0 on every arm joint.
+    # atol 1e-3 absorbs float32 noise from the (cancelling) DC-motor base; the 8.0
     # residual signal is far larger.
-    assert torch.allclose(diff, torch.full((len(_ARM_JOINTS),), -0.025), atol=1e-4)
+    assert torch.allclose(diff, torch.full((len(_ARM_JOINTS),), 8.0), atol=1e-3)

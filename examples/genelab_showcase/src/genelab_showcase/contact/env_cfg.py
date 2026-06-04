@@ -1,4 +1,12 @@
-"""Contact showcase env: Unitree G1 with ContactSensor on both ankle-roll links."""
+"""Contact showcase env: Unitree G1 marching in place with foot contact / air-time tracking.
+
+A virtual spring (configured by the runner) suspends the pelvis so the passive G1 stays
+upright while the runner scripts an alternating in-place step. The foot ContactSensor's
+``current_air_time`` streams to a live PyQt plot (left / right), and the runner draws a
+contact-state sphere under each foot. Nothing is written to disk.
+"""
+
+from typing import TYPE_CHECKING
 
 from genelab import mdp
 from genelab.asset_zoo import UnitreeG1Cfg
@@ -6,20 +14,23 @@ from genelab.configs import InteractiveSceneCfg, SimulationCfg
 from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
 from genelab.managers import EventTermCfg, TerminationTermCfg
 from genelab.mdp.actions.joint_position import JointPositionActionCfg
-
+from genelab.recording import PyQtPlotCfg, RecordingCfg
 from genelab.sensor import ContactSensorCfg
 
-_FOOT_LINKS: tuple[str, str] = ("left_ankle_roll_link", "right_ankle_roll_link")
+if TYPE_CHECKING:
+    import torch
+
+FOOT_LINKS: tuple[str, str] = ("left_ankle_roll_link", "right_ankle_roll_link")
+
+
+def _foot_air_time(env: object) -> "dict[str, torch.Tensor]":
+    """Live source: per-foot time since lift-off (zero while the foot is planted)."""
+    data = env.sensors["feet_contact"].data  # type: ignore[attr-defined]
+    return {"air-time (s)": data.current_air_time[0]}
 
 
 def contact_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
-    """Single-env G1 standing on flat ground with foot contact-and-air-time tracking.
-
-    The robot is reset to the default pose every episode (``episode_length_s=4``) so the
-    body settles, the feet make contact, and the contact sensor's ``current_contact_time``
-    starts ticking. The runner prints the running per-foot air / contact time every
-    20 control steps.
-    """
+    """Single-env G1 marching in place, with foot contact / air-time tracking."""
 
     robot_cfg = UnitreeG1Cfg()
     return ManagerBasedRlEnvCfg(
@@ -36,14 +47,29 @@ def contact_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
             sensors=(
                 ContactSensorCfg(
                     name="feet_contact",
-                    link_names=_FOOT_LINKS,
+                    link_names=FOOT_LINKS,
                     force_threshold=1.0,
                     track_air_time=True,
                 ),
             ),
+            recordings=(
+                RecordingCfg(
+                    name="foot_air_time",
+                    source=_foot_air_time,
+                    env_idx=None,
+                    outputs=(
+                        PyQtPlotCfg(
+                            title="foot air-time (s)",
+                            labels={"air-time (s)": ("left", "right")},
+                            history_length=250,
+                        ),
+                    ),
+                ),
+            ),
         ),
         decimation=4,
-        episode_length_s=4.0,
+        # Long episode so the march is continuous (no periodic reset mid-step).
+        episode_length_s=1000.0,
         device="cuda",
         robot=robot_cfg,
         actions_cfg={

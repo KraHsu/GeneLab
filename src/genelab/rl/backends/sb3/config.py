@@ -103,7 +103,7 @@ class Sb3AgentCfg(BackendConfig):
     obs_group: str = "policy"
     # Path to a ``.npz`` of offline demonstrations to pre-load into the replay
     # buffer before ``model.learn``. Off-policy algorithms only; HER-aware. The
-    # file shape matches ``genelab_franka_pick_and_place.collect_demos``. The
+    # file shape matches ``genelab_franka.collect_demos``. The
     # backend also honors the ``GENELAB_SB3_DEMO_PATH`` env var when this is
     # ``None`` so the CLI can opt in without touching cfg.
     demo_path: str | None = None

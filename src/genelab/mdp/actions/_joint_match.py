@@ -3,7 +3,7 @@
 Both :class:`BinaryGripperAction` and :class:`ContinuousGripperAction` need
 the same code to translate a list of joint-name regex patterns into a
 deduplicated list of joint indices. The two ``__init__`` bodies were
-jaccard 1.000 copies of each other; per ADR-0003 / R2.3 the matching
+near-identical copies of each other; the matching
 logic lives here and each gripper raises its own zero-match error with
 the term name preserved.
 """

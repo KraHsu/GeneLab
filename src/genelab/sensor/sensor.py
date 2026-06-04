@@ -1,7 +1,7 @@
 """Backend-agnostic sensor abstraction.
 
-The shape mirrors mjlab's ``SensorCfg`` / ``Sensor[T]`` so configs and observation terms can move
-between the two backends without ceremony, but the lifecycle drops mjlab's ``edit_spec`` /
+The shape mirrors the reference's ``SensorCfg`` / ``Sensor[T]`` so configs and observation terms can move
+between the two backends without ceremony, but the lifecycle drops the reference's ``edit_spec`` /
 ``initialize`` pair — Genesis has no MJCF spec to rewrite, so ``bind(env)`` is the single hook.
 """
 
@@ -20,7 +20,7 @@ class SensorCfg(ABC):
     """Backend-agnostic sensor configuration. Subclasses describe what to sense and how."""
 
     name: str = ""
-    # Which scene entity the sensor attaches to / reads from (ROADMAP M3.6 / ADR-0012 S4).
+    # Which scene entity the sensor attaches to / reads from.
     # Defaults to the primary ``"robot"``; multi-robot scenes set it per sensor (e.g.
     # ``"robot_b"``). Resolved via ``genelab.sensor._entity`` with a primary fallback.
     entity_name: str = "robot"

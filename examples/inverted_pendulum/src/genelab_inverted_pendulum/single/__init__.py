@@ -11,7 +11,12 @@ from genelab_inverted_pendulum.single.constants import (
     POLE_LINK,
 )
 from genelab_inverted_pendulum.single.env_cfg import inverted_pendulum_env_cfg
+from genelab_inverted_pendulum.single.memory_env_cfg import inverted_pendulum_memory_env_cfg
 from genelab_inverted_pendulum.single.ppo_cfg import inverted_pendulum_ppo_runner_cfg
+from genelab_inverted_pendulum.single.rnn_cfg import (
+    inverted_pendulum_memory_mlp_runner_cfg,
+    inverted_pendulum_memory_rnn_runner_cfg,
+)
 from genelab_inverted_pendulum.single.skrl_cfg import inverted_pendulum_skrl_agent_cfg
 from genelab_inverted_pendulum.single.robot import (
     InvertedPendulumRobotCfg,
@@ -30,6 +35,9 @@ __all__ = [
     "POLE_LINK",
     "get_inverted_pendulum_robot_cfg",
     "inverted_pendulum_env_cfg",
+    "inverted_pendulum_memory_env_cfg",
+    "inverted_pendulum_memory_mlp_runner_cfg",
+    "inverted_pendulum_memory_rnn_runner_cfg",
     "inverted_pendulum_ppo_runner_cfg",
     "inverted_pendulum_skrl_agent_cfg",
 ]

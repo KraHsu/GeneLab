@@ -1,12 +1,12 @@
-"""Terrain showcase env: G1 dropped on a 1×5 mixed sub-terrain row.
+"""Terrain showcase env: a spring-suspended G1 toured across a 1×5 sub-terrain row.
 
-Layout (one row, five columns) hits all five built-in sub-terrains in a single scene
-so the viewer can pan across and see each pattern in one frame:
+Layout (one row, five columns) hits all five built-in sub-terrains in a single scene:
 
     | flat | stairs | rough | slope | wave |
 
-Drop the same robot on every cell to see how the same default pose interacts with
-each surface (the curriculum showcase uses a larger grid + level promotion).
+The runner suspends the G1 with a virtual spring and walks it from cell to cell. A downward
+pelvis ray-cast scans the surface under it; the runner draws the rays in the scene and renders
+the hit point cloud + a height cross-section in live windows. Nothing is written to disk.
 """
 
 from genelab import mdp
@@ -21,20 +21,21 @@ from genelab.terrains import (
     PyramidStairsCfg,
     RandomRoughCfg,
     SlopeCfg,
+    SubTerrainCfg,
     TerrainGeneratorCfg,
     WaveCfg,
 )
 
 
 def terrain_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
-    """Single-env G1 on a 1×5 row that exercises every sub-terrain type.
+    """Single-env G1 toured across a 1×5 row that exercises every sub-terrain type.
 
-    A small downward :class:`GridPattern` ray-cast is attached to the pelvis so the
-    runner can dump the per-cell heightfield sample as the robot drops.
+    A downward :class:`GridPattern` ray-cast on the pelvis scans the surface under the robot
+    (11×11 rays); the runner turns it into the live point cloud + height cross-section.
     """
 
     robot_cfg = UnitreeG1Cfg()
-    sub_terrains = {
+    sub_terrains: dict[str, SubTerrainCfg] = {
         "flat": FlatPatchCfg(proportion=1.0),
         "stairs": PyramidStairsCfg(step_width=0.4, step_height=-0.08, proportion=1.0),
         "rough": RandomRoughCfg(min_height=-0.08, max_height=0.08, step=0.05, proportion=1.0),
@@ -68,7 +69,7 @@ def terrain_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
                     name="pelvis_height",
                     link_name="pelvis",
                     pattern=GridPattern(
-                        resolution=0.25,
+                        resolution=0.1,
                         size=(1.0, 1.0),
                         direction=(0.0, 0.0, -1.0),
                     ),
@@ -78,7 +79,8 @@ def terrain_showcase_env_cfg() -> ManagerBasedRlEnvCfg:
             ),
         ),
         decimation=4,
-        episode_length_s=8.0,
+        # Long episode so the cell-to-cell tour is continuous (no periodic reset).
+        episode_length_s=1000.0,
         device="cuda",
         robot=robot_cfg,
         actions_cfg={

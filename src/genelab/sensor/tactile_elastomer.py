@@ -18,6 +18,7 @@ from typing import Any
 
 import torch
 
+from genelab.sensor._entity import prebuild_link_names
 from genelab.sensor.sensor import Sensor, SensorCfg
 
 
@@ -74,12 +75,13 @@ class ElastomerTactileSensor(Sensor[ElastomerTactileData]):
                 f"ElastomerTactileSensorCfg(name={self._cfg.name!r}) requires link_name"
             )
         entity = entities[self._cfg.entity_name]
+        link_names = prebuild_link_names(entity)
         try:
-            link_idx = entity.link_names.index(self._cfg_typed.link_name)
+            link_idx = link_names.index(self._cfg_typed.link_name)
         except ValueError as exc:
             raise ValueError(
                 f"sensor {self._cfg.name!r}: link {self._cfg_typed.link_name!r} not in "
-                f"link_names={entity.link_names!r}"
+                f"link_names={link_names!r}"
             ) from exc
         if not self._cfg_typed.track_link_names:
             raise ValueError(
@@ -87,13 +89,13 @@ class ElastomerTactileSensor(Sensor[ElastomerTactileData]):
                 "track_link_name — the Genesis ElastomerTaxel needs to know which links "
                 "the elastomer can deform against"
             )
-        missing = [n for n in self._cfg_typed.track_link_names if n not in entity.link_names]
+        missing = [n for n in self._cfg_typed.track_link_names if n not in link_names]
         if missing:
             raise ValueError(
                 f"sensor {self._cfg.name!r}: track_link_names {missing!r} not in "
-                f"link_names={entity.link_names!r}"
+                f"link_names={link_names!r}"
             )
-        track_link_idx = tuple(entity.link_names.index(n) for n in self._cfg_typed.track_link_names)
+        track_link_idx = tuple(link_names.index(n) for n in self._cfg_typed.track_link_names)
 
         import genesis as gs
 

@@ -1,8 +1,8 @@
 """Motion-imitation command term (BeyondMimic-style).
 
-Port of ``mjlab.tasks.tracking.mdp.commands.MotionCommand`` adapted to GeneLab's slim env.
-The motion file is a numpy NPZ with the same schema mjlab uses, so clips converted by
-``mjlab.scripts.csv_to_npz`` plug in directly:
+Port of ``tasks.tracking.mdp.commands.MotionCommand`` adapted to GeneLab's slim env.
+The motion file is a numpy NPZ with the same schema the reference uses, so clips converted by
+``scripts.csv_to_npz`` plug in directly:
 
 - ``joint_pos``      : (T, num_dofs)
 - ``joint_vel``      : (T, num_dofs)
@@ -76,7 +76,7 @@ class MotionCommandCfg(CommandTermCfg):
     """Configuration for the motion-imitation command term.
 
     ``motion_body_order`` names the bodies stored along axis 1 of the NPZ in the
-    file's native order — typically mjlab's MJCF DFS traversal. When provided, it
+    file's native order — typically the reference's MJCF DFS traversal. When provided, it
     is used to map ``body_names`` to NPZ positions; when empty, the legacy
     positional-arange slicing is kept for clips that already match the robot order.
 
@@ -104,7 +104,7 @@ class MotionCommand(CommandTerm):
     """Drives the env toward a recorded motion clip, frame by frame.
 
     Exposes both reference (target) and current (robot) anchor + multi-body state, plus the
-    ``body_pos_relative_w`` / ``body_quat_relative_w`` quantities used by mjlab's relative-pose
+    ``body_pos_relative_w`` / ``body_quat_relative_w`` quantities used by the reference's relative-pose
     rewards. Sampling modes: ``"start"`` (always frame 0) and ``"uniform"`` (random frame).
     """
 
@@ -313,7 +313,7 @@ class MotionCommand(CommandTerm):
     def update_relative_body_poses(self) -> None:
         """Recompute relative-body reference frames anchored at the robot's current root pose.
 
-        Mirrors mjlab so that relative-pose rewards / terminations compare bodies against the
+        Mirrors the reference so that relative-pose rewards / terminations compare bodies against the
         reference clip transformed into the robot's current anchor frame.
         """
         num_bodies = len(self.cfg.body_names)

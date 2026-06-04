@@ -34,7 +34,7 @@ def track_linear_velocity_xy_exp(
 ) -> torch.Tensor:
     """``exp(-(||cmd_xy - vel_xy||² + vel_z²) / std²)``.
 
-    mjlab parity: assumes the commanded z-velocity is zero, so any non-zero
+    reference parity: assumes the commanded z-velocity is zero, so any non-zero
     vertical motion contributes to the tracking error. Discourages vertical
     bouncing alongside xy-tracking.
     """
@@ -53,7 +53,7 @@ def track_angular_velocity_z_exp(
 ) -> torch.Tensor:
     """``exp(-((cmd_z − vel_z)² + ||vel_xy||²) / std²)``.
 
-    mjlab parity: assumes the commanded xy angular velocities are zero, so any
+    reference parity: assumes the commanded xy angular velocities are zero, so any
     pitching/rolling rate contributes to the error term. Discourages tumbling
     alongside yaw-tracking.
     """

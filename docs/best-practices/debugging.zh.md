@@ -42,7 +42,7 @@ genelab cache
 
 这会创建项目本地缓存目录，并把 `XDG_CACHE_HOME` 和 `MPLCONFIGDIR` 指向 `.cache/`。
 
-## Viewer 失败
+## viewer 失败
 
 先无界面运行：
 

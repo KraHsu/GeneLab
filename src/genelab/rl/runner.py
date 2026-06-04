@@ -6,7 +6,7 @@ env config, build the ``ManagerBasedRlEnv`` (and bridges, for play), then hand a
 that owns the task's agent config (see :mod:`genelab.rl.backends`). The RSL-RL and
 skrl library-specific code lives in ``genelab.rl.backends.rsl_rl`` / ``.skrl``.
 
-Per ADR-0001, the helpers shared by every backend (bridge lifecycle, rollout
+The helpers shared by every backend (bridge lifecycle, rollout
 loop, log-dir resolution, run-param dumps, zero/random policies) live in
 :mod:`genelab.rl._helpers`; we re-export them here so external callers using
 ``from genelab.rl.runner import build_env, resolve_env_cfg, …`` continue to
@@ -247,12 +247,19 @@ def play_task(
         env_cfg = resolve_env_cfg(task_id, play=True)
     if num_envs is not None:
         env_cfg.simulation.num_envs = int(num_envs)
-    # Scripted (zero / random) playback is a bounded smoke rollout: cap it at
-    # ``simulation.steps`` (what the ``--steps`` CLI flag sets) so e.g.
-    # ``play TASK --agent zero --steps 5`` stops after 5 steps instead of looping
-    # forever headless. Trained playback stays unbounded (runs until the viewer is
-    # closed or an explicit ``max_steps`` is given).
-    if max_steps is None and kind in ("zero", "random"):
+    # Playback length is gated on whether a viewer is open, not on the agent kind:
+    #
+    # * Viewer on (``vis=True``): leave ``max_steps`` unbounded so playback runs
+    #   until the user closes the window (``run_play_loop`` breaks on
+    #   ``viewer_closed``). This is the "watch it run" path for trained / zero /
+    #   random alike.
+    # * Headless (``vis=False``): cap at ``simulation.steps`` (what the ``--steps``
+    #   CLI flag sets) so playback is a bounded smoke rollout instead of looping
+    #   forever with no window to close — e.g. ``play TASK --agent zero --steps 5``
+    #   stops after 5 steps, and headless trained playback no longer hangs.
+    #
+    # An explicit ``max_steps`` (``--max-steps``) always wins in either mode.
+    if max_steps is None and not env_cfg.simulation.vis:
         max_steps = int(env_cfg.simulation.steps)
     env = build_env(env_cfg)
     bridges = build_bridges(env_cfg)

@@ -46,15 +46,20 @@ from genelab.extensions import (
 ```python
 class Runnable(Protocol):
     cfg: object
-    def play(self) -> None: ...
+    def play(self, *, max_steps: int | None = None) -> None: ...
     def train(self) -> None: ...
 ```
 
 因此任务类型通过 `.cfg` 暴露其配置，并实现 `play()` / `train()`。内置任务类型已满足该契约；第三方任务类型应实现相同形状。
 
+`play` 接受一个仅限关键字的 `max_steps`——由 `--max-steps` CLI 标志透传的硬上界。当它不为 `None`
+时，无论是否开启 viewer、也无论软配置 `simulation.steps` 为何，播放循环都必须在该步数后停止；`None`
+（普通 `task.play()` 调用传入的值）则交由软配置决定（headless 时以 `simulation.steps` 为界，开启
+viewer 时一直运行到关闭窗口）。本身不驱动步进循环的任务可以接受并忽略它。
+
 ## `Backend` 契约
 
-一个后端拥有一个 RL 库，按任务 agent config 的**类型**被选中（见 [RL 运行器](rl-runner.md)）。契约是
+一个后端拥有一个 RL 库，按任务 agent config 的**类型**被选中（见 [RL runner](rl-runner.md)）。契约是
 `genelab.extensions.Backend`：
 
 ```python
@@ -126,4 +131,4 @@ def register() -> None:
 - [构建扩展项目](../best-practices/extension-projects.md)
 - [新建项目](../cli/project-new.md)
 - [注册表](registry.md)
-- [RL 运行器](rl-runner.md)
+- [RL runner](rl-runner.md)

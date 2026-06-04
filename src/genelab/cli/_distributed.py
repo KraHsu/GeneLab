@@ -1,7 +1,7 @@
 """Distributed-training plumbing for ``genelab train --gpus N``.
 
 Self-contained argv surgery + torchrun relaunch, factored out of
-``cli/__init__.py`` (ADR-0004 / ROADMAP §9 PR R4.1). The CLI dispatcher
+``cli/__init__.py``. The CLI dispatcher
 (``_dispatch_train``) and the multi-seed orchestrator are the only callers;
 nothing here imports ``genelab.cli`` itself, so no import cycle is introduced.
 

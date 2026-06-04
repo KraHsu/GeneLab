@@ -23,7 +23,7 @@ class _FakeArticulation:
         self.joint_pos_limits = (
             joint_pos_limits if joint_pos_limits is not None else torch.empty(0, 2)
         )
-        # M3.6 S3b: event terms read default_joint_pos via the articulation (asset-routed),
+        # Event terms read default_joint_pos via the articulation (asset-routed),
         # mirroring the real env where env.default_joint_pos delegates to articulation.
         self.default_joint_pos = (
             default_joint_pos if default_joint_pos is not None else torch.zeros(0)
@@ -102,7 +102,7 @@ def test_reset_joints_by_offset_empty_env_ids_is_noop() -> None:
 
 
 def test_reset_joints_by_offset_clamps_to_joint_limits() -> None:
-    """mjlab parity: large position offsets must be clipped to the joint limits."""
+    """Reference parity: large position offsets must be clipped to the joint limits."""
     torch.manual_seed(0)
     # 2 joints, tight limits: joint 0 ∈ [-0.05, 0.05], joint 1 ∈ [-0.1, 0.1].
     limits = torch.tensor([[-0.05, 0.05], [-0.1, 0.1]])

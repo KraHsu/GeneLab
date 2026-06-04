@@ -29,6 +29,7 @@ Typical usage::
 from genelab.recording.bridge import RecorderBridge
 from genelab.recording.cfg import (
     CSVFileCfg,
+    MPLImagePlotCfg,
     MPLPlotCfg,
     NPZFileCfg,
     OutputCfg,
@@ -39,6 +40,7 @@ from genelab.recording.cfg import (
 
 __all__ = [
     "CSVFileCfg",
+    "MPLImagePlotCfg",
     "MPLPlotCfg",
     "NPZFileCfg",
     "OutputCfg",
