@@ -72,11 +72,37 @@ class _FakeScene:
         self.terrain = terrain
 
 
+class _FakeCommandManager:
+    """Returns a constant commanded velocity so the capability-relative demote has a
+    target distance to compare against (``||vel|| * max_episode_length_s``)."""
+
+    def __init__(self, command: torch.Tensor) -> None:
+        self._command = command
+
+    def get_command(self, name: str) -> torch.Tensor:
+        del name
+        return self._command
+
+
 class _FakeEnv:
-    def __init__(self, terrain: TerrainImporter | None, root_pos: torch.Tensor) -> None:
+    def __init__(
+        self,
+        terrain: TerrainImporter | None,
+        root_pos: torch.Tensor,
+        commanded_speed: float = 1.0,
+        max_episode_length_s: float = 2.0,
+    ) -> None:
         self.scene = _FakeScene(terrain)
         self.articulation = _FakeArticulation(root_pos)
         self.device = "cpu"
+        # commanded distance = commanded_speed * max_episode_length_s; with the defaults
+        # this is 2.0, matching the ``distance_threshold`` the tests use so the demote
+        # boundary stays at ``distance_threshold * demote_ratio``.
+        n = root_pos.shape[0]
+        command = torch.zeros(n, 3)
+        command[:, 0] = commanded_speed
+        self.command_manager = _FakeCommandManager(command)
+        self.max_episode_length_s = max_episode_length_s
 
 
 def test_terrain_levels_vel_noop_when_terrain_absent() -> None:
