@@ -14,6 +14,8 @@ for a runnable example of one subsystem without reading a full robot task.
 | Curriculum | Terrain-level progression. |
 | Actuators | Switching actuator models (IdealPD, MLP-residual) and action behavior. |
 | Recording | Live plots, files, and video-oriented recording configs. |
+| Soft body | A FEM-elastic jelly ball dropped onto the ground; a viewer slider sets its stiffness, and Apply re-drops it softer or firmer. |
+| Fluid | An MPM-liquid pool (the solver domain doubles as the tank) with a light box floating and a dense ball sinking — visible buoyancy; a viewer slider sets the box's density. |
 
 ## Running
 

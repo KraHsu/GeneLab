@@ -13,6 +13,8 @@
 | Curriculum | terrain-level progression。 |
 | 执行器 | 切换 actuator 模型（IdealPD、MLP-residual）和 action 行为。 |
 | Recording | 实时曲线、文件、面向视频的 recording 配置。 |
+| 软体 | 一个 FEM 弹性果冻球落到地面；视图滑块设置其软硬，点 Apply 以更软或更硬重新下落。 |
+| 流体 | 一个 MPM 液体水池（求解器域同时充当水缸），一个轻盒漂浮、一个重球下沉 —— 可见的浮力；视图滑块设置盒子的密度。 |
 
 ## 运行
 
