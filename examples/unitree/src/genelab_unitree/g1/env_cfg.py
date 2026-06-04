@@ -26,6 +26,7 @@ policy sees the same control cadence.
 """
 
 import math
+from typing import TYPE_CHECKING
 
 from genelab import mdp
 from genelab.asset_zoo.unitree_g1 import UnitreeG1Cfg
@@ -50,8 +51,12 @@ from genelab.sensor import (
     GridPattern,
     RootAngularMomentumSensorCfg,
     SelfContactSensorCfg,
+    SensorCfg,
     TerrainHeightSensorCfg,
 )
+
+if TYPE_CHECKING:
+    from genelab.terrains import TerrainGeneratorCfg
 
 # IMU site offset from the pelvis link origin; matches g1.xml's <site name="imu_in_pelvis">.
 _IMU_OFFSET = (0.04525, 0.0, -0.08339)
@@ -192,9 +197,30 @@ def _command_vel_stages() -> list[dict]:
     ]
 
 
-def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
-    """Flat-ground velocity-tracking env config for the Unitree G1."""
+def _velocity_env_cfg_base(
+    *,
+    play: bool = False,
+    terrain: "TerrainGeneratorCfg | None" = None,
+    extra_sensors: tuple[SensorCfg, ...] = (),
+    extra_actor_obs: dict[str, ObservationTermCfg] | None = None,
+    extra_critic_obs: dict[str, ObservationTermCfg] | None = None,
+    extra_curriculum: dict[str, CurriculumTermCfg] | None = None,
+) -> ManagerBasedRlEnvCfg:
+    """Shared velocity-tracking skeleton for the Unitree G1.
+
+    Both ``unitree_g1_velocity_env_cfg`` (flat) and
+    ``unitree_g1_velocity_rough_env_cfg`` (rough) build on this. The flat task
+    passes no deltas; the rough task injects a heightfield ``terrain``, a
+    ``height_scan`` sensor + observation, and the ``terrain_levels`` curriculum.
+    Keeping the body here means the two configs can never drift apart on the
+    rewards / events / DR they share.
+    """
     robot_entity_cfg = UnitreeG1Cfg()
+
+    policy_obs = _policy_obs_group()
+    policy_obs.terms.update(extra_actor_obs or {})
+    critic_obs = _critic_obs_group()
+    critic_obs.terms.update(extra_critic_obs or {})
 
     cfg = ManagerBasedRlEnvCfg(
         simulation=SimulationCfg(
@@ -209,6 +235,7 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
         scene=InteractiveSceneCfg(
             env_spacing=(2.5, 2.5),
+            terrain=terrain,
             sensors=(
                 BodyVelocitySensorCfg(
                     name="imu_lin_vel",
@@ -256,6 +283,7 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 # Whole-body angular momentum for the ``angular_momentum`` penalty. Orbital
                 # approximation (Σ m·r×v) — see ``sensor/angular_momentum.py``.
                 RootAngularMomentumSensorCfg(name="root_angmom"),
+                *extra_sensors,
             ),
         ),
         decimation=10,
@@ -272,8 +300,8 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             )
         },
         observations_cfg={
-            "policy": _policy_obs_group(),
-            "critic": _critic_obs_group(),
+            "policy": policy_obs,
+            "critic": critic_obs,
         },
         commands_cfg={
             "twist": UniformVelocityCommandCfg(
@@ -451,6 +479,7 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                     "velocity_stages": _command_vel_stages(),
                 },
             ),
+            **(extra_curriculum or {}),
         },
         metrics_cfg={
             # Logged to ``Episode_Metrics/<name>``; values mirror the reference's
@@ -575,3 +604,8 @@ def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             pass
 
     return cfg
+
+
+def unitree_g1_velocity_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """Flat-ground velocity-tracking env config for the Unitree G1."""
+    return _velocity_env_cfg_base(play=play)

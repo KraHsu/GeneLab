@@ -6,6 +6,11 @@ All notable changes to GeneLab are recorded here.
 
 ### Added
 
+- **G1 velocity tracking on rough terrain:** added `Genelab-Velocity-Rough-Unitree-G1-v0`,
+  a 10-level mixed-terrain curriculum (stairs / boxes / random rough / slopes, mirroring
+  Isaac Lab's `ROUGH_TERRAINS_CFG`) driven by `terrain_levels_vel` with capability-relative
+  demotion, a `height_scan` actor observation, and a 6k-iter PPO budget. Reference: 4-seed
+  sweep, deterministic eval `return_mean` 84–87 on rough terrain (`docs/best-practices/reference-runs`).
 - **In-viewport ImGui panels:** `SimulationCfg.panels` takes a list of
   `callback(imgui)` functions that GeneLab forwards to Genesis's ImGui overlay
   after build (a non-empty list auto-enables the overlay). Adding a viewer GUI
@@ -19,6 +24,34 @@ All notable changes to GeneLab are recorded here.
 
 ### Fixed
 
+- **G1 rough-terrain PPO de-learning:** the rough velocity policy would reach a good walk
+  and then unlearn it — reward decaying back toward noise as training continued and the
+  action std inflating, even on a *fixed* terrain distribution. Root cause: the PPO
+  **entropy bonus**. Near convergence the advantages vanish, so the surrogate gradient
+  dies and the entropy bonus — however small — dominates and inflates the action std until
+  the policy diffuses back to noise (and the adaptive LR, floored by the resulting KL
+  spikes, can't recover). Fixed by setting `entropy_coef = 0` and replacing the
+  exploration it supplied with a **per-state (heteroscedastic) action std** carrying an
+  exploration floor (`std_range = (0.3, 2.0)`): the policy keeps a minimum action noise
+  without an unbounded bonus pushing it up, and now trains stably to convergence while the
+  terrain curriculum climbs. Two supporting fixes were also required: `feet_swing_height`
+  measured peak foot height in absolute world z with an unbounded squared error (spiking
+  the cost and diverging the value function on rough/elevated terrain and curriculum
+  reseats) — it now measures height relative to the terrain surface under each foot and
+  clamps the error; and the rough task lightens the heavy `foot_clearance` /
+  `foot_swing_height` shaping penalties (`-2.0 → -0.5`, `-1.0 → -0.25`) so they don't
+  overwhelm velocity tracking as the ground roughens (the flat task keeps the heavier
+  weights). `terrain_levels_vel` also gains Isaac-Lab-aligned capability-relative demotion.
+
+- **Terrain level curriculum collapsing to a single difficulty:** `TerrainGenerator`
+  passed `subterrain_parameters` to Genesis keyed by terrain *type*, so a layout that
+  reused one `genesis_type` at different parameters (e.g. a RandomRough `rough_l0..l4`
+  level curriculum) silently built every cell at the last level's difficulty — the
+  intended easy→hard gradient did not exist. `TerrainGenerator.build_height_field` now
+  generates each cell from its own parameters and the importer feeds it to Genesis via
+  `height_field`, so per-cell difficulty is honoured. Affects every same-type
+  multi-difficulty layout, including `Genelab-Velocity-Rough-Unitree-G1-v0` and the
+  curriculum showcase.
 - **ImGui overlay close crash:** closing a viewer built with `viewer_imgui` /
   `panels` no longer exits with `GenesisException: Unexpected viewer error.` —
   `InteractiveScene` now wraps Genesis's `ImGuiOverlayPlugin.on_close` (a

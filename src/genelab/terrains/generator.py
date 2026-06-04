@@ -5,11 +5,13 @@ The generator is a pure-Python helper: it builds the 2D ``subterrain_types`` lay
 shape Genesis expects, and computes the planar centers of each cell so callers can
 place envs on them later (curriculum reset, locomotion goals).
 
-Note: Genesis keys ``subterrain_parameters`` by the *type string*, not per cell. If
-two ``SubTerrainCfg`` instances map to the same ``genesis_type`` (e.g. two
-``PyramidStairsCfg`` with different ``step_width``), only one parameter set survives.
-Use distinct keys in ``TerrainGeneratorCfg.sub_terrains`` for distinct geometries; for
-in-type variation use ``randomize=True`` on the importer.
+Genesis keys ``subterrain_parameters`` by the *type string*, not per cell, so two
+``SubTerrainCfg`` instances sharing a ``genesis_type`` at different parameters (e.g. a
+RandomRough level curriculum ``rough_l0..l4``) would otherwise collapse to a single
+parameter set — every cell built at the last-seen difficulty. :meth:`TerrainGenerator.
+build_height_field` sidesteps that by generating each cell from its own parameters and
+handing the finished array to ``Terrain(height_field=...)``; the importer always passes
+it, so per-cell parameters are honoured regardless of type sharing.
 """
 
 import random
@@ -146,3 +148,61 @@ class TerrainGenerator:
         if params:
             kwargs["subterrain_parameters"] = params
         return kwargs
+
+    # ------------------------------------------------------------------ heightfield
+
+    def build_height_field(self) -> Any:
+        """Assemble the per-cell heightfield (raw integer units) for Genesis.
+
+        Genesis keys ``subterrain_parameters`` by type string, so a layout that reuses
+        one ``genesis_type`` at different difficulties (e.g. a RandomRough level
+        curriculum ``rough_l0..l4``) collapses to a single param set -- every cell ends
+        up at the last-seen difficulty. We sidestep that by generating each cell here
+        with its own parameters (reusing Genesis' own isaacgym terrain generators) and
+        handing the finished array to ``Terrain(height_field=...)``, which bypasses the
+        type-keyed path entirely.
+
+        Returns a ``(num_rows*(cell-1)+1, num_cols*(cell-1)+1)`` float array of heights
+        in raw units (world z = value * ``vertical_scale``).
+        """
+        import numpy as np
+        from genesis.ext.isaacgym import terrain_utils as _tu  # type: ignore[import-not-found]
+
+        cfg = self.cfg
+        hs, vs = cfg.horizontal_scale, cfg.vertical_scale
+        per_r = int(cfg.subterrain_size[0] / hs + 1e-6) + 1
+        per_c = int(cfg.subterrain_size[1] / hs + 1e-6) + 1
+        rows = cfg.num_rows * (per_r - 1) + 1
+        cols = cfg.num_cols * (per_c - 1) + 1
+        hf = np.full((rows, cols), -np.inf, dtype=np.float32)
+
+        saved = np.random.get_state()
+        try:
+            for i in range(cfg.num_rows):
+                for j in range(cfg.num_cols):
+                    sub_cfg = cfg.sub_terrains[self._layout[i][j]]
+                    gtype = sub_cfg.genesis_type()
+                    st = _tu.SubTerrain(
+                        width=per_r, length=per_c, vertical_scale=vs, horizontal_scale=hs
+                    )
+                    # Deterministic, per-cell seed: reproducible across runs and varied
+                    # across columns (Genesis' own path reseeds to 0 per cell, tiling an
+                    # identical pattern into every cell of a row).
+                    np.random.seed(cfg.seed + i * cfg.num_cols + j)
+                    if gtype != "flat_terrain":
+                        gen = getattr(_tu, gtype, None)
+                        if gen is None:
+                            raise ValueError(
+                                f"build_height_field: no isaacgym generator for "
+                                f"genesis_type {gtype!r} (cell {i},{j})"
+                            )
+                        gen(st, **sub_cfg.to_genesis_params())
+                    data = st.height_field_raw
+                    block = hf[
+                        i * (per_r - 1) : (i + 1) * (per_r - 1) + 1,
+                        j * (per_c - 1) : (j + 1) * (per_c - 1) + 1,
+                    ]
+                    block[:] = np.maximum(block, data)
+        finally:
+            np.random.set_state(saved)
+        return hf

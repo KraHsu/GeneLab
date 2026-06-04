@@ -156,7 +156,15 @@ class feet_swing_height:
     ) -> torch.Tensor:
         del asset_cfg  # consumed at __init__
         data = _contact_sensor(env, sensor_name).data
-        foot_z = _site_pos_w(env, self._foot_indices, self._offsets_tensor, self._asset_cfg)[..., 2]
+        foot_pos = _site_pos_w(env, self._foot_indices, self._offsets_tensor, self._asset_cfg)
+        foot_z = foot_pos[..., 2]
+        # Swing height relative to the terrain surface under each foot (not absolute
+        # world z): on rough/elevated terrain the absolute height folds in the cell
+        # elevation, mis-penalising every swing.
+        terrain = env.scene.terrain
+        if terrain is not None:
+            surface = terrain.surface_height_at(foot_pos.reshape(-1, 3)).reshape(foot_z.shape)
+            foot_z = foot_z - surface
 
         # On lift-off, snap the peak to the current height so the new swing measures fresh.
         self._peak_heights = torch.where(data.first_detached, foot_z, self._peak_heights)
@@ -166,7 +174,9 @@ class feet_swing_height:
             in_air, torch.maximum(self._peak_heights, foot_z), self._peak_heights
         )
 
-        error = self._peak_heights / target_height - 1.0
+        # Clamp the relative error so a stale/teleport-jumped peak on an episode or
+        # curriculum reset can't spike the squared cost into the thousands.
+        error = (self._peak_heights / target_height - 1.0).clamp(-1.0, 3.0)
         landing = data.first_contact.float()
         cost = torch.sum(error.pow(2) * landing, dim=-1)
         return cost * _command_active(env, command_name, command_threshold)
