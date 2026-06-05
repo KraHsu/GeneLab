@@ -158,6 +158,101 @@ def test_raycast_clamps_out_of_bounds_xy_to_border() -> None:
     assert torch.allclose(data.distances, torch.tensor([[3.0 - 0.99]]), atol=1e-5)
 
 
+def test_raycast_matches_triangulated_collision_off_diagonal() -> None:
+    """Regression: the ray-cast sensor must match Genesis's triangle-mesh collision.
+
+    Genesis converts a height field to a trimesh (``convert_heightfield_to_trimesh``),
+    splitting every cell on the ``(i, j)``–``(i+1, j+1)`` diagonal — so the collision
+    surface is piecewise-linear *per triangle*, not bilinear over the quad. Sampling a
+    non-planar cell (a step edge) with bilinear interpolation under-reports the ground by
+    up to ``step/4``; on rough terrain that makes feet sink and corrupts foot-height obs.
+
+    Ground truth is Genesis's *own* converter + an exact vertical ray-triangle hit, so the
+    sensor is checked against the literal collision geometry, no simulation needed.
+    """
+    from genesis.ext.isaacgym.terrain_utils import (  # type: ignore[import-not-found]
+        convert_heightfield_to_trimesh,
+    )
+
+    h_scale, v_scale = 0.1, 0.005
+    n = 12
+    hf = np.zeros((n, n), dtype=np.float32)
+    hf[6:, 6:] = 40.0  # a +0.2 m box corner -> non-planar cells along the boundary
+    importer = _build_mocked_importer(hf, scale=(h_scale, v_scale), pos=(0.0, 0.0, 0.0))
+    verts, tris = convert_heightfield_to_trimesh(hf, h_scale, v_scale)
+
+    def trimesh_z(x: float, y: float) -> float:
+        hits: list[float] = []
+        for t in tris:
+            a, b, c = verts[t[0]], verts[t[1]], verts[t[2]]
+            e0, e1, p = b[:2] - a[:2], c[:2] - a[:2], np.array([x, y]) - a[:2]
+            den = e0[0] * e1[1] - e1[0] * e0[1]
+            if abs(den) < 1e-12:
+                continue
+            u = (p[0] * e1[1] - e1[0] * p[1]) / den
+            v = (e0[0] * p[1] - p[0] * e0[1]) / den
+            if u >= -1e-9 and v >= -1e-9 and u + v <= 1 + 1e-9:
+                hits.append(float(a[2] + u * (b[2] - a[2]) + v * (c[2] - a[2])))
+        return max(hits)
+
+    # Interior points of the step-straddling cell, on both sides of the triangle diagonal.
+    probes = [(0.55, 0.55), (0.62, 0.58), (0.58, 0.62), (0.65, 0.65), (0.5, 0.5)]
+    for x, y in probes:
+        sensor = RayCastSensorCfg(
+            name="r",
+            link_name="torso",
+            pattern=GridPattern(resolution=1.0, size=(0.0, 0.0)),
+            max_distance=20.0,
+        ).build()
+        env = _FakeTerrainEnv(torch.tensor([[[x, y, 5.0]]]), terrain=importer)
+        sensor.bind(env)
+        measured = float(sensor.data.hit_pos_w[..., 2].item())
+        truth = trimesh_z(x, y)
+        assert abs(measured - truth) < 1e-3, (
+            f"at ({x}, {y}): sensor {measured:.4f} m vs collision {truth:.4f} m"
+        )
+
+
+def test_surface_height_at_matches_triangulated_collision() -> None:
+    """``TerrainImporter.surface_height_at`` (spawn seating / swing-height reward) must use
+    the same triangle interpolation as the collision mesh and the ray-cast sensor, so a
+    robot is seated on the surface its feet actually contact — not a nearest-cell guess.
+    """
+    from genesis.ext.isaacgym.terrain_utils import (  # type: ignore[import-not-found]
+        convert_heightfield_to_trimesh,
+    )
+
+    h_scale, v_scale = 0.1, 0.005
+    n = 12
+    hf = np.zeros((n, n), dtype=np.float32)
+    hf[6:, 6:] = 40.0
+    importer = _build_mocked_importer(hf, scale=(h_scale, v_scale), pos=(0.0, 0.0, 0.0))
+    verts, tris = convert_heightfield_to_trimesh(hf, h_scale, v_scale)
+
+    def trimesh_z(x: float, y: float) -> float:
+        hits: list[float] = []
+        for t in tris:
+            a, b, c = verts[t[0]], verts[t[1]], verts[t[2]]
+            e0, e1, p = b[:2] - a[:2], c[:2] - a[:2], np.array([x, y]) - a[:2]
+            den = e0[0] * e1[1] - e1[0] * e0[1]
+            if abs(den) < 1e-12:
+                continue
+            u = (p[0] * e1[1] - e1[0] * p[1]) / den
+            v = (e0[0] * p[1] - p[0] * e0[1]) / den
+            if u >= -1e-9 and v >= -1e-9 and u + v <= 1 + 1e-9:
+                hits.append(float(a[2] + u * (b[2] - a[2]) + v * (c[2] - a[2])))
+        return max(hits)
+
+    probes = [(0.55, 0.55), (0.62, 0.58), (0.58, 0.62), (0.65, 0.65), (0.5, 0.5)]
+    pts = torch.tensor([[x, y, 0.0] for x, y in probes])
+    measured = importer.surface_height_at(pts)
+    for k, (x, y) in enumerate(probes):
+        truth = trimesh_z(x, y)
+        assert abs(float(measured[k]) - truth) < 1e-3, (
+            f"at ({x}, {y}): surface_height_at {float(measured[k]):.4f} vs collision {truth:.4f}"
+        )
+
+
 def test_terrain_height_sensor_yields_world_z_offset() -> None:
     # Step height field: half is 0, half is 100 (with v_scale=0.01 → 1.0m step).
     hf = np.zeros((10, 10), dtype=np.float32)

@@ -392,7 +392,14 @@ class RayCastSensor(Sensor[RayCastData]):
         v10 = hf[gx1, gy0]
         v01 = hf[gx0, gy1]
         v11 = hf[gx1, gy1]
-        v_x0 = v00 * (1.0 - fx) + v10 * fx
-        v_x1 = v01 * (1.0 - fx) + v11 * fx
-        v_xy = v_x0 * (1.0 - fy) + v_x1 * fy
+        # Match the Genesis collision mesh exactly: ``convert_heightfield_to_trimesh``
+        # splits every cell on the (i, j)-(i+1, j+1) diagonal into two triangles, so the
+        # ground is piecewise-linear *per triangle*, not bilinear over the quad. Sampling
+        # the triangle the ray falls in keeps the sensor's clearance reading consistent
+        # with where the feet actually contact — bilinear under-reports a step edge by up
+        # to ``step/4`` and makes feet sink / corrupts foot-height obs on rough terrain.
+        lower = fx >= fy  # (i, j)->(i+1, j)->(i+1, j+1) triangle, vs the (i, j+1) one
+        h_lower = v00 + fx * (v10 - v00) + fy * (v11 - v10)
+        h_upper = v00 + fy * (v01 - v00) + fx * (v11 - v01)
+        v_xy = torch.where(lower, h_lower, h_upper)
         return v_xy * v_scale + pos_z

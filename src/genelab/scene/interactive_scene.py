@@ -29,10 +29,27 @@ from genelab.sensor import Sensor
 from genelab.terrains import TerrainImporter
 
 if TYPE_CHECKING:
+    from genelab.configs import SimulationCfg
     from genelab.sensor.camera import CameraSensor
 
 
 _logger = logging.getLogger(__name__)
+
+
+def _viewer_option_kwargs(sim_cfg: "SimulationCfg", *, enable_gui: bool) -> dict[str, Any]:
+    """Assemble the ``gs.options.ViewerOptions`` kwargs from a :class:`SimulationCfg`.
+
+    Camera framing is only forwarded when set so an unconfigured scene keeps Genesis' own
+    default camera; ``camera_lookat`` doubles as the trackball pivot, so framing the subject
+    is what makes the mouse-wheel zoom close in on it.
+    """
+    kwargs: dict[str, Any] = {"max_FPS": sim_cfg.render_fps, "enable_gui": enable_gui}
+    if sim_cfg.camera_pos is not None:
+        kwargs["camera_pos"] = sim_cfg.camera_pos
+    if sim_cfg.camera_lookat is not None:
+        kwargs["camera_lookat"] = sim_cfg.camera_lookat
+    return kwargs
+
 
 _pyrender_save_patch_applied = False
 _imgui_overlay_patch_applied = False
@@ -208,6 +225,182 @@ def _patch_viewer_window_title() -> None:
     _viewer_title_patch_applied = True
 
 
+_fly_mouse_patch_applied = False
+
+
+def _patch_viewer_fly_mouse() -> None:
+    """Route right-mouse-drag to a per-viewer free-look fly controller, bypassing trackball zoom.
+
+    The pyrender Viewer binds the right button to trackball zoom-drag. When a fly handle is
+    attached to a viewer instance (``_genelab_fly``, set by :func:`_install_fly_camera`), the
+    right button instead drives Blender-style free-look: press engages fly mode (seeded from the
+    current view), drag rotates, release returns to orbit. Viewers without the handle keep stock
+    behaviour. Class-level wrap, idempotent; mirrors :func:`_patch_pyrender_save_filename`.
+    """
+    global _fly_mouse_patch_applied
+    if _fly_mouse_patch_applied:
+        return
+    try:
+        from genesis.ext.pyrender.viewer import Viewer as _PyrenderViewer
+        from pyglet.window import mouse as _mouse
+    except Exception:
+        return
+
+    orig_press = _PyrenderViewer.on_mouse_press
+    orig_drag = _PyrenderViewer.on_mouse_drag
+    orig_release = _PyrenderViewer.on_mouse_release
+
+    def on_mouse_press(self: Any, x: int, y: int, button: int, modifiers: int) -> Any:
+        fly = getattr(self, "_genelab_fly", None)
+        if fly is not None and button == _mouse.RIGHT:
+            fly.engage()
+            return None
+        return orig_press(self, x, y, button, modifiers)
+
+    def on_mouse_drag(
+        self: Any, x: int, y: int, dx: int, dy: int, buttons: int, modifiers: int
+    ) -> Any:
+        fly = getattr(self, "_genelab_fly", None)
+        if fly is not None and (buttons & _mouse.RIGHT) and fly.controller.active:
+            fly.look(dx, dy)
+            return None
+        return orig_drag(self, x, y, dx, dy, buttons, modifiers)
+
+    def on_mouse_release(self: Any, x: int, y: int, button: int, modifiers: int) -> Any:
+        fly = getattr(self, "_genelab_fly", None)
+        if fly is not None and button == _mouse.RIGHT:
+            fly.controller.set_active(False)
+            return None
+        return orig_release(self, x, y, button, modifiers)
+
+    _PyrenderViewer.on_mouse_press = on_mouse_press  # type: ignore[method-assign]
+    _PyrenderViewer.on_mouse_drag = on_mouse_drag  # type: ignore[method-assign]
+    _PyrenderViewer.on_mouse_release = on_mouse_release  # type: ignore[method-assign]
+    _fly_mouse_patch_applied = True
+
+
+def _install_fly_camera(gs_viewer: Any, sim_cfg: "SimulationCfg") -> None:
+    """Attach a :class:`FlyCameraController` to a built Genesis viewer.
+
+    Registers HOLD keybinds (W/A/S/D + Space/Shift) that fly while the right button is held, and
+    a ``_genelab_fly`` handle the patched mouse handlers (:func:`_patch_viewer_fly_mouse`) drive
+    for engage / free-look. Everything is guarded so a viewer that can't host it stays untouched.
+    """
+    try:
+        import time
+
+        import numpy as np
+
+        from genesis.vis.keybindings import Key, KeyAction, Keybind
+
+        from genelab.scene.fly_camera import FlyCamera, FlyCameraController
+    except Exception:
+        return
+    pyrender_viewer = getattr(gs_viewer, "_pyrender_viewer", None)
+    if pyrender_viewer is None:
+        return
+
+    controller = FlyCameraController(
+        FlyCamera.from_look((0.0, 0.0, 0.0), (1.0, 0.0, 0.0)),
+        move_speed=float(sim_cfg.fly_camera_speed),
+    )
+
+    def _upright_pose(eye: np.ndarray, lookat: np.ndarray) -> np.ndarray:
+        """4x4 camera-to-world pose framed at ``lookat`` with world-Z up — i.e. zero roll.
+
+        Building the pose ourselves (instead of ``set_camera_pose(pos, lookat)``, which carries
+        the previous, possibly drifted up vector) keeps the horizon level: the camera's up axis
+        always stays in the world-Z plane, so fly mode never rolls and the orbit controls behave
+        exactly as before once fly mode is released.
+        """
+        forward = lookat - eye
+        forward = forward / (np.linalg.norm(forward) + 1e-9)
+        right = np.cross(forward, np.array([0.0, 0.0, 1.0]))
+        right = right / (np.linalg.norm(right) + 1e-9)
+        up = np.cross(right, forward)
+        pose = np.eye(4)
+        pose[:3, 0] = right
+        pose[:3, 1] = up
+        pose[:3, 2] = -forward  # pyrender cameras look down their local -Z
+        pose[:3, 3] = eye
+        return pose
+
+    def _push() -> None:
+        eye, lookat = controller.pose()
+        gs_viewer.set_camera_pose(pose=_upright_pose(eye, lookat))
+        # ``set_camera_pose`` only moves the camera; the trackball's orbit pivot (_target) is left
+        # where it was, so a left-drag *after* flying would spin around a now-distant point. Re-anchor
+        # the pivot a few metres ahead of the new camera so orbit resumes naturally around the view.
+        trackball = getattr(pyrender_viewer, "_trackball", None)
+        if trackball is not None:
+            forward = lookat - eye
+            forward = forward / (np.linalg.norm(forward) + 1e-9)
+            pivot = eye + forward * 3.0
+            trackball._target = pivot  # pyright: ignore[reportPrivateUsage]
+            trackball._n_target = pivot  # pyright: ignore[reportPrivateUsage]
+
+    class _FlyHandle:
+        controller = None  # set below
+
+        def engage(self) -> None:
+            pose = getattr(pyrender_viewer._trackball, "pose", None)  # pyright: ignore[reportPrivateUsage]
+            if pose is not None:
+                eye = pose[:3, 3]
+                controller.reseat(eye, eye + (-pose[:3, 2]))  # camera looks down local -z
+            controller.set_active(True)
+
+        def look(self, dx: float, dy: float) -> None:
+            controller.on_look(dx, dy)
+            _push()
+
+    handle = _FlyHandle()
+    handle.controller = controller  # type: ignore[assignment]
+    pyrender_viewer._genelab_fly = handle  # pyright: ignore[reportAttributeAccessIssue]
+
+    # Per-key wall-clock timestamp: HOLD callbacks fire at the (variable, often slow) sim-step
+    # rate, so moving a fixed amount per tick is choppy and speed-inconsistent. Scaling each move
+    # by the real elapsed time since that key last fired gives a steady ``move_speed`` m/s feel
+    # regardless of frame rate. The first tick has no baseline (dt 0); dt is clamped so a stall
+    # (e.g. window unfocused) can't teleport the camera on resume.
+    last_fired: dict[str, float] = {}
+
+    def _mover(action: str):
+        def _cb() -> None:
+            now = time.monotonic()
+            dt = now - last_fired.get(action, now)
+            last_fired[action] = now
+            controller.move(action, min(dt, 0.1))
+            if controller.active:
+                _push()
+
+        return _cb
+
+    binds = [
+        ("genelab_fly_forward", Key.W, "forward"),
+        ("genelab_fly_back", Key.S, "back"),
+        ("genelab_fly_left", Key.A, "left"),
+        ("genelab_fly_right", Key.D, "right"),
+        ("genelab_fly_up", Key.SPACE, "up"),
+        ("genelab_fly_down", Key.LSHIFT, "down"),
+        ("genelab_fly_down_r", Key.RSHIFT, "down"),
+    ]
+    # Never let an unexpected keybind conflict (or any Genesis-version drift in the keybind /
+    # camera API) take down the whole viewer build — the fly camera is a convenience overlay.
+    try:
+        gs_viewer.register_keybinds(
+            *[
+                Keybind(name, key, key_action=KeyAction.HOLD, callback=_mover(action))
+                for name, key, action in binds
+            ],
+            overwrite=True,
+        )
+    except Exception:
+        _logger.warning(
+            "fly camera: keybind registration failed; WASD navigation disabled", exc_info=True
+        )
+        pyrender_viewer._genelab_fly = None  # pyright: ignore[reportAttributeAccessIssue]
+
+
 def _resolve_use_gpu(gpu: bool | None, device: str) -> bool:
     """Resolve the Genesis backend choice.
 
@@ -348,10 +541,7 @@ class InteractiveScene:
             getattr(self._sim_cfg, "panels", None)
         )
         viewer_options = (
-            gs.options.ViewerOptions(
-                max_FPS=self._sim_cfg.render_fps,
-                enable_gui=enable_gui,
-            )
+            gs.options.ViewerOptions(**_viewer_option_kwargs(self._sim_cfg, enable_gui=enable_gui))
             if self._sim_cfg.vis
             else None
         )
@@ -364,6 +554,9 @@ class InteractiveScene:
             if enable_gui:
                 # Workaround for Genesis/imgui_bundle overlay bugs (close crash, reversed scroll).
                 _patch_imgui_overlay()
+            if self._sim_cfg.fly_camera:
+                # Right-mouse free-look (driven post-build by _install_fly_camera).
+                _patch_viewer_fly_mouse()
         scene_kwargs: dict[str, Any] = dict(
             sim_options=sim_options,
             renderer=renderer,
@@ -420,9 +613,19 @@ class InteractiveScene:
                 physics_dt=float(self._sim_cfg.dt),
             )
 
+        # A height-field terrain is a single large mesh shared by every env, with per-env
+        # spawn origins spread across it (``TerrainImporter.spawn_pos`` / the terrain
+        # curriculum). Genesis's ``env_spacing`` grid-offsets — and replicates — the whole
+        # scene per env, so applying it on top of the terrain renders N copies of the
+        # terrain shifted by the (small) spacing, heavily overlapping, with robots buried in
+        # the neighbouring copies. Collapse the grid to zero when a terrain owns env layout;
+        # flat-ground scenes keep the configured spacing to fan their robots out.
+        env_spacing = (
+            (0.0, 0.0) if self._terrain is not None else tuple(self._scene_cfg.env_spacing)
+        )
         self._gs_scene.build(
             n_envs=self._num_envs,
-            env_spacing=tuple(self._scene_cfg.env_spacing),
+            env_spacing=env_spacing,
         )
 
         self._device = str(gs.device)
@@ -434,6 +637,9 @@ class InteractiveScene:
                 entity.bind(self._num_envs, self._device)
         if self._terrain is not None:
             self._terrain.init_per_env_state(self._num_envs, self._device)
+        if self._sim_cfg.vis and self._sim_cfg.fly_camera:
+            # Viewer exists post-build: attach the right-mouse free-fly controller + WASD keybinds.
+            _install_fly_camera(self._gs_scene.viewer, self._sim_cfg)
         self._built = True
 
     def _add_solver_options(self, gs: Any, scene_kwargs: dict[str, Any]) -> None:
