@@ -26,6 +26,9 @@ genelab [全局选项] <命令> [命令选项]
 | `info NAME` | 查看已注册 task、env 或 robot 的详情。 |
 | `play TASK ...` | 运行已注册任务。 |
 | `train TASK ...` | 用支持的 runner 训练任务。 |
+| `eval TASK CKPT ...` | 对 checkpoint 做确定性 rollout，写出 `eval.json`。 |
+| `export TASK CKPT ...` | 把 checkpoint 的策略导出为 TorchScript 或 ONNX（scale/clip 已烘焙进模型）。 |
+| `benchmark --suite ...` | 按 JSON suite 批量 eval 汇总为一份 report；配 `--reference` 作回归门禁。 |
 | `prof open [DIR]` | 为 profiler trace 打开 TensorBoard。 |
 | `project new NAME` | 生成外部 GeneLab 扩展项目骨架。 |
 | `asset list` | 列出 `genelab.asset_zoo` 下所有声明的资产，包括是否已缓存和大小。 |
@@ -62,6 +65,30 @@ genelab [全局选项] <命令> [命令选项]
 | `--log_dir PATH` | train | 使用已解析日志目录。 |
 | `--max_iterations N` | train | 覆盖 PPO iteration 数。 |
 | `--gpus N` | train | 用 `torchrun` 重新启动为 `N` 个本地 rank。 |
+| `--eval-every K` | train | 每 K 个 iteration 跑一次确定性 eval；有提升时保存 `best_model`。 |
+| `--eval-episodes N` | train | 每次训练中 eval 的 episode 数（10）。 |
+| `--eval-num-envs N` | train | 训练中 eval 的并行 env 数（默认与训练一致）。 |
+| `--eval-seed N` | train | 训练中 eval rollout 的 RNG seed（0）。 |
+| `--seeds 1,2,3` | train | 按 seed 展开为每个 seed 一个子进程（多 seed 扫描）。 |
+| `--parallel N` | train | seed 子进程并发上限（1 —— 顺序执行）。 |
+
+## 训练后标志
+
+这些标志放在 `eval` / `export` 的 `TASK CHECKPOINT` 位置参数之后，或单独用于 `benchmark`。
+
+| 标志 | 命令 | 说明 |
+|---|---|---|
+| `--num-envs N` | eval | rollout 的并行 env 数。 |
+| `--episodes N` | eval | 至少收集的完整 episode 数。 |
+| `--seed N` | eval | RNG seed（仅 env 级；策略为确定性）。 |
+| `--deterministic` / `--stochastic` | eval | 策略动作模式（默认 deterministic）。 |
+| `--max-steps N` | eval | rollout 步数的安全上限。 |
+| `--out PATH` | eval/export/benchmark | 输出路径（`eval.json` / 策略文件 / report JSON）。 |
+| `--format torchscript\|onnx` | export | 序列化格式（默认 `torchscript`）。 |
+| `--opset N` | export | ONNX opset 版本（torchscript 时忽略）。 |
+| `--suite PATH` | benchmark | benchmark suite JSON（task/checkpoint 条目列表）。 |
+| `--reference PATH` | benchmark | 用于对比 `return_mean` 的历史 report JSON。 |
+| `--tolerance X` | benchmark | 触发回归前允许的 `return_mean` 最大相对跌幅（超出则非零退出）。 |
 
 ## Profiler 标志
 
