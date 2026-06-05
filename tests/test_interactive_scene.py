@@ -92,6 +92,20 @@ def test_camera_framing_forwarded_to_viewer_options() -> None:
     assert bare["enable_gui"] is True
 
 
+def test_fly_camera_disables_genesis_default_keybinds() -> None:
+    # Genesis' default controls bind W/A/S/D (world-frame, camera-rotation, save-image, wireframe)
+    # — which collide with fly-mode WASD whenever the ImGui overlay is off (with the overlay on,
+    # Genesis already disables them). Forcing them off when fly_camera is on makes fly own the
+    # keyboard regardless of the overlay; when fly_camera is off, Genesis keeps its defaults.
+    from genelab.scene.interactive_scene import _viewer_option_kwargs
+
+    flying = _viewer_option_kwargs(SimulationCfg(vis=True, fly_camera=True), enable_gui=False)
+    assert flying["enable_default_keybinds"] is False
+
+    no_fly = _viewer_option_kwargs(SimulationCfg(vis=True, fly_camera=False), enable_gui=False)
+    assert "enable_default_keybinds" not in no_fly
+
+
 def test_terrain_scene_collapses_env_grid(genesis_runtime: Any) -> None:
     """Regression: a height-field terrain is one shared mesh spanning all envs, with per-env
     spawn origins spread across it. Genesis's ``env_spacing`` grid replicates+offsets the

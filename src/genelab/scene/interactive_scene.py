@@ -48,6 +48,11 @@ def _viewer_option_kwargs(sim_cfg: "SimulationCfg", *, enable_gui: bool) -> dict
         kwargs["camera_pos"] = sim_cfg.camera_pos
     if sim_cfg.camera_lookat is not None:
         kwargs["camera_lookat"] = sim_cfg.camera_lookat
+    if sim_cfg.fly_camera:
+        # Genesis' default controls bind W/A/S/D (world-frame / camera-rotation / save-image /
+        # wireframe), which collide with fly-mode WASD. Genesis only auto-disables them when the
+        # ImGui overlay is on; turning them off here lets fly own the keyboard either way.
+        kwargs["enable_default_keybinds"] = False
     return kwargs
 
 
