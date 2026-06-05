@@ -4,6 +4,12 @@ All notable changes to GeneLab are recorded here.
 
 ## [Unreleased]
 
+## [0.3.3] — 2026-06-05
+
+> Git history was rewritten in this release to purge ~24 MB of accidentally-committed vendored
+> robot meshes (Unitree G1 + WUJI hand `.STL`); commit hashes changed and the `v0.2.0` tag moved.
+> **Existing clones must re-clone.** Robot assets are fetched on demand at runtime, so nothing breaks.
+
 ### Added
 
 - **G1 velocity tracking on rough terrain:** added `Genelab-Velocity-Rough-Unitree-G1-v0`,
@@ -21,6 +27,16 @@ All notable changes to GeneLab are recorded here.
 - **ImGui twist bridge seeding:** `ImGuiTwistBridgeCfg` gained `default_vx/vy/wz`,
   seeded into the slider state and command buffer at attach (parity with the
   removed DearPyGui bridge).
+- **Single-G1 teleop play + free-fly camera:** `genelab play` for the G1 velocity tasks now
+  builds a single robot, frames the camera on it, wires the ImGui twist sliders, and disables
+  episode auto-reset (`ManagerBasedRlEnvCfg.auto_reset`) — an interactive single-robot session.
+  A core Blender-style free-fly camera (`SimulationCfg.fly_camera`, on by default) lets you hold
+  the right mouse button to look and fly with `WASD` / `Space` / `Shift` (and disables Genesis'
+  conflicting default W/A/S/D keybinds); new `SimulationCfg.camera_pos` / `camera_lookat` frame
+  the viewer so the mouse-wheel zooms in on the subject.
+- **Direct yaw-rate G1 command:** the velocity twist command's third component is now a
+  directly-commanded yaw rate `(vx, vy, vw)` (`heading_command=False`) instead of heading-driven,
+  so a teleop `wz` slider drives yaw directly. *(Retrain required for the velocity policies.)*
 
 ### Fixed
 
@@ -57,6 +73,11 @@ All notable changes to GeneLab are recorded here.
   `InteractiveScene` now wraps Genesis's `ImGuiOverlayPlugin.on_close` (a
   Genesis/`imgui_bundle` teardown bug that asserts `No current context` on window
   close), mirroring the existing pyrender save-filename patch.
+- **Feet sinking / overlapping terrain on rough ground:** the ray-cast height sensor and
+  `TerrainImporter.surface_height_at` now interpolate over the Genesis collision triangle
+  (instead of bilinear), so foot-clearance and spawn seating match the surface the feet actually
+  contact; and terrain scenes build with `env_spacing=(0, 0)` so the single shared height-field is
+  no longer replicated/offset per env (which had rendered overlapping terrain with buried robots).
 
 ### Removed
 
