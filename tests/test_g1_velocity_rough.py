@@ -82,6 +82,53 @@ def test_rough_cfg_adds_terrain_height_scan_and_curriculum() -> None:
     assert "terrain_levels" not in flat.curriculum_cfg
 
 
+def test_play_launches_a_single_g1() -> None:
+    # Play is an interactive single-robot teleop session, so it builds exactly one G1
+    # (the ImGui twist sliders drive that one robot). Both the flat and rough velocity
+    # configs share this default.
+    assert _rough_cfg(play=True).simulation.num_envs == 1
+    assert _flat_cfg(play=True).simulation.num_envs == 1
+
+
+def test_play_wires_imgui_twist_sliders() -> None:
+    # The single-robot play session exposes in-viewer ImGui sliders for (vx, vy, ωz) that
+    # drive the "twist" command. Wiring is gated on imgui_bundle (the overlay dependency),
+    # so skip cleanly when it's absent — the play path still works, just without sliders.
+    pytest.importorskip("imgui_bundle")
+    from genelab.bridges.imgui import ImGuiTwistBridgeCfg
+
+    cfg = _rough_cfg(play=True)
+    assert cfg.simulation.viewer_imgui is True
+    teleop = cfg.bridges_cfg.get("teleop")
+    assert isinstance(teleop, ImGuiTwistBridgeCfg)
+    assert teleop.command_name == "twist"
+
+
+def test_twist_command_is_direct_yaw_rate() -> None:
+    # The third twist component is a directly-commanded yaw rate (vw = ωz) the policy must
+    # track, not a heading target — so (vx, vy, vw) are independent commands and the teleop wz
+    # slider takes effect instead of being overridden by the heading PD.
+    cmd = _rough_cfg(play=False).commands_cfg["twist"]
+    assert cmd.heading_command is False
+    assert cmd.rel_heading_envs == 0.0
+
+
+def test_play_disables_auto_reset_for_teleop() -> None:
+    # During interactive teleop the robot should keep going, not snap back to spawn every 20s
+    # (time-out) or on a stumble. Training keeps auto-reset so episodes roll over normally.
+    assert _rough_cfg(play=True).auto_reset is False
+    assert _rough_cfg(play=False).auto_reset is True
+
+
+def test_training_cfg_keeps_full_env_count_and_no_teleop() -> None:
+    # The single-G1 / slider wiring is a play-only affordance; training must stay a large
+    # parallel rollout with no viewer overlay or teleop bridge.
+    cfg = _rough_cfg(play=False)
+    assert cfg.simulation.num_envs == 4096
+    assert cfg.simulation.viewer_imgui is False
+    assert "teleop" not in cfg.bridges_cfg
+
+
 def test_rough_task_registers_and_is_trainable() -> None:
     load_extension_module("genelab_unitree.tasks")
     assert ROUGH_TASK_ID in TASKS.names()

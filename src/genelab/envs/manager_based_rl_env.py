@@ -51,6 +51,10 @@ class ManagerBasedRlEnvCfg(ManagerBasedEnvCfg):
 
     decimation: int = 4
     episode_length_s: float = 20.0
+    # When False, ``step`` stops auto-resetting envs that hit a termination — used by
+    # interactive single-robot play (teleop) so the robot keeps going instead of snapping back
+    # on time-out / stumble. Training leaves it True so episodes roll over normally.
+    auto_reset: bool = True
     seed: int | None = None
     scale_rewards_by_dt: bool = True
 
@@ -97,6 +101,7 @@ class ManagerBasedRlEnv:
         self._num_envs = max(1, int(cfg.simulation.num_envs))
         self._dt_sim = float(cfg.simulation.dt)
         self._decimation = int(cfg.decimation)
+        self._auto_reset = bool(cfg.auto_reset)
         self._step_dt = self._dt_sim * self._decimation
         self._max_episode_length = max(1, int(math.ceil(cfg.episode_length_s / self._step_dt)))
 
@@ -323,9 +328,9 @@ class ManagerBasedRlEnv:
         time_outs = self.termination_manager.time_outs
         terminated = self.termination_manager.terminated
 
-        # Auto-reset envs that hit done.
+        # Auto-reset envs that hit done (disabled for interactive teleop via cfg.auto_reset).
         reset_ids = dones.nonzero(as_tuple=False).flatten()
-        if reset_ids.numel() > 0:
+        if self._auto_reset and reset_ids.numel() > 0:
             self._reset_idx(reset_ids)
             self._articulation.refresh()
         obs = self.observation_manager.compute()

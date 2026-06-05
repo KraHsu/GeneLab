@@ -128,6 +128,27 @@ def _feet_cfg() -> SceneEntityCfg:
     )
 
 
+def _single_play_spawn_xy(terrain: "TerrainGeneratorCfg | None") -> tuple[float, float]:
+    """World (x, y) the lone play robot spawns at — used only to frame the viewer camera.
+
+    Flat ground spawns at the origin. On a height-field it spawns at one terrain cell: row 0,
+    column chosen deterministically from ``cfg.seed`` by ``TerrainImporter.init_per_env_state``
+    (replicated here so the camera can be framed before the scene is built). The level
+    curriculum may step the robot one row downrange after the first reset, so the camera is
+    placed far enough back to keep it in view.
+    """
+    if terrain is None:
+        return 0.0, 0.0
+    import torch
+
+    gen = torch.Generator(device="cpu")
+    gen.manual_seed(terrain.seed + 1)
+    col = int(torch.randint(0, terrain.num_cols, (1,), generator=gen, device="cpu").item())
+    px, py, _ = terrain.pos
+    sx, sy = terrain.subterrain_size
+    return px + 0.5 * sx, py + (col + 0.5) * sy
+
+
 def _obs_terms() -> dict[str, ObservationTermCfg]:
     """Actor / critic-shared observation terms.
 
@@ -224,7 +245,9 @@ def _velocity_env_cfg_base(
 
     cfg = ManagerBasedRlEnvCfg(
         simulation=SimulationCfg(
-            num_envs=4096 if not play else 50,
+            # Play is an interactive single-robot teleop session driven by the ImGui twist
+            # sliders, so it builds exactly one G1. (Pass ``--num-envs N`` to fan out more.)
+            num_envs=4096 if not play else 1,
             dt=0.002,
             substeps=1,
             vis=play,
@@ -307,16 +330,16 @@ def _velocity_env_cfg_base(
             "twist": UniformVelocityCommandCfg(
                 asset_name="robot",
                 resampling_time_range=(3.0, 8.0),
-                # the reference G1 splits the 4096 envs into 4 groups: 10% standing, 30% heading-driven
-                # ωz, 20% strict forward (vx≥0.3, no ωz), 40% free random. The forward slice
-                # is the one that broke the pre-P2 training — heading_command=True alone made
-                # every non-standing env heading-driven, and the policy never saw a "track vx
-                # at fixed yaw" sub-task.
+                # Direct yaw-rate twist: the third command component is a *directly commanded*
+                # ωz (vw) the policy tracks, not a heading target. ``heading_command=False`` (and
+                # no heading group) means the 70% of non-standing / non-forward envs sample a raw
+                # ωz, so the policy learns yaw-rate tracking; teleop's wz slider then drives yaw
+                # directly instead of being overwritten by a heading PD. Groups: 10% standing,
+                # 20% strict forward (vx≥0.3, ωz=0), 70% free (vx, vy, ωz all sampled).
                 rel_standing_envs=0.1,
-                rel_heading_envs=0.3,
+                rel_heading_envs=0.0,
                 rel_forward_envs=0.2,
-                heading_command=True,
-                heading_control_stiffness=0.5,
+                heading_command=False,
                 ranges=UniformVelocityCommandCfg.Ranges(
                     lin_vel_x=(-1.0, 1.0),
                     lin_vel_y=(-1.0, 1.0),
@@ -575,11 +598,24 @@ def _velocity_env_cfg_base(
         )
 
     if play:
-        # Auto-attach the in-viewport ImGui teleop bridge. It self-disables when num_envs
-        # != 1 (per-axis sliders make no sense across parallel envs), so the default play
-        # (num_envs=50) keeps the existing random-command rollout. The whole block is
-        # guarded on ``imgui_bundle`` (the overlay's dependency, the 'imgui' extra) so a
-        # user without it still gets a working play path — just no sliders.
+        # Interactive teleop: don't auto-reset the lone robot every 20 s (time-out) or on a
+        # stumble — let it keep walking under slider/keyboard control until the viewer closes.
+        cfg.auto_reset = False
+
+        # Frame the viewer on the single play robot. ``camera_lookat`` is also the trackball
+        # pivot, so aiming it at the robot is what lets the mouse-wheel zoom close in on it
+        # (the default pivot is the scene centroid — for the 80 m rough terrain that sits
+        # tens of metres from the lone robot, which reads as "can't zoom in"). On flat ground
+        # the robot spawns at the origin; on the heightfield it spawns at a fixed terrain
+        # cell, so frame that.
+        look_x, look_y = _single_play_spawn_xy(terrain)
+        cfg.simulation.camera_lookat = (look_x, look_y, 0.6)
+        cfg.simulation.camera_pos = (look_x + 3.0, look_y - 3.0, 1.7)
+
+        # Auto-attach the in-viewport ImGui teleop bridge: three sliders (vx, vy, ωz) that
+        # drive the single robot's ``twist`` command. Guarded on ``imgui_bundle`` (the
+        # overlay's dependency, the 'imgui' extra) so a user without it still gets a working
+        # play path — just no sliders.
         try:
             import imgui_bundle  # noqa: F401  # the ImGui overlay needs it at draw time
 
