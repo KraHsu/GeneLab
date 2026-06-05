@@ -94,17 +94,39 @@ class TerrainImporter:
         """World-frame surface height under each ``(x, y)`` in ``positions``.
 
         ``positions`` is ``(..., >=2)``; only the first two columns (world x / y) are
-        read. Returns a ``(...)`` tensor of world z by nearest-cell lookup into the
-        height field. Used by terrain spawn placement so a robot is seated on the
-        surface rather than at the flat terrain-root height.
+        read. Returns a ``(...)`` tensor of world z sampled off the **triangulated**
+        collision surface — Genesis splits every height-field cell on the
+        ``(i, j)``-``(i+1, j+1)`` diagonal (``convert_heightfield_to_trimesh``), so this
+        interpolates within the triangle each point falls in, matching both the physics
+        contact surface and :meth:`RayCastSensor._sample_heightfield`. Used by terrain
+        spawn placement so a robot is seated on the surface rather than at the flat
+        terrain-root height; a nearest-cell lookup would mis-seat by up to a step on edges.
         """
         hf = self.heightfield_tensor(device=str(positions.device))
         ox, oy, oz = self.terrain_origin
         hscale = self.horizontal_scale
         vscale = self.vertical_scale
-        ix = ((positions[..., 0] - ox) / hscale).long().clamp(0, hf.shape[0] - 1)
-        iy = ((positions[..., 1] - oy) / hscale).long().clamp(0, hf.shape[1] - 1)
-        return hf[ix, iy].to(dtype=positions.dtype) * vscale + oz
+        n_rows, n_cols = hf.shape
+
+        gx = ((positions[..., 0] - ox) / hscale).clamp(0.0, float(n_rows - 1))
+        gy = ((positions[..., 1] - oy) / hscale).clamp(0.0, float(n_cols - 1))
+        gx0 = gx.floor().long()
+        gy0 = gy.floor().long()
+        gx1 = (gx0 + 1).clamp(max=n_rows - 1)
+        gy1 = (gy0 + 1).clamp(max=n_cols - 1)
+        fx = gx - gx0.to(gx.dtype)
+        fy = gy - gy0.to(gy.dtype)
+
+        v00 = hf[gx0, gy0]
+        v10 = hf[gx1, gy0]
+        v01 = hf[gx0, gy1]
+        v11 = hf[gx1, gy1]
+        # Same triangle split as the ray-cast sensor: pick the triangle the point lies in.
+        lower = fx >= fy
+        h_lower = v00 + fx * (v10 - v00) + fy * (v11 - v10)
+        h_upper = v00 + fy * (v01 - v00) + fx * (v11 - v01)
+        v_xy = torch.where(lower, h_lower, h_upper)
+        return v_xy.to(dtype=positions.dtype) * vscale + oz
 
     # ------------------------------------------------------------------ pass-throughs
 
