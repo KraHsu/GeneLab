@@ -129,6 +129,24 @@ def test_non_heading_envs_keep_sampled_ang_vel_z() -> None:
     assert not term.is_heading_env.any().item()
 
 
+def test_direct_yaw_rate_command_is_not_overridden() -> None:
+    """With ``heading_command=False`` the third component stays a directly-commanded yaw rate.
+
+    No env becomes a heading env and ``_update_command`` leaves the sampled ωz untouched, so the
+    policy tracks (vx, vy, vw) as an independent twist (and a teleop wz slider drives yaw directly).
+    """
+    torch.manual_seed(5)
+    cfg = UniformVelocityCommandCfg(
+        rel_heading_envs=0.0, rel_forward_envs=0.0, heading_command=False
+    )
+    term = _build(cfg, num_envs=256)
+    term._resample_command(torch.arange(256))
+    sampled_omega_z = term.command[:, 2].clone()
+    term._update_command()
+    assert torch.allclose(term.command[:, 2], sampled_omega_z)
+    assert not term.is_heading_env.any().item()
+
+
 def test_heading_ratio_matches_configured_proportion() -> None:
     torch.manual_seed(4)
     cfg = UniformVelocityCommandCfg(rel_heading_envs=0.3, heading_command=True)

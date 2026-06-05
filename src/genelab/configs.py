@@ -46,6 +46,18 @@ class SimulationCfg:
     # the viewer's rate-limit will throttle the env step itself — lower ``render_fps`` or
     # raise ``decimation`` if that's not what you want.
     render_fps: int | None = 60
+    # Initial viewer camera framing, forwarded to ``gs.options.ViewerOptions(camera_pos=...,
+    # camera_lookat=...)`` when ``vis=True``. ``camera_lookat`` is also the trackball pivot,
+    # so pointing it at the subject (e.g. a single robot's spawn) makes the mouse-wheel zoom
+    # close in on that subject instead of the scene centroid. ``None`` leaves Genesis' own
+    # default framing untouched.
+    camera_pos: tuple[float, float, float] | None = None
+    camera_lookat: tuple[float, float, float] | None = None
+    # Blender-style free-fly navigation in the viewer: hold the right mouse button to look
+    # around with the mouse and fly with WASD (Space up / Shift down); release to return to the
+    # default orbit controls. A core viewer capability, on by default; ``move_speed`` is in m/s.
+    fly_camera: bool = True
+    fly_camera_speed: float = 3.0
     # ImGui overlay toggle for the Genesis viewer (v1.0+). Forwarded to
     # ``gs.options.ViewerOptions(enable_gui=...)`` when ``vis=True``. Off by default so
     # headless / scripted runs don't allocate the overlay. Setting ``panels`` (below)
