@@ -26,6 +26,9 @@ genelab [global options] <command> [command options]
 | `info NAME` | Show detail for a registered task, env, or robot. |
 | `play TASK ...` | Run a registered task. |
 | `train TASK ...` | Train a task with a supported runner. |
+| `eval TASK CKPT ...` | Deterministic rollout of a checkpoint; writes `eval.json`. |
+| `export TASK CKPT ...` | Export a checkpoint's policy to TorchScript or ONNX (scale/clip baked in). |
+| `benchmark --suite ...` | Batch-eval a JSON suite into one report; regression gate with `--reference`. |
 | `prof open [DIR]` | Open TensorBoard for profiler traces. |
 | `project new NAME` | Scaffold an external GeneLab extension project. |
 | `asset list` | List every asset declared under `genelab.asset_zoo` with cached / not-cached status and size. |
@@ -62,6 +65,31 @@ These flags are accepted after the task id for `play` and `train`.
 | `--log_dir PATH` | train | Use a resolved log directory. |
 | `--max_iterations N` | train | Override PPO iteration count. |
 | `--gpus N` | train | Relaunch under `torchrun` with `N` local ranks. |
+| `--eval-every K` | train | Run a deterministic eval every K iterations; save `best_model` on improvement. |
+| `--eval-episodes N` | train | Episodes per in-training eval (10). |
+| `--eval-num-envs N` | train | Parallel envs during in-training eval (matches training). |
+| `--eval-seed N` | train | RNG seed for the in-training eval rollout (0). |
+| `--seeds 1,2,3` | train | Fan out into one subprocess per seed (multi-seed sweep). |
+| `--parallel N` | train | Cap on concurrent seed subprocesses (1 — sequential). |
+
+## Post-training flags
+
+These flags follow the `TASK CHECKPOINT` positionals on `eval` / `export`, or stand alone on
+`benchmark`.
+
+| Flag | Command | Description |
+|---|---|---|
+| `--num-envs N` | eval | Parallel envs for the rollout. |
+| `--episodes N` | eval | Minimum complete episodes to collect. |
+| `--seed N` | eval | RNG seed (env-level only; policy is deterministic). |
+| `--deterministic` / `--stochastic` | eval | Policy action mode (deterministic by default). |
+| `--max-steps N` | eval | Safety cap on rollout steps. |
+| `--out PATH` | eval/export/benchmark | Output path (`eval.json` / policy file / report JSON). |
+| `--format torchscript\|onnx` | export | Serialization format (`torchscript` by default). |
+| `--opset N` | export | ONNX opset version (ignored for torchscript). |
+| `--suite PATH` | benchmark | Benchmark suite JSON (list of task/checkpoint entries). |
+| `--reference PATH` | benchmark | Prior report JSON to compare `return_mean` against. |
+| `--tolerance X` | benchmark | Max fractional `return_mean` drop before a regression (exits non-zero). |
 
 ## Profiler flags
 
