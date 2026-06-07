@@ -191,9 +191,13 @@ def test_rough_task_agent_uses_heteroscedastic_std_floor() -> None:
     assert dist["class_name"] == "HeteroscedasticGaussianDistribution"
     assert dist["std_range"] == (0.3, 2.0)
 
-    # The flat task keeps a plain global std (no curriculum to de-learn against).
+    # The flat task uses a plain global Gaussian std (no curriculum to de-learn against),
+    # not the rough task's heteroscedastic head — but it must still declare a distribution
+    # (rsl_rl leaves self.distribution unset otherwise, crashing on the first act()).
     flat_task = TASKS.get("Genelab-Velocity-Flat-Unitree-Go1-v0")
-    assert flat_task.cfg.agent.actor.distribution_cfg is None
+    flat_dist = flat_task.cfg.agent.actor.distribution_cfg
+    assert flat_dist is not None
+    assert flat_dist["class_name"] == "GaussianDistribution"
 
 
 def _build_cpu_env(cfg, num_envs: int = 4):

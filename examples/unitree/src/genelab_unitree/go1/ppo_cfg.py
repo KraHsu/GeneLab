@@ -15,6 +15,15 @@ def unitree_go1_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
             hidden_dims=(512, 256, 128),
             activation="elu",
             obs_normalization=True,
+            # A plain global Gaussian std (flat ground has no terrain curriculum to
+            # de-learn against, unlike the rough task's heteroscedastic head). rsl_rl
+            # requires an explicit distribution — without it self.distribution stays None
+            # and the first act() raises on log_prob.
+            distribution_cfg={
+                "class_name": "GaussianDistribution",
+                "init_std": 1.0,
+                "std_type": "scalar",
+            },
         ),
         critic=RslRlModelCfg(
             hidden_dims=(512, 256, 128),
