@@ -18,6 +18,8 @@ manipulation lines:
 | `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 velocity tracking on flat ground. |
 | `Genelab-Velocity-Rough-Unitree-G1-v0` | rsl_rl PPO | 6k iter × 4096 envs | Unitree G1 velocity tracking on a 10-level mixed-terrain curriculum. |
 | `Genelab-Tracking-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 motion-tracking on flat ground. |
+| `Genelab-Velocity-Flat-Unitree-Go1-v0` | rsl_rl PPO | 3k iter × 4096 envs | Unitree Go1 quadruped velocity tracking on flat ground; deployable proprioception-only actor (no base-linear-velocity sensor). |
+| `Genelab-Velocity-Rough-Unitree-Go1-v0` | rsl_rl PPO | (WIP) | Unitree Go1 on the 10-level mixed-terrain curriculum. **Not yet a reference** — from-scratch 3k iters stalls in a stand-still optimum (~1–2 % of commanded speed); needs a larger budget (~6k) + an easier curriculum bootstrap. |
 | `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 64 envs | Goal-conditioned manipulation; needs offline demo prefill (see protocol below). |
 
 ## Reproduction protocol
@@ -127,6 +129,10 @@ re-baseline diff is one scroll away.
       wall-clock below is the **concurrent-run** wall, not a solo
       figure (a solo run on the same GPU is ~3–6× faster per the
       `Time elapsed` counter in `train.log`).
+    - **Go1-Velocity-Flat** — single NVIDIA GeForce RTX 5060 Ti
+      (16 GB), local workstation. A **single-seed** run (seed 42, the
+      task's cfg default) rather than the 3-seed cluster sweep used for
+      the G1 tasks — a smoke-grade reference, not a variance estimate.
 
 ### `GeneLab-Inverted-Pendulum-v0`
 
@@ -232,6 +238,36 @@ is `null`.
     | 1 | 137.800 | 0.005 | 30 000 | ~20.8 h | 212.8 s |
     | 2 | 138.047 | 0.004 | 30 000 | ~20.6 h | 216.8 s |
     | 3 | 138.122 | 0.007 | 30 000 | ~20.9 h | 216.0 s |
+
+### `Genelab-Velocity-Flat-Unitree-Go1-v0`
+
+| Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
+|---|---|---|---|---|---|
+| 42 | 56.533 | 2.264 | 3 000 | ~55 min | 99.4 s |
+
+Single seed (42, the task's cfg default) on one RTX 5060 Ti — see the hardware
+note; this is a smoke-grade reference, not the 3-seed sweep, so there is no
+cross-seed variance figure. Eval `length_mean = 1000.0` (play_env
+`episode_length_s = 20 s` × 50 Hz — full episodes, no falls). `success_rate` is
+`null`. The actor is **proprioception-only** (no base linear velocity — real Go1
+has no such sensor); an asymmetric critic gets the privileged true base velocity
+during training. A direction-binned rollout (256 envs, fixed commands) confirms
+symmetric tracking — forward/backward/lateral/yaw all land at 88–97 % of the
+commanded speed.
+
+### `Genelab-Velocity-Rough-Unitree-Go1-v0` (work in progress)
+
+No reference numbers yet. Trained from scratch at 3k iters the policy stalls in a
+stand-still optimum — it stays upright on the curriculum terrain but translates at
+only ~1–2 % of the commanded speed (the stand-still posture already collects
+partial velocity-tracking credit, and 3k iters from scratch never escapes it; the
+penalties are *not* the cause — foot-slip / undesired-contact terms stay
+negligible). The env wiring is correct (asymmetric critic + 187-ray height scan +
+`terrain_levels` curriculum, all smoke-tested); it is a training-budget /
+bootstrapping gap. Converging it likely needs a larger budget (~6k, matching the
+G1 rough task) plus an easier curriculum level-0 so a from-scratch policy can
+bootstrap basic locomotion before the terrain hardens. Tracked separately, like
+the G1 rough task was before it landed.
 
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER, demo-prefilled)
 
