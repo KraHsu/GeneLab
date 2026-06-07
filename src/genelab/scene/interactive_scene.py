@@ -261,11 +261,22 @@ def _patch_viewer_fly_mouse() -> None:
     orig_drag = _PyrenderViewer.on_mouse_drag
     orig_release = _PyrenderViewer.on_mouse_release
     orig_key_release = _PyrenderViewer.on_key_release
+    orig_motion = _PyrenderViewer.on_mouse_motion
+
+    def _grab_mouse(self: Any, grab: bool) -> None:
+        # Lock the cursor while flying so free-look uses unbounded relative motion: without
+        # this the pointer hits the screen edge and rotation stalls. Guarded — exclusive
+        # mouse can be unavailable on some backends / headless windows.
+        try:
+            self.set_exclusive_mouse(bool(grab))
+        except Exception:
+            pass
 
     def on_mouse_press(self: Any, x: int, y: int, button: int, modifiers: int) -> Any:
         fly = getattr(self, "_genelab_fly", None)
         if fly is not None and button == _mouse.RIGHT:
             fly.engage()
+            _grab_mouse(self, True)
             return None
         return orig_press(self, x, y, button, modifiers)
 
@@ -278,10 +289,20 @@ def _patch_viewer_fly_mouse() -> None:
             return None
         return orig_drag(self, x, y, dx, dy, buttons, modifiers)
 
+    def on_mouse_motion(self: Any, x: int, y: int, dx: int, dy: int) -> Any:
+        # In exclusive-mouse (fly) mode pyglet delivers relative motion via on_mouse_motion
+        # rather than on_mouse_drag, so drive free-look from here too while fly is active.
+        fly = getattr(self, "_genelab_fly", None)
+        if fly is not None and fly.controller.active:
+            fly.look(dx, dy)
+            return None
+        return orig_motion(self, x, y, dx, dy)
+
     def on_mouse_release(self: Any, x: int, y: int, button: int, modifiers: int) -> Any:
         fly = getattr(self, "_genelab_fly", None)
         if fly is not None and button == _mouse.RIGHT:
             fly.controller.set_active(False)
+            _grab_mouse(self, False)  # release the cursor lock when fly ends
             return None
         return orig_release(self, x, y, button, modifiers)
 
@@ -297,6 +318,7 @@ def _patch_viewer_fly_mouse() -> None:
 
     _PyrenderViewer.on_mouse_press = on_mouse_press  # type: ignore[method-assign]
     _PyrenderViewer.on_mouse_drag = on_mouse_drag  # type: ignore[method-assign]
+    _PyrenderViewer.on_mouse_motion = on_mouse_motion  # type: ignore[method-assign]
     _PyrenderViewer.on_mouse_release = on_mouse_release  # type: ignore[method-assign]
     _PyrenderViewer.on_key_release = on_key_release  # type: ignore[method-assign]
     _fly_mouse_patch_applied = True
