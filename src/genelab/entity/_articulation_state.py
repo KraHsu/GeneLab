@@ -38,6 +38,11 @@ class RobotState:
         self.projected_gravity_b[:, 2] = -1.0
         self.joint_pos = z(num_envs, num_dofs)
         self.joint_vel = z(num_envs, num_dofs)
+        # Per-env, per-actuated-DoF joint acceleration, finite-differenced from joint_vel
+        # across control steps by ``ArticulationState.update_acceleration`` (Genesis has no
+        # DoF-acceleration getter). Zero until the env drives that update; used by
+        # ``mdp.joint_acc_l2``.
+        self.joint_acc = z(num_envs, num_dofs)
         self.link_pos = z(num_envs, num_links, 3)
         self.link_quat_w = z(num_envs, num_links, 4)
         self.link_quat_w[..., 0] = 1.0
@@ -79,6 +84,10 @@ class ArticulationState:
         self._num_envs = num_envs
         self._actuated_dof_idx = actuated_dof_idx
         self._data = RobotState(num_envs, num_dofs, num_links, device)
+        # Previous control-step joint velocity, for the joint-acceleration finite
+        # difference (Genesis has no DoF-acceleration getter). Advanced by
+        # ``update_acceleration`` each control step; re-primed on reset.
+        self._prev_joint_vel = torch.zeros(num_envs, num_dofs, device=device)
         # Cached constant gravity vector, broadcast across envs. Built once here to keep
         # ``refresh`` allocation-free on the hot path (called every step + every reset).
         self._gravity_w = torch.zeros(num_envs, 3, device=device)
@@ -134,3 +143,31 @@ class ArticulationState:
         rs.root_lin_vel_b = quat_rotate_inverse(rs.root_quat, rs.root_lin_vel_w)
         rs.root_ang_vel_b = quat_rotate_inverse(rs.root_quat, rs.root_ang_vel_w)
         rs.projected_gravity_b = quat_rotate_inverse(rs.root_quat, self._gravity_w)
+
+    def update_acceleration(self, dt: float) -> None:
+        """Advance the joint-acceleration finite difference by one control step.
+
+        ``joint_acc = (joint_vel − prev_joint_vel) / dt``, then snapshot the current
+        ``joint_vel`` as the next step's baseline. Genesis exposes no DoF-acceleration
+        getter, so this is the only source of ``RobotState.joint_acc``. Call once per
+        control step, after :meth:`refresh`. ``dt <= 0`` leaves ``joint_acc`` untouched
+        (but still snapshots the baseline) so a degenerate timestep can't divide by zero.
+        """
+        rs = self._data
+        if dt > 0.0:
+            torch.sub(rs.joint_vel, self._prev_joint_vel, out=rs.joint_acc)
+            rs.joint_acc.div_(dt)
+        self._prev_joint_vel.copy_(rs.joint_vel)
+
+    def reset_acceleration(self, env_ids: torch.Tensor) -> None:
+        """Re-prime the joint-acceleration finite difference for the given envs.
+
+        On reset the joint velocity is overwritten (new pose / DR), so the prev-step
+        baseline must follow it — otherwise the first post-reset :meth:`update_acceleration`
+        finite-differences across the discontinuity into a spurious spike. Sets
+        ``prev_joint_vel = joint_vel`` and zeros ``joint_acc`` for ``env_ids``. Call after
+        the post-reset :meth:`refresh` so ``joint_vel`` already holds the reset value.
+        """
+        rs = self._data
+        self._prev_joint_vel.index_copy_(0, env_ids, rs.joint_vel.index_select(0, env_ids))
+        rs.joint_acc.index_fill_(0, env_ids, 0.0)
