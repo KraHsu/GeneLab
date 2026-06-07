@@ -194,7 +194,11 @@ def _velocity_env_cfg_base(
                 resampling_time_range=(3.0, 8.0),
                 rel_standing_envs=0.1,
                 rel_heading_envs=0.0,
-                rel_forward_envs=0.2,
+                # Lowered from 0.2: the strict-forward group over-represented forward
+                # commands, compounding the quadruped's natural forward bias so the policy
+                # never learned to walk backward. 0.1 keeps some forward emphasis while
+                # letting the free group sample vx symmetrically in [-1, 1].
+                rel_forward_envs=0.1,
                 heading_command=False,
                 ranges=UniformVelocityCommandCfg.Ranges(
                     lin_vel_x=(-1.0, 1.0),
