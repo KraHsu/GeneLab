@@ -152,7 +152,9 @@ def test_unitree_go1_registered(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("genelab.asset_zoo.unitree_go1.fetch_asset", lambda spec: fake_path)
     cfg = UnitreeGo1Cfg()
     assert set(cfg.actuators) == {"hip", "thigh", "calf"}
-    assert cfg.foot_link_names == ("FR_foot", "FL_foot", "RR_foot", "RL_foot")
+    # Feet are geoms on the *_calf bodies — the MJCF has no foot links — so the
+    # foot-bearing links Genesis exposes are the calves.
+    assert cfg.foot_link_names == ("FR_calf", "FL_calf", "RR_calf", "RL_calf")
     assert cfg.actuators["calf"].effort_limit == pytest.approx(35.55)
     assert cfg.actuators["hip"].stiffness == 25.0
 
