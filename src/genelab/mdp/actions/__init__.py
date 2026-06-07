@@ -16,6 +16,10 @@ from genelab.mdp.actions.joint_position import (
     JointPositionAction,
     JointPositionActionCfg,
 )
+from genelab.mdp.actions.joint_velocity import (
+    JointVelocityAction,
+    JointVelocityActionCfg,
+)
 
 __all__ = [
     "BinaryGripperAction",
@@ -26,4 +30,6 @@ __all__ = [
     "DifferentialIKActionCfg",
     "JointPositionAction",
     "JointPositionActionCfg",
+    "JointVelocityAction",
+    "JointVelocityActionCfg",
 ]

@@ -27,7 +27,7 @@ class IdealPDActuatorCfg(ActuatorBaseCfg):
 class IdealPDActuator(ActuatorBase):
     """Joint group whose effort is computed in Python and pushed via ``control_dofs_force``."""
 
-    channel: Literal["implicit_pd", "force"] = "force"
+    channel: Literal["implicit_pd", "force", "velocity"] = "force"
 
     def initialize(self, gs_handle: Any) -> None:
         """Zero the simulator-side PD gains, then publish the static actuator parameters."""

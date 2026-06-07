@@ -175,3 +175,98 @@ def test_refresh_without_genesis_getters_keeps_buffers_at_zero() -> None:
     # All getters raised AttributeError → buffers stay at their RobotState init values.
     assert torch.equal(art.data.root_pos, torch.zeros(2, 3))
     assert torch.allclose(art.data.root_quat[:, 0], torch.ones(2))
+
+
+class _FakeVelHandle:
+    """Refresh handle whose joint velocity is settable, for the joint-acceleration
+    finite-difference tests. Everything else is held constant / identity."""
+
+    def __init__(self, joint_names: list[str], num_envs: int) -> None:
+        self.joints = [_FakeJoint(name, i) for i, name in enumerate(joint_names)]
+        self.links = [_FakeLink("base")]
+        self.n_dofs = len(joint_names)
+        self._num_envs = num_envs
+        self.joint_vel_value = torch.zeros(num_envs, self.n_dofs)
+
+    def set_dofs_kp(self, *_args: Any, **_kwargs: Any) -> None: ...
+    def set_dofs_kv(self, *_args: Any, **_kwargs: Any) -> None: ...
+    def set_dofs_force_range(self, *_args: Any, **_kwargs: Any) -> None: ...
+
+    def get_pos(self) -> torch.Tensor:
+        return torch.zeros(self._num_envs, 3)
+
+    def get_quat(self) -> torch.Tensor:
+        q = torch.zeros(self._num_envs, 4)
+        q[:, 0] = 1.0
+        return q
+
+    def get_vel(self) -> torch.Tensor:
+        return torch.zeros(self._num_envs, 3)
+
+    def get_ang(self) -> torch.Tensor:
+        return torch.zeros(self._num_envs, 3)
+
+    def get_dofs_position(self) -> torch.Tensor:
+        return torch.zeros(self._num_envs, self.n_dofs)
+
+    def get_dofs_velocity(self) -> torch.Tensor:
+        return self.joint_vel_value
+
+
+def _build_articulation_with_vel_handle(num_envs: int = 4) -> tuple[Articulation, _FakeVelHandle]:
+    from genelab.actuator import ImplicitPDActuatorCfg
+
+    joint_names = ["j0", "j1"]
+    cfg = ArticulationCfg(
+        mjcf_path="/dev/null",
+        default_joint_pos={name: 0.0 for name in joint_names},
+        actuators={
+            "all": ImplicitPDActuatorCfg(target_names_expr=(".*",), stiffness=1.0, damping=0.1),
+        },
+    )
+    art = Articulation(cfg, name="vel")
+    handle = _FakeVelHandle(joint_names, num_envs)
+    art._gs_handle = cast(Any, handle)  # noqa: SLF001
+    art.bind(num_envs=num_envs, device="cpu")
+    return art, handle
+
+
+def test_update_acceleration_finite_differences_joint_vel() -> None:
+    art, handle = _build_articulation_with_vel_handle(num_envs=4)
+    dt = 0.02
+
+    handle.joint_vel_value = torch.full((4, 2), 1.0)
+    art.refresh()
+    art.update_acceleration(dt)  # prime prev_joint_vel at 1.0
+
+    handle.joint_vel_value = torch.full((4, 2), 1.5)
+    art.refresh()
+    art.update_acceleration(dt)  # acc = (1.5 - 1.0) / 0.02 = 25.0
+
+    torch.testing.assert_close(art.data.joint_acc, torch.full((4, 2), 25.0))
+
+
+def test_reset_acceleration_primes_prev_so_no_spurious_spike() -> None:
+    art, handle = _build_articulation_with_vel_handle(num_envs=4)
+    dt = 0.02
+
+    handle.joint_vel_value = torch.full((4, 2), 2.0)
+    art.refresh()
+    art.update_acceleration(dt)  # prev_joint_vel = 2.0 for all envs
+
+    # Velocity jumps (e.g. envs 0 and 2 just reset to a new pose): without priming the
+    # next step would finite-difference (5 - 2)/dt into a huge spurious acceleration.
+    handle.joint_vel_value = torch.full((4, 2), 5.0)
+    art.refresh()
+    reset_ids = torch.tensor([0, 2])
+    art.reset_acceleration(reset_ids)
+
+    # Reset envs have their acceleration zeroed immediately.
+    assert torch.equal(art.data.joint_acc[reset_ids], torch.zeros(2, 2))
+
+    # Next control step (velocity unchanged): reset envs are primed (prev = 5) → 0
+    # acceleration; the un-reset envs still see the (5 - 2)/dt difference.
+    art.update_acceleration(dt)
+    torch.testing.assert_close(art.data.joint_acc[torch.tensor([0, 2])], torch.zeros(2, 2))
+    spike = (5.0 - 2.0) / dt
+    torch.testing.assert_close(art.data.joint_acc[torch.tensor([1, 3])], torch.full((2, 2), spike))

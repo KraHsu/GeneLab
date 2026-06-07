@@ -183,6 +183,24 @@ class Articulation:
         if self._state is not None:
             self._state.refresh()
 
+    def update_acceleration(self, dt: float) -> None:
+        """Advance the joint-acceleration finite difference by one control step.
+
+        Delegates to :class:`ArticulationState`; a no-op before :meth:`bind`. Call once
+        per control step, after :meth:`refresh`.
+        """
+        if self._state is not None:
+            self._state.update_acceleration(dt)
+
+    def reset_acceleration(self, env_ids: torch.Tensor) -> None:
+        """Re-prime the joint-acceleration finite difference for ``env_ids`` after a reset.
+
+        Delegates to :class:`ArticulationState`; a no-op before :meth:`bind`. Call after the
+        post-reset :meth:`refresh`.
+        """
+        if self._state is not None:
+            self._state.reset_acceleration(env_ids)
+
     def write_joint_state(
         self,
         joint_pos: torch.Tensor,
@@ -223,6 +241,17 @@ class Articulation:
         """
         if self._writer is not None:
             self._writer.write_joint_targets_partial(local_joint_ids, target)
+
+    def write_joint_velocity_targets_partial(
+        self, local_joint_ids: torch.Tensor, target: torch.Tensor
+    ) -> None:
+        """Stash a slice of joint *velocity* targets and drive the velocity-channel actuators.
+
+        Delegates to :class:`ArticulationWriter`; a no-op before :meth:`bind`. Used by
+        ``mdp.JointVelocityAction`` for continuously-rotating joints (e.g. Go2-W wheels).
+        """
+        if self._writer is not None:
+            self._writer.write_joint_velocity_targets_partial(local_joint_ids, target)
 
     # ------------------------------------------------------------------ properties
 

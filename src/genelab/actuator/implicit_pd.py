@@ -31,7 +31,7 @@ class ImplicitPDActuator(ActuatorBase):
     control channel instead of the force channel.
     """
 
-    channel: Literal["implicit_pd", "force"] = "implicit_pd"
+    channel: Literal["implicit_pd", "force", "velocity"] = "implicit_pd"
 
     def initialize(self, gs_handle: Any) -> None:
         """Write ``kp`` / ``kv`` / ``force_range`` / ``armature`` / ``friction`` to Genesis."""
