@@ -79,6 +79,15 @@ def eval_task(
     # needs longer episodes, set its play_env to a finite value.
     if env_cfg.episode_length_s > 30.0:
         env_cfg.episode_length_s = 30.0
+    # Eval collects ``episodes`` complete trajectories by relying on the env to
+    # auto-reset each terminated sub-env (``run_evaluation`` commits an episode on
+    # every ``done[i]`` and never resets the env itself). A play_env configured for
+    # interactive teleop sets ``auto_reset = False`` so a human-driven robot is not
+    # yanked back on a stumble — but under eval that means a terminated env is never
+    # reset, so the rollout spews degenerate ~1-step "episodes" off the frozen
+    # terminal state and ``length_mean`` / ``return_mean`` collapse. Force it on here,
+    # alongside the other play→eval overrides above.
+    env_cfg.auto_reset = True
     env = build_env(env_cfg)
 
     backend = select_backend(agent_cfg)
