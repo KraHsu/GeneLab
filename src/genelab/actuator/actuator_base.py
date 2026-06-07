@@ -55,7 +55,7 @@ class ActuatorBase:
     returns a torque tensor that ``Articulation`` writes via ``control_dofs_force``.
     """
 
-    channel: Literal["implicit_pd", "force"] = "implicit_pd"
+    channel: Literal["implicit_pd", "force", "velocity"] = "implicit_pd"
 
     def __init__(
         self,
