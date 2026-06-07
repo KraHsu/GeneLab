@@ -154,16 +154,16 @@ def _obs_terms() -> dict[str, ObservationTermCfg]:
 
     Noise levels match the reference 1:1. The ``joint_vel`` term has no extra
     ``scale`` factor (reference parity) — the policy reads raw rad/s + noise.
+
+    ``base_lin_vel`` is deliberately absent here: the real G1 has no direct
+    base-linear-velocity sensor, so the deployed actor must not depend on it.
+    The critic re-adds it as a privileged (sim-only) signal in
+    ``_critic_obs_group`` — standard asymmetric actor-critic for sim2real.
     """
     # Order matches ``tasks.velocity.velocity_env_cfg.make_velocity_env_cfg``'s
-    # actor_terms dict — important for the policy net's input concat layout when
-    # comparing training curves across the two backends.
+    # actor_terms dict (minus base_lin_vel) — important for the policy net's input
+    # concat layout when comparing training curves across the two backends.
     return {
-        "base_lin_vel": ObservationTermCfg(
-            func=mdp.sensor_data,
-            params={"sensor_name": "imu_lin_vel"},
-            noise=Unoise(-0.5, 0.5),
-        ),
         "base_ang_vel": ObservationTermCfg(
             func=mdp.sensor_data,
             params={"sensor_name": "imu_ang_vel"},
@@ -186,7 +186,16 @@ def _policy_obs_group() -> ObservationGroupCfg:
 
 
 def _critic_obs_group() -> ObservationGroupCfg:
-    terms = _obs_terms()
+    # base_lin_vel is privileged here: the critic runs only in sim during training and
+    # is never deployed, so it can read the base linear velocity the real robot can't
+    # measure. The actor omits it (see ``_obs_terms``). Kept first so the critic's input
+    # layout matches the reference's actor_terms order.
+    terms: dict[str, ObservationTermCfg] = {
+        "base_lin_vel": ObservationTermCfg(
+            func=mdp.sensor_data, params={"sensor_name": "imu_lin_vel"}
+        ),
+    }
+    terms.update(_obs_terms())
     # Privileged state: critic sees the foot kinematics + clean ground clearance.
     terms["foot_height"] = ObservationTermCfg(
         func=mdp.sensor_data, params={"sensor_name": "foot_height_scan"}
