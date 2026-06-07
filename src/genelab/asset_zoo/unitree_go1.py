@@ -3,9 +3,14 @@
 Three actuator groups split by joint role (hip / thigh / calf) with implicit-PD gains
 aligned to Isaac Lab's published Go1 configuration (``stiffness=25, damping=0.5``). The
 calf group carries the higher ``effort_limit=35.55`` Menagerie reports for its forcerange,
-matching real-hardware peak torque; hip and thigh share the lower ``23.7``. ``foot_link_names``
-covers all four feet so downstream feet-air-time / contact rewards work without further
-config.
+matching real-hardware peak torque; hip and thigh share the lower ``23.7``.
+
+The Menagerie MJCF has no foot *bodies* — each foot is a geom (class "foot") on the
+corresponding ``*_calf`` body — so ``foot_link_names`` points at the calf links, which are
+the foot-bearing links Genesis exposes. Downstream feet-air-time / contact rewards anchor a
+contact sensor there; reward terms that need the toe position (clearance / slip) should add
+a foot-site link offset of ``(0, 0, -0.213)`` (the ``FR``/``FL``/``RR``/``RL`` site in the
+calf frame).
 """
 
 from typing import Final
@@ -69,7 +74,7 @@ def UnitreeGo1Cfg() -> ArticulationCfg:
                 action_scale=0.25,
             ),
         },
-        foot_link_names=("FR_foot", "FL_foot", "RR_foot", "RL_foot"),
+        foot_link_names=("FR_calf", "FL_calf", "RR_calf", "RL_calf"),
     )
 
 
