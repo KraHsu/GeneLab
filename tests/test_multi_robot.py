@@ -127,9 +127,7 @@ class _RoutingArticulation:
     def write_joint_targets_partial(self, idx: torch.Tensor, target: torch.Tensor) -> None:
         self.written = (idx, target)
 
-    def write_joint_velocity_targets_partial(
-        self, idx: torch.Tensor, target: torch.Tensor
-    ) -> None:
+    def write_joint_velocity_targets_partial(self, idx: torch.Tensor, target: torch.Tensor) -> None:
         self.vel_written = (idx, target)
 
 

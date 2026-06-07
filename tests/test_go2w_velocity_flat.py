@@ -85,7 +85,9 @@ def test_velocity_action_spins_the_wheels(genesis_runtime: Any) -> None:
         # 12 leg joints + 4 wheels.
         assert n_act == 16
 
-        wheel_idx = [i for i, n in enumerate(env._articulation.joint_names) if n.endswith("_wheel_joint")]
+        wheel_idx = [
+            i for i, n in enumerate(env._articulation.joint_names) if n.endswith("_wheel_joint")
+        ]
         assert len(wheel_idx) == 4
 
         # Command max forward wheel velocity (legs zero); the wheel action term is last, so the

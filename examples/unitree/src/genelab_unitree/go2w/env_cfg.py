@@ -100,7 +100,9 @@ def _velocity_env_cfg_base(
     critic_terms.update(extra_critic_obs or {})
 
     cfg = ManagerBasedRlEnvCfg(
-        simulation=SimulationCfg(num_envs=4096 if not play else 1, dt=0.002, substeps=1, vis=play, gpu=True),
+        simulation=SimulationCfg(
+            num_envs=4096 if not play else 1, dt=0.002, substeps=1, vis=play, gpu=True
+        ),
         scene=InteractiveSceneCfg(
             env_spacing=(2.5, 2.5),
             terrain=terrain,
@@ -108,7 +110,9 @@ def _velocity_env_cfg_base(
                 BodyVelocitySensorCfg(name="imu_lin_vel", link_name=_BASE_LINK, measure="lin_vel"),
                 BodyVelocitySensorCfg(name="imu_ang_vel", link_name=_BASE_LINK, measure="ang_vel"),
                 # Wheel-ground contact (the wheels are the feet).
-                ContactSensorCfg(name="wheel_contact", link_names=_WHEEL_LINKS, track_air_time=True),
+                ContactSensorCfg(
+                    name="wheel_contact", link_names=_WHEEL_LINKS, track_air_time=True
+                ),
                 # Thigh / calf contact for the undesired-contacts safety penalty.
                 ContactSensorCfg(name="body_contact", link_names=_THIGH_CALF_LINKS),
                 *extra_sensors,
@@ -162,11 +166,15 @@ def _velocity_env_cfg_base(
             # --- base stability ---
             "lin_vel_z": RewardTermCfg(func=mdp.lin_vel_z_l2, weight=-2.0),
             "ang_vel_xy": RewardTermCfg(
-                func=mdp.body_angular_velocity_penalty, weight=-0.05, params={"asset_cfg": _trunk_cfg()}
+                func=mdp.body_angular_velocity_penalty,
+                weight=-0.05,
+                params={"asset_cfg": _trunk_cfg()},
             ),
             "flat_orientation": RewardTermCfg(func=mdp.flat_orientation_l2, weight=-1.0),
             "base_height": RewardTermCfg(
-                func=mdp.base_height_l2, weight=-1.0, params={"target_height": _GO2W_BASE_HEIGHT_TARGET}
+                func=mdp.base_height_l2,
+                weight=-1.0,
+                params={"target_height": _GO2W_BASE_HEIGHT_TARGET},
             ),
             # --- actuation / smoothness ---
             "joint_torques": RewardTermCfg(func=mdp.applied_torque_l2, weight=-2.0e-4),
@@ -190,7 +198,10 @@ def _velocity_env_cfg_base(
             "reset_base": EventTermCfg(
                 mode="reset",
                 func=mdp.reset_root_state_uniform,
-                params={"pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-math.pi, math.pi)}, "velocity_range": {}},
+                params={
+                    "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-math.pi, math.pi)},
+                    "velocity_range": {},
+                },
             ),
             "reset_robot_joints": EventTermCfg(
                 mode="reset",
