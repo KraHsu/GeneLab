@@ -13,12 +13,43 @@ import datetime as dt
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from genelab.cache import ensure_project_cache
 from genelab.registry import TASKS
 from genelab.rl.backends.base import PlayContext, ProfileArgs
 from genelab.rl.evaluator import EvalConfig, EvalResult, run_evaluation
+
+if TYPE_CHECKING:
+    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
+
+# Eval episodes can't run on a play env's "infinite" viewer length; cap so the rollout
+# truncates and collects complete trajectories.
+_EVAL_MAX_EPISODE_LENGTH_S = 30.0
+
+
+def _prepare_eval_env_cfg(
+    env_cfg: "ManagerBasedRlEnvCfg", *, num_envs: int, seed: int
+) -> "ManagerBasedRlEnvCfg":
+    """Adapt a task's play env cfg for a non-interactive episodic eval rollout.
+
+    Eval is headless and counts complete episodes, so it overrides three play-env
+    affordances that exist for human-in-the-loop viewing:
+
+    * ``auto_reset = True`` — the evaluator tallies an episode on each ``done`` and relies
+      on the env resetting; a play env that disabled it for teleop would otherwise keep
+      re-terminating the fallen robot, flooding the count with length-1 episodes.
+    * ``vis = False`` — eval runs on headless / remote machines with no display.
+    * ``episode_length_s`` clamped — some play envs use a huge value for infinite viewer
+      playback, which would prevent episodes from ever truncating.
+    """
+    env_cfg.simulation.num_envs = int(num_envs)
+    env_cfg.seed = int(seed)
+    env_cfg.simulation.vis = False
+    env_cfg.auto_reset = True
+    if env_cfg.episode_length_s > _EVAL_MAX_EPISODE_LENGTH_S:
+        env_cfg.episode_length_s = _EVAL_MAX_EPISODE_LENGTH_S
+    return env_cfg
 
 
 def eval_task(
@@ -65,20 +96,7 @@ def eval_task(
             f"task {task_id!r} did not register an agent cfg; eval requires a trainable task"
         )
 
-    env_cfg = resolve_env_cfg(task_id, play=True)
-    env_cfg.simulation.num_envs = int(num_envs)
-    env_cfg.seed = int(seed)
-    # Eval is always headless (no human-in-the-loop) — force ``vis=False`` so
-    # tasks whose ``play_env`` was configured for viewer playback still run on
-    # CI / remote servers without a display.
-    env_cfg.simulation.vis = False
-    # Some tasks set ``episode_length_s = 1e9`` in their play_env for infinite
-    # viewer playback. Eval can't run with that — episodes never truncate and
-    # the rollout never collects ``episodes`` complete trajectories. Clamp to
-    # a defensive 30 s cap so eval makes progress; if a task legitimately
-    # needs longer episodes, set its play_env to a finite value.
-    if env_cfg.episode_length_s > 30.0:
-        env_cfg.episode_length_s = 30.0
+    env_cfg = _prepare_eval_env_cfg(resolve_env_cfg(task_id, play=True), num_envs=num_envs, seed=seed)
     env = build_env(env_cfg)
 
     backend = select_backend(agent_cfg)
