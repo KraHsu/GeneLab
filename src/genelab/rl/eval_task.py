@@ -96,7 +96,9 @@ def eval_task(
             f"task {task_id!r} did not register an agent cfg; eval requires a trainable task"
         )
 
-    env_cfg = _prepare_eval_env_cfg(resolve_env_cfg(task_id, play=True), num_envs=num_envs, seed=seed)
+    env_cfg = _prepare_eval_env_cfg(
+        resolve_env_cfg(task_id, play=True), num_envs=num_envs, seed=seed
+    )
     env = build_env(env_cfg)
 
     backend = select_backend(agent_cfg)

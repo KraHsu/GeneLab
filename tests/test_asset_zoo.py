@@ -178,7 +178,12 @@ def test_unitree_go2w_registered(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cfg.actuators["hip"].effort_limit == pytest.approx(23.7)
     assert cfg.actuators["wheel"].effort_limit == pytest.approx(15.0)
     # Ground contact is the wheel, not a foot.
-    assert cfg.foot_link_names == ("FR_wheel_link", "FL_wheel_link", "RR_wheel_link", "RL_wheel_link")
+    assert cfg.foot_link_names == (
+        "FR_wheel_link",
+        "FL_wheel_link",
+        "RR_wheel_link",
+        "RL_wheel_link",
+    )
 
 
 def test_anymal_c_registered(monkeypatch: pytest.MonkeyPatch) -> None:
