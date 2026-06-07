@@ -242,6 +242,17 @@ class Articulation:
         if self._writer is not None:
             self._writer.write_joint_targets_partial(local_joint_ids, target)
 
+    def write_joint_velocity_targets_partial(
+        self, local_joint_ids: torch.Tensor, target: torch.Tensor
+    ) -> None:
+        """Stash a slice of joint *velocity* targets and drive the velocity-channel actuators.
+
+        Delegates to :class:`ArticulationWriter`; a no-op before :meth:`bind`. Used by
+        ``mdp.JointVelocityAction`` for continuously-rotating joints (e.g. Go2-W wheels).
+        """
+        if self._writer is not None:
+            self._writer.write_joint_velocity_targets_partial(local_joint_ids, target)
+
     # ------------------------------------------------------------------ properties
 
     @property

@@ -54,6 +54,7 @@ class _FakeGenesisHandle:
         self.kv_calls: list[tuple[torch.Tensor, torch.Tensor]] = []
         self.force_range_calls: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
         self.position_target_calls: list[tuple[torch.Tensor, torch.Tensor]] = []
+        self.velocity_target_calls: list[tuple[torch.Tensor, torch.Tensor]] = []
         self.force_calls: list[tuple[torch.Tensor, torch.Tensor]] = []
 
     def set_dofs_kp(self, kp: torch.Tensor, dof_ids: torch.Tensor) -> None:
@@ -69,6 +70,9 @@ class _FakeGenesisHandle:
 
     def control_dofs_position(self, target: torch.Tensor, dof_ids: torch.Tensor) -> None:
         self.position_target_calls.append((target.clone(), dof_ids.clone()))
+
+    def control_dofs_velocity(self, target: torch.Tensor, dof_ids: torch.Tensor) -> None:
+        self.velocity_target_calls.append((target.clone(), dof_ids.clone()))
 
     def control_dofs_force(self, effort: torch.Tensor, dof_ids: torch.Tensor) -> None:
         self.force_calls.append((effort.clone(), dof_ids.clone()))
@@ -152,6 +156,50 @@ def test_implicit_pd_writes_kp_kv_to_sim_and_compute_returns_none() -> None:
         target_pos=torch.zeros(2, 2),
     )
     assert out is None
+
+
+# ---------------------------------------------------------------------- ImplicitVelocity
+
+
+def test_implicit_velocity_actuator_drives_control_dofs_velocity() -> None:
+    from genelab.actuator import ImplicitVelocityActuatorCfg
+
+    cfg = ImplicitVelocityActuatorCfg(target_names_expr=(".*",), damping=2.0, effort_limit=15.0)
+    art, handle = _build_articulation(["wheel0", "wheel1"], {"wheels": cfg})
+
+    # Velocity channel: Genesis tracks the velocity target from the kv gain, so kp=0, kv=damping.
+    kp_tensor, _ = handle.kp_calls[0]
+    assert torch.allclose(kp_tensor, torch.zeros(2))
+    kv_tensor, _ = handle.kv_calls[0]
+    assert torch.allclose(kv_tensor, torch.tensor([2.0, 2.0]))
+
+    # Driving velocity targets routes to control_dofs_velocity (not position / force).
+    art.write_joint_velocity_targets_partial(torch.tensor([0, 1]), torch.full((2, 2), 5.0))
+    assert len(handle.velocity_target_calls) == 1
+    vt, vids = handle.velocity_target_calls[0]
+    assert torch.allclose(vt, torch.full((2, 2), 5.0))
+    assert vids.tolist() == [0, 1]
+    assert handle.position_target_calls == []  # velocity actuators never position-controlled
+
+
+def test_position_targets_skip_velocity_actuators_in_mixed_robot() -> None:
+    # A wheeled-legged robot mixes position legs + velocity wheels. Writing position targets
+    # must drive only the leg (implicit_pd) joints and leave the wheels to the velocity path.
+    from genelab.actuator import ImplicitVelocityActuatorCfg
+
+    actuators = {
+        "legs": ImplicitPDActuatorCfg(target_names_expr=("leg.*",), stiffness=25.0, damping=0.5),
+        "wheels": ImplicitVelocityActuatorCfg(target_names_expr=("wheel.*",), damping=2.0),
+    }
+    art, handle = _build_articulation(["leg0", "leg1", "wheel0", "wheel1"], actuators)
+
+    art.write_joint_targets_partial(torch.tensor([0, 1, 2, 3]), torch.zeros(2, 4))
+
+    # Exactly one position-control call, for the two leg DoFs — never the wheels.
+    assert len(handle.position_target_calls) == 1
+    _, pos_dofs = handle.position_target_calls[0]
+    assert pos_dofs.tolist() == [0, 1]
+    assert handle.velocity_target_calls == []  # position path never velocity-controls
 
 
 # ---------------------------------------------------------------------- IdealPD

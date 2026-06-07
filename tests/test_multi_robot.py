@@ -122,9 +122,15 @@ class _RoutingArticulation:
         self.action_scale_tensor = torch.ones(n)
         self.data = types.SimpleNamespace(encoder_bias=torch.zeros(num_envs, n))
         self.written: tuple[torch.Tensor, torch.Tensor] | None = None
+        self.vel_written: tuple[torch.Tensor, torch.Tensor] | None = None
 
     def write_joint_targets_partial(self, idx: torch.Tensor, target: torch.Tensor) -> None:
         self.written = (idx, target)
+
+    def write_joint_velocity_targets_partial(
+        self, idx: torch.Tensor, target: torch.Tensor
+    ) -> None:
+        self.vel_written = (idx, target)
 
 
 class _RoutingEnv:
@@ -147,6 +153,22 @@ def test_joint_position_action_routes_to_named_entity() -> None:
     term.apply_actions()
     assert env._b.written is not None  # wrote to robot_b
     assert env._a.written is None  # primary left untouched
+
+
+def test_joint_velocity_action_writes_scaled_velocity_targets() -> None:
+    from genelab.mdp.actions.joint_velocity import JointVelocityAction, JointVelocityActionCfg
+
+    env = _RoutingEnv()
+    cfg = JointVelocityActionCfg(asset_name="robot_b", joint_names=(".*",), scale=10.0)
+    term = JointVelocityAction(cfg, env)  # type: ignore[arg-type]
+    assert term.action_dim == 2
+    # target velocity = scale * raw = 10 * 0.5 = 5.0 (no default offset — wheels spin from 0).
+    term.process_actions(torch.full((2, 2), 0.5))
+    term.apply_actions()
+    assert env._b.vel_written is not None  # routed through the velocity channel
+    assert env._b.written is None  # NOT the position channel
+    _, target = env._b.vel_written
+    assert torch.allclose(target, torch.full((2, 2), 5.0))
 
 
 # ---------------------------------------------------------------- sensor entity routing
