@@ -241,6 +241,10 @@ def _patch_viewer_fly_mouse() -> None:
     right button instead drives Blender-style free-look: press engages fly mode (seeded from the
     current view), drag rotates, release returns to orbit. Viewers without the handle keep stock
     behaviour. Class-level wrap, idempotent; mirrors :func:`_patch_pyrender_save_filename`.
+
+    Also wraps ``on_key_release`` to fix a pyrender held-keys bug (see
+    :func:`~genelab.scene.fly_camera.purge_held_key_symbol`) where a modifier key bound to a
+    ``HOLD`` action (fly "down" on Shift) never registers its release and descends forever.
     """
     global _fly_mouse_patch_applied
     if _fly_mouse_patch_applied:
@@ -248,17 +252,31 @@ def _patch_viewer_fly_mouse() -> None:
     try:
         from genesis.ext.pyrender.viewer import Viewer as _PyrenderViewer
         from pyglet.window import mouse as _mouse
+
+        from genelab.scene.fly_camera import purge_held_key_symbol
     except Exception:
         return
 
     orig_press = _PyrenderViewer.on_mouse_press
     orig_drag = _PyrenderViewer.on_mouse_drag
     orig_release = _PyrenderViewer.on_mouse_release
+    orig_key_release = _PyrenderViewer.on_key_release
+    orig_motion = _PyrenderViewer.on_mouse_motion
+
+    def _grab_mouse(self: Any, grab: bool) -> None:
+        # Lock the cursor while flying so free-look uses unbounded relative motion: without
+        # this the pointer hits the screen edge and rotation stalls. Guarded — exclusive
+        # mouse can be unavailable on some backends / headless windows.
+        try:
+            self.set_exclusive_mouse(bool(grab))
+        except Exception:
+            pass
 
     def on_mouse_press(self: Any, x: int, y: int, button: int, modifiers: int) -> Any:
         fly = getattr(self, "_genelab_fly", None)
         if fly is not None and button == _mouse.RIGHT:
             fly.engage()
+            _grab_mouse(self, True)
             return None
         return orig_press(self, x, y, button, modifiers)
 
@@ -271,16 +289,38 @@ def _patch_viewer_fly_mouse() -> None:
             return None
         return orig_drag(self, x, y, dx, dy, buttons, modifiers)
 
+    def on_mouse_motion(self: Any, x: int, y: int, dx: int, dy: int) -> Any:
+        # In exclusive-mouse (fly) mode pyglet delivers relative motion via on_mouse_motion
+        # rather than on_mouse_drag, so drive free-look from here too while fly is active.
+        fly = getattr(self, "_genelab_fly", None)
+        if fly is not None and fly.controller.active:
+            fly.look(dx, dy)
+            return None
+        return orig_motion(self, x, y, dx, dy)
+
     def on_mouse_release(self: Any, x: int, y: int, button: int, modifiers: int) -> Any:
         fly = getattr(self, "_genelab_fly", None)
         if fly is not None and button == _mouse.RIGHT:
             fly.controller.set_active(False)
+            _grab_mouse(self, False)  # release the cursor lock when fly ends
             return None
         return orig_release(self, x, y, button, modifiers)
 
+    def on_key_release(self: Any, symbol: int, modifiers: int) -> Any:
+        # Fix the pyrender sticky-modifier bug before delegating: a modifier key (Shift)
+        # reports different modifiers on press vs release, so the base handler's
+        # ``pop((symbol, modifiers))`` misses and its HOLD callback (fly "down") never stops.
+        # Purge every held entry for this symbol so release is always honoured.
+        held = getattr(self, "_held_keys", None)
+        if isinstance(held, dict):
+            purge_held_key_symbol(held, symbol)
+        return orig_key_release(self, symbol, modifiers)
+
     _PyrenderViewer.on_mouse_press = on_mouse_press  # type: ignore[method-assign]
     _PyrenderViewer.on_mouse_drag = on_mouse_drag  # type: ignore[method-assign]
+    _PyrenderViewer.on_mouse_motion = on_mouse_motion  # type: ignore[method-assign]
     _PyrenderViewer.on_mouse_release = on_mouse_release  # type: ignore[method-assign]
+    _PyrenderViewer.on_key_release = on_key_release  # type: ignore[method-assign]
     _fly_mouse_patch_applied = True
 
 

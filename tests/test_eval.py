@@ -164,3 +164,26 @@ def test_eval_cli_payload_schema_matches_roadmap() -> None:
         "success_rate",
     }
     assert payload["num_episodes"] == 4
+
+
+def test_prepare_eval_env_cfg_forces_autoreset_and_headless() -> None:
+    """Eval is a non-interactive episodic rollout. A task's play_env may disable
+    auto-reset (for teleop) and enable the viewer; eval must override both, else the
+    evaluator (which counts episodes off the env's auto-reset) floods with length-1
+    post-terminal episodes and reports a near-zero length_mean."""
+    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
+    from genelab.rl.eval_task import _prepare_eval_env_cfg
+
+    cfg = ManagerBasedRlEnvCfg()
+    cfg.auto_reset = False  # interactive-teleop default on some play envs
+    cfg.simulation.vis = True
+    cfg.simulation.num_envs = 1
+    cfg.episode_length_s = 1.0e9  # "infinite" viewer playback
+
+    out = _prepare_eval_env_cfg(cfg, num_envs=256, seed=7)
+
+    assert out.auto_reset is True
+    assert out.simulation.vis is False
+    assert out.simulation.num_envs == 256
+    assert out.seed == 7
+    assert out.episode_length_s <= 30.0

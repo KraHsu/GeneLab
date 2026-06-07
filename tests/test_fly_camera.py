@@ -9,7 +9,26 @@ import math
 
 import numpy as np
 
-from genelab.scene.fly_camera import FlyCamera, FlyCameraController
+from genelab.scene.fly_camera import FlyCamera, FlyCameraController, purge_held_key_symbol
+
+
+def test_purge_held_key_symbol_drops_every_modifier_variant() -> None:
+    # Reproduces the sticky-Shift fly bug: pyrender keys _held_keys by (symbol, modifiers),
+    # but Shift toggles its own modifier bit, so its press records (LSHIFT, 0) while its
+    # release reports (LSHIFT, MOD_SHIFT). A naive pop of the release tuple misses, the
+    # (LSHIFT, 0) entry lingers, and the HOLD "down" callback fires forever. Releasing a key
+    # means it's up regardless of modifier state, so all of its entries must go.
+    LSHIFT, SPACE, MOD_SHIFT = 65505, 32, 1
+    held = {(LSHIFT, 0): True, (LSHIFT, MOD_SHIFT): True, (SPACE, 0): True}
+    purge_held_key_symbol(held, LSHIFT)
+    assert not any(sym == LSHIFT for (sym, _mods) in held)
+    assert (SPACE, 0) in held  # unrelated keys are untouched
+
+
+def test_purge_held_key_symbol_noop_when_symbol_absent() -> None:
+    held = {(32, 0): True}
+    purge_held_key_symbol(held, 99)
+    assert held == {(32, 0): True}
 
 
 def _dir(pos, lookat) -> np.ndarray:

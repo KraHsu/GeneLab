@@ -15,6 +15,9 @@ GeneLab 自带任务的**复现地基**。按任务 × seed 列出收敛后的 r
 | `Genelab-Velocity-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 平地速度跟踪。 |
 | `Genelab-Velocity-Rough-Unitree-G1-v0` | rsl_rl PPO | 6k iter × 4096 envs | Unitree G1 在 10 级混合地形课程上的速度跟踪。 |
 | `Genelab-Tracking-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 平地动作跟踪。 |
+| `Genelab-Velocity-Flat-Unitree-Go1-v0` | rsl_rl PPO | 3k iter × 4096 envs | Unitree Go1 四足平地速度跟踪；可部署的纯本体感知 actor（无基座线速度传感器）。 |
+| `Genelab-Velocity-Rough-Unitree-Go1-v0` | rsl_rl PPO | (WIP) | Unitree Go1 在 10 级混合地形课程上。**暂未作为参考** —— 从零 3k 迭代陷入原地站立局部最优（仅约 1–2% 指令速度）；需要更大预算（约 6k）+ 更易的课程起步。 |
+| `Genelab-Velocity-Flat-Unitree-Go2W-v0` | rsl_rl PPO | 3k iter × 4096 envs | Unitree Go2-W **轮式**四足平地速度跟踪；位置控制腿 + 速度控制轮,可部署的纯本体感知 actor。 |
 | `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 64 envs | 目标条件抓取；需要离线 demo 预填（见下方协议）。 |
 
 ## 复现协议
@@ -111,6 +114,10 @@ GPU vectorized 慢很多。
       CPU 过订阅 —— reward 数字是确定性的不受影响，但下面的训练墙钟是
       **并发跑的墙钟**，不是单 job 数字（同卡单 job 跑按 `train.log`
       里的 `Time elapsed` 计数约快 3–6×）。
+    - **Go1-Velocity-Flat**、**Go2W-Velocity-Flat** —— 单张 NVIDIA
+      GeForce RTX 5060 Ti（16 GB），本地工作站。都是**单 seed**（seed 42,
+      任务 cfg 默认）跑,而不是 G1 那种三 seed 集群 sweep —— 算 smoke 级
+      参考,不提供跨 seed 方差。
 
 ### `GeneLab-Inverted-Pendulum-v0`
 
@@ -211,6 +218,44 @@ Eval `length_mean = 1500.0`。Tracking play_env 默认 `episode_length_s =
     | 1 | 137.800 | 0.005 | 30 000 | ~20.8 h | 212.8 s |
     | 2 | 138.047 | 0.004 | 30 000 | ~20.6 h | 216.8 s |
     | 3 | 138.122 | 0.007 | 30 000 | ~20.9 h | 216.0 s |
+
+### `Genelab-Velocity-Flat-Unitree-Go1-v0`
+
+| Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
+|---|---|---|---|---|---|
+| 42 | 56.533 | 2.264 | 3 000 | ~55 min | 99.4 s |
+
+单 seed（42，任务 cfg 默认）跑在一张 RTX 5060 Ti 上 —— 见硬件说明；这是
+smoke 级参考、不是三 seed sweep，所以没有跨 seed 方差。Eval `length_mean =
+1000.0`（play_env `episode_length_s = 20 s` × 50 Hz —— 完整 episode、不摔）。
+`success_rate` 为 `null`。Actor 是**纯本体感知**（无基座线速度 —— 真实 Go1 没有
+该传感器）；训练时由非对称 critic 拿到特权的真实基座速度。方向分桶 rollout
+（256 envs、固定指令）确认跟踪对称 —— 前进/后退/侧移/转向都落在指令速度的
+88–97%。
+
+### `Genelab-Velocity-Rough-Unitree-Go1-v0`（进行中）
+
+暂无参考数字。从零训 3k 迭代策略陷入原地站立局部最优 —— 在课程地形上能保持站立，
+但只以约 1–2% 的指令速度平移（站立姿态本身就能拿到部分速度跟踪分，从零 3k 迭代
+逃不出这个最优；惩罚**不是**原因 —— foot-slip / undesired-contact 项始终可忽略）。
+环境接线是对的（非对称 critic + 187 射线 height scan + `terrain_levels` 课程，
+都过了 smoke 测试）；问题在训练预算 / bootstrap。要收敛大概需要更大预算（约 6k，
+对齐 G1 rough 任务）外加更易的课程 level-0，让从零策略先 bootstrap 出基本行走、
+再让地形变难。单独跟踪，正如 G1 rough 任务落地前那样。
+
+### `Genelab-Velocity-Flat-Unitree-Go2W-v0`
+
+| Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
+|---|---|---|---|---|---|
+| 42 | 51.876 | 2.848 | 3 000 | ~97 min | 40.9 s |
+
+单 seed（42）跑在一张 RTX 5060 Ti 上（见硬件说明）—— smoke 级,不是三 seed
+sweep。Eval `length_mean = 997.5`（满值 1000;接近完整 episode、几乎不摔）。
+`success_rate` 为 `null`。Go2-W 是**轮式**四足:actor 对 12 个腿关节下位置目标、
+对 4 个轮子下*速度*目标（``mdp.JointVelocityAction`` 路径）,actor 为可部署的
+纯本体感知（无基座线速度）+ 特权 critic,和 Go1 一致。方向分桶 rollout（256 envs、
+固定指令）确认跟踪对称 —— 前进/后退 95%、侧移 ~89–90%、转向 ~96% 的指令速度。
+**从零一次训练即收敛**（轮子让平移很自然 —— 无需像 Go1 flat 那样多轮调参）。
 
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER，demo 预填)
 
