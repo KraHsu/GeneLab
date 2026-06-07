@@ -70,6 +70,21 @@ class FlyCamera:
         return self._pos.copy(), self._pos + self.forward
 
 
+def purge_held_key_symbol(held_keys: dict[tuple[int, int], bool], symbol: int) -> None:
+    """Drop every ``(symbol, modifiers)`` entry for ``symbol`` from a viewer held-keys dict.
+
+    Works around a pyrender viewer bug: ``Viewer._held_keys`` is keyed by
+    ``(symbol, modifiers)``, but a modifier key (Shift / Ctrl / Alt) toggles its own
+    modifier bit, so it reports a *different* ``modifiers`` bitmask on release than on press
+    (e.g. press ``(LSHIFT, 0)`` vs release ``(LSHIFT, MOD_SHIFT)``). The viewer's
+    release-time ``pop((symbol, modifiers))`` then misses, the stale entry lingers, and the
+    key's ``HOLD`` callback keeps firing forever — the sticky-Shift infinite-descent in fly
+    mode. A released key is up regardless of modifier state, so remove all its entries.
+    """
+    for key in [k for k in held_keys if k[0] == symbol]:
+        held_keys.pop(key, None)
+
+
 # action name -> (forward, right, up) unit components fed to ``FlyCamera.move``.
 _MOVE_ACTIONS: dict[str, tuple[float, float, float]] = {
     "forward": (1.0, 0.0, 0.0),
