@@ -205,7 +205,14 @@ def _velocity_env_cfg_base(
             ),
             # --- actuation / smoothness penalties ---
             "joint_torques": RewardTermCfg(func=mdp.applied_torque_l2, weight=-2.0e-4),
-            "joint_acc": RewardTermCfg(func=mdp.joint_acc_l2, weight=-2.5e-7),
+            # NOTE: not Isaac Lab's -2.5e-7. That value is tuned for its *physics-step*
+            # acceleration (Δv / ~0.005s, large spiky values); GeneLab's joint_acc is a
+            # *control-step* finite difference (Δv / step_dt = 0.02s, smoothed over the
+            # decimation window), so the raw magnitude is ~100x smaller and -2.5e-7 left
+            # the term inert (~360x below the tracking reward). -1.0e-5 scale-matches it to
+            # the sibling smoothness penalties (≈ action_rate's weighted ~0.02/step). A
+            # starting point, not a training-tuned value — sweep it against gait quality.
+            "joint_acc": RewardTermCfg(func=mdp.joint_acc_l2, weight=-1.0e-5),
             "action_rate": RewardTermCfg(func=mdp.action_rate_l2, weight=-0.01),
             "dof_pos_limits": RewardTermCfg(func=mdp.joint_pos_limits, weight=-1.0),
             # --- safety ---
