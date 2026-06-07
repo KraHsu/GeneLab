@@ -7,7 +7,10 @@ def unitree_go1_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     return RslRlOnPolicyRunnerCfg(
         seed=42,
         num_steps_per_env=24,
-        max_iterations=1_500,
+        # 1500 was too short for the quadruped to master both directions — forward emerged
+        # but backward locomotion (learned last) stayed weak. 3000 gives it time to develop
+        # symmetric velocity tracking.
+        max_iterations=3_000,
         save_interval=50,
         experiment_name="go1_velocity_flat",
         logger="tensorboard",
