@@ -25,6 +25,7 @@ from genelab.asset_zoo import (
     FrankaPandaCfg,
     UnitreeG1Cfg,
     UnitreeGo1Cfg,
+    UnitreeGo2WCfg,
     UnitreeH1Cfg,
     UR10eCfg,
     WujiHandCfg,
@@ -157,6 +158,27 @@ def test_unitree_go1_registered(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cfg.foot_link_names == ("FR_calf", "FL_calf", "RR_calf", "RL_calf")
     assert cfg.actuators["calf"].effort_limit == pytest.approx(35.55)
     assert cfg.actuators["hip"].stiffness == 25.0
+
+
+def test_unitree_go2w_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    from genelab.actuator import ImplicitPDActuator, ImplicitVelocityActuator
+
+    fake_path = FIXTURES_DIR / "cartpole.xml"
+    monkeypatch.setattr("genelab.asset_zoo.unitree_go2w.fetch_asset", lambda spec: fake_path)
+    cfg = UnitreeGo2WCfg()
+
+    # Wheeled quadruped: 3 position leg groups + 1 velocity wheel group.
+    assert set(cfg.actuators) == {"hip", "thigh", "calf", "wheel"}
+    assert cfg.actuators["hip"].class_type is ImplicitPDActuator
+    assert cfg.actuators["calf"].class_type is ImplicitPDActuator
+    # The wheels are velocity-controlled (continuous joints) — the key Go2-W difference.
+    assert cfg.actuators["wheel"].class_type is ImplicitVelocityActuator
+    # Knee carries the higher effort ceiling (Menagerie forcerange); wheels ±15.
+    assert cfg.actuators["calf"].effort_limit == pytest.approx(45.43)
+    assert cfg.actuators["hip"].effort_limit == pytest.approx(23.7)
+    assert cfg.actuators["wheel"].effort_limit == pytest.approx(15.0)
+    # Ground contact is the wheel, not a foot.
+    assert cfg.foot_link_names == ("FR_wheel_link", "FL_wheel_link", "RR_wheel_link", "RL_wheel_link")
 
 
 def test_anymal_c_registered(monkeypatch: pytest.MonkeyPatch) -> None:
