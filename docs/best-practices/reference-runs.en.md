@@ -20,6 +20,7 @@ manipulation lines:
 | `Genelab-Tracking-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 motion-tracking on flat ground. |
 | `Genelab-Velocity-Flat-Unitree-Go1-v0` | rsl_rl PPO | 3k iter × 4096 envs | Unitree Go1 quadruped velocity tracking on flat ground; deployable proprioception-only actor (no base-linear-velocity sensor). |
 | `Genelab-Velocity-Rough-Unitree-Go1-v0` | rsl_rl PPO | (WIP) | Unitree Go1 on the 10-level mixed-terrain curriculum. **Not yet a reference** — from-scratch 3k iters stalls in a stand-still optimum (~1–2 % of commanded speed); needs a larger budget (~6k) + an easier curriculum bootstrap. |
+| `Genelab-Velocity-Flat-Unitree-Go2W-v0` | rsl_rl PPO | 3k iter × 4096 envs | Unitree Go2-W **wheeled** quadruped velocity tracking on flat ground; position-controlled legs + velocity-controlled wheels, deployable proprioception-only actor. |
 | `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 64 envs | Goal-conditioned manipulation; needs offline demo prefill (see protocol below). |
 
 ## Reproduction protocol
@@ -129,10 +130,11 @@ re-baseline diff is one scroll away.
       wall-clock below is the **concurrent-run** wall, not a solo
       figure (a solo run on the same GPU is ~3–6× faster per the
       `Time elapsed` counter in `train.log`).
-    - **Go1-Velocity-Flat** — single NVIDIA GeForce RTX 5060 Ti
-      (16 GB), local workstation. A **single-seed** run (seed 42, the
-      task's cfg default) rather than the 3-seed cluster sweep used for
-      the G1 tasks — a smoke-grade reference, not a variance estimate.
+    - **Go1-Velocity-Flat**, **Go2W-Velocity-Flat** — single NVIDIA
+      GeForce RTX 5060 Ti (16 GB), local workstation. **Single-seed**
+      runs (seed 42, the task's cfg default) rather than the 3-seed
+      cluster sweep used for the G1 tasks — smoke-grade references, not
+      variance estimates.
 
 ### `GeneLab-Inverted-Pendulum-v0`
 
@@ -268,6 +270,23 @@ bootstrapping gap. Converging it likely needs a larger budget (~6k, matching the
 G1 rough task) plus an easier curriculum level-0 so a from-scratch policy can
 bootstrap basic locomotion before the terrain hardens. Tracked separately, like
 the G1 rough task was before it landed.
+
+### `Genelab-Velocity-Flat-Unitree-Go2W-v0`
+
+| Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
+|---|---|---|---|---|---|
+| 42 | 51.876 | 2.848 | 3 000 | ~97 min | 40.9 s |
+
+Single seed (42) on one RTX 5060 Ti (hardware note) — smoke-grade, not a 3-seed
+sweep. Eval `length_mean = 997.5` (of 1000; near-full episodes, almost no falls).
+`success_rate` is `null`. Go2-W is a **wheeled** quadruped: the actor commands
+position targets for the 12 leg joints and *velocity* targets for the 4 wheels
+(the ``mdp.JointVelocityAction`` path), with a deployable proprioception-only actor
+(no base linear velocity) + privileged critic, as on Go1. A direction-binned rollout
+(256 envs, fixed commands) confirms symmetric tracking — forward / backward 95 %,
+lateral ~89–90 %, yaw ~96 % of the commanded speed. It converged **from scratch in a
+single run** (the wheels make translation natural — no tuning iterations, unlike the
+Go1 flat task).
 
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER, demo-prefilled)
 
