@@ -21,6 +21,10 @@ from genelab_unitree.go1 import (
     unitree_go1_velocity_rough_env_cfg,
     unitree_go1_velocity_rough_ppo_runner_cfg,
 )
+from genelab_unitree.go2w import (
+    unitree_go2w_ppo_runner_cfg,
+    unitree_go2w_velocity_env_cfg,
+)
 
 VELOCITY_TASK_ID = "Genelab-Velocity-Flat-Unitree-G1-v0"
 VELOCITY_ROUGH_TASK_ID = "Genelab-Velocity-Rough-Unitree-G1-v0"
@@ -37,6 +41,11 @@ GO1_VELOCITY_ROUGH_TASK_ID = "Genelab-Velocity-Rough-Unitree-Go1-v0"
 GO1_ROBOT_NAME = "go1"
 GO1_VELOCITY_ENV_NAME = "go1-velocity-flat-env"
 GO1_VELOCITY_ROUGH_ENV_NAME = "go1-velocity-rough-env"
+
+GO2W_VELOCITY_TASK_ID = "Genelab-Velocity-Flat-Unitree-Go2W-v0"
+# Matches the name registered by `genelab.asset_zoo.unitree_go2w`.
+GO2W_ROBOT_NAME = "go2w"
+GO2W_VELOCITY_ENV_NAME = "go2w-velocity-flat-env"
 
 
 def _build_velocity_env(play: bool = False):
@@ -202,6 +211,40 @@ class Go1VelocityRoughTask:
         train_task(self.cfg.name, agent)
 
 
+class Go2WVelocityTask:
+    """Trainable Go2-W flat-ground velocity-tracking task wrapper (wheeled quadruped)."""
+
+    def __init__(self) -> None:
+        self.cfg = TaskCfg(
+            name=GO2W_VELOCITY_TASK_ID,
+            env_name=GO2W_VELOCITY_ENV_NAME,
+            robot_name=GO2W_ROBOT_NAME,
+            env=unitree_go2w_velocity_env_cfg(play=False),
+            play_env=unitree_go2w_velocity_env_cfg(play=True),
+            agent=unitree_go2w_ppo_runner_cfg(),
+            trainable=True,
+        )
+
+    def play(self, *, max_steps: int | None = None) -> None:
+        from genelab.rl import play_task
+
+        play_task(self.cfg.name, checkpoint=None, max_steps=max_steps)
+
+    def train(self) -> None:
+        from genelab.rl import RslRlOnPolicyRunnerCfg, train_task
+
+        agent = self.cfg.agent
+        if not isinstance(agent, RslRlOnPolicyRunnerCfg):
+            raise TypeError(f"agent cfg has unexpected type {type(agent).__name__}")
+        train_task(self.cfg.name, agent)
+
+
+def _build_go2w_velocity_env(play: bool = False):
+    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
+    return ManagerBasedRlEnv(unitree_go2w_velocity_env_cfg(play=play))
+
+
 def _build_go1_velocity_env(play: bool = False):
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
@@ -317,5 +360,26 @@ def register() -> None:
                 f"genelab play {GO1_VELOCITY_ROUGH_TASK_ID} --agent trained --checkpoint PATH/model.pt",
                 f"genelab train {GO1_VELOCITY_ROUGH_TASK_ID} --num_envs 4096",
                 f"genelab train {GO1_VELOCITY_ROUGH_TASK_ID} --num_envs 4096 --gpus 2",
+            ],
+        )
+    if GO2W_VELOCITY_ENV_NAME not in ENVS:
+        register_env(
+            GO2W_VELOCITY_ENV_NAME,
+            lambda: _build_go2w_velocity_env(play=False),
+            description="Unitree Go2-W wheeled quadruped velocity tracking on flat ground.",
+            cfg_type=type(None),
+        )
+    if GO2W_VELOCITY_TASK_ID not in TASKS:
+        register_task(
+            GO2W_VELOCITY_TASK_ID,
+            Go2WVelocityTask,
+            description=(
+                "PPO velocity tracking for Unitree Go2-W wheeled quadruped (flat); position "
+                "legs + velocity wheels."
+            ),
+            cfg_type=TaskCfg,
+            examples=[
+                f"genelab play {GO2W_VELOCITY_TASK_ID}",
+                f"genelab train {GO2W_VELOCITY_TASK_ID} --num_envs 4096",
             ],
         )
