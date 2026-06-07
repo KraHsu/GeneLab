@@ -176,6 +176,24 @@ def test_play_and_train_configs_split_correctly() -> None:
     assert "push_robot" not in play.events_cfg
 
 
+def test_play_wires_imgui_twist_sliders() -> None:
+    # Interactive play exposes in-viewer ImGui sliders (vx, vy, ωz) that drive the "twist"
+    # command, mirroring the G1 example. Gated on imgui_bundle (the overlay dependency).
+    pytest.importorskip("imgui_bundle")
+    from genelab.bridges.imgui import ImGuiTwistBridgeCfg
+
+    for cfg in (_flat_cfg(play=True), _rough_cfg(play=True)):
+        assert cfg.simulation.viewer_imgui is True
+        teleop = cfg.bridges_cfg.get("teleop")
+        assert isinstance(teleop, ImGuiTwistBridgeCfg)
+        assert teleop.command_name == "twist"
+
+    # Training carries no teleop overlay.
+    train = _flat_cfg(play=False)
+    assert train.simulation.viewer_imgui is False
+    assert "teleop" not in train.bridges_cfg
+
+
 def test_rough_task_agent_uses_heteroscedastic_std_floor() -> None:
     from genelab.rl import RslRlOnPolicyRunnerCfg
 

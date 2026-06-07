@@ -71,8 +71,33 @@ def _trunk_cfg() -> SceneEntityCfg:
     return SceneEntityCfg(name="robot", link_names=(_TRUNK_LINK,))
 
 
+def _single_play_spawn_xy(terrain: "TerrainGeneratorCfg | None") -> tuple[float, float]:
+    """World (x, y) the lone play robot spawns at — used only to frame the viewer camera.
+
+    Flat ground spawns at the origin. On a height-field it spawns at one terrain cell whose
+    column is chosen deterministically from ``terrain.seed`` (mirroring
+    ``TerrainImporter.init_per_env_state``), so the camera can be framed before the scene
+    is built.
+    """
+    if terrain is None:
+        return 0.0, 0.0
+    import torch
+
+    gen = torch.Generator(device="cpu")
+    gen.manual_seed(terrain.seed + 1)
+    col = int(torch.randint(0, terrain.num_cols, (1,), generator=gen, device="cpu").item())
+    px, py, _ = terrain.pos
+    sx, sy = terrain.subterrain_size
+    return px + 0.5 * sx, py + (col + 0.5) * sy
+
+
 def _obs_terms() -> dict[str, ObservationTermCfg]:
-    """Actor / critic-shared proprioceptive observation terms (noise on the actor copy)."""
+    """Actor / critic-shared proprioceptive observation terms (noise on the actor copy).
+
+    Deliberately excludes base *linear* velocity: real Go1 hardware has no sensor for it,
+    so a deployable actor must not depend on it. Velocity tracking is learned from the
+    command + proprioception.
+    """
     return {
         "base_ang_vel": ObservationTermCfg(
             func=mdp.sensor_data,
@@ -104,6 +129,13 @@ def _velocity_env_cfg_base(
     policy_terms = _obs_terms()
     policy_terms.update(extra_actor_obs or {})
     critic_terms = _obs_terms()
+    # Privileged critic obs (training-only, never deployed): the true base linear velocity
+    # the deployable actor can't sense. An asymmetric actor-critic — the value function gets
+    # an accurate read on velocity-tracking error, so the proprioception-only actor can still
+    # learn to translate to the commanded speed instead of stepping in place.
+    critic_terms["base_lin_vel"] = ObservationTermCfg(
+        func=mdp.sensor_data, params={"sensor_name": "imu_lin_vel"}
+    )
     critic_terms.update(extra_critic_obs or {})
 
     cfg = ManagerBasedRlEnvCfg(
@@ -118,6 +150,11 @@ def _velocity_env_cfg_base(
             env_spacing=(2.5, 2.5),
             terrain=terrain,
             sensors=(
+                BodyVelocitySensorCfg(
+                    name="imu_lin_vel",
+                    link_name=_TRUNK_LINK,
+                    measure="lin_vel",
+                ),
                 BodyVelocitySensorCfg(
                     name="imu_ang_vel",
                     link_name=_TRUNK_LINK,
@@ -171,17 +208,22 @@ def _velocity_env_cfg_base(
             # --- velocity tracking (positive) ---
             "track_lin_vel": RewardTermCfg(
                 func=mdp.track_linear_velocity_xy_exp,
-                weight=1.0,
+                # Tracking is weighted heavily (2.0 / 1.0) relative to the gait-shaping
+                # terms. An earlier 1.0 / 0.5 with air_time=0.5 let the policy farm the
+                # air-time reward by stepping in place (achieving ~0.05 m/s against a
+                # ~0.65 m/s command); boosting the tracking gradient and trimming air_time
+                # makes actually translating the dominant way to earn reward.
+                weight=2.0,
                 params={"command_name": "twist", "std": math.sqrt(0.25)},
             ),
             "track_ang_vel": RewardTermCfg(
                 func=mdp.track_angular_velocity_z_exp,
-                weight=0.5,
+                weight=1.0,
                 params={"command_name": "twist", "std": math.sqrt(0.25)},
             ),
             "air_time": RewardTermCfg(
                 func=mdp.feet_air_time,
-                weight=0.5,
+                weight=0.25,
                 params={
                     "sensor_name": "feet_ground_contact",
                     "threshold_min": 0.1,
@@ -288,7 +330,40 @@ def _velocity_env_cfg_base(
         )
 
     if play:
+        # Interactive teleop: don't snap the lone robot back to spawn on a stumble or
+        # time-out — let it keep walking under slider control until the viewer closes.
         cfg.auto_reset = False
+
+        # Frame the viewer on the single play robot (Go1 trunk sits ~0.34 m up, so aim
+        # lower and closer than the G1 humanoid). ``camera_lookat`` is also the trackball
+        # pivot, so aiming it at the robot is what lets the mouse-wheel zoom in on it.
+        look_x, look_y = _single_play_spawn_xy(terrain)
+        cfg.simulation.camera_lookat = (look_x, look_y, 0.3)
+        cfg.simulation.camera_pos = (look_x + 2.0, look_y - 2.0, 1.0)
+
+        # Auto-attach the in-viewport ImGui teleop bridge: three sliders (vx, vy, ωz) that
+        # drive the single robot's ``twist`` command. Guarded on imgui_bundle (the 'imgui'
+        # extra) so a user without it still gets a working play path — just no sliders.
+        try:
+            import imgui_bundle  # noqa: F401  # the ImGui overlay needs it at draw time
+
+            from genelab.bridges.imgui import ImGuiTwistBridgeCfg
+
+            cfg.simulation.viewer_imgui = True  # enable the overlay that hosts the sliders
+            cfg.bridges_cfg["teleop"] = ImGuiTwistBridgeCfg(
+                command_name="twist",
+                # Slider ranges bracket the training command ranges (vx/vy/ωz ∈ [-1, 1]).
+                vx_range=(-1.5, 1.5),
+                vy_range=(-1.0, 1.0),
+                wz_range=(-1.0, 1.0),
+                # Start in the forward-walking slice so iter-0 is in-distribution; drag vx
+                # to 0 to test standing.
+                default_vx=0.5,
+                default_vy=0.0,
+                default_wz=0.0,
+            )
+        except ImportError:
+            pass
 
     return cfg
 
