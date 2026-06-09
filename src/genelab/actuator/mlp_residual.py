@@ -51,7 +51,7 @@ class MlpResidualActuator(DCMotorActuator):
     """DCMotor torque base plus a TorchScript MLP residual on ``[pos_error, joint_vel]``."""
 
     cfg: MlpResidualActuatorCfg  # type: ignore[assignment]
-    channel: Literal["implicit_pd", "force"] = "force"
+    channel: Literal["implicit_pd", "force", "velocity"] = "force"
 
     def __init__(
         self,

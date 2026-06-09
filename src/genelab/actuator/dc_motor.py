@@ -45,7 +45,7 @@ class DCMotorActuator(IdealPDActuator):
     """IdealPD + linear torque-speed de-rating on the driving direction only."""
 
     cfg: DCMotorActuatorCfg  # type: ignore[assignment]
-    channel: Literal["implicit_pd", "force"] = "force"
+    channel: Literal["implicit_pd", "force", "velocity"] = "force"
 
     def __init__(
         self,
