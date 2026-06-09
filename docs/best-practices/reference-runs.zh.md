@@ -152,14 +152,34 @@ GPU vectorized 慢很多。
 
 ### `Genelab-Velocity-Flat-Unitree-G1-v0`
 
+actor observation **不含 `base_lin_vel`**（与 rough 同一改动：从 actor 移除、仅 critic 保留；见
+[sim2real](sim2real.md)）。下表为该配置（commit `d653aa9`）的数字。
+
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | 112.038 | 4.816 | 30 000 | ~28 h | 163.5 s |
-| 2 | 112.871 | 4.918 | 30 000 | ~28 h | 160.3 s |
-| 3 | 113.163 | 4.850 | 30 000 | ~28 h | 160.9 s |
+| 1 | 112.02 | 4.85 | 30 000 | ~28 h | 165.2 s |
+| 2 | 91.996 | 3.82 | 30 000 | ~28 h | 162.1 s |
+| 3 | 111.85 | 5.10 | 30 000 | ~28 h | 163.6 s |
 
-三个 seed 的 eval `length_mean = 1000.0`（play_env `episode_length_s =
-20 s` × 50 Hz）。`success_rate` 为 `null`。
+三个 seed 的 eval `length_mean = 1000.0`（play_env `episode_length_s = 20 s` × 50 Hz，策略全程
+不摔）。`success_rate` 为 `null`。seed 1/3 与带 `base_lin_vel` 的 v1.0 baseline 持平（112.04 /
+113.16）；**seed 2 落在 92（低 return 但稳定:length 1000、std 3.8）** —— 属 flat 任务已知的 seed
+方差（v0.4.7 baseline 就有 92–93 的 seed），非删 `base_lin_vel` 的系统性损失。本 sweep 在 4× RTX
+4090 上与 rough 并发、错峰跑,训练 wall-clock 为并发墙钟（~28 h 量级,非独占单 job）。
+
+!!! warning "Eval 需要 `auto_reset` 修复（commit `d56158c`）"
+    `genelab eval` 用 play_env（`auto_reset=False`）构建,evaluator 依赖 env 自动复位收集 episode；
+    未打此 fix 时 eval 会坍缩成垃圾（退化的 ~1 步 episode）。上表数字均为修复后所得。
+
+!!! note "Previous：带 `base_lin_vel`（v1.0 baseline）"
+
+    actor 含 `base_lin_vel`。
+
+    | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|
+    | 1 | 112.038 | 4.816 | 30 000 | ~28 h | 163.5 s |
+    | 2 | 112.871 | 4.918 | 30 000 | ~28 h | 160.3 s |
+    | 3 | 113.163 | 4.850 | 30 000 | ~28 h | 160.9 s |
 
 !!! note "Previous: v0.4.7"
 
@@ -171,17 +191,39 @@ GPU vectorized 慢很多。
 
 ### `Genelab-Velocity-Rough-Unitree-G1-v0`
 
+本任务的 actor observation **不含 `base_lin_vel`**（从 actor 移除、仅 critic 作为特权信号保留；
+真实 G1 无直接基座线速度传感器，见 [sim2real](sim2real.md)）。下表为该配置（commit `d653aa9`）的数字。
+
 | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | 83.95 | 23.86 | 6 000 | ~4.8 h | 145 s |
-| 2 | 87.17 | 12.47 | 6 000 | ~4.9 h | 145 s |
-| 3 | 84.41 | 17.67 | 6 000 | ~4.9 h | 145 s |
+| 1 | 82.96 | 29.20 | 6 000 | ~6.9 h | 516 s* |
+| 2 | 85.51 | 21.62 | 6 000 | ~6.9 h | 198 s |
+| 3 | 85.23 | 25.40 | 6 000 | ~6.9 h | 201 s |
 
-三个 seed 的 eval `length_mean` = 899 / 966 / 935（满值 1000;play_env
-`episode_length_s = 20 s` × 50 Hz）—— 策略在混合崎岖地形上能走完约 90–97% 的完整
-episode。`success_rate` 为 `null`。Eval terrain seed = 0(确定性)。课程在 terrain
-~4.5 级自平衡;训练在 6k 收敛、全程无 de-learning(action std 始终维持在 0.3 下限)。
-硬件:H200(每块 GPU 跑一个 seed);Hopper SM90 上 `QD_GRAPH=0` 让每步约慢 2×。
+三个 seed 的 eval `length_mean` = 912 / 951 / 902（满值 1000;play_env `episode_length_s =
+20 s` × 50 Hz）—— 策略在混合崎岖地形上能走完约 90–95% 的完整 episode。`success_rate` 为 `null`。
+Eval terrain seed = 0（确定性，但 Genesis GPU 浮点非确定性使 `return_mean` 仍有 ~±2 的 run-to-run
+方差）。课程在 terrain ~4.5 级自平衡；训练在 6k 收敛、全程无 de-learning（action std 始终维持在
+0.3 下限）。**删除 `base_lin_vel` 对性能无影响** —— 与带 `base_lin_vel` 的 v1.0 baseline（下方
+admonition）持平。硬件：4× NVIDIA GeForce RTX 4090（一卡一 seed），与 flat sweep 并发跑；`*` 号表示
+seed_1 的 eval 与一个并发 flat 训练共享 GPU 故偏长，seed_2/3 在空闲 GPU 上约 200 s。
+
+!!! warning "Eval 需要 `auto_reset` 修复（commit `d56158c`）"
+    `genelab eval` 用 play_env（`auto_reset=False`，teleop 用）构建，而 evaluator 依赖 env 自动复位
+    收集 episode。未打此 fix 时，崎岖任务 eval 会坍缩成垃圾（`return ≈ -2.6`、`length ≈ 17`，退化的
+    ~1 步 episode）。上表数字均为修复后所得。
+
+!!! note "Previous：带 `base_lin_vel`（v1.0 baseline）"
+
+    actor 含 `base_lin_vel`；硬件 H200（`QD_GRAPH=0`，每步约慢 2×）。
+
+    | Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|
+    | 1 | 83.95 | 23.86 | 6 000 | ~4.8 h | 145 s |
+    | 2 | 87.17 | 12.47 | 6 000 | ~4.9 h | 145 s |
+    | 3 | 84.41 | 17.67 | 6 000 | ~4.9 h | 145 s |
+
+    `length_mean` = 899 / 966 / 935。
 
 > Maintainer sweep protocol: `genelab train
 > Genelab-Velocity-Rough-Unitree-G1-v0 --seeds 1,2,3 --parallel 1 --log_dir
