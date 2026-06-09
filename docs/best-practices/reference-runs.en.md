@@ -169,14 +169,36 @@ reason as IP).
 
 ### `Genelab-Velocity-Flat-Unitree-G1-v0`
 
+The actor observation **omits `base_lin_vel`** (same change as rough: removed from the actor, kept in
+the critic; see [sim2real](sim2real.md)). The table below is for that config (commit `d653aa9`).
+
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | 112.038 | 4.816 | 30 000 | ~28 h | 163.5 s |
-| 2 | 112.871 | 4.918 | 30 000 | ~28 h | 160.3 s |
-| 3 | 113.163 | 4.850 | 30 000 | ~28 h | 160.9 s |
+| 1 | 112.02 | 4.85 | 30 000 | ~28 h | 165.2 s |
+| 2 | 91.996 | 3.82 | 30 000 | ~28 h | 162.1 s |
+| 3 | 111.85 | 5.10 | 30 000 | ~28 h | 163.6 s |
 
-Eval `length_mean = 1000.0` for all seeds (play_env `episode_length_s =
-20 s` × 50 Hz). `success_rate` is `null`.
+Eval `length_mean = 1000.0` for all seeds (play_env `episode_length_s = 20 s` × 50 Hz; the policy never
+falls). `success_rate` is `null`. Seeds 1/3 match the `base_lin_vel` v1.0 baseline (112.04 / 113.16);
+**seed 2 lands at 92 — a lower-return but stable policy (length 1000, std 3.8)**, within the known flat
+seed spread (the v0.4.7 baseline had seeds at 92–93), not a regression from the obs change. This sweep
+ran concurrently (staggered) with rough on 4× RTX 4090, so the train wall-clock is the concurrent figure
+(~28 h order, not a dedicated single-job run).
+
+!!! warning "Eval requires the `auto_reset` fix (commit `d56158c`)"
+    `genelab eval` builds the play_env (`auto_reset=False`); the evaluator relies on the env
+    auto-resetting terminated sub-envs to collect episodes, so without the fix eval collapses to garbage
+    (degenerate ~1-step episodes). The numbers above are post-fix.
+
+!!! note "Previous: with `base_lin_vel` (v1.0 baseline)"
+
+    Actor includes `base_lin_vel`.
+
+    | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|
+    | 1 | 112.038 | 4.816 | 30 000 | ~28 h | 163.5 s |
+    | 2 | 112.871 | 4.918 | 30 000 | ~28 h | 160.3 s |
+    | 3 | 113.163 | 4.850 | 30 000 | ~28 h | 160.9 s |
 
 !!! note "Previous: v0.4.7"
 
@@ -188,19 +210,42 @@ Eval `length_mean = 1000.0` for all seeds (play_env `episode_length_s =
 
 ### `Genelab-Velocity-Rough-Unitree-G1-v0`
 
+This task's actor observation **omits `base_lin_vel`** (removed from the actor, kept in the critic as
+a privileged signal; a real G1 has no direct base-linear-velocity sensor — see [sim2real](sim2real.md)).
+The table below is for that config (commit `d653aa9`).
+
 | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
 |---|---|---|---|---|---|
-| 1 | 83.95 | 23.86 | 6 000 | ~4.8 h | 145 s |
-| 2 | 87.17 | 12.47 | 6 000 | ~4.9 h | 145 s |
-| 3 | 84.41 | 17.67 | 6 000 | ~4.9 h | 145 s |
+| 1 | 82.96 | 29.20 | 6 000 | ~6.9 h | 516 s* |
+| 2 | 85.51 | 21.62 | 6 000 | ~6.9 h | 198 s |
+| 3 | 85.23 | 25.40 | 6 000 | ~6.9 h | 201 s |
 
-Eval `length_mean` per seed = 899 / 966 / 935 (of 1000 max; play_env
-`episode_length_s = 20 s` × 50 Hz) — the policy walks ~90–97 % of full episodes on
-the mixed rough terrain. `success_rate` is `null`. Eval terrain seed = 0
-(deterministic). The curriculum self-balances at terrain level ~4.5; training runs
-to convergence at 6k with no de-learning (action std holds at its 0.3 floor
-throughout). Hardware: H200 (one seed per GPU); `QD_GRAPH=0` adds ~2× per-step
-cost on Hopper SM90.
+Eval `length_mean` per seed = 912 / 951 / 902 (of 1000 max; play_env `episode_length_s = 20 s` × 50 Hz)
+— the policy walks ~90–95 % of full episodes on the mixed rough terrain. `success_rate` is `null`. Eval
+terrain seed = 0 (deterministic, though Genesis GPU float non-determinism still leaves ~±2 run-to-run
+variance on `return_mean`). The curriculum self-balances at terrain level ~4.5; training runs to
+convergence at 6k with no de-learning (action std holds at its 0.3 floor throughout). **Removing
+`base_lin_vel` is performance-neutral** — on par with the `base_lin_vel` v1.0 baseline (admonition
+below). Hardware: 4× NVIDIA GeForce RTX 4090 (one seed per GPU), run concurrently with the flat sweep;
+`*` seed_1's eval shared a GPU with a concurrent flat training so it ran long, seed_2/3 ~200 s on a free
+GPU.
+
+!!! warning "Eval requires the `auto_reset` fix (commit `d56158c`)"
+    `genelab eval` builds the play_env (`auto_reset=False`, for teleop), but the evaluator relies on the
+    env auto-resetting terminated sub-envs to collect episodes. Without the fix, rough eval collapses to
+    garbage (`return ≈ -2.6`, `length ≈ 17` — degenerate ~1-step episodes). The numbers above are post-fix.
+
+!!! note "Previous: with `base_lin_vel` (v1.0 baseline)"
+
+    Actor includes `base_lin_vel`; hardware H200 (`QD_GRAPH=0`, ~2× per-step cost).
+
+    | Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
+    |---|---|---|---|---|---|
+    | 1 | 83.95 | 23.86 | 6 000 | ~4.8 h | 145 s |
+    | 2 | 87.17 | 12.47 | 6 000 | ~4.9 h | 145 s |
+    | 3 | 84.41 | 17.67 | 6 000 | ~4.9 h | 145 s |
+
+    `length_mean` = 899 / 966 / 935.
 
 > Maintainer sweep protocol: `genelab train
 > Genelab-Velocity-Rough-Unitree-G1-v0 --seeds 1,2,3 --parallel 1 --log_dir
