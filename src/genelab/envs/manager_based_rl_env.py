@@ -269,6 +269,9 @@ class ManagerBasedRlEnv:
             env_ids = torch.arange(self._num_envs, device=self._device)
         self._reset_idx(env_ids)
         self._articulation.refresh()
+        # Re-prime the joint-acceleration baseline to the reset velocities so the first
+        # post-reset step doesn't finite-difference across the discontinuity.
+        self._articulation.reset_acceleration(env_ids)
         obs = self.observation_manager.compute()
         return obs, dict(self._extras)
 
@@ -314,6 +317,9 @@ class ManagerBasedRlEnv:
             self.action_manager.apply_action()
             self._scene.step(update_visualizer=(tick == last_tick))
         self._articulation.refresh()
+        # Advance the joint-acceleration finite difference once per control step (Genesis
+        # has no DoF-acceleration getter); mdp.joint_acc_l2 reads the result.
+        self._articulation.update_acceleration(self._step_dt)
         for sensor in self._sensors.values():
             sensor.update(self._step_dt)
         self._episode_length_buf += 1
@@ -333,6 +339,7 @@ class ManagerBasedRlEnv:
         if self._auto_reset and reset_ids.numel() > 0:
             self._reset_idx(reset_ids)
             self._articulation.refresh()
+            self._articulation.reset_acceleration(reset_ids)
         obs = self.observation_manager.compute()
         # The RSL-RL wrapper shallow-copies ``extras`` itself before mutating, so we hand back
         # the live dict to skip an unnecessary per-step copy.

@@ -15,6 +15,7 @@ from genelab.asset_zoo.sample_arm import SampleArmCfg
 from genelab.asset_zoo.unitree_g1 import UnitreeG1Cfg
 from genelab.asset_zoo.unitree_g1_motions import g1_lafan1_dance1_subject2
 from genelab.asset_zoo.unitree_go1 import UnitreeGo1Cfg
+from genelab.asset_zoo.unitree_go2w import UnitreeGo2WCfg
 from genelab.asset_zoo.unitree_h1 import UnitreeH1Cfg
 from genelab.asset_zoo.ur10e import UR10eCfg
 from genelab.asset_zoo.wuji_hand import WujiHandCfg
@@ -28,6 +29,7 @@ __all__ = [
     "UR10eCfg",
     "UnitreeG1Cfg",
     "UnitreeGo1Cfg",
+    "UnitreeGo2WCfg",
     "UnitreeH1Cfg",
     "WujiHandCfg",
     "g1_lafan1_dance1_subject2",

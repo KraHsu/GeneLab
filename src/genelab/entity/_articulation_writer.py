@@ -39,6 +39,9 @@ class ArticulationWriter:
         # Shared by reference with Articulation: mutated in place by reset /
         # write_joint_targets_partial, so Articulation._joint_pos_target stays current.
         self._joint_pos_target = joint_pos_target
+        # Lazily allocated velocity-target buffer for velocity-channel actuators (wheels),
+        # driven by write_joint_velocity_targets_partial. Same shape as the position buffer.
+        self._joint_vel_target: torch.Tensor | None = None
         self._actuators = actuators
         self._device = device
 
@@ -118,11 +121,18 @@ class ArticulationWriter:
         # oscillate. Pull fresh DoF state directly from sim for the force-channel branch.
         fresh_pos: torch.Tensor | None = None
         fresh_vel: torch.Tensor | None = None
-        if any(a.channel != "implicit_pd" for a in self._actuators.values()):
+        # Only the force channel runs a Python-side PD law needing fresh DoF state; implicit-PD
+        # and velocity channels are solved by Genesis, so don't pay the read (or require the
+        # getters) for them.
+        if any(a.channel == "force" for a in self._actuators.values()):
             fresh_pos = to_tensor(robot.get_dofs_position(), self._device)
             fresh_vel = to_tensor(robot.get_dofs_velocity(), self._device)
 
         for actuator in self._actuators.values():
+            if actuator.channel == "velocity":
+                # Velocity-channel actuators (wheels) are driven separately by
+                # write_joint_velocity_targets_partial, never by a position target.
+                continue
             jids = actuator.joint_ids
             dofs = actuator.dof_ids
             target_slice = self._joint_pos_target.index_select(1, jids)
@@ -151,3 +161,35 @@ class ArticulationWriter:
                     ctrl(effort, dofs)
                 except TypeError:
                     ctrl(effort)
+
+    def write_joint_velocity_targets_partial(
+        self, local_joint_ids: torch.Tensor, target: torch.Tensor
+    ) -> None:
+        """Stash a slice of joint *velocity* targets and drive the velocity-channel actuators.
+
+        Mirrors :meth:`write_joint_targets_partial` for ``control_dofs_velocity``: Genesis
+        tracks the commanded velocity from each velocity actuator's ``kv`` gain. Only
+        ``channel == "velocity"`` actuators are touched, so this composes with a position
+        action on the remaining joints (e.g. Go2-W: position legs + velocity wheels).
+        """
+        if local_joint_ids.numel() == 0:
+            return
+        if self._joint_vel_target is None:
+            self._joint_vel_target = torch.zeros_like(self._joint_pos_target)
+        self._joint_vel_target.index_copy_(1, local_joint_ids, target)
+        robot = self._gs_handle
+        if robot is None:
+            return
+        ctrl = getattr(robot, "control_dofs_velocity", None)
+        if ctrl is None:
+            return
+        for actuator in self._actuators.values():
+            if actuator.channel != "velocity":
+                continue
+            jids = actuator.joint_ids
+            dofs = actuator.dof_ids
+            target_slice = self._joint_vel_target.index_select(1, jids)
+            try:
+                ctrl(target_slice, dofs)
+            except TypeError:
+                ctrl(target_slice)

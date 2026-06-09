@@ -24,6 +24,7 @@ from genelab.mdp.rewards import (
     feet_clearance,
     feet_slip,
     feet_swing_height,
+    joint_acc_l2,
     joint_pos_limits,
     joint_vel_limits,
     lin_vel_z_l2,
@@ -78,6 +79,7 @@ class _FakeRobotState:
     root_pos: torch.Tensor | None = None
     joint_pos: torch.Tensor | None = None
     joint_vel: torch.Tensor | None = None
+    joint_acc: torch.Tensor | None = None
     applied_torque: torch.Tensor | None = None
 
 
@@ -177,6 +179,7 @@ def _make_env(
         root_pos=root_pos,
         joint_pos=joint_pos,
         joint_vel=torch.zeros(num_envs, 1),
+        joint_acc=torch.zeros(num_envs, 1),
         applied_torque=torch.zeros(num_envs, 1),
     )
     command = torch.tensor(command_xyz, dtype=torch.float).unsqueeze(0).expand(num_envs, -1).clone()
@@ -842,6 +845,12 @@ def test_applied_torque_l2_sums_squared_torque() -> None:
     env = _make_env(num_envs=2)
     env.robot_state.applied_torque = torch.tensor([[1.0, -2.0], [0.0, 3.0]])
     torch.testing.assert_close(applied_torque_l2(env), torch.tensor([5.0, 9.0]))
+
+
+def test_joint_acc_l2_sums_squared_acceleration() -> None:
+    env = _make_env(num_envs=2)
+    env.robot_state.joint_acc = torch.tensor([[1.0, -2.0], [0.0, 3.0]])
+    torch.testing.assert_close(joint_acc_l2(env), torch.tensor([5.0, 9.0]))
 
 
 def test_joint_vel_limits_penalizes_excursion_past_limit() -> None:

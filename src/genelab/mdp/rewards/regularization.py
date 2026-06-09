@@ -8,7 +8,6 @@ independent of the gait pattern.
 from __future__ import annotations
 
 import re
-import warnings
 from typing import TYPE_CHECKING
 
 import torch
@@ -82,23 +81,14 @@ def joint_vel_limits(
     return torch.sum((speed - limit.unsqueeze(0)).clamp(min=0.0), dim=-1)
 
 
-_joint_acc_l2_warned = False
+def joint_acc_l2(env: EnvContext, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
+    """Penalize squared joint acceleration — ``Σⱼ q̈ⱼ²`` over actuated joints.
 
-
-def joint_acc_l2(env: EnvContext) -> torch.Tensor:
-    # Stub: proper joint acceleration needs a prev-step joint_vel buffer; not yet wired.
-    # Returns zero so it's safe to include in reward weights without affecting gradients.
-    global _joint_acc_l2_warned
-    if not _joint_acc_l2_warned:
-        warnings.warn(
-            "joint_acc_l2 is a stub: returns 0. A real implementation needs prior-step "
-            "joint_vel history (tracked under actuator/DR work).",
-            UserWarning,
-            stacklevel=2,
-        )
-        _joint_acc_l2_warned = True
-    rs = _asset_state(env, None)
-    return torch.zeros(rs.joint_vel.shape[0], device=rs.joint_vel.device)
+    Reads ``robot_state.joint_acc`` (finite-differenced from ``joint_vel`` across control
+    steps by the entity-state layer, since Genesis exposes no DoF-acceleration getter).
+    Discourages jerky / high-acceleration motion; pair with a negative weight.
+    """
+    return torch.sum(_asset_state(env, asset_cfg).joint_acc ** 2, dim=-1)
 
 
 def flat_orientation_l2(env: EnvContext, asset_cfg: SceneEntityCfg | None = None) -> torch.Tensor:
