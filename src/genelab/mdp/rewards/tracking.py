@@ -62,3 +62,42 @@ def track_angular_velocity_z_exp(
     z_err = (cmd - vel[:, 2]) ** 2
     xy_err = torch.sum(vel[:, :2] ** 2, dim=-1)
     return torch.exp(-(z_err + xy_err) / (std**2))
+
+
+def velocity_tracking_error_l1(
+    env: EnvContext,
+    command_name: str,
+    axes: tuple[int, ...] = (0, 1),
+    asset_cfg: SceneEntityCfg | None = None,
+) -> torch.Tensor:
+    """Sum of ``|cmd[axis] − lin_vel_b[axis]|`` over the selected linear axes.
+
+    Complement to the exp tracking kernel, which saturates at large error — once a
+    policy fully abandons an axis (e.g. lateral velocity on a skid-steer platform), the
+    exp gradient is ≈ 0 and nothing pulls it back. Used with a negative weight, this L1
+    error keeps a constant-magnitude gradient at any distance from the command. ``axes``
+    scopes the penalty to the abandoned axis so well-tracked axes aren't double-counted
+    on top of the exp reward.
+    """
+    cmd = env.command_manager.get_command(command_name)
+    vel = _asset_state(env, asset_cfg).root_lin_vel_b
+    axes_t = torch.tensor(axes, dtype=torch.long, device=vel.device)
+    err = cmd.index_select(-1, axes_t) - vel.index_select(-1, axes_t)
+    return err.abs().sum(dim=-1)
+
+
+def angular_velocity_tracking_error_l1(
+    env: EnvContext,
+    command_name: str,
+    asset_cfg: SceneEntityCfg | None = None,
+) -> torch.Tensor:
+    """``|cmd_wz − ang_vel_z|`` — linear-in-error yaw-tracking penalty.
+
+    Angular counterpart of :func:`velocity_tracking_error_l1`, for the same failure mode:
+    the exp yaw kernel's gradient vanishes once a policy fully abandons pure-rotation
+    commands (it can still score on mixed commands, masking the collapse), so a
+    constant-magnitude pull on the yaw error is needed to bring in-place rotation back.
+    """
+    cmd = env.command_manager.get_command(command_name)[:, 2]
+    vel = _asset_state(env, asset_cfg).root_ang_vel_b
+    return (cmd - vel[:, 2]).abs()

@@ -40,21 +40,35 @@ class _FakeObsManager:
     (flat) and multi-group (goal-conditioned HER) export tests.
     """
 
-    def __init__(self, groups: dict[str, dict[str, _FakeTermCfg]]) -> None:
-        class _Group:
-            def __init__(self, terms: dict[str, _FakeTermCfg]) -> None:
-                self.terms = terms
+    def __init__(
+        self,
+        groups: dict[str, dict[str, _FakeTermCfg]],
+        history: dict[str, int] | None = None,
+    ) -> None:
+        history = history or {}
 
-        self.cfg = {name: _Group(terms) for name, terms in groups.items()}
-        self._dims = {name: sum(t._dim for t in terms.values()) for name, terms in groups.items()}
+        class _Group:
+            def __init__(self, terms: dict[str, _FakeTermCfg], history_length: int) -> None:
+                self.terms = terms
+                self.history_length = history_length
+
+        self.cfg = {name: _Group(terms, history.get(name, 1)) for name, terms in groups.items()}
+        self._dims = {
+            name: sum(t._dim for t in terms.values()) * history.get(name, 1)
+            for name, terms in groups.items()
+        }
 
     def compute(self) -> dict[str, torch.Tensor]:
         return {name: torch.zeros(1, dim) for name, dim in self._dims.items()}
 
 
 class _FakeEnv:
-    def __init__(self, groups: dict[str, dict[str, _FakeTermCfg]]) -> None:
-        self.observation_manager = _FakeObsManager(groups)
+    def __init__(
+        self,
+        groups: dict[str, dict[str, _FakeTermCfg]],
+        history: dict[str, int] | None = None,
+    ) -> None:
+        self.observation_manager = _FakeObsManager(groups, history)
 
     def close(self) -> None: ...
 
@@ -66,6 +80,31 @@ def _linear_actor(in_dim: int, out_dim: int) -> torch.nn.Module:
         torch.nn.Tanh(),
         torch.nn.Linear(8, out_dim),
     )
+
+
+def test_resolve_obs_specs_accounts_for_history_length() -> None:
+    """A history-stacked group exports an obs_dim of ``h * base`` with per-frame scale/clip.
+
+    The exported policy must take the same frame-major stacked vector the env feeds the
+    actor; otherwise the sim2sim deployment hands the network the wrong-width input.
+    """
+    from genelab.rl.exporter import _resolve_obs_specs, _scale_clip_vecs
+
+    terms = {
+        "a": _FakeTermCfg(dim=3, scale=2.0, clip=None),
+        "b": _FakeTermCfg(dim=1, scale=None, clip=(-1.0, 1.0)),
+    }
+    env = _FakeEnv({"policy": terms}, history={"policy": 3})
+    specs, obs_dim, group_specs = _resolve_obs_specs(env, ["policy"])
+    # (3 + 1) base dims, stacked 3 frames.
+    assert obs_dim == 12
+    assert group_specs[0].dim == 12
+    # Scale/clip repeat the per-frame block [a:2,2,2, b:1] across all 3 frames.
+    scale, lo, hi = _scale_clip_vecs(specs, obs_dim)
+    assert torch.allclose(scale, torch.tensor([2.0, 2.0, 2.0, 1.0]).repeat(3))
+    # b's clip lands at the last column of each frame (indices 3, 7, 11).
+    assert lo[3] == -1.0 and lo[7] == -1.0 and lo[11] == -1.0
+    assert hi[3] == 1.0 and hi[7] == 1.0 and hi[11] == 1.0
 
 
 def test_export_torchscript_smoke(tmp_path: Path) -> None:

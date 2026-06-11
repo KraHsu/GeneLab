@@ -742,6 +742,79 @@ def test_feet_air_time_gated_by_command_magnitude() -> None:
     assert torch.all(out == 0.0)
 
 
+def test_velocity_tracking_error_l1_is_linear_and_axis_selectable() -> None:
+    """``velocity_tracking_error_l1``: sum of |cmd[axis] − vel[axis]| over ``axes``.
+
+    The exp tracking kernel saturates at large error (gradient ≈ 0 once the policy fully
+    ignores an axis), so a policy that abandoned vy never feels a pull back. An L1 error
+    term keeps a constant gradient at any distance; ``axes`` scopes it to the abandoned
+    axis so well-tracked axes aren't double-penalized."""
+    from genelab.mdp.rewards.tracking import velocity_tracking_error_l1
+
+    env = _make_env(command_xyz=(0.0, 0.8, 0.0))
+    assert env.robot_state.root_lin_vel_b is not None
+    env.robot_state.root_lin_vel_b[:, 1] = 0.1  # vy far from the 0.8 command
+    env.robot_state.root_lin_vel_b[:, 0] = 0.3  # vx error must NOT leak in via axes=(1,)
+    out = velocity_tracking_error_l1(env, command_name="twist", axes=(1,))
+    assert torch.allclose(out, torch.full((2,), 0.7), atol=1e-6)
+    # Both axes: |0 - 0.3| + |0.8 - 0.1| = 1.0.
+    out_xy = velocity_tracking_error_l1(env, command_name="twist", axes=(0, 1))
+    assert torch.allclose(out_xy, torch.full((2,), 1.0), atol=1e-6)
+
+
+def test_angular_velocity_tracking_error_l1_measures_yaw_command_gap() -> None:
+    """``angular_velocity_tracking_error_l1``: |cmd_wz − ang_vel_z|, linear in the error.
+
+    Same medicine as the linear L1: the exp yaw kernel saturates once the policy abandons
+    pure-rotation commands (probed: in-place yaw collapsed to 2 % while mixed-command yaw
+    still scored), so a constant-gradient pull is needed on the yaw axis too."""
+    from genelab.mdp.rewards.tracking import angular_velocity_tracking_error_l1
+
+    env = _make_env(command_xyz=(0.0, 0.0, 1.0))  # cmd: pure yaw 1.0 rad/s
+    assert env.robot_state.root_ang_vel_b is not None
+    env.robot_state.root_ang_vel_b[:, 2] = 0.2  # actual yaw far below command
+    out = angular_velocity_tracking_error_l1(env, command_name="twist")
+    assert torch.allclose(out, torch.full((2,), 0.8), atol=1e-6)
+
+
+def test_feet_air_time_command_axes_gates_on_selected_components_only() -> None:
+    """``command_axes`` restricts the gate to those command components.
+
+    The wheeled-legged hybrid (Go2-W stage 2) rewards stepping only when *lateral* motion is
+    demanded — rolling serves vx/yaw, so a full-magnitude gate would force stepping on pure
+    forward commands where the wheels should stay grounded."""
+    contact_cfg = ContactSensorCfg(
+        name="feet", link_names=("left_foot", "right_foot"), track_air_time=True
+    )
+    air = torch.tensor([[0.2, 0.3], [0.2, 0.3]])
+
+    # Pure forward command: axis-1 (vy) gate must stay closed even though |cmd| is large.
+    env = _make_env(command_xyz=(1.0, 0.0, 0.0))
+    contact = contact_cfg.build()
+    contact.bind(env)
+    env.sensors["feet"] = contact
+    assert contact._air_state is not None
+    contact._air_state.current_air_time = air.clone()
+    contact._invalidate_cache()
+    out = feet_air_time(
+        env, sensor_name="feet", command_name="twist", command_threshold=0.1, command_axes=(1,)
+    )
+    assert torch.all(out == 0.0)
+
+    # Lateral command: the same gate opens and both in-window feet count.
+    env = _make_env(command_xyz=(0.0, 0.8, 0.0))
+    contact = contact_cfg.build()
+    contact.bind(env)
+    env.sensors["feet"] = contact
+    assert contact._air_state is not None
+    contact._air_state.current_air_time = air.clone()
+    contact._invalidate_cache()
+    out = feet_air_time(
+        env, sensor_name="feet", command_name="twist", command_threshold=0.1, command_axes=(1,)
+    )
+    assert torch.allclose(out, torch.tensor([2.0, 2.0]), atol=1e-6)
+
+
 # --------------------------------------------------------------------- self_collision_cost
 
 
