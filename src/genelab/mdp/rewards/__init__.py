@@ -47,6 +47,8 @@ from genelab.mdp.rewards.tracking import (
     motion_relative_body_orientation_error_exp,
     motion_relative_body_position_error_exp,
     track_angular_velocity_z_exp,
+    angular_velocity_tracking_error_l1,
+    velocity_tracking_error_l1,
     track_linear_velocity_xy_exp,
 )
 
@@ -81,6 +83,8 @@ __all__ = [
     "slip_penalty",
     "soft_landing",
     "track_angular_velocity_z_exp",
+    "angular_velocity_tracking_error_l1",
+    "velocity_tracking_error_l1",
     "track_linear_velocity_xy_exp",
     "upright_exp",
     "variable_posture",
