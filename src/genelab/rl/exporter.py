@@ -77,19 +77,28 @@ def _resolve_obs_specs(
         group_cfg = env.observation_manager.cfg[group_name]
         group_start = cursor
         group_terms: list[_TermSpec] = []
+        # Frame stacking widens the group to ``history_length`` copies of the per-term block,
+        # frame-major oldest->newest (matching ``ObservationManager`` ``buf.reshape``). Emit a
+        # spec per (frame, term) so the baked scale/clip vectors tile across every frame and
+        # the exported obs_dim equals the actor's stacked input width.
+        history_length = int(getattr(group_cfg, "history_length", 1) or 1)
+        frame_widths: list[tuple[str, Any, int]] = []
         for term_name, term_cfg in group_cfg.terms.items():
             value = term_cfg.func(env, **term_cfg.params)
             width = int(value.shape[-1]) if value.dim() > 1 else 1
-            spec = _TermSpec(
-                name=term_name,
-                start=cursor,
-                end=cursor + width,
-                scale=term_cfg.scale,
-                clip=term_cfg.clip,
-            )
-            specs.append(spec)
-            group_terms.append(spec)
-            cursor += width
+            frame_widths.append((term_name, term_cfg, width))
+        for _frame in range(history_length):
+            for term_name, term_cfg, width in frame_widths:
+                spec = _TermSpec(
+                    name=term_name,
+                    start=cursor,
+                    end=cursor + width,
+                    scale=term_cfg.scale,
+                    clip=term_cfg.clip,
+                )
+                specs.append(spec)
+                group_terms.append(spec)
+                cursor += width
         group_specs.append(
             _GroupSpec(
                 name=group_name, start=group_start, dim=cursor - group_start, terms=group_terms

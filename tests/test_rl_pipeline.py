@@ -77,6 +77,25 @@ def test_runner_cfg_to_dict_prunes_per_model_class() -> None:
     assert "cnn_cfg" not in rnn  # RNNModel.__init__ rejects it
 
 
+def test_runner_cfg_to_dict_carries_symmetry_cfg() -> None:
+    """``RslRlPpoAlgorithmCfg.symmetry_cfg`` reaches the rsl_rl algorithm dict verbatim.
+
+    rsl_rl's PPO consumes ``symmetry_cfg`` (mirror data augmentation); tasks with a
+    mirror-symmetric morphology (Go2-W lateral gait) set it to prevent one-sided gait
+    collapse. Default stays ``None`` so existing tasks are untouched."""
+    from genelab.rl import RslRlPpoAlgorithmCfg
+    from genelab.rl.backends.rsl_rl import _runner_cfg_to_dict
+
+    assert _runner_cfg_to_dict(RslRlOnPolicyRunnerCfg())["algorithm"]["symmetry_cfg"] is None
+
+    sym = {
+        "data_augmentation_func": "genelab_unitree.go2w.symmetry:mirror_go2w_obs_actions",
+        "use_data_augmentation": True,
+    }
+    cfg = RslRlOnPolicyRunnerCfg(algorithm=RslRlPpoAlgorithmCfg(symmetry_cfg=sym))
+    assert _runner_cfg_to_dict(cfg)["algorithm"]["symmetry_cfg"] == sym
+
+
 class _FakeActionManager:
     total_action_dim = 4
 

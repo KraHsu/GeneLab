@@ -67,6 +67,12 @@ class ManagerBasedRlEnvCfg(ManagerBasedEnvCfg):
     robots: dict[str, ArticulationCfg] = field(default_factory=dict)
 
     actions_cfg: dict[str, ActionTermCfg] = field(default_factory=dict)
+    # Training-only sim2real action perturbation (never exported into the deployed policy):
+    # ``action_noise_std`` adds per-step Gaussian noise to the applied command;
+    # ``action_delay_steps`` (lo, hi) holds the command back a per-env latency sampled each
+    # reset. Both default-off so existing tasks are byte-for-byte unchanged.
+    action_noise_std: float = 0.0
+    action_delay_steps: tuple[int, int] = (0, 0)
     observations_cfg: dict[str, ObservationGroupCfg] = field(default_factory=dict)
     rewards_cfg: dict[str, RewardTermCfg] = field(default_factory=dict)
     terminations_cfg: dict[str, TerminationTermCfg] = field(default_factory=dict)
@@ -129,7 +135,12 @@ class ManagerBasedRlEnv:
         self._extras: dict[str, Any] = {}
 
         # Managers (order matters: actions before observations/rewards; commands before obs)
-        self.action_manager = ActionManager(cfg.actions_cfg, self)
+        self.action_manager = ActionManager(
+            cfg.actions_cfg,
+            self,
+            action_noise_std=cfg.action_noise_std,
+            action_delay_steps=cfg.action_delay_steps,
+        )
         self.command_manager = CommandManager(cfg.commands_cfg, self)
         self.observation_manager = ObservationManager(cfg.observations_cfg, self)
         self.reward_manager = RewardManager(

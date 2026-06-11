@@ -46,6 +46,11 @@ GO2W_VELOCITY_TASK_ID = "Genelab-Velocity-Flat-Unitree-Go2W-v0"
 # Matches the name registered by `genelab.asset_zoo.unitree_go2w`.
 GO2W_ROBOT_NAME = "go2w"
 GO2W_VELOCITY_ENV_NAME = "go2w-velocity-flat-env"
+# Wheeled-legged curriculum stage 1: wheels locked into rigid feet so the legs must learn to
+# step (incl. sideways crab-walk). Stage 2 is the regular GO2W_VELOCITY task, warm-started
+# from this stage's checkpoint with the wheels rolling again.
+GO2W_CRAB_STAGE1_TASK_ID = "Genelab-Velocity-Flat-Unitree-Go2W-CrabStage1-v0"
+GO2W_CRAB_STAGE1_ENV_NAME = "go2w-crab-stage1-env"
 
 
 def _build_velocity_env(play: bool = False):
@@ -239,10 +244,48 @@ class Go2WVelocityTask:
         train_task(self.cfg.name, agent)
 
 
+class Go2WCrabStage1Task:
+    """Stage 1 of the Go2-W wheeled-legged curriculum: wheels locked, learn the legged
+    (incl. lateral crab-walk) gait. Warm-start the regular Go2-W task from its checkpoint."""
+
+    def __init__(self) -> None:
+        agent = unitree_go2w_ppo_runner_cfg()
+        # Keep stage-1 logs / checkpoints separate from the rolling-wheel task.
+        agent.experiment_name = "go2w_crab_stage1"
+        self.cfg = TaskCfg(
+            name=GO2W_CRAB_STAGE1_TASK_ID,
+            env_name=GO2W_CRAB_STAGE1_ENV_NAME,
+            robot_name=GO2W_ROBOT_NAME,
+            env=unitree_go2w_velocity_env_cfg(play=False, lock_wheels=True),
+            play_env=unitree_go2w_velocity_env_cfg(play=True, lock_wheels=True),
+            agent=agent,
+            trainable=True,
+        )
+
+    def play(self, *, max_steps: int | None = None) -> None:
+        from genelab.rl import play_task
+
+        play_task(self.cfg.name, checkpoint=None, max_steps=max_steps)
+
+    def train(self) -> None:
+        from genelab.rl import RslRlOnPolicyRunnerCfg, train_task
+
+        agent = self.cfg.agent
+        if not isinstance(agent, RslRlOnPolicyRunnerCfg):
+            raise TypeError(f"agent cfg has unexpected type {type(agent).__name__}")
+        train_task(self.cfg.name, agent)
+
+
 def _build_go2w_velocity_env(play: bool = False):
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
     return ManagerBasedRlEnv(unitree_go2w_velocity_env_cfg(play=play))
+
+
+def _build_go2w_crab_stage1_env(play: bool = False):
+    from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
+    return ManagerBasedRlEnv(unitree_go2w_velocity_env_cfg(play=play, lock_wheels=True))
 
 
 def _build_go1_velocity_env(play: bool = False):
@@ -381,5 +424,26 @@ def register() -> None:
             examples=[
                 f"genelab play {GO2W_VELOCITY_TASK_ID}",
                 f"genelab train {GO2W_VELOCITY_TASK_ID} --num_envs 4096",
+            ],
+        )
+    if GO2W_CRAB_STAGE1_ENV_NAME not in ENVS:
+        register_env(
+            GO2W_CRAB_STAGE1_ENV_NAME,
+            lambda: _build_go2w_crab_stage1_env(play=False),
+            description="Go2-W with wheels locked (crab-walk stage 1 of the wheeled-legged curriculum).",
+            cfg_type=type(None),
+        )
+    if GO2W_CRAB_STAGE1_TASK_ID not in TASKS:
+        register_task(
+            GO2W_CRAB_STAGE1_TASK_ID,
+            Go2WCrabStage1Task,
+            description=(
+                "Go2-W wheeled-legged curriculum stage 1: wheels locked into rigid feet so the "
+                "legs learn to step (incl. sideways). Warm-start the regular Go2-W task from this."
+            ),
+            cfg_type=TaskCfg,
+            examples=[
+                f"genelab play {GO2W_CRAB_STAGE1_TASK_ID}",
+                f"genelab train {GO2W_CRAB_STAGE1_TASK_ID} --num_envs 4096",
             ],
         )
