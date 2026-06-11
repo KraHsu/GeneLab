@@ -20,7 +20,7 @@ manipulation lines:
 | `Genelab-Tracking-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 motion-tracking on flat ground. |
 | `Genelab-Velocity-Flat-Unitree-Go1-v0` | rsl_rl PPO | 3k iter × 4096 envs | Unitree Go1 quadruped velocity tracking on flat ground; deployable proprioception-only actor (no base-linear-velocity sensor). |
 | `Genelab-Velocity-Rough-Unitree-Go1-v0` | rsl_rl PPO | (WIP) | Unitree Go1 on the 10-level mixed-terrain curriculum. **Not yet a reference** — from-scratch 3k iters stalls in a stand-still optimum (~1–2 % of commanded speed); needs a larger budget (~6k) + an easier curriculum bootstrap. |
-| `Genelab-Velocity-Flat-Unitree-Go2W-v0` | rsl_rl PPO | 3k iter × 4096 envs | Unitree Go2-W **wheeled** quadruped velocity tracking on flat ground; position-controlled legs + velocity-controlled wheels, deployable proprioception-only actor. |
+| `Genelab-Velocity-Flat-Unitree-Go2W-v0` | rsl_rl PPO | 6k+6k+4k iter × 4096 envs (2-stage) | Unitree Go2-W **wheeled** quadruped, **hybrid wheel-leg** omnidirectional velocity tracking: crab-walk stage 1 (wheels locked) → rolling stage 2 with mirror-symmetry augmentation + L1 tracking terms. sim2sim-hardened (5-frame stacking, startup DR, action noise & latency). |
 | `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 64 envs | Goal-conditioned manipulation; needs offline demo prefill (see protocol below). |
 
 ## Reproduction protocol
@@ -318,20 +318,51 @@ the G1 rough task was before it landed.
 
 ### `Genelab-Velocity-Flat-Unitree-Go2W-v0`
 
-| Seed | Final `return_mean` | `return_std` | Convergence iter | Train wall-clock | Eval wall-clock |
-|---|---|---|---|---|---|
-| 42 | 51.876 | 2.848 | 3 000 | ~97 min | 40.9 s |
+Go2-W is a **skid-steer wheeled** quadruped — its fore-aft wheels cannot roll sideways and
+cannot scrub-turn slowly (stiction deadband), so lateral / slow-yaw motion must come from
+**legged stepping**. The shipped config trains a **hybrid wheel-leg policy** via a two-stage
+curriculum plus sim2sim hardening:
 
-Single seed (42) on one RTX 5060 Ti (hardware note) — smoke-grade, not a 3-seed
-sweep. Eval `length_mean = 997.5` (of 1000; near-full episodes, almost no falls).
-`success_rate` is `null`. Go2-W is a **wheeled** quadruped: the actor commands
-position targets for the 12 leg joints and *velocity* targets for the 4 wheels
-(the ``mdp.JointVelocityAction`` path), with a deployable proprioception-only actor
-(no base linear velocity) + privileged critic, as on Go1. A direction-binned rollout
-(256 envs, fixed commands) confirms symmetric tracking — forward / backward 95 %,
-lateral ~89–90 %, yaw ~96 % of the commanded speed. It converged **from scratch in a
-single run** (the wheels make translation natural — no tuning iterations, unlike the
-Go1 flat task).
+1. **Stage 1 (`Genelab-Velocity-Flat-Unitree-Go2W-CrabStage1-v0`)** — wheels locked into
+   rigid feet (`lock_wheels=True`: wheel action scale 0, damping 20) + Go1-style gait
+   shaping (`feet_air_time`, `feet_slip`); the legs learn a symmetric crab-walk / stepping
+   turn from scratch (6k iters).
+2. **Stage 2 (this task)** — warm-start from stage 1 with the wheels rolling
+   (`--checkpoint <stage1>/model_*.pt`, 4–6k iters). Key ingredients, all probed against
+   their failure modes: **mirror-symmetry data augmentation** (rsl_rl `Symmetry`; without it
+   PPO collapses to a one-sided lateral gait — one direction 64/64, the mirror falling
+   64/64), **L1 tracking-error terms** (`vy_error_l1` −0.5, `wz_error_l1` −0.5; the exp
+   kernel's gradient vanishes once an axis is abandoned), a **lateral+yaw-gated**
+   `feet_air_time` (stepping stays rewarded when vy *or* wz is demanded; pure-vx rolls),
+   and **wheel damping 5.0** (a stance wheel commanded to zero actually brakes).
+   Sim2sim hardening rides on top: 5-frame observation stacking (actor input 285 = 57 × 5),
+   startup DR (wheel friction, trunk mass / COM, ±20 % PD gains, encoder bias), per-step
+   action noise + per-env action latency (training-only).
+
+| Seed | Final `return_mean` | `return_std` | Budget | Train wall-clock | Eval wall-clock |
+|---|---|---|---|---|---|
+| 42 | 62.396 | 2.311 | 6k (stage 1) + 6k + 4k (stage 2) | ~7 h total | 21.6 s |
+
+Single seed (42) on one RTX 5060 Ti (hardware note) — smoke-grade, not a 3-seed sweep. Eval
+`length_mean = 1000.0` (full episodes, zero falls in 50 episodes). `success_rate` is `null`.
+Per-direction probe (64 envs each, fixed command, deterministic, **no auto-reset**, median of
+per-env means): ±vy **96 %** (perfectly mirror-symmetric), ±wz 93–94 %, ±vx 94–100 %,
+slow-yaw wz=0.2 ~77 % (stepping turns; was a 32 % stiction deadband before the air-time gate
+covered wz). Zero falls across all 576 probe envs.
+
+!!! warning "Deployment: actuator gains + stacked obs"
+    The exported `policy.ts` / `policy.onnx` expects the **5-frame frame-major stacked
+    observation** (push one 57-dim frame per control step, backfill on reset — schema in
+    `policy.*.metadata.json`) and was trained with **wheel velocity gain kv = 5.0** (not the
+    asset default 0.5) — match it on the MuJoCo / hardware side or the wheel response will
+    differ.
+
+!!! note "History: single-frame no-DR (51.9) → DR-hardened single-stage (36.1) → hybrid (62.4)"
+    The original single-frame, no-DR config scored 51.9 but transferred poorly to MuJoCo and
+    could neither strafe (lean-only) nor hold in-place rotation. The first hardening pass
+    (5-frame stack + DR, single-stage, 6k iters) scored 36.1 clean — robust but its lateral
+    "tracking" was still body-lean, exposed by per-env probing. The two-stage curriculum +
+    symmetry + L1 terms recover genuine omnidirectional tracking *and* the best clean return.
 
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER, demo-prefilled)
 

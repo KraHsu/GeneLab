@@ -17,7 +17,7 @@ GeneLab 自带任务的**复现地基**。按任务 × seed 列出收敛后的 r
 | `Genelab-Tracking-Flat-Unitree-G1-v0` | rsl_rl PPO | 30k iter × 4096 envs | Unitree G1 平地动作跟踪。 |
 | `Genelab-Velocity-Flat-Unitree-Go1-v0` | rsl_rl PPO | 3k iter × 4096 envs | Unitree Go1 四足平地速度跟踪；可部署的纯本体感知 actor（无基座线速度传感器）。 |
 | `Genelab-Velocity-Rough-Unitree-Go1-v0` | rsl_rl PPO | (WIP) | Unitree Go1 在 10 级混合地形课程上。**暂未作为参考** —— 从零 3k 迭代陷入原地站立局部最优（仅约 1–2% 指令速度）；需要更大预算（约 6k）+ 更易的课程起步。 |
-| `Genelab-Velocity-Flat-Unitree-Go2W-v0` | rsl_rl PPO | 3k iter × 4096 envs | Unitree Go2-W **轮式**四足平地速度跟踪；位置控制腿 + 速度控制轮,可部署的纯本体感知 actor。 |
+| `Genelab-Velocity-Flat-Unitree-Go2W-v0` | rsl_rl PPO | 6k+6k+4k iter × 4096 envs（两阶段） | Unitree Go2-W **轮式**四足,**轮腿混合**全向速度跟踪:锁轮 crab-walk 第一阶段 → 解锁轮第二阶段(镜像对称增强 + L1 跟踪项)。sim2sim 加固(5 帧堆叠、startup 域随机化、动作噪声与延迟)。 |
 | `GeneLab-Franka-Pick-And-Place-v0` | sb3 SAC + HER | 2M timesteps × 64 envs | 目标条件抓取；需要离线 demo 预填（见下方协议）。 |
 
 ## 复现协议
@@ -287,17 +287,40 @@ smoke 级参考、不是三 seed sweep，所以没有跨 seed 方差。Eval `len
 
 ### `Genelab-Velocity-Flat-Unitree-Go2W-v0`
 
-| Seed | 最终 `return_mean` | `return_std` | 收敛 iter | 训练 wall-clock | Eval wall-clock |
-|---|---|---|---|---|---|
-| 42 | 51.876 | 2.848 | 3 000 | ~97 min | 40.9 s |
+Go2-W 是**滑移转向(skid-steer)轮式**四足——前后向轮子既不能侧滚,也无法慢速擦转(静摩擦死区),
+横移 / 慢速旋转必须靠**腿式迈步**。现行配置通过两阶段课程 + sim2sim 加固训练**轮腿混合策略**:
 
-单 seed（42）跑在一张 RTX 5060 Ti 上（见硬件说明）—— smoke 级,不是三 seed
-sweep。Eval `length_mean = 997.5`（满值 1000;接近完整 episode、几乎不摔）。
-`success_rate` 为 `null`。Go2-W 是**轮式**四足:actor 对 12 个腿关节下位置目标、
-对 4 个轮子下*速度*目标（``mdp.JointVelocityAction`` 路径）,actor 为可部署的
-纯本体感知（无基座线速度）+ 特权 critic,和 Go1 一致。方向分桶 rollout（256 envs、
-固定指令）确认跟踪对称 —— 前进/后退 95%、侧移 ~89–90%、转向 ~96% 的指令速度。
-**从零一次训练即收敛**（轮子让平移很自然 —— 无需像 Go1 flat 那样多轮调参）。
+1. **第一阶段(`Genelab-Velocity-Flat-Unitree-Go2W-CrabStage1-v0`)** —— 锁轮成刚性圆足
+   (`lock_wheels=True`:轮动作 scale 0、阻尼 20)+ Go1 式步态整形(`feet_air_time`、
+   `feet_slip`);腿从零学会对称 crab-walk / 迈步转身(6k 迭代)。
+2. **第二阶段(本任务)** —— 从第一阶段热启动、轮子解锁(`--checkpoint <stage1>/model_*.pt`,
+   4–6k 迭代)。关键配方(均经探针验证过其对应的失败模式):**镜像对称数据增强**(rsl_rl
+   `Symmetry`;没有它 PPO 会塌缩成单侧步态——一侧 64/64 完美、镜像侧 64/64 全摔)、
+   **L1 跟踪误差项**(`vy_error_l1` −0.5、`wz_error_l1` −0.5;exp 核在某轴被放弃后梯度归零)、
+   **vy+wz 门控的 `feet_air_time`**(横移*或*旋转指令下迈步持续有奖励;纯前进走轮滚)、
+   **轮阻尼 5.0**(支撑轮指令为零时真能刹住)。sim2sim 加固叠加其上:5 帧观测堆叠(actor 输入
+   285 = 57 × 5)、startup 域随机化(轮地摩擦、躯干质量/质心、±20% PD 增益、编码器偏置)、
+   每步动作噪声 + 每环境动作延迟(仅训练期)。
+
+| Seed | 最终 `return_mean` | `return_std` | 预算 | 训练 wall-clock | Eval wall-clock |
+|---|---|---|---|---|---|
+| 42 | 62.396 | 2.311 | 6k(一阶段)+ 6k + 4k(二阶段) | 共 ~7 h | 21.6 s |
+
+单 seed(42)跑在一张 RTX 5060 Ti 上(见硬件说明)—— smoke 级,不是三 seed sweep。Eval
+`length_mean = 1000.0`(完整 episode、50 回合零摔倒)。`success_rate` 为 `null`。
+分方向探针(每方向 64 envs、固定指令、确定性、**无自动重置**、逐 env 均值的中位数):
+±vy **96%**(左右完全镜像对称)、±wz 93–94%、±vx 94–100%、慢转 wz=0.2 约 77%
+(迈步转身;air_time 门控覆盖 wz 之前是 32% 的静摩擦死区)。576 个探针 env 全程零摔倒。
+
+!!! warning "部署:执行器增益 + 堆叠观测"
+    导出的 `policy.ts` / `policy.onnx` 期望 **5 帧 frame-major 堆叠观测**(每控制步推入一个
+    57 维帧,reset 时回填——schema 见 `policy.*.metadata.json`),且训练时**轮速度增益
+    kv = 5.0**(不是 asset 默认的 0.5)—— MuJoCo / 实机侧必须对齐,否则轮响应不一致。
+
+!!! note "沿革:单帧无 DR(51.9)→ 单阶段加固(36.1)→ 轮腿混合(62.4)"
+    最初的单帧无 DR 配置得 51.9,但 MuJoCo 迁移差,且横移只会歪身体、原地旋转只会扭身。
+    第一轮加固(5 帧堆叠 + DR,单阶段 6k)干净环境得 36.1 —— 鲁棒但横移"跟踪"仍是身体倾斜,
+    逐 env 探针暴露了这一点。两阶段课程 + 对称增强 + L1 项同时拿回了真全向跟踪与最高干净回报。
 
 ### `GeneLab-Franka-Pick-And-Place-v0` (SAC+HER，demo 预填)
 
