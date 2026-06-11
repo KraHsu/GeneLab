@@ -64,6 +64,12 @@ class RslRlPpoAlgorithmCfg:
     normalize_advantage_per_mini_batch: bool = False
     optimizer: Literal["adam", "adamw", "sgd", "rmsprop"] = "adam"
     share_cnn_encoders: bool = False
+    # rsl_rl mirror-symmetry extension (Mittal et al., ICRA 2024): dict with
+    # ``data_augmentation_func`` ("module:func" or callable), ``use_data_augmentation``,
+    # ``use_mirror_loss``, ``mirror_loss_coeff``. Tasks with a mirror-symmetric morphology
+    # (e.g. Go2-W lateral gait) set it so both mirror directions learn in lock-step instead
+    # of collapsing to a one-sided gait. ``None`` (default) disables the extension.
+    symmetry_cfg: dict[str, Any] | None = None
     class_name: str = "PPO"
 
 

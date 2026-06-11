@@ -237,6 +237,7 @@ def feet_air_time(
     threshold_max: float = 0.5,
     command_name: str | None = None,
     command_threshold: float = 0.5,
+    command_axes: tuple[int, ...] | None = None,
 ) -> torch.Tensor:
     """Count of feet whose current air time is in ``(threshold_min, threshold_max)``.
 
@@ -246,7 +247,12 @@ def feet_air_time(
 
     When ``command_name`` is given, the reward is masked to zero on envs whose
     commanded velocity magnitude is below ``command_threshold`` so the policy
-    doesn't get a free signal while standing.
+    doesn't get a free signal while standing. ``command_axes`` restricts that gate
+    to the given command components (sum of absolute values over those axes): a
+    wheeled-legged hybrid rewards stepping only when *lateral* motion is demanded
+    (``command_axes=(1,)``) — rolling serves forward/yaw, so the full-magnitude gate
+    would force stepping on pure forward commands where the wheels should stay
+    grounded and spin.
 
     Note: GeneLab's pre-P5 stub used a foot-z height proxy. This implementation
     now matches the reference; the G1 reference cfg sets weight=0 so the term doesn't
@@ -257,5 +263,11 @@ def feet_air_time(
     in_range = (current_air_time > threshold_min) & (current_air_time < threshold_max)
     reward = torch.sum(in_range.float(), dim=-1)
     if command_name is not None:
-        reward = reward * _command_active(env, command_name, command_threshold)
+        if command_axes is not None:
+            cmd = env.command_manager.get_command(command_name)
+            axes = torch.tensor(command_axes, dtype=torch.long, device=cmd.device)
+            gate = (cmd.index_select(-1, axes).abs().sum(dim=-1) > command_threshold).float()
+        else:
+            gate = _command_active(env, command_name, command_threshold)
+        reward = reward * gate
     return reward
