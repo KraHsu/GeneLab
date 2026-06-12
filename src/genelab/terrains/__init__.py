@@ -7,6 +7,7 @@ from genelab.terrains.deformable import (
     NormalLaw,
     TerrainState,
     compliant_normal_force,
+    pneumatic_normal_force,
 )
 from genelab.terrains.footprint_map import FootprintMap
 from genelab.terrains.generator import TerrainGenerator, TerrainGeneratorCfg
@@ -43,4 +44,5 @@ __all__ = [
     "TerrainState",
     "WaveCfg",
     "compliant_normal_force",
+    "pneumatic_normal_force",
 ]
