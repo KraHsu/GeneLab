@@ -39,6 +39,12 @@ from genelab.mdp.rewards.tactile import (
     contact_intensity_l2,
     slip_penalty,
 )
+from genelab.mdp.rewards.terrain import (
+    footprint_revisit,
+    terrain_feet_air_time,
+    terrain_feet_slip,
+    terrain_sinkage_l2,
+)
 from genelab.mdp.rewards.tracking import (
     motion_global_anchor_orientation_error_exp,
     motion_global_anchor_position_error_exp,
@@ -80,6 +86,10 @@ __all__ = [
     "self_collision_cost",
     "slip_penalty",
     "soft_landing",
+    "terrain_sinkage_l2",
+    "terrain_feet_air_time",
+    "terrain_feet_slip",
+    "footprint_revisit",
     "track_angular_velocity_z_exp",
     "track_linear_velocity_xy_exp",
     "upright_exp",
