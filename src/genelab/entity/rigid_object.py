@@ -44,6 +44,9 @@ class RigidObjectCfg:
     init_pos: tuple[float, float, float] = (0.0, 0.0, 0.0)
     init_quat: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
     fixed: bool = True
+    collision: bool = True
+    """``False`` makes the body render-only (no collision geometry) — for visuals like
+    a soft-terrain surface box that the analytic model, not the rigid solver, governs."""
     friction: float | None = None
     density: float | None = None
     material: "MaterialCfg | None" = None
@@ -65,7 +68,7 @@ class RigidObject:
 
         morph_kind = self.cfg.morph
         if morph_kind == "plane":
-            morph = gs.morphs.Plane(pos=tuple(self.cfg.init_pos))
+            morph = gs.morphs.Plane(pos=tuple(self.cfg.init_pos), collision=self.cfg.collision)
         elif morph_kind == "box":
             if len(self.cfg.size) != 3:
                 raise ValueError(
@@ -76,6 +79,7 @@ class RigidObject:
                 pos=tuple(self.cfg.init_pos),
                 quat=tuple(self.cfg.init_quat),
                 fixed=self.cfg.fixed,
+                collision=self.cfg.collision,
             )
         elif morph_kind == "sphere":
             if len(self.cfg.size) != 1:
@@ -86,6 +90,7 @@ class RigidObject:
                 radius=float(self.cfg.size[0]),
                 pos=tuple(self.cfg.init_pos),
                 fixed=self.cfg.fixed,
+                collision=self.cfg.collision,
             )
         elif morph_kind == "mesh":
             if not self.cfg.file:
@@ -95,6 +100,7 @@ class RigidObject:
                 pos=tuple(self.cfg.init_pos),
                 quat=tuple(self.cfg.init_quat),
                 fixed=self.cfg.fixed,
+                collision=self.cfg.collision,
             )
         elif morph_kind == "mjcf":
             if not self.cfg.file:
