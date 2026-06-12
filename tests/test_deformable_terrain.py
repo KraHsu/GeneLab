@@ -366,6 +366,108 @@ def test_custom_normal_law_still_references_the_plastic_residual() -> None:
     assert float(f[0, 0]) == pytest.approx(1000.0 * (0.05 - 0.02))
 
 
+def test_pneumatic_force_stiffens_toward_bottom_out() -> None:
+    from genelab.terrains.deformable import pneumatic_normal_force
+
+    shallow = pneumatic_normal_force(
+        depth=torch.tensor([[0.02]]),
+        depth_rate=torch.zeros(1, 1),
+        k=1000.0,
+        c=0.0,
+        capacity=0.2,
+    )
+    deep = pneumatic_normal_force(
+        depth=torch.tensor([[0.18]]),
+        depth_rate=torch.zeros(1, 1),
+        k=1000.0,
+        c=0.0,
+        capacity=0.2,
+    )
+    # Linear spring would give 9x; the closing air chamber must rise much faster.
+    assert float(deep[0, 0]) > 9.0 * float(shallow[0, 0]) * 2.0
+
+
+def test_pneumatic_pressure_is_shared_equally_by_contacting_feet() -> None:
+    from genelab.terrains.deformable import pneumatic_normal_force
+
+    f = pneumatic_normal_force(
+        depth=torch.tensor([[0.08, 0.01]]),  # one deep, one barely touching
+        depth_rate=torch.zeros(1, 2),
+        k=1000.0,
+        c=0.0,
+        capacity=0.2,
+    )
+    assert float(f[0, 0]) == pytest.approx(float(f[0, 1]))  # same chamber pressure
+
+
+def test_pneumatic_pressing_one_foot_raises_support_under_another() -> None:
+    from genelab.terrains.deformable import pneumatic_normal_force
+
+    alone = pneumatic_normal_force(
+        depth=torch.tensor([[0.01, -0.05]]),  # B touches lightly, A airborne
+        depth_rate=torch.zeros(1, 2),
+        k=1000.0,
+        c=0.0,
+        capacity=0.2,
+    )
+    pressed = pneumatic_normal_force(
+        depth=torch.tensor([[0.01, 0.10]]),  # A now presses deep into the chamber
+        depth_rate=torch.zeros(1, 2),
+        k=1000.0,
+        c=0.0,
+        capacity=0.2,
+    )
+    assert float(pressed[0, 0]) > 5.0 * float(alone[0, 0])  # B is pushed up by A's press
+
+
+def test_pneumatic_airborne_foot_feels_nothing_from_a_pressurized_chamber() -> None:
+    from genelab.terrains.deformable import pneumatic_normal_force
+
+    f = pneumatic_normal_force(
+        depth=torch.tensor([[0.10, -0.02]]),  # chamber pressurized, one foot in the air
+        depth_rate=torch.zeros(1, 2),
+        k=1000.0,
+        c=0.0,
+        capacity=0.2,
+    )
+    assert float(f[0, 0]) > 0.0
+    assert float(f[0, 1]) == pytest.approx(0.0)
+
+
+def test_pneumatic_chambers_do_not_couple_across_envs() -> None:
+    from genelab.terrains.deformable import pneumatic_normal_force
+
+    f = pneumatic_normal_force(
+        depth=torch.tensor([[0.10, 0.01], [-0.05, 0.01]]),  # env 0 pressed, env 1 not
+        depth_rate=torch.zeros(2, 2),
+        k=1000.0,
+        c=0.0,
+        capacity=0.2,
+    )
+    assert float(f[1, 1]) < float(f[0, 1])  # env 1's light touch is NOT pressurized by env 0
+
+
+def test_air_mattress_terrain_couples_feet_through_the_chamber() -> None:
+    from functools import partial
+
+    from genelab.terrains.deformable import pneumatic_normal_force
+
+    cfg = DeformableTerrainCfg(
+        k=1000.0,
+        c=0.0,
+        surface_height=0.0,
+        normal_law=partial(pneumatic_normal_force, capacity=0.2),
+    )
+    terrain = DeformableTerrain(cfg, num_envs=1, num_feet=4)
+    f = terrain.compute_normal_force(
+        foot_height=torch.tensor([[-0.06, -0.01, -0.01, 0.03]]),  # 3 down, 1 swinging
+        foot_vel_z=torch.zeros(1, 4),
+    )
+    assert float(f[0, 0]) == pytest.approx(float(f[0, 1]))  # one chamber pressure
+    assert float(f[0, 3]) == pytest.approx(0.0)  # swing foot untouched
+    assert float(f[0, 0]) > 0.0
+
+
 def test_model_advance_residual_accumulates_footprint_from_depth() -> None:
     cfg = DeformableTerrainCfg(yield_depth=0.01, plastic_rate=2.0, recovery_time=1.0e9)
     terrain = DeformableTerrain(cfg, num_envs=1, num_feet=1)

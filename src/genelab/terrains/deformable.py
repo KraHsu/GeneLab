@@ -198,6 +198,48 @@ def granular_extraction_force(
     return -magnitude * v_up / (v_up + v_ref)
 
 
+def pneumatic_normal_force(
+    depth: torch.Tensor,
+    depth_rate: torch.Tensor,
+    k: float | torch.Tensor,
+    c: float,
+    *,
+    capacity: float,
+    min_headroom: float = 0.01,
+) -> torch.Tensor:
+    """Sealed-air-chamber support (air mattress): one pressure, shared by all feet.
+
+    The chamber's gauge pressure is an instantaneous function of the *total* volume the
+    feet displace — isothermal ideal gas, ``P ∝ D / (capacity - D)`` with
+    ``D = Σ max(depth_i, 0)`` summed over the feet axis. Every foot in contact feels the
+    same pressure (cross-foot coupling: pressing one corner pushes the others up), feet
+    above the surface feel nothing, and the force blows up as the chamber bottoms out.
+
+    A :data:`NormalLaw` — bind ``capacity`` with ``functools.partial`` and set it as
+    ``DeformableTerrainCfg.normal_law``. Per-foot damping ``c * depth_rate`` is kept for
+    numerical stability, as in :func:`compliant_normal_force`.
+
+    Args:
+        depth: Per-foot sinkage, shape ``(num_envs, num_feet)``; the feet axis is the
+            chamber (one chamber per env).
+        depth_rate: Per-foot sinkage rate.
+        k: Pressure stiffness (N/m of total displaced depth at small fill).
+        c: Per-foot damping (N·s/m).
+        capacity: Total displaced depth at which the chamber bottoms out (m).
+        min_headroom: Fraction of ``capacity`` kept as headroom so the force stays
+            finite at full compression.
+
+    Returns:
+        Per-foot support, shape like ``depth``; zero for feet above the surface.
+    """
+    displaced = depth.clamp_min(0.0).sum(dim=-1, keepdim=True)
+    headroom = (1.0 - displaced / capacity).clamp_min(min_headroom)
+    pressure_force = k * displaced / headroom
+    in_contact = depth > 0.0
+    force = pressure_force.expand_as(depth) + c * depth_rate
+    return torch.where(in_contact, force, torch.zeros_like(force)).clamp_min(0.0)
+
+
 def plastic_residual_update(
     residual: torch.Tensor,
     depth: torch.Tensor,
