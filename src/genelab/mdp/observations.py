@@ -90,6 +90,18 @@ def foot_contact_forces(env: "EnvContext", sensor_name: str) -> torch.Tensor:
     return (force.sign() * torch.log1p(force.abs())).reshape(force.shape[0], -1)
 
 
+def terrain_sinkage(env: "EnvContext") -> torch.Tensor:
+    """Privileged per-foot sinkage depth from the analytic deformable terrain, ``(B, num_feet)``.
+
+    Reads the simulator's true terrain state for teacher / terrain-identification
+    consumers (ADR-0001). Requires ``cfg.deformable_terrain`` to be configured.
+    """
+    driver = env.deformable_terrain
+    if driver is None:
+        raise RuntimeError("terrain_sinkage observation requires cfg.deformable_terrain to be set")
+    return driver.terrain.state.depth
+
+
 def joint_force_torque(env: "EnvContext", sensor_name: str) -> torch.Tensor:
     """Per-joint reaction force/torque from a ``ForceTorqueSensor``, shape ``(B, num_joints)``."""
     sensor = env.sensors[sensor_name]

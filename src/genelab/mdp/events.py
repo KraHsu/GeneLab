@@ -182,3 +182,29 @@ def push_by_setting_velocity(
             set_ang(ang, envs_idx=env_ids)
         except TypeError:
             set_ang(ang)
+
+
+def randomize_terrain_params(
+    env: "EnvContext",
+    env_ids: torch.Tensor | None,
+    ranges: dict[str, tuple[float, float]] | None = None,
+) -> None:
+    """Resample the deformable-terrain medium parameters of the given envs (DR).
+
+    ``ranges`` maps a per-env parameter tensor on :class:`DeformableTerrain` (``k``,
+    ``mu``, ``drag_coeff``, ``extraction_coeff``) to a uniform ``(low, high)`` sampling
+    range. Run as a ``reset``-mode event, each reset drops the env onto a freshly
+    sampled medium, so the policy trains against a *distribution* of media instead of
+    one parameter point — the standard way to absorb surrogate-model residuals
+    (sim-to-sim/sim-to-real gap) without modeling them explicitly.
+    """
+    if env_ids is None or env_ids.numel() == 0 or not ranges:
+        return
+    driver = getattr(env, "deformable_terrain", None)
+    if driver is None:
+        return
+    terrain = driver.terrain
+    n = int(env_ids.numel())
+    for field, (low, high) in ranges.items():
+        params = getattr(terrain, field)
+        params[env_ids] = torch.empty(n, 1, device=params.device).uniform_(low, high)
