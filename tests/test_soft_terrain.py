@@ -68,6 +68,7 @@ def test_soft_terrain_supports_the_robot_at_a_settled_equilibrium(genesis_runtim
     driver = env.deformable_terrain
     assert driver is not None
     terrain = cfg.deformable_terrain
+    assert terrain is not None
     state = driver.terrain.state
     robot = env.articulations["robot"]
     weight = float(robot.gs_handle.get_mass()) * 9.81
@@ -80,3 +81,15 @@ def test_soft_terrain_supports_the_robot_at_a_settled_equilibrium(genesis_runtim
     assert support == pytest.approx(weight, rel=0.1)
     # Every foot is supported by sinking into the surface, not resting on the backstop.
     assert float(state.depth.min()) > 0.0
+
+
+def test_air_mattress_demo_tosses_resting_balls_on_impact(genesis_runtime: Any) -> None:
+    """One sealed chamber: a ball slamming down pressurizes the support under ALL balls,
+    so the balls resting elsewhere on the mattress get tossed upward — coupling that
+    independent per-contact springs cannot produce. Also: the chamber (not the floor)
+    is the only support, so no ball ever reaches the ground plane."""
+    from genelab_soft_terrain.air_mattress import run
+
+    metrics = run(steps=500, show_viewer=False)
+    assert metrics["toss"] > 0.02  # resting balls jump >2 cm when the dropped ball lands
+    assert metrics["min_z"] > 0.15  # nobody fell through the chamber to the floor
