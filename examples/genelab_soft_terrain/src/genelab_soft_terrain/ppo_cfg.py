@@ -1,6 +1,22 @@
-"""PPO config for the Go1 soft-terrain velocity-tracking task."""
+"""PPO configs for the soft-terrain velocity-tracking tasks."""
 
 from genelab.rl import RslRlModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
+
+
+def g1_mattress_velocity_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
+    """The Go1 soft/sand recipe with the G1-specific exploration fixes.
+
+    The Go1 ``entropy_coef=0.005`` collapses on the 29-DoF humanoid: by iteration
+    ~1250 the action std had fallen 1.0 -> 0.14 and the policy was stuck in a
+    stand-then-tip local optimum (feet_air_time ~ 0 — never stepping). The proven
+    G1 flat-ground recipe (``genelab_unitree.g1.ppo_cfg``) uses 0.01 for exactly
+    this reason, and budgets tens of thousands of iterations for a humanoid gait.
+    """
+    cfg = go1_soft_velocity_ppo_runner_cfg()
+    cfg.experiment_name = "g1_mattress_velocity"
+    cfg.max_iterations = 10_000
+    cfg.algorithm.entropy_coef = 0.01
+    return cfg
 
 
 def go1_soft_velocity_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
