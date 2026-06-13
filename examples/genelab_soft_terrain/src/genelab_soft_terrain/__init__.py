@@ -6,7 +6,8 @@ without a tangential/friction term (stage 1) the robot holds a stance and settle
 sinkage equilibrium, it does not yet walk.
 """
 
+from genelab_soft_terrain.g1_mattress import g1_mattress_velocity_env_cfg
 from genelab_soft_terrain.go1_soft_env_cfg import go1_soft_stand_env_cfg
 from genelab_soft_terrain.go1_soft_velocity_env_cfg import go1_soft_velocity_env_cfg
 
-__all__ = ["go1_soft_stand_env_cfg", "go1_soft_velocity_env_cfg"]
+__all__ = ["g1_mattress_velocity_env_cfg", "go1_soft_stand_env_cfg", "go1_soft_velocity_env_cfg"]
