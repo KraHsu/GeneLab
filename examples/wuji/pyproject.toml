@@ -6,6 +6,12 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["genelab"]
 
+[project.optional-dependencies]
+# Deploy core (real2sim + policy control). Pure-software pieces tested headlessly.
+deploy = ["onnxruntime", "pyzmq", "scipy"]
+# Vision observer (real camera -> ZMQ). Hardware-side, not exercised in CI.
+deploy-vision = ["opencv-contrib-python", "pupil-apriltags", "pyyaml"]
+
 [project.entry-points."genelab.extensions"]
 genelab_wuji = "genelab_wuji.tasks:register"
 
