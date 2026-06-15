@@ -614,7 +614,12 @@ class InteractiveScene:
         self._add_solver_options(gs, scene_kwargs)
         self._gs_scene = gs.Scene(**scene_kwargs)
         if self._terrain is None:
-            self._gs_scene.add_entity(gs.morphs.Plane())
+            self._gs_scene.add_entity(
+                gs.morphs.Plane(
+                    pos=(0.0, 0.0, self._scene_cfg.ground_plane_height),
+                    collision=self._scene_cfg.ground_plane_collision,
+                )
+            )
         else:
             self._terrain.spawn(self._gs_scene)
         for entity in self._entities.values():

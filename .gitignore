@@ -40,6 +40,7 @@ plans/
 
 # Agent domain docs (local-only working notes)
 CONTEXT.md
+docs/agents/
 
 # tmp
 /tmp

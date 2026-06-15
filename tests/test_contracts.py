@@ -34,6 +34,7 @@ EXPECTED_ENV_CONTEXT = frozenset(
         "scene",
         "articulations",
         "sensors",
+        "deformable_terrain",
         "cfg",
         "action_manager",
         "command_manager",
