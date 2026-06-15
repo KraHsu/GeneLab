@@ -34,6 +34,7 @@ from genelab.managers import (
 )
 from genelab.scene import InteractiveScene
 from genelab.sensor import Sensor
+from genelab.terrains import DeformableTerrainCfg, DeformableTerrainDriver
 
 # Back-compat alias: existing extension packages import ``RobotEntityCfg`` from this module.
 # The new canonical name is :class:`genelab.entity.ArticulationCfg`. Plain class alias so the
@@ -84,6 +85,11 @@ class ManagerBasedRlEnvCfg(ManagerBasedEnvCfg):
     # (keyboard teleop, ImGui sliders, ROS2 publishers, …). ``train_task``
     # ignores this field. Empty by default — bridges are opt-in per env cfg.
     bridges_cfg: dict[str, BridgeCfg] = field(default_factory=dict)
+    # Opt-in analytic deformable terrain (ADR-0001 stage 0). When set, the primary
+    # robot's feet are supported by an analytic compliance force over a virtual surface
+    # (no rigid floor under the feet) instead of rigid contact — see
+    # :class:`genelab.terrains.DeformableTerrainDriver`. ``None`` leaves the env unchanged.
+    deformable_terrain: DeformableTerrainCfg | None = None
 
 
 def _resolve_entity_cfgs(cfg: ManagerBasedRlEnvCfg) -> dict[str, ArticulationCfg]:
@@ -125,6 +131,20 @@ class ManagerBasedRlEnv:
         # ``_articulation`` is the primary entity, backing the singular ``env.robot`` /
         # ``env.robot_state`` accessors (removed in a later slice once terms route by name).
         self._articulation: Articulation = self._articulations[self._primary_name]
+
+        # Opt-in analytic deformable terrain: drives per-tick foot support forces on the
+        # primary robot. ``None`` (the default) is a no-op everywhere downstream.
+        self._deformable_terrain: DeformableTerrainDriver | None = (
+            DeformableTerrainDriver(
+                cfg.deformable_terrain,
+                self._articulation,
+                self._num_envs,
+                self._device,
+                dt=self._dt_sim,
+            )
+            if cfg.deformable_terrain is not None
+            else None
+        )
 
         self._episode_length_buf = torch.zeros(
             self._num_envs, dtype=torch.long, device=self._device
@@ -241,6 +261,15 @@ class ManagerBasedRlEnv:
         """Per-env world-frame offset ``[num_envs, 3]``; zeros when Genesis uses local frames."""
         return self._scene.env_origins
 
+    @property
+    def deformable_terrain(self) -> DeformableTerrainDriver | None:
+        """The analytic deformable-terrain driver, or ``None`` when not configured.
+
+        Privileged: exposes the simulator's true per-foot terrain state for teacher /
+        terrain-identification consumers (see :func:`genelab.mdp.terrain_sinkage`).
+        """
+        return self._deformable_terrain
+
     # The singular entity accessors (``robot`` / ``robot_state`` /
     # ``articulation``) and the name-table convenience properties (``joint_names`` /
     # ``link_names`` / ``default_joint_pos`` / ``actuators`` / ``joint_*_limits``) were
@@ -291,6 +320,8 @@ class ManagerBasedRlEnv:
             return
         # Reset joint state to default before events run, so events can layer randomisation.
         self._articulation.reset(env_ids)
+        if self._deformable_terrain is not None:
+            self._deformable_terrain.reset(env_ids)
         self.event_manager.apply("reset", env_ids)
         self.command_manager.reset(env_ids)
         self.action_manager.reset(env_ids)
@@ -326,6 +357,10 @@ class ManagerBasedRlEnv:
         last_tick = self._decimation - 1
         for tick in range(self._decimation):
             self.action_manager.apply_action()
+            # Re-inject the analytic foot support every physics tick (the force must be
+            # reapplied each ``scene.step``; it tracks foot motion within the control step).
+            if self._deformable_terrain is not None:
+                self._deformable_terrain.apply()
             self._scene.step(update_visualizer=(tick == last_tick))
         self._articulation.refresh()
         # Advance the joint-acceleration finite difference once per control step (Genesis

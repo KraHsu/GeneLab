@@ -179,3 +179,25 @@ def test_user_solver_cfg_overrides_defaults_and_enables_without_material() -> No
     scene._add_solver_options(_FakeGs(), scene_kwargs)
     assert "sph_options" in scene_kwargs
     assert scene_kwargs["sph_options"].kwargs == {"particle_size": 0.01}
+
+
+def test_rigid_object_collision_flag_reaches_the_morph(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``collision=False`` makes a render-only body (e.g. a visual mattress/sand box)."""
+    import genesis as gs
+
+    class _RecordingBox:
+        def __init__(self, **kwargs: object) -> None:
+            self.kwargs = kwargs
+
+    class _Scene:
+        def add_entity(self, morph: object, **_: object) -> object:
+            self.morph = morph
+            return object()
+
+    monkeypatch.setattr(gs.morphs, "Box", _RecordingBox)
+    obj = RigidObject(
+        RigidObjectCfg(morph="box", size=(1.0, 1.0, 0.4), collision=False), name="visual"
+    )
+    scene = _Scene()
+    obj.spawn(scene)
+    assert scene.morph.kwargs["collision"] is False

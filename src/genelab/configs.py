@@ -143,6 +143,15 @@ class InteractiveSceneCfg:
     mouse_interaction: bool = False
     entities: "dict[str, ArticulationCfg | RigidObjectCfg]" = field(default_factory=dict)
     terrain: "TerrainGeneratorCfg | None" = None
+    # When False, the default ground plane (spawned when ``terrain is None``) is
+    # non-colliding — still rendered, but bodies pass through it. Analytic deformable
+    # terrain uses this so feet are governed by the analytic support over a virtual surface,
+    # instead of resting on (or floating above) a rigid plane.
+    ground_plane_collision: bool = True
+    # World z of the default ground plane. Analytic deformable terrain renders it at the
+    # foot level (the virtual surface) so the robot visibly stands on the ground rather than
+    # appearing to float above a plane at z=0.
+    ground_plane_height: float = 0.0
     # When True, ``InteractiveScene._build`` passes
     # ``gs.renderers.BatchRenderer(use_rasterizer=use_rasterizer)`` to ``gs.Scene``.
     # Required for ``CameraSensor`` to produce per-env RGB-D tensors. Linux x86-64 +
