@@ -13,13 +13,20 @@ from typing import Any
 import numpy as np
 
 
-def build_reorient_env() -> Any:
-    """Build the play-mode reorient env (hand + cube) with auto-reset disabled."""
+def build_reorient_env(num_envs: int | None = None) -> Any:
+    """Build the play-mode reorient env (hand + cube) with auto-reset disabled.
+
+    ``num_envs`` overrides the cfg's play default (4); deploy viewers only ever use
+    env 0, so single-process tools (e.g. ``calib_check``) pass ``1`` to avoid
+    rendering parallel copies.
+    """
     from genelab.envs.manager_based_rl_env import ManagerBasedRlEnv
     from genelab_wuji.reorient.env_cfg import wuji_hand_reorient_env_cfg
 
     cfg = wuji_hand_reorient_env_cfg(play=True)
     cfg.auto_reset = False  # we drive poses by hand; never teleport on "done"
+    if num_envs is not None:
+        cfg.simulation.num_envs = num_envs
     env = ManagerBasedRlEnv(cfg)
     env.reset()
     return env
@@ -49,3 +56,30 @@ def set_cube_pose(env: Any, pos_w: np.ndarray, quat_w: np.ndarray) -> None:
         fn = getattr(handle, setter, None)
         if fn is not None:
             fn(value)
+
+
+def set_hand_joints(env: Any, qpos_encoder_order: np.ndarray) -> None:
+    """Kinematically render hand encoder readings on the sim robot (calib viewer).
+
+    ``qpos_encoder_order`` is the ``(20,)`` joint vector in ``JOINT_NAMES_20`` /
+    encoder order; it is reordered (by name) into the articulation's ``joint_names``
+    order and written as joint state (zero velocity). Teleport-per-tick: the next
+    write re-syncs, so a single physics step can't drift the rendered pose.
+    """
+    import torch
+
+    from genelab_wuji.deploy.config import JOINT_NAMES_20
+
+    robot = env.scene["robot"]
+    enc_index = {name: i for i, name in enumerate(JOINT_NAMES_20)}
+    missing = [n for n in robot.joint_names if n not in enc_index]
+    if missing:
+        raise ValueError(f"robot joints absent from encoder order JOINT_NAMES_20: {missing}")
+    perm = [enc_index[n] for n in robot.joint_names]  # joint_names[i] = encoder[perm[i]]
+    reordered = np.asarray(qpos_encoder_order, dtype=float)[perm]
+
+    device = env.device
+    jp = torch.tensor(reordered, dtype=torch.float, device=device).unsqueeze(0)
+    jv = torch.zeros_like(jp)
+    env_ids = torch.arange(env.num_envs, device=device)
+    robot.write_joint_state(jp, jv, env_ids)

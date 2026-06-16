@@ -774,6 +774,30 @@ class InteractiveScene:
                 return
             raise
 
+    def refresh_visualizer(self) -> None:
+        """Refresh the viewer from the current kinematic state — no physics step.
+
+        For kinematic viewers (deploy real2sim / calibration) that set entity state
+        each frame and want to render it exactly as set: this runs forward kinematics
+        + a viewer update but **no time integration**, so gravity / contacts never move
+        the teleported bodies (the Genesis analogue of MuJoCo's ``mj_forward``). A no-op
+        once the viewer is closed; sets :py:attr:`viewer_closed` if the user closes it.
+        """
+        if self._viewer_closed:
+            return
+        vis = getattr(self._gs_scene, "visualizer", None)
+        if vis is None:
+            return
+        exc_cls = self._gs_exception_cls
+        try:
+            vis.update_visual_states()
+            vis.update()
+        except Exception as exc:
+            if exc_cls is not None and isinstance(exc, exc_cls) and str(exc) == "Viewer closed.":
+                self._viewer_closed = True
+                return
+            raise
+
     def refresh_state(self) -> None:
         for art in self.articulations.values():
             art.refresh()

@@ -15,12 +15,27 @@ import numpy as np
 from genelab_wuji.deploy.config import JOINT_NAMES_20, N_JOINTS, default_joint_pos
 
 
+def _home_ramp(current: np.ndarray, target: np.ndarray, steps: int) -> np.ndarray:
+    """Ease-in-out (smoothstep) interpolation from ``current`` to ``target``.
+
+    Returns ``(steps, 20)`` intermediate targets; the last row equals ``target``
+    exactly (smoothstep ``3t²-2t³`` reaches 1 at ``t=1``). Pure/numpy so the ramp
+    math is testable without hardware.
+    """
+    current = np.asarray(current, dtype=float)
+    target = np.asarray(target, dtype=float)
+    steps = max(1, int(steps))
+    t = (np.arange(1, steps + 1, dtype=float) / steps)[:, None]  # (steps, 1), ends at 1.0
+    t_smooth = t * t * (3.0 - 2.0 * t)
+    return current[None, :] + t_smooth * (target - current)[None, :]
+
+
 class HandDriverBase(ABC):
     """Interface every hand backend implements (targets/encoders flattened to 20)."""
 
     @abstractmethod
-    def home(self) -> None:
-        """Drive the hand to the home grasp keyframe."""
+    def home(self, duration_s: float = 3.0) -> None:
+        """Drive the hand to the home grasp keyframe (ease-in-out ramp over ``duration_s``)."""
 
     @abstractmethod
     def write_target(self, qpos: np.ndarray) -> None:
@@ -44,7 +59,8 @@ class MockHandDriver(HandDriverBase):
     def __init__(self) -> None:
         self._state = default_joint_pos()
 
-    def home(self) -> None:
+    def home(self, duration_s: float = 3.0) -> None:
+        # No hardware to ease; the ramp is a real-driver safety concern only.
         self._state = default_joint_pos()
 
     def write_target(self, qpos: np.ndarray) -> None:
@@ -83,8 +99,24 @@ class WujiHandDriver(HandDriverBase):
             self._hand.write_joint_enabled(False)
             self._hand = None
 
-    def home(self) -> None:
-        self.write_target(default_joint_pos())
+    def home(self, duration_s: float = 3.0) -> None:
+        """Smoothly ramp from the current pose to the home grasp keyframe.
+
+        Ease-in-out interpolation at 50 Hz over ``duration_s`` so the hand eases
+        in rather than snapping (a single instant write can jerk the joints).
+        ``duration_s <= 0`` does one immediate write.
+        """
+        import time
+
+        target = default_joint_pos()
+        if duration_s <= 0:
+            self.write_target(target)
+            return
+        steps = max(1, int(duration_s * 50.0))  # 50 Hz smoothing
+        dt = duration_s / steps
+        for frame in _home_ramp(self.read_encoders(), target, steps):
+            self.write_target(frame)
+            time.sleep(dt)
 
     def write_target(self, qpos: np.ndarray) -> None:
         assert self._hand is not None, "enter the WujiHandDriver context first"
