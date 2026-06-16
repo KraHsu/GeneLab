@@ -12,9 +12,12 @@ torch = pytest.importorskip("torch")
 skrl = pytest.importorskip("skrl")  # noqa: F841
 
 import gymnasium  # noqa: E402
+import torch.nn as nn  # noqa: E402
 
 from genelab.rl import RslRlOnPolicyRunnerCfg, SkrlAgentCfg  # noqa: E402
 from genelab.rl.backends import select_backend  # noqa: E402
+from genelab.rl.backends.skrl import _build_agent  # noqa: E402  # pyright: ignore[reportPrivateUsage]
+from genelab.rl.backends.skrl.config import SkrlModelCfg  # noqa: E402
 from genelab.rl.backends.skrl.models import build_models  # noqa: E402
 from genelab.rl.vecenvs.skrl import GenelabSkrlWrapper  # noqa: E402
 
@@ -124,3 +127,54 @@ def test_build_models_per_algorithm(algorithm: str) -> None:
     wrapped = GenelabSkrlWrapper(_FakeEnv())
     models = build_models(algorithm, wrapped, SkrlAgentCfg().models, device="cpu")
     assert set(models) == _EXPECTED_MODEL_KEYS[algorithm]
+
+
+# --- off-policy stability fixes ------------------------------------------------
+# Three changes make off-policy (SAC/TD3/DDPG) actually trainable instead of
+# diverging: empirical obs normalization, a LayerNorm-stabilized Q-critic, and a
+# non-clipping SAC policy (so the entropy term can't blow up the Q-target).
+
+
+def test_obs_normalization_defaults_off() -> None:
+    assert SkrlModelCfg().obs_normalization is False
+
+
+def test_qcritic_is_layernorm_stabilized() -> None:
+    # The Q-critic (SAC/TD3/DDPG only) gets LayerNorm to bound value extrapolation.
+    wrapped = GenelabSkrlWrapper(_FakeEnv())
+    models = build_models("SAC", wrapped, SkrlAgentCfg().models, device="cpu")
+    q_has_ln = any(isinstance(m, nn.LayerNorm) for m in models["critic_1"].net.modules())
+    assert q_has_ln
+    # PPO uses the state-value critic, which must stay a plain MLP (no behaviour change).
+    ppo = build_models("PPO", wrapped, SkrlAgentCfg().models, device="cpu")
+    assert not any(isinstance(m, nn.LayerNorm) for m in ppo["value"].net.modules())
+
+
+def test_sac_policy_does_not_clip_actions() -> None:
+    # skrl clamps the action before taking its log-prob; clipping on would let a
+    # drifting policy mean send -alpha*log_prob (and the Q-target) to infinity.
+    wrapped = GenelabSkrlWrapper(_FakeEnv())
+    policy = build_models("SAC", wrapped, SkrlAgentCfg().models, device="cpu")["policy"]
+    assert policy._g_clip_actions is False  # skrl GaussianMixin flag
+
+
+def test_obs_normalization_wires_state_preprocessor() -> None:
+    from skrl.resources.preprocessors.torch import RunningStandardScaler
+
+    wrapped = GenelabSkrlWrapper(_FakeEnv(), state_group=None)
+    off = _build_agent(
+        SkrlAgentCfg(algorithm="SAC", state_group=None, learning_starts=0), wrapped, "cpu", None
+    )
+    assert not isinstance(off._state_preprocessor, RunningStandardScaler)
+    on = _build_agent(
+        SkrlAgentCfg(
+            algorithm="SAC",
+            state_group=None,
+            learning_starts=0,
+            models=SkrlModelCfg(obs_normalization=True),
+        ),
+        wrapped,
+        "cpu",
+        None,
+    )
+    assert isinstance(on._state_preprocessor, RunningStandardScaler)

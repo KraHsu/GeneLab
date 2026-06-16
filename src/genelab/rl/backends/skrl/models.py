@@ -128,8 +128,28 @@ class ValueCritic(DeterministicMixin, Model):
         return self.net(inputs["states"]), {}
 
 
+def _mlp_layernorm(
+    in_dim: int, hidden_dims: tuple[int, ...], out_dim: int, activation: str
+) -> nn.Sequential:
+    """MLP with LayerNorm after every hidden linear: ``Linear -> LayerNorm -> act``.
+
+    LayerNorm in the value network bounds the critic's output extrapolation, the key
+    ingredient that prevents the bootstrapped-Q overestimation divergence off-policy
+    algorithms suffer on long-horizon / contact-rich tasks (cf. CrossQ, SAC-LN). The
+    final linear has no norm/activation so the Q range stays unconstrained.
+    """
+    act = _activation(activation)
+    layers: list[nn.Module] = []
+    prev = in_dim
+    for width in hidden_dims:
+        layers += [nn.Linear(prev, width), nn.LayerNorm(width), act()]
+        prev = width
+    layers.append(nn.Linear(prev, out_dim))
+    return nn.Sequential(*layers)
+
+
 class QCritic(DeterministicMixin, Model):
-    """Action-value Q(s, a) for SAC / TD3 / DDPG."""
+    """Action-value Q(s, a) for SAC / TD3 / DDPG (LayerNorm-stabilized)."""
 
     def __init__(
         self,
@@ -142,7 +162,7 @@ class QCritic(DeterministicMixin, Model):
         DeterministicMixin.__init__(self, clip_actions=False)
         num_obs = cast(int, self.num_observations)
         num_act = cast(int, self.num_actions)
-        self.net = _mlp(num_obs + num_act, model_cfg.hidden_dims, 1, model_cfg.activation)
+        self.net = _mlp_layernorm(num_obs + num_act, model_cfg.hidden_dims, 1, model_cfg.activation)
         self.to(device)
 
     def compute(self, inputs: Mapping[str, Any], role: str = "") -> tuple[Any, dict[str, Any]]:
@@ -197,8 +217,14 @@ def build_models(
             "target_critic_2": q(),
         }
     if algorithm == "SAC":
+        # clip_actions MUST be False here: skrl's GaussianMixin clamps the sampled
+        # action *before* computing its log-prob, so with clipping on, a policy mean
+        # that drifts outside the action bounds yields log_prob(±1 | N(μ,σ)) → -inf,
+        # and SAC's entropy term (-α·log_prob) then blows up the Q-target. Left
+        # unclipped the log-prob is in-distribution (bounded); the env clamps the
+        # action downstream. (TD3/DDPG use a deterministic tanh policy, no such issue.)
         return {
-            "policy": gaussian(clip_actions=True),
+            "policy": gaussian(clip_actions=False),
             "critic_1": q(),
             "critic_2": q(),
             "target_critic_1": q(),
