@@ -9,7 +9,7 @@ The pieces are decoupled via ZMQ (localhost):
 
 ```
  cube_world_observer ──cube pose (5555)──▶ play_real        (controls the hand)
-   (camera, hardware)        │             toreal_viewer    (mirrors cube in sim)
+  (Hikvision camera)         │             toreal_viewer    (mirrors cube in sim)
                              └──────────────▶
  toreal_viewer ──goal (5556)──▶ play_real
 ```
@@ -26,9 +26,13 @@ The pieces are decoupled via ZMQ (localhost):
 | `onnx_policy.py` | `ONNXPolicy` (GeneLab metadata format) | ✅ |
 | `hand_driver.py` | `HandDriverBase` / `MockHandDriver` / `WujiHandDriver` | ✅ (mock) |
 | `controller.py` | `DeployController` (closed-loop step) | ✅ |
-| `scripts/play_real.py` | deploy control loop (real or mock hand) | glue |
+| `camera_config.py` | Hikvision intrinsics/ROI/capture from `config/camera.yaml` | glue (hardware) |
+| `cube_geom.py` | cube_tags JSON resolution (`config/cube_tags.json`) | glue |
+| `scripts/hand_utils.py` | `check` (read-only bridge test) / `home` (3s ramp to grasp pose) | glue (hardware) |
+| `scripts/calib_check.py` | static calib viewer: live hand (encoders) + cube vs. digital twin | glue (hardware) |
+| `scripts/play_real.py` | deploy control loop + goal modes + success monitor (real/mock) | glue |
 | `scripts/toreal_viewer.py` | real2sim Genesis viewer | glue |
-| `scripts/cube_world_observer.py` | camera → ZMQ vision pipeline | glue (hardware) |
+| `scripts/cube_world_observer.py` | Hikvision camera → ArUco board + SO3 Kalman → ZMQ cube pose | glue (hardware) |
 
 The pure-software core is numpy-only and runs headlessly (no Genesis, no hardware),
 so all frame/obs/action/policy logic is unit-tested in `tests/test_examples_wuji_deploy_*.py`.
@@ -48,8 +52,20 @@ so all frame/obs/action/policy logic is unit-tested in `tests/test_examples_wuji
 ## Install
 
 ```bash
-uv pip install -e 'examples/wuji[deploy]'           # core (real2sim + control)
-uv pip install -e 'examples/wuji[deploy,deploy-vision]'  # + camera observer
+uv pip install -e 'examples/wuji[deploy]'                 # core (real2sim + control)
+uv pip install -e 'examples/wuji[deploy,deploy-vision]'   # + camera observer
+uv pip install -e 'examples/wuji[deploy,deploy-hand]'     # + real Wuji hand SDK (wujihandpy)
+```
+
+The cube observer also needs the **Hikvision MVS SDK** (system install, not pip — same
+as wuji-mjlab). Install from <https://www.hikrobotics.com> (default `/opt/MVS`) and source
+its environment before running the observer:
+
+```bash
+export MVCAM_COMMON_RUNENV=/opt/MVS/lib
+export LD_LIBRARY_PATH=/opt/MVS/lib/64:/opt/MVS/lib/32:$LD_LIBRARY_PATH
+# (or: source /opt/MVS/bin/set_env_path.sh /opt/MVS)
+# If MvImport lives elsewhere: export MVS_PYTHON_PATH=/path/to/dir/containing/MvImport
 ```
 
 ## Run
@@ -61,13 +77,26 @@ genelab export Genelab-Reorient-Wuji-Hand-v0 PATH/model.pt --format onnx --outpu
 # 1) smoke-test the control loop, no hardware, no ZMQ
 python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --mock --no-zmq --steps 100
 
-# 2) real2sim: mirror the real cube in the Genesis sim (needs GPU + display)
-python -m genelab_wuji.deploy.scripts.cube_world_observer --camera 0   # terminal A
-python -m genelab_wuji.deploy.scripts.toreal_viewer                    # terminal B
+# 1.5) bring up the real hand bridge (needs wujihandpy): check first, then home
+python -m genelab_wuji.deploy.scripts.hand_utils check   # READ-ONLY: connection + encoder sanity
+python -m genelab_wuji.deploy.scripts.hand_utils home    # 3s ease-in-out ramp to the grasp pose
+
+# 2) vision: detect the cube and publish its tag-frame pose on ZMQ:5555 (needs MVS env)
+python -m genelab_wuji.deploy.scripts.cube_world_observer --preview   # terminal A
+python -m genelab_wuji.deploy.scripts.toreal_viewer                   # terminal B (real2sim mirror)
+
+# 2.5) calibration check: home the hand, render live hand + observed cube in the twin
+python -m genelab_wuji.deploy.scripts.calib_check                     # (needs the observer running)
 
 # 3) drive the real hand from the live observer feed
-python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --real
+#    goal modes: --goal-mode random (uniform-SO3, resampled on success) |
+#                fixed --goal-quat w,x,y,z | external (goal from toreal_viewer ZMQ)
+python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --real --goal-mode random
 ```
 
-The vision observer here is a simplified port (single-marker PnP, no Kalman / dominant-face
-fusion); for the production Hikvision rig, swap `_open_camera` and keep the rest.
+The cube observer is a faithful port of the production wuji-mjlab pipeline (Hikvision MVS
+capture, multi-face ArUco board fusion, SO3 Kalman + position low-pass + corner EMA, world
+auto-sampling, fast ROI, OpenCV preview). It publishes the cube pose in the wrist-tag frame
+in the exact same ZMQ schema GeneLab's `CubeReceiver` consumes. Tuning lives in
+`config/observer.yaml`; camera intrinsics/ROI in `config/camera.yaml`; cube tag layout in
+`config/cube_tags.json`. For a non-Hikvision camera, swap the MVS capture in `run()`.

@@ -11,11 +11,14 @@ import re
 import xml.etree.ElementTree as ET
 from functools import lru_cache
 from pathlib import Path
-from typing import Final
 
 from genelab.actuator import ImplicitPDActuatorCfg
+from genelab.asset_zoo.wuji_hand import (
+    WUJI_CUBE_SPEC as _CUBE,
+    WUJI_HAND_REORIENT_SPEC as _MESHES,
+)
 from genelab.entity import ArticulationCfg
-from genelab.utils.download import AssetSpec, fetch_asset
+from genelab.utils.download import fetch_asset
 
 from genelab_wuji.reorient.constants import (
     REORIENT_JOINT_POS,
@@ -23,25 +26,11 @@ from genelab_wuji.reorient.constants import (
     REORIENT_ROBOT_ROOT_ROT,
 )
 
+# Reorient meshes (``_MESHES``) and the viewer cube (``_CUBE``) are declared in the central
+# asset zoo (genelab.asset_zoo.wuji_hand) so ``genelab asset list``/``download`` discover
+# them; imported here as the example's handles.
 _PACKAGE_ROOT = Path(__file__).resolve().parent
 _MJCF_TEMPLATE = _PACKAGE_ROOT / "mjcf" / "right_mjlab.xml"
-
-_MESHES: Final = AssetSpec(
-    name="wuji_hand_reorient",
-    url="https://raw.githubusercontent.com/KraHsu/genelab-assets/main/wuji_hand_reorient/wuji_hand_reorient.tar.gz",
-    md5="68bed6d8f0fe4adc81ac8aa7f62cdfbe",
-    filename="wuji_hand_reorient.tar.gz",
-    archive_member="wuji_hand_reorient/meshes/right/right_palm_link.STL",
-)
-
-# 54 mm UV-textured cube (visible faces) for the viewer: the held object and the goal marker.
-_CUBE: Final = AssetSpec(
-    name="wuji_cube",
-    url="https://raw.githubusercontent.com/KraHsu/genelab-assets/main/wuji_cube/wuji_cube.tar.gz",
-    md5="f77eff83a9ca8ade2966d5202b5d337d",
-    filename="wuji_cube.tar.gz",
-    archive_member="wuji_cube/dex_cube.obj",
-)
 
 
 def resolve_cube_mesh() -> str:

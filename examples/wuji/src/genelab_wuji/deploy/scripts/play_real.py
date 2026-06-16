@@ -3,25 +3,36 @@
 
 Wires the tested deploy core into a closed loop:
 
-    cube/goal (ZMQ from cube_world_observer/toreal_viewer)
+    cube/goal (ZMQ from cube_world_observer / toreal_viewer)
         -> DeployObsBuilder -> ONNX policy -> EMA action -> hand driver
+        -> success monitor (geodesic(cube, goal) < threshold, held) -> resample
+
+Goal modes (``--goal-mode``):
+  external  Goal comes from the goal ZMQ feed (toreal_viewer mocap drag). [default]
+  fixed     Hold a single goal quat (``--goal-quat w,x,y,z``).
+  random    Uniform-SO(3) goal; resampled each time the cube achieves it.
 
 Defaults to ``--mock`` (no hardware, no ZMQ required) so the loop can be smoke-run
 anywhere; pass ``--real`` to drive the hand via ``wujihandpy``. The control logic
 is covered headlessly by ``tests/test_examples_wuji_deploy_controller.py``.
 
 Usage:
-    # Smoke run without hardware (zeros cube/goal -> hand holds the grasp):
-    python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --mock --steps 100
+    # Smoke run without hardware (mock hand, random goals):
+    python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --goal-mode random --steps 200
 
-    # Real hand + live observer feed:
-    python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --real
+    # Real hand, random goals resampled on success:
+    python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --real --goal-mode random
+
+    # Real hand, goal driven by toreal_viewer over ZMQ:
+    python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --real --goal-mode external
 """
 
 from __future__ import annotations
 
 import argparse
 import time
+
+import numpy as np
 
 from genelab_wuji.deploy.config import default_joint_pos
 from genelab_wuji.deploy.controller import DeployController
@@ -35,6 +46,49 @@ from genelab_wuji.deploy.zmq_bridge import (
 )
 
 
+def _quat_geodesic(q1_wxyz: np.ndarray, q2_wxyz: np.ndarray) -> float:
+    """Angle (rad) between two unit wxyz quaternions."""
+    dot = abs(float(np.dot(q1_wxyz, q2_wxyz)))
+    return 2.0 * float(np.arccos(min(1.0, max(-1.0, dot))))
+
+
+def _random_unit_quat_wxyz() -> np.ndarray:
+    """Uniform random rotation over SO(3) (scipy; xyzw -> wxyz)."""
+    from scipy.spatial.transform import Rotation
+
+    q_xyzw = Rotation.random().as_quat()
+    return np.array([q_xyzw[3], q_xyzw[0], q_xyzw[1], q_xyzw[2]], dtype=float)
+
+
+def _parse_quat_wxyz(s: str) -> np.ndarray:
+    """argparse type: 'w,x,y,z' -> normalized wxyz quaternion."""
+    parts = [float(x) for x in s.split(",")]
+    if len(parts) != 4:
+        raise argparse.ArgumentTypeError(f"--goal-quat expects 4 floats w,x,y,z, got {s!r}")
+    q = np.array(parts, dtype=float)
+    n = float(np.linalg.norm(q))
+    if n < 1e-9:
+        raise argparse.ArgumentTypeError("--goal-quat has zero norm")
+    return q / n
+
+
+class _GoalStub:
+    """Local goal source (drop-in for ``GoalReceiver``): ``latest()`` returns the
+    current target quat; ``set`` swaps it (used by fixed / random goal modes)."""
+
+    def __init__(self, quat_wxyz: np.ndarray) -> None:
+        self._quat = np.asarray(quat_wxyz, dtype=float)
+
+    def set(self, quat_wxyz: np.ndarray) -> None:
+        self._quat = np.asarray(quat_wxyz, dtype=float)
+
+    def latest(self) -> np.ndarray:
+        return self._quat.copy()
+
+    def close(self) -> None:  # parity with GoalReceiver for the cleanup path
+        pass
+
+
 def _make_driver(real: bool) -> HandDriverBase:
     if not real:
         return MockHandDriver()
@@ -45,28 +99,52 @@ def _make_driver(real: bool) -> HandDriverBase:
     return driver
 
 
+def _make_goal_source(args: argparse.Namespace):
+    """Return the goal source for the chosen ``--goal-mode``."""
+    if args.goal_mode == "fixed":
+        if args.goal_quat is None:
+            raise SystemExit("--goal-mode fixed requires --goal-quat w,x,y,z")
+        return _GoalStub(args.goal_quat)
+    if args.goal_mode == "random":
+        return _GoalStub(_random_unit_quat_wxyz())
+    # external
+    if args.no_zmq:
+        return GoalReceiver(connect=False)
+    return GoalReceiver(port=args.goal_port)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ckpt", required=True, help="exported policy.onnx")
     parser.add_argument("--metadata", default=None, help="policy metadata.json (auto-detected)")
     parser.add_argument("--real", action="store_true", help="drive the real hand (wujihandpy)")
     parser.add_argument("--mock", action="store_true", help="use the mock hand (default)")
-    parser.add_argument("--no-zmq", action="store_true", help="skip ZMQ; feed zeros cube/identity goal")
+    parser.add_argument("--no-zmq", action="store_true", help="skip ZMQ; zeros cube / stub goal")
     parser.add_argument("--cube-port", type=int, default=DEFAULT_CUBE_PORT)
     parser.add_argument("--goal-port", type=int, default=DEFAULT_GOAL_PORT)
+    parser.add_argument(
+        "--goal-mode", choices=("external", "fixed", "random"), default="external"
+    )
+    parser.add_argument(
+        "--goal-quat", type=_parse_quat_wxyz, default=None, help="fixed goal 'w,x,y,z'"
+    )
+    parser.add_argument(
+        "--success-threshold", type=float, default=0.2, help="success geodesic err (rad)"
+    )
+    parser.add_argument(
+        "--success-hold-sec", type=float, default=0.5, help="hold time under threshold for success"
+    )
     parser.add_argument("--control-dt", type=float, default=0.05, help="policy step period (s)")
-    parser.add_argument("--steps", type=int, default=0, help="stop after N steps (0 = run forever)")
+    parser.add_argument("--steps", type=int, default=0, help="stop after N steps (0 = forever)")
     args = parser.parse_args()
+
+    if args.control_dt <= 0:
+        raise SystemExit("--control-dt must be > 0 (used for joint velocity + success timing)")
 
     policy = ONNXPolicy(args.ckpt, metadata_path=args.metadata)
     driver = _make_driver(real=args.real)
-
-    if args.no_zmq:
-        cube = CubeReceiver(connect=False)
-        goal = GoalReceiver(connect=False)
-    else:
-        cube = CubeReceiver(port=args.cube_port)
-        goal = GoalReceiver(port=args.goal_port)
+    cube = CubeReceiver(connect=False) if args.no_zmq else CubeReceiver(port=args.cube_port)
+    goal = _make_goal_source(args)
 
     controller = DeployController(
         policy=policy,
@@ -78,25 +156,46 @@ def main() -> int:
     )
     controller.reset()
 
-    print(f"[play_real] obs_dim={policy.input_dim} action_dim={policy.action_dim} "
-          f"driver={type(driver).__name__}")
+    hold_steps = max(1, round(args.success_hold_sec / args.control_dt))
+    print(
+        f"[play_real] obs_dim={policy.input_dim} action_dim={policy.action_dim} "
+        f"driver={type(driver).__name__} goal_mode={args.goal_mode} "
+        f"success<{args.success_threshold:.2f}rad held {hold_steps} steps"
+    )
+
     step = 0
+    hold = 0
+    successes = 0
     try:
         while args.steps == 0 or step < args.steps:
             t0 = time.time()
             controller.step()
             step += 1
+
+            # Success monitor: geodesic(cube, goal) below threshold, sustained.
+            cube_quat = cube.latest()[1]
+            err = _quat_geodesic(cube_quat, goal.latest())
+            hold = hold + 1 if err < args.success_threshold else 0
+            if hold >= hold_steps:
+                successes += 1
+                print(f"[play_real] ✓ success #{successes} (err {np.degrees(err):.1f}°)")
+                hold = 0
+                if args.goal_mode == "random" and isinstance(goal, _GoalStub):
+                    goal.set(_random_unit_quat_wxyz())
+                    print("[play_real]   new random goal")
+
             sleep = args.control_dt - (time.time() - t0)
             if sleep > 0:
                 time.sleep(sleep)
     except KeyboardInterrupt:
         pass
     finally:
-        if args.real and hasattr(driver, "__exit__"):
-            driver.__exit__(None, None, None)
+        driver_exit = getattr(driver, "__exit__", None)
+        if args.real and driver_exit is not None:
+            driver_exit(None, None, None)
         cube.close()
         goal.close()
-    print(f"[play_real] ran {step} control steps")
+    print(f"[play_real] ran {step} control steps, {successes} successes")
     return 0
 
 
