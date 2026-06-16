@@ -120,6 +120,18 @@ def _build_agent(agent_cfg: SkrlAgentCfg, wrapper: Any, device: Any, log_dir: Pa
     models = build_models(agent_cfg.algorithm, wrapper, agent_cfg.models, device)
     agent_cls, default_cfg = _agent_class(agent_cfg.algorithm)
     cfg = _build_skrl_cfg(agent_cfg, default_cfg, log_dir)
+    if agent_cfg.models.obs_normalization and "state_preprocessor" in cfg:
+        # Empirical obs normalization (analogue of rsl_rl's obs_normalization). The
+        # scaler is owned by the agent and applied to states before policy/critic
+        # forward passes (see skrl ``_update``); ``size`` is taken from the observation
+        # space so it matches whichever ``obs_group`` feeds the agent.
+        from skrl.resources.preprocessors.torch import RunningStandardScaler
+
+        cfg["state_preprocessor"] = RunningStandardScaler
+        cfg["state_preprocessor_kwargs"] = {
+            "size": wrapper.observation_space,
+            "device": device,
+        }
     return agent_cls(
         models=models,
         memory=memory,
