@@ -32,6 +32,11 @@ class SkrlModelCfg:
     min_log_std: float = -20.0
     max_log_std: float = 2.0
     clip_actions: bool = False
+    # Empirical observation normalization (skrl ``RunningStandardScaler`` state
+    # preprocessor), the analogue of ``RslRlModelCfg.obs_normalization``. Off by
+    # default; load-bearing for off-policy stability (SAC/TD3 regress a bootstrapped
+    # Q and diverge without standardized critic inputs).
+    obs_normalization: bool = False
 
 
 @dataclass
