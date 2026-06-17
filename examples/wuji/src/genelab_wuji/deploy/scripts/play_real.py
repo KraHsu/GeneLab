@@ -34,7 +34,7 @@ import time
 
 import numpy as np
 
-from genelab_wuji.deploy.config import default_joint_pos
+from genelab_wuji.deploy.config import ENC_TO_POLICY, default_joint_pos_policy
 from genelab_wuji.deploy.controller import DeployController
 from genelab_wuji.deploy.hand_driver import HandDriverBase, MockHandDriver
 from genelab_wuji.deploy.onnx_policy import ONNXPolicy
@@ -209,8 +209,9 @@ def main() -> int:
         driver=driver,
         cube_source=cube,
         goal_source=goal,
-        default_joint_pos=default_joint_pos(),
+        default_joint_pos=default_joint_pos_policy(),  # policy (articulation) order
         control_dt=args.control_dt,
+        enc_to_policy=np.asarray(ENC_TO_POLICY),  # remap encoder<->policy joint order
     )
     controller.reset()
     mirror = _SimMirror() if args.viewer else None
