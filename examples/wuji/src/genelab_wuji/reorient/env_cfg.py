@@ -318,16 +318,12 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
                 mode="startup",
                 params={"asset_cfg": robot, "bias_range": (-0.01, 0.01)},
             ),
-            # Joint dry-friction (stiction): the MJCF has none, so the policy never
-            # learns to overcome the real hand's static friction and reorients too
-            # slowly on hardware (sim2sim timeouts). Genesis frictionloss is global
-            # (not per-env), so this is a fixed baseline forcing the policy to drive
-            # through realistic stiction.
-            "dof_frictionloss": EventTermCfg(
-                func=mdp.dr.dof_frictionloss,
-                mode="startup",
-                params={"asset_cfg": robot, "friction": 0.01},
-            ),
+            # NOTE: a fixed global joint frictionloss baseline (mdp.dr.dof_frictionloss)
+            # was tried here to close the sim2sim gap but HURT it (mjlab sim2sim
+            # 0.61 -> 0.52): Genesis frictionloss is global (not per-env), so a fixed
+            # value isn't real DR — it just shifts the Genesis overfit point. Removed.
+            # The transfer gap is the Genesis<->MuJoCo contact dynamics, which Genesis
+            # can't per-env randomize. See the dof_frictionloss docstring.
             "object_disturbance": EventTermCfg(
                 func=events.apply_velocity_disturbance,
                 mode="interval",
