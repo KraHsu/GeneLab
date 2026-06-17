@@ -318,6 +318,16 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
                 mode="startup",
                 params={"asset_cfg": robot, "bias_range": (-0.01, 0.01)},
             ),
+            # Joint dry-friction (stiction): the MJCF has none, so the policy never
+            # learns to overcome the real hand's static friction and reorients too
+            # slowly on hardware (sim2sim timeouts). Genesis frictionloss is global
+            # (not per-env), so this is a fixed baseline forcing the policy to drive
+            # through realistic stiction.
+            "dof_frictionloss": EventTermCfg(
+                func=mdp.dr.dof_frictionloss,
+                mode="startup",
+                params={"asset_cfg": robot, "friction": 0.01},
+            ),
             "object_disturbance": EventTermCfg(
                 func=events.apply_velocity_disturbance,
                 mode="interval",
