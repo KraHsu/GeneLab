@@ -102,4 +102,4 @@ class DeployController:
         target = self._action_proc.process(action)
         self.driver.write_target(target)
         self._last_action = action
-        return {"action": action, "target": target, "obs": obs}
+        return {"action": action, "target": target, "obs": obs, "joint_pos": joint_pos}

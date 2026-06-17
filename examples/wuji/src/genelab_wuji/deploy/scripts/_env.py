@@ -58,6 +58,25 @@ def set_cube_pose(env: Any, pos_w: np.ndarray, quat_w: np.ndarray) -> None:
             fn(value)
 
 
+def set_goal_marker(env: Any, quat_w: np.ndarray) -> None:
+    """Orient the play-mode ``goal_marker`` entity to the target (viewer only).
+
+    The marker sits at a fixed display pose (``GOAL_MARKER_POS``); we only rewrite
+    its orientation so play_real's viewer shows the current goal. No-op if the scene
+    has no goal marker (e.g. a non-play scene).
+    """
+    import torch
+
+    try:
+        handle = env.scene["goal_marker"].gs_handle
+    except (KeyError, AttributeError):
+        return
+    quat = torch.tensor(quat_w, dtype=torch.float, device=env.device).unsqueeze(0)
+    set_quat = getattr(handle, "set_quat", None)
+    if set_quat is not None:
+        set_quat(quat)
+
+
 def set_hand_joints(env: Any, qpos_encoder_order: np.ndarray) -> None:
     """Kinematically render hand encoder readings on the sim robot (calib viewer).
 
