@@ -137,6 +137,11 @@ def wuji_hand_reorient_env_cfg(play: bool = False, num_envs: int = 8192) -> Mana
             substeps=1,
             vis=play,
             gpu=not play,
+            # Per-env model params so dof/link DR (PD gains, frictionloss, mass/inertia)
+            # actually applies per environment. Genesis defaults these off, which silently
+            # no-ops per-env dof DR; training-only (eval/play uses nominal params).
+            batch_dofs_info=not play,
+            batch_links_info=not play,
         ),
         scene=InteractiveSceneCfg(
             env_spacing=(0.75, 0.75),
@@ -318,12 +323,15 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
                 mode="startup",
                 params={"asset_cfg": robot, "bias_range": (-0.01, 0.01)},
             ),
-            # NOTE: a fixed global joint frictionloss baseline (mdp.dr.dof_frictionloss)
-            # was tried here to close the sim2sim gap but HURT it (mjlab sim2sim
-            # 0.61 -> 0.52): Genesis frictionloss is global (not per-env), so a fixed
-            # value isn't real DR — it just shifts the Genesis overfit point. Removed.
-            # The transfer gap is the Genesis<->MuJoCo contact dynamics, which Genesis
-            # can't per-env randomize. See the dof_frictionloss docstring.
+            # Per-env joint dry-friction (stiction): the MJCF has none, so the policy
+            # never learns to overcome the real hand's static friction and reorients too
+            # slowly on hardware. Real per-env DR now that batch_dofs_info is on (the
+            # earlier global-baseline attempt hurt; this samples per env/joint).
+            "dof_frictionloss": EventTermCfg(
+                func=mdp.dr.dof_frictionloss,
+                mode="startup",
+                params={"asset_cfg": robot, "friction_range": (0.0, 0.02)},
+            ),
             "object_disturbance": EventTermCfg(
                 func=events.apply_velocity_disturbance,
                 mode="interval",

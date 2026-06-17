@@ -65,23 +65,25 @@ def randomize_joint_stiffness_damping(
 def dof_frictionloss(
     env: "EnvContext",
     env_ids: torch.Tensor | None,
-    friction: float = 0.01,
+    friction_range: tuple[float, float] = (0.0, 0.02),
     asset_cfg: "SceneEntityCfg | None" = None,
 ) -> None:
-    """Set a GLOBAL joint dry-friction (frictionloss, Nm) baseline on the actuated joints.
+    """Per-env, per-joint absolute joint dry-friction (frictionloss, Nm) DR.
 
     The hand MJCF declares zero joint frictionloss, so a Genesis-trained policy never
     learns to overcome the *real* hand's static friction — it under-drives the fingers and
-    reorients too slowly on hardware (the cube is held but the goal times out). Adding a
-    realistic stiction baseline forces the policy to drive through it, which transfers.
+    reorients too slowly on hardware (the cube is held but the goal times out). Sampling an
+    absolute frictionloss per env/joint makes the policy robust to a range of real stiction.
 
-    NOTE: Genesis frictionloss is a *non-batched* dof property (shared across all envs), so
-    this is a single global value, not per-env DR (unlike kp/kv). Use ``mode="startup"``.
-    Written via ``set_dofs_frictionloss``; guarded for the fake-env test scaffolding.
+    REQUIRES ``SimulationCfg.batch_dofs_info=True`` — otherwise Genesis stores frictionloss
+    shared across the batch (``set_dofs_frictionloss`` rejects a per-env ``(n_env, n_joint)``
+    tensor) and this call silently no-ops. Written via ``set_dofs_frictionloss``; guarded
+    for the fake-env test scaffolding.
     """
     env_ids = normalise_env_ids(env, env_ids)
     if env_ids.numel() == 0:
         return
+    n = int(env_ids.numel())
     handle = asset_handle(env, asset_cfg)
     setter = getattr(handle, "set_dofs_frictionloss", None) or getattr(
         handle, "set_dofs_friction", None
@@ -92,14 +94,9 @@ def dof_frictionloss(
         n_joints = actuator.num_joints
         if n_joints == 0:
             continue
-        vals = torch.full((n_joints,), float(friction), device=env.device)  # 1D = global
+        vals = torch.empty(n, n_joints, device=env.device).uniform_(*friction_range)
         try:
-            setter(vals, dofs_idx_local=actuator.dof_ids)
-        except TypeError:
-            try:
-                setter(vals, actuator.dof_ids)
-            except Exception:
-                pass
+            setter(vals, dofs_idx_local=actuator.dof_ids, envs_idx=env_ids)
         except Exception:
             pass
 
