@@ -113,6 +113,57 @@ def _make_goal_source(args: argparse.Namespace):
     return GoalReceiver(port=args.goal_port)
 
 
+class _SimMirror:
+    """Genesis digital-twin viewer for play_real: live hand + observed cube + goal.
+
+    Renders kinematically each control step (no physics — see
+    ``InteractiveScene.refresh_visualizer``), so it just shows reality, never fights
+    it. All heavy imports (Genesis / the env) are deferred to construction so a
+    ``--no-viewer`` run stays numpy-only and headless-safe.
+    """
+
+    def __init__(self) -> None:
+        from genelab_wuji.deploy.frame_transform import quat_mul
+        from genelab_wuji.deploy.real2sim import cube_pose_in_tag_to_world
+        from genelab_wuji.deploy.scripts._env import (
+            build_reorient_env,
+            set_cube_pose,
+            set_goal_marker,
+            set_hand_joints,
+            tag_world_pose,
+        )
+
+        self._to_world = cube_pose_in_tag_to_world
+        self._quat_mul = quat_mul
+        self._set_cube = set_cube_pose
+        self._set_goal = set_goal_marker
+        self._set_hand = set_hand_joints
+        self._env = build_reorient_env(num_envs=1)
+        self._tag_pos_w, self._tag_quat_w = tag_world_pose(self._env)
+
+    @property
+    def closed(self) -> bool:
+        return bool(self._env.viewer_closed)
+
+    def update(
+        self,
+        joint_pos: np.ndarray,
+        cube_pos_tag: np.ndarray,
+        cube_quat_tag: np.ndarray,
+        goal_quat_tag: np.ndarray,
+    ) -> None:
+        self._set_hand(self._env, joint_pos)
+        cube_pos_w, cube_quat_w = self._to_world(
+            self._tag_pos_w, self._tag_quat_w, cube_pos_tag, cube_quat_tag
+        )
+        self._set_cube(self._env, cube_pos_w, cube_quat_w)
+        self._set_goal(self._env, self._quat_mul(self._tag_quat_w, goal_quat_tag))
+        self._env.scene.refresh_visualizer()
+
+    def close(self) -> None:
+        self._env.close()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ckpt", required=True, help="exported policy.onnx")
@@ -136,6 +187,13 @@ def main() -> int:
     )
     parser.add_argument("--control-dt", type=float, default=0.05, help="policy step period (s)")
     parser.add_argument("--steps", type=int, default=0, help="stop after N steps (0 = forever)")
+    parser.add_argument(
+        "--viewer",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="mirror the live hand + cube + goal in a Genesis viewer "
+        "(default on; pass --no-viewer for headless / mock smoke runs)",
+    )
     args = parser.parse_args()
 
     if args.control_dt <= 0:
@@ -155,11 +213,13 @@ def main() -> int:
         control_dt=args.control_dt,
     )
     controller.reset()
+    mirror = _SimMirror() if args.viewer else None
 
     hold_steps = max(1, round(args.success_hold_sec / args.control_dt))
     print(
         f"[play_real] obs_dim={policy.input_dim} action_dim={policy.action_dim} "
         f"driver={type(driver).__name__} goal_mode={args.goal_mode} "
+        f"viewer={'on' if mirror else 'off'} "
         f"success<{args.success_threshold:.2f}rad held {hold_steps} steps"
     )
 
@@ -169,12 +229,14 @@ def main() -> int:
     try:
         while args.steps == 0 or step < args.steps:
             t0 = time.time()
-            controller.step()
+            info = controller.step()
             step += 1
 
+            cube_pos_tag, cube_quat_tag = cube.latest()
+            goal_quat_tag = goal.latest()
+
             # Success monitor: geodesic(cube, goal) below threshold, sustained.
-            cube_quat = cube.latest()[1]
-            err = _quat_geodesic(cube_quat, goal.latest())
+            err = _quat_geodesic(cube_quat_tag, goal_quat_tag)
             hold = hold + 1 if err < args.success_threshold else 0
             if hold >= hold_steps:
                 successes += 1
@@ -182,7 +244,13 @@ def main() -> int:
                 hold = 0
                 if args.goal_mode == "random" and isinstance(goal, _GoalStub):
                     goal.set(_random_unit_quat_wxyz())
+                    goal_quat_tag = goal.latest()
                     print("[play_real]   new random goal")
+
+            if mirror is not None:
+                mirror.update(info["joint_pos"], cube_pos_tag, cube_quat_tag, goal_quat_tag)
+                if mirror.closed:
+                    break
 
             sleep = args.control_dt - (time.time() - t0)
             if sleep > 0:
@@ -195,6 +263,8 @@ def main() -> int:
             driver_exit(None, None, None)
         cube.close()
         goal.close()
+        if mirror is not None:
+            mirror.close()
     print(f"[play_real] ran {step} control steps, {successes} successes")
     return 0
 

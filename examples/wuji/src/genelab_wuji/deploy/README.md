@@ -30,7 +30,7 @@ The pieces are decoupled via ZMQ (localhost):
 | `cube_geom.py` | cube_tags JSON resolution (`config/cube_tags.json`) | glue |
 | `scripts/hand_utils.py` | `check` (read-only bridge test) / `home` (3s ramp to grasp pose) | glue (hardware) |
 | `scripts/calib_check.py` | static calib viewer: live hand (encoders) + cube vs. digital twin | glue (hardware) |
-| `scripts/play_real.py` | deploy control loop + goal modes + success monitor (real/mock) | glue |
+| `scripts/play_real.py` | deploy control loop + goal modes + success monitor + Genesis mirror (real/mock) | glue |
 | `scripts/toreal_viewer.py` | real2sim Genesis viewer | glue |
 | `scripts/cube_world_observer.py` | Hikvision camera → ArUco board + SO3 Kalman → ZMQ cube pose | glue (hardware) |
 
@@ -72,10 +72,10 @@ export LD_LIBRARY_PATH=/opt/MVS/lib/64:/opt/MVS/lib/32:$LD_LIBRARY_PATH
 
 ```bash
 # 0) export a trained policy to ONNX
-genelab export Genelab-Reorient-Wuji-Hand-v0 PATH/model.pt --format onnx --output policy.onnx
+genelab export Genelab-Reorient-Wuji-Hand-v0 PATH/model.pt --format onnx --out policy.onnx
 
-# 1) smoke-test the control loop, no hardware, no ZMQ
-python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --mock --no-zmq --steps 100
+# 1) smoke-test the control loop, no hardware, no ZMQ, no viewer
+python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --mock --no-zmq --no-viewer --steps 100
 
 # 1.5) bring up the real hand bridge (needs wujihandpy): check first, then home
 python -m genelab_wuji.deploy.scripts.hand_utils check   # READ-ONLY: connection + encoder sanity
@@ -88,11 +88,17 @@ python -m genelab_wuji.deploy.scripts.toreal_viewer                   # terminal
 # 2.5) calibration check: home the hand, render live hand + observed cube in the twin
 python -m genelab_wuji.deploy.scripts.calib_check                     # (needs the observer running)
 
-# 3) drive the real hand from the live observer feed
+# 3) drive the real hand from the live observer feed (Genesis mirror viewer on by default,
+#    showing the live hand + observed cube + goal; pass --no-viewer for headless).
 #    goal modes: --goal-mode random (uniform-SO3, resampled on success) |
 #                fixed --goal-quat w,x,y,z | external (goal from toreal_viewer ZMQ)
 python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --real --goal-mode random
 ```
+
+`play_real` mirrors the live hand (encoders) + observed cube + goal in a Genesis viewer
+by default (`--no-viewer` to disable). It reuses the same kinematic, physics-free refresh
+as `calib_check`, so the mirror just reflects reality. The control core itself is numpy-only
+and runs headlessly under `--no-viewer`.
 
 The cube observer is a faithful port of the production wuji-mjlab pipeline (Hikvision MVS
 capture, multi-face ArUco board fusion, SO3 Kalman + position low-pass + corner EMA, world
