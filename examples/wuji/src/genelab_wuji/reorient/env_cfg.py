@@ -330,7 +330,14 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
             "dof_frictionloss": EventTermCfg(
                 func=mdp.dr.dof_frictionloss,
                 mode="startup",
-                params={"asset_cfg": robot, "friction_range": (0.0, 0.02)},
+                params={"asset_cfg": robot, "friction_range": (0.0, 0.03)},
+            ),
+            # Per-env joint armature (rotor inertia) scale — robustness to inertia
+            # calibration error (mjlab parity). Now per-env via batch_dofs_info.
+            "dof_armature": EventTermCfg(
+                func=mdp.dr.dof_armature,
+                mode="startup",
+                params={"asset_cfg": robot, "scale_range": (0.75, 1.3)},
             ),
             "object_disturbance": EventTermCfg(
                 func=events.apply_velocity_disturbance,

@@ -101,6 +101,48 @@ def dof_frictionloss(
             pass
 
 
+def dof_armature(
+    env: "EnvContext",
+    env_ids: torch.Tensor | None,
+    scale_range: tuple[float, float] = (0.75, 1.3),
+    asset_cfg: "SceneEntityCfg | None" = None,
+) -> None:
+    """Per-env, per-joint multiplicative DR on joint armature (rotor reflected inertia).
+
+    Armature shapes the effective joint inertia / actuator response; randomizing it makes
+    the policy robust to inertia-calibration error (mjlab uses scale 0.75-1.3). The MJCF
+    declares non-zero armature, so a multiplicative scale is meaningful (unlike frictionloss).
+
+    REQUIRES ``SimulationCfg.batch_dofs_info=True`` (else armature is shared across the batch
+    and per-env writes no-op). Reads the nominal via ``get_dofs_armature``; guarded for the
+    fake-env test scaffolding.
+    """
+    env_ids = normalise_env_ids(env, env_ids)
+    if env_ids.numel() == 0:
+        return
+    n = int(env_ids.numel())
+    handle = asset_handle(env, asset_cfg)
+    getter = getattr(handle, "get_dofs_armature", None)
+    setter = getattr(handle, "set_dofs_armature", None)
+    if setter is None or getter is None:
+        return
+    for actuator in asset_articulation(env, asset_cfg).actuators.values():
+        n_joints = actuator.num_joints
+        if n_joints == 0:
+            continue
+        try:
+            nominal = getter(dofs_idx_local=actuator.dof_ids, envs_idx=env_ids)
+            nominal = nominal[0] if nominal.dim() == 2 else nominal
+        except Exception:
+            continue
+        mult = torch.empty(n, n_joints, device=env.device).uniform_(*scale_range)
+        vals = nominal.to(env.device).unsqueeze(0) * mult
+        try:
+            setter(vals, dofs_idx_local=actuator.dof_ids, envs_idx=env_ids)
+        except Exception:
+            pass
+
+
 def encoder_bias(
     env: "EnvContext",
     env_ids: torch.Tensor | None,
