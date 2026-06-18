@@ -280,6 +280,15 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
     }
     if play:
         return cfg
+    # Per-episode gravity-direction tilt — the Genesis-native equivalent of mjlab's
+    # hand-pitch DR (Genesis can't tilt a fixed-base hand per env, so we tilt gravity
+    # instead: same gravity-in-palm physics, hand stays fixed-base, tag frame unchanged).
+    # Makes the policy robust to a tilted hardware mount (e.g. the real ~10 deg down-tilt).
+    cfg["gravity_tilt"] = EventTermCfg(
+        func=mdp.dr.gravity_tilt,
+        mode="reset",
+        params={"max_tilt_rad": 0.4},
+    )
     cfg.update(
         {
             "robot_friction": EventTermCfg(
