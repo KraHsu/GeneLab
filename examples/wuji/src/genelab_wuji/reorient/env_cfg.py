@@ -287,7 +287,10 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
     cfg["gravity_tilt"] = EventTermCfg(
         func=mdp.dr.gravity_tilt,
         mode="reset",
-        params={"max_tilt_rad": 0.4},
+        # 0.2 rad (~11 deg) cone covers the real ~10 deg mount tilt with margin. A larger
+        # full-azimuth cone (tried 0.4) was too hard — the cube rolled off before the
+        # policy could bootstrap a grasp (training stalled at goals ~0.3).
+        params={"max_tilt_rad": 0.2},
     )
     cfg.update(
         {
