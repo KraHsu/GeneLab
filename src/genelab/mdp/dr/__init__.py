@@ -16,6 +16,7 @@ calls without a real Genesis backend silently no-op rather than raising.
 from genelab.mdp.dr.actuator import randomize_actuator_deadzone
 from genelab.mdp.dr.body import body_com_offset, body_mass_offset
 from genelab.mdp.dr.geom import geom_friction
+from genelab.mdp.dr.gravity import gravity_tilt
 from genelab.mdp.dr.joint import (
     dof_armature,
     dof_frictionloss,
@@ -30,6 +31,7 @@ __all__ = [
     "dof_frictionloss",
     "encoder_bias",
     "geom_friction",
+    "gravity_tilt",
     "randomize_actuator_deadzone",
     "randomize_joint_stiffness_damping",
 ]
