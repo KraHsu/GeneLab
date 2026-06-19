@@ -7,6 +7,7 @@ Used by both the vision pipeline (cube_world_observer.py — needs cube/tag size
 for AprilTag/ArUco PnP) and the sim/benchmark pipeline (play_real.py — needs to
 patch the MuJoCo cube body so visualization and physics match the real cube).
 """
+
 from __future__ import annotations
 
 import json

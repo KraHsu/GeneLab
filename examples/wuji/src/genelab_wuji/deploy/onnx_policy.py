@@ -37,9 +37,7 @@ class ONNXPolicy:
             raise FileNotFoundError(f"ONNX not found: {onnx_path}")
 
         self.onnx_path: str = onnx_path
-        self.session = ort.InferenceSession(
-            onnx_path, providers=["CPUExecutionProvider"]
-        )
+        self.session = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
         inp = self.session.get_inputs()[0]
         out = self.session.get_outputs()[0]
         self.input_name: str = inp.name
@@ -50,9 +48,7 @@ class ONNXPolicy:
         self.metadata: dict[str, Any] = self._load_metadata(onnx_path, metadata_path)
 
     @staticmethod
-    def _load_metadata(
-        onnx_path: str, metadata_path: Optional[str | Path]
-    ) -> dict[str, Any]:
+    def _load_metadata(onnx_path: str, metadata_path: Optional[str | Path]) -> dict[str, Any]:
         candidates = (
             [str(metadata_path)]
             if metadata_path is not None
@@ -72,9 +68,7 @@ class ONNXPolicy:
         if obs.ndim == 1:
             obs = obs[None, :]
         if obs.shape != (1, self.input_dim):
-            raise ValueError(
-                f"obs shape {obs.shape}, expected (1, {self.input_dim})"
-            )
+            raise ValueError(f"obs shape {obs.shape}, expected (1, {self.input_dim})")
         obs = obs.astype(np.float32, copy=False)
         result = self.session.run([self.output_name], {self.input_name: obs})[0]
         return result.squeeze(0)

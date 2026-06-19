@@ -55,9 +55,7 @@ def test_cube_pose_from_msg_preserves_quat_component_mapping() -> None:
     assert cube_size is None  # absent in this message
 
 
-def _cube_msg(
-    pos: list[float], quat_wxyz: list[float], world_fixed: bool
-) -> dict[str, Any]:
+def _cube_msg(pos: list[float], quat_wxyz: list[float], world_fixed: bool) -> dict[str, Any]:
     w, x, y, z = quat_wxyz
     return {
         "world_fixed": world_fixed,

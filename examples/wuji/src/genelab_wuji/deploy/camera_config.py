@@ -24,6 +24,7 @@ import yaml
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "config", "camera.yaml")
 
+
 def load_camera_config(config_file: str | None = None) -> dict[str, Any]:
     """Load camera configuration from YAML file.
 
@@ -42,7 +43,7 @@ def load_camera_config(config_file: str | None = None) -> dict[str, Any]:
     if not os.path.exists(config_file):
         raise FileNotFoundError(f"Camera config not found: {config_file}")
 
-    with open(config_file, 'r') as f:
+    with open(config_file, "r") as f:
         cfg = yaml.safe_load(f)
 
     return cfg
@@ -63,13 +64,16 @@ def get_camera_matrix(cfg: dict[str, Any] | None = None) -> np.ndarray:
     if cfg is None:
         cfg = load_camera_config()
 
-    intr = cfg['intrinsics']
-    roi = cfg['roi']
-    K = np.array([
-        [intr['fx'], 0, intr['cx'] - roi['offset_x']],
-        [0, intr['fy'], intr['cy'] - roi['offset_y']],
-        [0, 0, 1]
-    ], dtype=np.float64)
+    intr = cfg["intrinsics"]
+    roi = cfg["roi"]
+    K = np.array(
+        [
+            [intr["fx"], 0, intr["cx"] - roi["offset_x"]],
+            [0, intr["fy"], intr["cy"] - roi["offset_y"]],
+            [0, 0, 1],
+        ],
+        dtype=np.float64,
+    )
     return K
 
 
@@ -85,10 +89,8 @@ def get_dist_coeffs(cfg: dict[str, Any] | None = None) -> np.ndarray:
     if cfg is None:
         cfg = load_camera_config()
 
-    dist = cfg['distortion']
-    return np.array([
-        dist['k1'], dist['k2'], dist['p1'], dist['p2'], dist['k3']
-    ], dtype=np.float64)
+    dist = cfg["distortion"]
+    return np.array([dist["k1"], dist["k2"], dist["p1"], dist["p2"], dist["k3"]], dtype=np.float64)
 
 
 def get_roi(cfg: dict[str, Any] | None = None) -> tuple[int, int, int, int]:
@@ -103,8 +105,8 @@ def get_roi(cfg: dict[str, Any] | None = None) -> tuple[int, int, int, int]:
     if cfg is None:
         cfg = load_camera_config()
 
-    roi = cfg['roi']
-    return roi['offset_x'], roi['offset_y'], roi['width'], roi['height']
+    roi = cfg["roi"]
+    return roi["offset_x"], roi["offset_y"], roi["width"], roi["height"]
 
 
 def get_capture_settings(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -119,11 +121,11 @@ def get_capture_settings(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
     if cfg is None:
         cfg = load_camera_config()
 
-    cap = cfg['capture']
+    cap = cfg["capture"]
     return {
-        'exposure_time': cap['exposure_time'],
-        'gain': cap['gain'],
-        'frame_rate': cap.get('frame_rate', 0),
+        "exposure_time": cap["exposure_time"],
+        "gain": cap["gain"],
+        "frame_rate": cap.get("frame_rate", 0),
     }
 
 
@@ -154,25 +156,30 @@ def setup_camera_capture(cam: Any, cfg: dict[str, Any] | None = None) -> None:
         cfg: Camera configuration dict. If None, loads from file.
     """
     settings = get_capture_settings(cfg)
-    cam.MV_CC_SetFloatValue("ExposureTime", settings['exposure_time'])
-    cam.MV_CC_SetFloatValue("Gain", settings['gain'])
+    cam.MV_CC_SetFloatValue("ExposureTime", settings["exposure_time"])
+    cam.MV_CC_SetFloatValue("Gain", settings["gain"])
     # Frame rate: enable explicit control and set target
-    frame_rate = settings.get('frame_rate', 0)
+    frame_rate = settings.get("frame_rate", 0)
     if frame_rate and frame_rate > 0:
         ret1 = cam.MV_CC_SetBoolValue("AcquisitionFrameRateEnable", True)
         ret2 = cam.MV_CC_SetFloatValue("AcquisitionFrameRate", float(frame_rate))
         # Read back actual resulting frame rate
-        from ctypes import c_float, byref
+        from ctypes import c_float
+
         actual_fps = c_float(0)
         ret3 = cam.MV_CC_GetFloatValue("ResultingFrameRate", actual_fps)
         if ret3 == 0:
             actual_str = f", actual={actual_fps.value:.1f}Hz"
         else:
             actual_str = ", actual=unknown"
-        print(f"Camera capture: exposure={settings['exposure_time']}us, gain={settings['gain']}, "
-              f"frame_rate={frame_rate}Hz (enable_ret=0x{ret1:X}, set_ret=0x{ret2:X}{actual_str})")
+        print(
+            f"Camera capture: exposure={settings['exposure_time']}us, gain={settings['gain']}, "
+            f"frame_rate={frame_rate}Hz (enable_ret=0x{ret1:X}, set_ret=0x{ret2:X}{actual_str})"
+        )
     else:
-        print(f"Camera capture: exposure={settings['exposure_time']}us, gain={settings['gain']}, frame_rate=default")
+        print(
+            f"Camera capture: exposure={settings['exposure_time']}us, gain={settings['gain']}, frame_rate=default"
+        )
 
 
 if __name__ == "__main__":

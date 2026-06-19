@@ -56,8 +56,6 @@ def test_tag_pose_in_world_applies_tag_in_palm_offset() -> None:
     # constant TAG_IN_PALM transform from the reorient constants.
     from genelab_wuji.reorient.constants import TAG_IN_PALM_POS, TAG_IN_PALM_QUAT_WXYZ
 
-    tag_pos_w, tag_quat_w = tag_pose_in_world(
-        np.zeros(3), np.array([1.0, 0.0, 0.0, 0.0])
-    )
+    tag_pos_w, tag_quat_w = tag_pose_in_world(np.zeros(3), np.array([1.0, 0.0, 0.0, 0.0]))
     assert np.allclose(tag_pos_w, TAG_IN_PALM_POS, atol=1e-9)
     assert np.allclose(tag_quat_w, TAG_IN_PALM_QUAT_WXYZ, atol=1e-9)

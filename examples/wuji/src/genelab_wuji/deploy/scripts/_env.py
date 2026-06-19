@@ -52,7 +52,12 @@ def set_cube_pose(env: Any, pos_w: np.ndarray, quat_w: np.ndarray) -> None:
     pos = torch.tensor(pos_w, dtype=torch.float, device=device).unsqueeze(0)
     quat = torch.tensor(quat_w, dtype=torch.float, device=device).unsqueeze(0)
     zeros = torch.zeros(1, 3, device=device)
-    for setter, value in (("set_pos", pos), ("set_quat", quat), ("set_vel", zeros), ("set_ang", zeros)):
+    for setter, value in (
+        ("set_pos", pos),
+        ("set_quat", quat),
+        ("set_vel", zeros),
+        ("set_ang", zeros),
+    ):
         fn = getattr(handle, setter, None)
         if fn is not None:
             fn(value)

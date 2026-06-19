@@ -289,9 +289,7 @@ class CubePublisher:
     ) -> None:
         import zmq
 
-        msg = cube_msg_from_pose(
-            pos, quat_wxyz, world_fixed=world_fixed, cube_size=cube_size
-        )
+        msg = cube_msg_from_pose(pos, quat_wxyz, world_fixed=world_fixed, cube_size=cube_size)
         msg["timestamp"] = time.time()
         self._socket.send_string(json.dumps(msg), flags=zmq.NOBLOCK)
 

@@ -183,6 +183,14 @@ reportUnknownParameterType = false
 line-length = 100
 src = ["src"]
 
+[tool.ruff.lint.per-file-ignores]
+# Ported Hikvision MVS SDK glue (vendored from the wuji-mjlab vision toolchain):
+# the vendor camera bindings are loaded via `from MvImport.MvCameraControl_class
+# import *` / `from ctypes import *` (F403/F405) after a runtime sys.path insert
+# locating the SDK (E402). Both are inherent to the vendor SDK and cannot be
+# resolved statically (the SDK is not installed in CI).
+"examples/wuji/src/genelab_wuji/deploy/scripts/cube_world_observer.py" = ["E402", "F403", "F405"]
+
 [tool.pytest.ini_options]
 addopts = ["-ra"]
 pythonpath = ["examples/genelab_examples/src", "examples/unitree/src", "examples/inverted_pendulum/src", "examples/genelab_showcase/src", "examples/franka/src", "examples/wuji/src"]
