@@ -28,7 +28,28 @@ JOINT_NAMES_20: tuple[str, ...] = tuple(REORIENT_JOINT_POS)
 N_JOINTS: int = len(JOINT_NAMES_20)
 """Hand DOF count (20 = 5 fingers x 4 joints)."""
 
-ENC_TO_POLICY: tuple[int, ...] = (0, 4, 8, 12, 16, 1, 5, 9, 13, 17, 2, 6, 10, 14, 18, 3, 7, 11, 15, 19)
+ENC_TO_POLICY: tuple[int, ...] = (
+    0,
+    4,
+    8,
+    12,
+    16,
+    1,
+    5,
+    9,
+    13,
+    17,
+    2,
+    6,
+    10,
+    14,
+    18,
+    3,
+    7,
+    11,
+    15,
+    19,
+)
 """``policy_order[i] = encoder_order[ENC_TO_POLICY[i]]`` (encoder = ``JOINT_NAMES_20``)."""
 
 POLICY_JOINT_NAMES: tuple[str, ...] = tuple(JOINT_NAMES_20[i] for i in ENC_TO_POLICY)

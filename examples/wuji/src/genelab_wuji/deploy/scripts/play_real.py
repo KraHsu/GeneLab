@@ -173,9 +173,7 @@ def main() -> int:
     parser.add_argument("--no-zmq", action="store_true", help="skip ZMQ; zeros cube / stub goal")
     parser.add_argument("--cube-port", type=int, default=DEFAULT_CUBE_PORT)
     parser.add_argument("--goal-port", type=int, default=DEFAULT_GOAL_PORT)
-    parser.add_argument(
-        "--goal-mode", choices=("external", "fixed", "random"), default="external"
-    )
+    parser.add_argument("--goal-mode", choices=("external", "fixed", "random"), default="external")
     parser.add_argument(
         "--goal-quat", type=_parse_quat_wxyz, default=None, help="fixed goal 'w,x,y,z'"
     )

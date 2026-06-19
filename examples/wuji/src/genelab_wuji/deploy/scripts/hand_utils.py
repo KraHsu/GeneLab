@@ -140,10 +140,7 @@ def cmd_check(_args: argparse.Namespace) -> int:
     expected_home = default_joint_pos()
     diff = flat - expected_home
     print("\n  Current vs home pose (default_joint_pos):")
-    print(
-        f"    Max abs diff: {np.abs(diff).max():.3f} rad "
-        f"({np.rad2deg(np.abs(diff).max()):.1f}°)"
-    )
+    print(f"    Max abs diff: {np.abs(diff).max():.3f} rad ({np.rad2deg(np.abs(diff).max()):.1f}°)")
     print(f"    RMS diff:     {np.sqrt(np.mean(diff**2)):.3f} rad")
     print("    (A large diff just means the hand isn't at home yet — not an error.)")
 
@@ -157,7 +154,9 @@ def cmd_check(_args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Wuji hand hardware utilities (home / check).")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    p_home = sub.add_parser("home", help="Ramp all 20 joints to the home grasp pose (writes targets).")
+    p_home = sub.add_parser(
+        "home", help="Ramp all 20 joints to the home grasp pose (writes targets)."
+    )
     p_home.set_defaults(func=cmd_home)
     p_check = sub.add_parser("check", help="READ-ONLY connection + encoder sanity check.")
     p_check.set_defaults(func=cmd_check)
