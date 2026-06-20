@@ -8,10 +8,10 @@ frame so the Genesis viewer mirrors reality. Optionally publishes a goal orienta
 
 Usage:
     # Terminal 1: real camera -> ZMQ (needs hardware; see cube_world_observer.py)
-    python -m genelab_wuji.deploy.scripts.cube_world_observer
+    uv run wuji observer
 
     # Terminal 2: mirror the cube in the Genesis sim
-    python -m genelab_wuji.deploy.scripts.toreal_viewer
+    uv run wuji viewer
 
 Run on a host with a GPU + display (Genesis viewer). The transform math itself is
 covered by the headless deploy tests.
@@ -27,12 +27,12 @@ from genelab_wuji.deploy.scripts._env import build_reorient_env, set_cube_pose, 
 from genelab_wuji.deploy.zmq_bridge import DEFAULT_CUBE_PORT, CubeReceiver
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cube-port", type=int, default=DEFAULT_CUBE_PORT)
     parser.add_argument("--host", default="localhost")
     parser.add_argument("--fps", type=float, default=60.0, help="viewer refresh rate")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     env = build_reorient_env()
     tag_pos_w, tag_quat_w = tag_world_pose(env)  # fixed-base hand -> constant
