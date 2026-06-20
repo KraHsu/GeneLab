@@ -8,7 +8,7 @@
 |---|---|
 | Python | 3.12 或更新 |
 | 依赖管理 | `uv` |
-| 仿真后端 | `genesis-world>=0.4.7` |
+| 仿真后端 | `genesis-world>=1.0.0,<1.1.0`（1.1.x 改动了 GeneLab 依赖的 API） |
 | PyTorch | 通过一个 `torch-*` extra 安装 `torch>=2.8.0` |
 
 ## 同步环境

@@ -9,7 +9,8 @@ requires-python = ">=3.12"
 authors = [{ name = "Chenhao Zhang", email = "charles040318@gmail.com" }]
 maintainers = [{ name = "Chenhao Zhang", email = "charles040318@gmail.com" }]
 dependencies = [
-    "genesis-world>=1.0.0,<2.0.0",
+    # Pin to Genesis 1.0.x: 1.1.x changes parts of the API GeneLab relies on.
+    "genesis-world>=1.0.0,<1.1.0",
     "typer>=0.12",
     "rich>=13",
     "questionary>=2",
