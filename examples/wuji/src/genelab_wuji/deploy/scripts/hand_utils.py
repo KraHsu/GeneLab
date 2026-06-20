@@ -11,8 +11,8 @@ Single entry-point for low-level hand operations, mirroring wuji-mjlab's
          and reports tracking error.
 
 Usage:
-    python -m genelab_wuji.deploy.scripts.hand_utils check
-    python -m genelab_wuji.deploy.scripts.hand_utils home
+    uv run wuji check
+    uv run wuji home
 
 The home pose is ``REORIENT_JOINT_POS`` (via ``config.default_joint_pos``) — the
 same grasp keyframe the policy and ``MockHandDriver`` start from, so after ``home``
@@ -146,7 +146,7 @@ def cmd_check(_args: argparse.Namespace) -> int:
 
     print("\n" + "=" * 60)
     print("✓ All read operations succeeded. Hand bridge healthy.")
-    print("✓ Next: ramp to home with `python -m genelab_wuji.deploy.scripts.hand_utils home`")
+    print("✓ Next: ramp to home with `uv run wuji home`")
     print("=" * 60)
     return 0
 

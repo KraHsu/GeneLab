@@ -16,8 +16,8 @@ Features:
 - ZMQ publishing on port 5555
 
 Usage:
-    python -m genelab_wuji.deploy.scripts.cube_world_observer --preview  # With visualization
-    python -m genelab_wuji.deploy.scripts.cube_world_observer            # Headless mode
+    uv run wuji observer --preview  # With visualization
+    uv run wuji observer            # Headless mode
 
 On startup, the world coordinate system is auto-sampled (100 frames by default),
 then a fixed world frame is used. Press 'w' to resample the world frame.
@@ -1442,7 +1442,7 @@ class CubeWorldObserver:
         print("Cleanup done.")
 
 
-def main():
+def main(argv=None):
     import argparse
 
     # Load config from file first
@@ -1474,7 +1474,7 @@ def main():
         "resolving to config/cube_tags<suffix>.json, or a literal "
         "path. Default: config/cube_tags.json (54mm).",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     cube_config_path = resolve_cube_config_path(args.cube)
 
     # Use config values, CLI args override
