@@ -15,9 +15,9 @@ wrist AprilTag world frame) matches the physical cube. There is no policy and no
 control beyond the initial homing ramp — the hand stays at home.
 
 Run:
-    python -m genelab_wuji.deploy.scripts.cube_world_observer &          # publisher
-    python -m genelab_wuji.deploy.scripts.calib_check                    # this tool
-    python -m genelab_wuji.deploy.scripts.calib_check --mock             # no hardware
+    uv run wuji observer &          # publisher
+    uv run wuji calib               # this tool
+    uv run wuji calib --mock        # no hardware
 
 Press Ctrl+C or close the viewer window to exit. Needs a GPU + display (Genesis
 viewer); the transform math itself is covered by the headless deploy tests.
@@ -61,7 +61,7 @@ def _loop(env: Any, drv: HandDriverBase, cube_recv: CubeReceiver | None, rate_hz
         print("\n[calib-check] interrupted by user.")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--cube-port", type=int, default=DEFAULT_CUBE_PORT)
     parser.add_argument("--host", default="localhost")
@@ -77,7 +77,7 @@ def main() -> int:
     parser.add_argument(
         "--mock", action="store_true", help="use the mock hand (no hardware; renders home pose)"
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     cube_recv: CubeReceiver | None = None
     if not args.no_cube_zmq:
