@@ -16,6 +16,10 @@ deploy-vision = ["opencv-contrib-python", "pupil-apriltags", "pyyaml"]
 # of `deploy` so the headless core stays binary-free. Pinned to match wuji-mjlab.
 deploy-hand = ["wujihandpy==1.5.1"]
 
+[project.scripts]
+# Unified deploy/real2sim entry: `uv run wuji <command>` (see deploy/README.md).
+wuji = "genelab_wuji.cli:main"
+
 [project.entry-points."genelab.extensions"]
 genelab_wuji = "genelab_wuji.tasks:register"
 

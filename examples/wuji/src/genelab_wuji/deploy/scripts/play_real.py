@@ -18,13 +18,13 @@ is covered headlessly by ``tests/test_examples_wuji_deploy_controller.py``.
 
 Usage:
     # Smoke run without hardware (mock hand, random goals):
-    python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --goal-mode random --steps 200
+    uv run wuji play --ckpt policy.onnx --goal-mode random --steps 200
 
     # Real hand, random goals resampled on success:
-    python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --real --goal-mode random
+    uv run wuji play --ckpt policy.onnx --real --goal-mode random
 
     # Real hand, goal driven by toreal_viewer over ZMQ:
-    python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --real --goal-mode external
+    uv run wuji play --ckpt policy.onnx --real --goal-mode external
 """
 
 from __future__ import annotations
@@ -164,7 +164,7 @@ class _SimMirror:
         self._env.close()
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ckpt", required=True, help="exported policy.onnx")
     parser.add_argument("--metadata", default=None, help="policy metadata.json (auto-detected)")
@@ -192,7 +192,7 @@ def main() -> int:
         help="mirror the live hand + cube + goal in a Genesis viewer "
         "(default on; pass --no-viewer for headless / mock smoke runs)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.control_dt <= 0:
         raise SystemExit("--control-dt must be > 0 (used for joint velocity + success timing)")
