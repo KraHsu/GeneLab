@@ -1,0 +1,28 @@
+sensor:
+  full_width: 1280
+  full_height: 1024
+roi:
+  offset_x: 0
+  offset_y: 0
+  width: 1280
+  height: 1024
+fast_roi:
+  offset_x: 472
+  offset_y: 216
+  width: 552
+  height: 776
+intrinsics:
+  fx: 1694.09
+  fy: 1692.69
+  cx: 644.7
+  cy: 477.7
+distortion:
+  k1: -0.071205
+  k2: 0.129295
+  p1: 0.000104
+  p2: 0.0001
+  k3: -0.128663
+capture:
+  exposure_time: 5000
+  gain: 10.0
+  frame_rate: 90

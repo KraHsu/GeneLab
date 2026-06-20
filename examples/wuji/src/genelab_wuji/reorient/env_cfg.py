@@ -137,6 +137,11 @@ def wuji_hand_reorient_env_cfg(play: bool = False, num_envs: int = 8192) -> Mana
             substeps=1,
             vis=play,
             gpu=not play,
+            # Per-env model params so dof/link DR (PD gains, frictionloss, mass/inertia)
+            # actually applies per environment. Genesis defaults these off, which silently
+            # no-ops per-env dof DR; training-only (eval/play uses nominal params).
+            batch_dofs_info=not play,
+            batch_links_info=not play,
         ),
         scene=InteractiveSceneCfg(
             env_spacing=(0.75, 0.75),
@@ -275,6 +280,18 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
     }
     if play:
         return cfg
+    # Per-episode gravity-direction tilt — the Genesis-native equivalent of mjlab's
+    # hand-pitch DR (Genesis can't tilt a fixed-base hand per env, so we tilt gravity
+    # instead: same gravity-in-palm physics, hand stays fixed-base, tag frame unchanged).
+    # Makes the policy robust to a tilted hardware mount (e.g. the real ~10 deg down-tilt).
+    cfg["gravity_tilt"] = EventTermCfg(
+        func=mdp.dr.gravity_tilt,
+        mode="reset",
+        # 0.2 rad (~11 deg) cone covers the real ~10 deg mount tilt with margin. A larger
+        # full-azimuth cone (tried 0.4) was too hard — the cube rolled off before the
+        # policy could bootstrap a grasp (training stalled at goals ~0.3).
+        params={"max_tilt_rad": 0.2},
+    )
     cfg.update(
         {
             "robot_friction": EventTermCfg(
@@ -317,6 +334,22 @@ def _events_cfg(play: bool) -> dict[str, EventTermCfg]:
                 func=mdp.dr.encoder_bias,
                 mode="startup",
                 params={"asset_cfg": robot, "bias_range": (-0.01, 0.01)},
+            ),
+            # Per-env joint dry-friction (stiction): the MJCF has none, so the policy
+            # never learns to overcome the real hand's static friction and reorients too
+            # slowly on hardware. Real per-env DR now that batch_dofs_info is on (the
+            # earlier global-baseline attempt hurt; this samples per env/joint).
+            "dof_frictionloss": EventTermCfg(
+                func=mdp.dr.dof_frictionloss,
+                mode="startup",
+                params={"asset_cfg": robot, "friction_range": (0.0, 0.03)},
+            ),
+            # Per-env joint armature (rotor inertia) scale — robustness to inertia
+            # calibration error (mjlab parity). Now per-env via batch_dofs_info.
+            "dof_armature": EventTermCfg(
+                func=mdp.dr.dof_armature,
+                mode="startup",
+                params={"asset_cfg": robot, "scale_range": (0.75, 1.3)},
             ),
             "object_disturbance": EventTermCfg(
                 func=events.apply_velocity_disturbance,

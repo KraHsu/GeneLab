@@ -11,7 +11,8 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
-from genelab.utils.download import AssetSpec, fetch_asset
+from genelab.asset_zoo.wuji_hand import WUJI_HAND_SPEC as WUJI_HAND_DESCRIPTION
+from genelab.utils.download import fetch_asset
 
 type FloatArray = NDArray[np.float32]
 
@@ -20,16 +21,10 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 DEFAULT_TRAJECTORY = PACKAGE_ROOT / "data" / "wave.npy"
 SIDES = ("left", "right")
 
-# Full left+right hand description (MJCF + ~5 MB of STL meshes) hosted as a .tar.gz in the
-# genelab-assets repo, so the source tree stays lean. ``archive_member`` points at the
-# right-hand MJCF; the description directory is its grandparent in the extracted tree.
-WUJI_HAND_DESCRIPTION = AssetSpec(
-    name="wuji_hand",
-    url="https://raw.githubusercontent.com/KraHsu/genelab-assets/main/wuji_hand/wuji_hand.tar.gz",
-    md5="46827dfc417773d469a75347a072e82e",
-    filename="wuji_hand.tar.gz",
-    archive_member="wuji_hand/description/mjcf/right.xml",
-)
+# Hand description spec (``wuji_hand``: MJCF + ~5 MB STL meshes) lives in the central asset
+# zoo (genelab.asset_zoo.wuji_hand) so the asset CLI discovers it; aliased here for the
+# example's existing call sites. ``archive_member`` points at the right-hand MJCF; the
+# description directory is its grandparent in the extracted tree.
 
 
 def fetch_description_dir() -> Path:
