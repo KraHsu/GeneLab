@@ -9,7 +9,7 @@ A focused installation checklist. For the full learning path, start with the
 |---|---|
 | Python | 3.12 or newer |
 | Dependency manager | `uv` |
-| Simulator backend | `genesis-world>=0.4.7` |
+| Simulator backend | `genesis-world>=1.0.0,<1.1.0` (1.1.x changes APIs GeneLab relies on) |
 | PyTorch | `torch>=2.8.0` through one `torch-*` extra |
 
 ## Syncing the environment
