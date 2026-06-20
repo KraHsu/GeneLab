@@ -72,27 +72,27 @@ export LD_LIBRARY_PATH=/opt/MVS/lib/64:/opt/MVS/lib/32:$LD_LIBRARY_PATH
 
 ```bash
 # 0) export a trained policy to ONNX
-genelab export Genelab-Reorient-Wuji-Hand-v0 PATH/model.pt --format onnx --out policy.onnx
+uv run genelab export Genelab-Reorient-Wuji-Hand-v0 PATH/model.pt --format onnx --out policy.onnx
 
 # 1) smoke-test the control loop, no hardware, no ZMQ, no viewer
-python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --mock --no-zmq --no-viewer --steps 100
+uv run python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --mock --no-zmq --no-viewer --steps 100
 
 # 1.5) bring up the real hand bridge (needs wujihandpy): check first, then home
-python -m genelab_wuji.deploy.scripts.hand_utils check   # READ-ONLY: connection + encoder sanity
-python -m genelab_wuji.deploy.scripts.hand_utils home    # 3s ease-in-out ramp to the grasp pose
+uv run python -m genelab_wuji.deploy.scripts.hand_utils check   # READ-ONLY: connection + encoder sanity
+uv run python -m genelab_wuji.deploy.scripts.hand_utils home    # 3s ease-in-out ramp to the grasp pose
 
 # 2) vision: detect the cube and publish its tag-frame pose on ZMQ:5555 (needs MVS env)
-python -m genelab_wuji.deploy.scripts.cube_world_observer --preview   # terminal A
-python -m genelab_wuji.deploy.scripts.toreal_viewer                   # terminal B (real2sim mirror)
+uv run python -m genelab_wuji.deploy.scripts.cube_world_observer --preview   # terminal A
+uv run python -m genelab_wuji.deploy.scripts.toreal_viewer                   # terminal B (real2sim mirror)
 
 # 2.5) calibration check: home the hand, render live hand + observed cube in the twin
-python -m genelab_wuji.deploy.scripts.calib_check                     # (needs the observer running)
+uv run python -m genelab_wuji.deploy.scripts.calib_check                     # (needs the observer running)
 
 # 3) drive the real hand from the live observer feed (Genesis mirror viewer on by default,
 #    showing the live hand + observed cube + goal; pass --no-viewer for headless).
 #    goal modes: --goal-mode random (uniform-SO3, resampled on success) |
 #                fixed --goal-quat w,x,y,z | external (goal from toreal_viewer ZMQ)
-python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --real --goal-mode random
+uv run python -m genelab_wuji.deploy.scripts.play_real --ckpt policy.onnx --real --goal-mode random
 ```
 
 `play_real` mirrors the live hand (encoders) + observed cube + goal in a Genesis viewer
