@@ -22,3 +22,26 @@ uv run genelab play GeneLab-Wuji-Hand-Playback-v0 --steps 240
 ```
 
 Use `--no-entry-points` when you want to verify core GeneLab without installed extensions.
+
+## Deploy (sim2real)
+
+A Genesis-native sim2real toolchain takes a trained reorient policy to the real
+(or mock) Wuji hand — real2sim cube tracking, a Hikvision cube observer, calibration,
+and the ONNX deploy control loop. It installs a unified **`wuji`** console entry:
+
+```bash
+uv pip install -e 'examples/wuji[deploy]'          # + [deploy-vision] / [deploy-hand] as needed
+uv run wuji --help                                  # list commands
+uv run wuji play --ckpt policy.onnx --real --goal-mode random
+```
+
+| command | purpose |
+|---|---|
+| `wuji check` / `home` | read-only hand-bridge test / ramp to grasp pose |
+| `wuji observer` | Hikvision camera → ArUco cube pose → ZMQ |
+| `wuji viewer` | real2sim Genesis mirror of the observed cube |
+| `wuji calib` | calibration viewer (live hand + cube vs. digital twin) |
+| `wuji play` | deploy control loop (real/mock) + goal modes + success monitor |
+
+See **[`src/genelab_wuji/deploy/README.md`](src/genelab_wuji/deploy/README.md)** for the
+full pipeline, ZMQ wiring, install extras, and the Hikvision MVS SDK setup.
