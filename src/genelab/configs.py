@@ -93,6 +93,13 @@ class SimulationCfg:
     integrator: str | None = (
         None  # gs.integrator.<name>: Euler / implicitfast / approximate_implicitfast
     )
+    # Store per-DOF / per-link model params (kp/kv/frictionloss/damping/armature, mass/
+    # inertia) PER-ENV so they can be domain-randomized per environment. Genesis defaults
+    # both to False (params shared across the batch), which silently no-ops per-env dof DR
+    # like ``mdp.dr.randomize_joint_stiffness_damping`` on implicit-PD actuators. Costs a
+    # little memory (per-env copies of the model arrays); enable for sim2real DR.
+    batch_dofs_info: bool | None = None  # RigidOptions.batch_dofs_info
+    batch_links_info: bool | None = None  # RigidOptions.batch_links_info
 
     def rigid_options_kwargs(self) -> dict[str, Any]:
         """Map the *set* rigid-solver fields to ``gs.options.RigidOptions`` kwargs.
@@ -111,6 +118,8 @@ class SimulationCfg:
             "tolerance": self.solver_tolerance,
             "constraint_timeconst": self.constraint_timeconst,
             "integrator": self.integrator,
+            "batch_dofs_info": self.batch_dofs_info,
+            "batch_links_info": self.batch_links_info,
         }
         return {k: v for k, v in mapping.items() if v is not None}
 

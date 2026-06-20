@@ -6,6 +6,16 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["genelab"]
 
+[project.optional-dependencies]
+# Deploy core (real2sim + policy control). Pure-software pieces tested headlessly.
+deploy = ["onnxruntime", "pyzmq", "scipy"]
+# Vision observer (Hikvision camera -> ZMQ). Hardware-side, not exercised in CI.
+# Also needs the Hikvision MVS SDK (system install, not pip) — see deploy/README.md.
+deploy-vision = ["opencv-contrib-python", "pupil-apriltags", "pyyaml"]
+# Real Wuji hand SDK (compiled wheel; physical hardware). Imported lazily, kept out
+# of `deploy` so the headless core stays binary-free. Pinned to match wuji-mjlab.
+deploy-hand = ["wujihandpy==1.5.1"]
+
 [project.entry-points."genelab.extensions"]
 genelab_wuji = "genelab_wuji.tasks:register"
 

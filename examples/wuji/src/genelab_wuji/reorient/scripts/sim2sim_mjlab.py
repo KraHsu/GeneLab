@@ -44,10 +44,21 @@ _M_TO_P = [MJLAB_JOINTS.index(p) for p in POLICY_JOINTS]  # mjlab-order array ->
 _P_TO_M = [POLICY_JOINTS.index(m) for m in MJLAB_JOINTS]  # policy-order array -> mjlab order
 
 
-def run(policy_path: str, trials: int, seed: int, timeout: float = 14.0) -> dict[str, float]:
+def run(
+    policy_path: str, trials: int, seed: int, timeout: float = 14.0, tilt_deg: float = 0.0
+) -> dict[str, float]:
     torch.manual_seed(seed)
     np.random.seed(seed)
     scene = build_reorient_scene(sim_dt=0.01, ctrl_dt=0.05, cube_edge_m=0.054)
+    # Emulate a tilted hardware mount by tilting gravity in the (level-hand) eval scene
+    # about +X. Same gravity-in-palm effect as pitching the hand; measures robustness to
+    # a mount tilt (e.g. the real ~10 deg) without moving the fixed-base hand.
+    if tilt_deg:
+        import math
+
+        g0 = float(np.linalg.norm(scene.model.opt.gravity)) or 9.81
+        rad = math.radians(tilt_deg)
+        scene.model.opt.gravity[:] = [0.0, g0 * math.sin(rad), -g0 * math.cos(rad)]
     policy = load_policy(policy_path)
     tag_pos, tag_quat = tag_frame()
     default_p = default_policy_joint_pos()
@@ -150,10 +161,16 @@ def main() -> None:
     p.add_argument("--policy", required=True, help="rsl_rl checkpoint .pt")
     p.add_argument("--trials", type=int, default=100)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument(
+        "--gravity-tilt",
+        type=float,
+        default=0.0,
+        help="tilt gravity by this many degrees (emulates a tilted hardware mount)",
+    )
     args = p.parse_args()
-    r = run(args.policy, args.trials, args.seed)
+    r = run(args.policy, args.trials, args.seed, tilt_deg=args.gravity_tilt)
     print(
-        f"sim2sim (wuji-mjlab env) over {r['trials']} trials: "
+        f"sim2sim (wuji-mjlab env, tilt={args.gravity_tilt:.0f}deg) over {r['trials']} trials: "
         f"success_rate={r['success_rate']:.2f} drop_rate={r['drop_rate']:.2f} "
         f"timeout_rate={r['timeout_rate']:.2f} mean_goal_reaches={r['mean_goal_reaches']:.2f}"
     )
