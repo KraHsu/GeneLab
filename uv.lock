@@ -844,7 +844,7 @@ wheels = [
 
 [[package]]
 name = "genelab"
-version = "0.3.3"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "genesis-world" },
@@ -936,7 +936,7 @@ skrl = [
 
 [package.metadata]
 requires-dist = [
-    { name = "genesis-world", specifier = ">=1.0.0,<1.1.0" },
+    { name = "genesis-world", specifier = ">=1.2.0,<1.3.0" },
     { name = "gymnasium", marker = "extra == 'rl'", specifier = ">=1.0" },
     { name = "gymnasium", marker = "extra == 'sb3'", specifier = ">=1.0" },
     { name = "imgui-bundle", marker = "extra == 'imgui'" },
@@ -999,7 +999,7 @@ skrl = [{ name = "skrl", specifier = ">=1.4.0,<2" }]
 
 [[package]]
 name = "genesis-world"
-version = "1.0.0"
+version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "coacd" },
@@ -1036,7 +1036,7 @@ dependencies = [
     { name = "z3-solver" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/59/1d9257f7e5687c448f7fa251193e17e487ed859018350c14331785af1717/genesis_world-1.0.0-py3-none-any.whl", hash = "sha256:202273df5f8b26b24f6abeaf0f1efeef77c195b10d2104513414f0cb853d34a5", size = 82957659, upload-time = "2026-05-27T15:40:19.688Z" },
+    { url = "https://files.pythonhosted.org/packages/37/b7/72d88b43b9965ea575e2733e0aefd838c4610aaa1f751b0b07977d6af65a/genesis_world-1.2.0-py3-none-any.whl", hash = "sha256:1842bf3055decb9b65415bca1b22261cf3b30c128b72a7a92ef2e493b3d71231", size = 83206705, upload-time = "2026-06-23T09:55:26.729Z" },
 ]
 
 [[package]]
@@ -3510,7 +3510,7 @@ wheels = [
 
 [[package]]
 name = "quadrants"
-version = "0.8.0"
+version = "1.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cffi" },
@@ -3522,14 +3522,14 @@ dependencies = [
     { name = "setuptools" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6d/69/728f33e16e8612de22f3e95d6291bce6f22131067c897d3b5eb7ea1706bf/quadrants-0.8.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:07e223958f51c75cabe4631b5446db0ec22fa9f9818a80c69581a8893db090dd", size = 30430357, upload-time = "2026-05-16T13:21:52.452Z" },
-    { url = "https://files.pythonhosted.org/packages/cf/f7/f1b0ad69914a336f78d6f6d2d6658875f21b5060ebf80f29e847e3d2c442/quadrants-0.8.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_34_aarch64.whl", hash = "sha256:a979c495027d74f080563bd8bc1978fabdc23881d52b284516b3b658950034d3", size = 44981280, upload-time = "2026-05-16T13:55:39.155Z" },
-    { url = "https://files.pythonhosted.org/packages/05/c1/f3a8de448bfdef42507d82b97264b2f5c0383067ba10ec438d13a84243fe/quadrants-0.8.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6ee51b7299882dd78bdc04ce2385566dbcbb59bcf0b2ce0951af7a1ddfe51a40", size = 48082021, upload-time = "2026-05-16T13:55:42.327Z" },
-    { url = "https://files.pythonhosted.org/packages/3c/f7/b6bd12453bde9a73d49a2579aa5c0ac57dbadd45acec704f704d8958429f/quadrants-0.8.0-cp312-cp312-win_amd64.whl", hash = "sha256:897d654ac56ab087aabe43058a4ab5970460604e3a2129f52850d32ff97b3162", size = 55617168, upload-time = "2026-05-16T12:53:50.483Z" },
-    { url = "https://files.pythonhosted.org/packages/2e/e9/e19b9980713daabdd07955f673359728fe1c311bf4ec4c845f969c054536/quadrants-0.8.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:4ee69ff07aa84f5d28dd5c4f99cdbc67139dad45abedb0e7dbe7552a45017a53", size = 30430931, upload-time = "2026-05-16T13:21:52.342Z" },
-    { url = "https://files.pythonhosted.org/packages/cf/e3/6998c451a1c2dea218906bd206b8e82a622a449fbe8022fa6905cb1decd8/quadrants-0.8.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_34_aarch64.whl", hash = "sha256:971c4bbd786a1a22412922e40865ce17821dcef0359e5ce7ac5cc9eab19d3062", size = 44982500, upload-time = "2026-05-16T13:55:38.463Z" },
-    { url = "https://files.pythonhosted.org/packages/f2/ca/19adad282cc3b500eb0cf08fc2ed1ea13ce697e5c31aafd06fecca182668/quadrants-0.8.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:58db773247a31ab7badb9bbdff3564b889892fa74b92b714ccd91a3f023d1c1c", size = 48082323, upload-time = "2026-05-16T13:55:46.648Z" },
-    { url = "https://files.pythonhosted.org/packages/25/42/97501f41456a977e3092244f1e7327a2e313d5ab58081f86b9eb860610f5/quadrants-0.8.0-cp313-cp313-win_amd64.whl", hash = "sha256:cded00f903f2d82d573c553c3d7fe16bdd29deba1679d66f67a95139065794ee", size = 55617709, upload-time = "2026-05-16T12:53:53.419Z" },
+    { url = "https://files.pythonhosted.org/packages/91/aa/63180297f0bcd11f1a0e83d46977747f095f8d3444b6689a642fd93475fe/quadrants-1.0.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:cb02ed33ce13d784890e097aed7d46e847341e0d5918bec61404537a9d5a1305", size = 30505796, upload-time = "2026-06-04T02:42:59.251Z" },
+    { url = "https://files.pythonhosted.org/packages/46/72/1bd4b6cccbd20101541c2b5a3d81538ccaad52209ac67da7ef33d32044c7/quadrants-1.0.2-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_34_aarch64.whl", hash = "sha256:e703cc8b4c6a29864f1d936c44c6e75c23b5c0da05b4b137ef71ba39c62d1b5d", size = 45042090, upload-time = "2026-06-04T02:59:37.891Z" },
+    { url = "https://files.pythonhosted.org/packages/57/1d/99b5070e4624bb5aa6ed63338d246641b6262dae1efa1c0762c1371f775f/quadrants-1.0.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:85e6d9103efcc145c31a1c9496a906f60121346ee219908de86d7e63d787d110", size = 48136824, upload-time = "2026-06-04T02:59:37.291Z" },
+    { url = "https://files.pythonhosted.org/packages/91/8d/58e8f91851c01fcdf427cb2b33c837d8e023c0494e9a8adcc93cd17fc767/quadrants-1.0.2-cp312-cp312-win_amd64.whl", hash = "sha256:cf020b02ef6ab4acc526a02fe06c010ac9fe8c97a93e6b3c56e6010ed53a38af", size = 55669735, upload-time = "2026-06-04T02:17:40.479Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/cd/e32306e2081caee9a1c6526e2e85ac4a0fc67ff3d96261195edea19b5f63/quadrants-1.0.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:be0ba10e219d714bb882d3a569344ff0c5aa057084049634808ab2aa5eefed0b", size = 30506454, upload-time = "2026-06-04T02:43:07.342Z" },
+    { url = "https://files.pythonhosted.org/packages/14/14/352606f1c97679dc7045c4db1c4bea20d6022cda81dadef4fc46b192ac18/quadrants-1.0.2-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_34_aarch64.whl", hash = "sha256:4218dfb79cec92b2e978537000c534f3ce70ac70d66d8faff2dd2bdad18ab3d0", size = 45044337, upload-time = "2026-06-04T02:59:29.928Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/48/50c679bfc7bf43e4065bd3b8a74ad2e8eb53c504751a7ec1909911c5f356/quadrants-1.0.2-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:21ba032a88b6c44903fc549f652a0ec1cf287b1a3e1031e276ecae731bfa9737", size = 48141728, upload-time = "2026-06-04T02:59:30.757Z" },
+    { url = "https://files.pythonhosted.org/packages/96/dd/049f63a4cad6299cbaed51fa19f897cad74cc34e152877ce5460f7a69704/quadrants-1.0.2-cp313-cp313-win_amd64.whl", hash = "sha256:c57fa8be0a288492417ae437c124dc0f0564d76df1d5a700d620aec50386116d", size = 55668754, upload-time = "2026-06-04T02:17:44.294Z" },
 ]
 
 [[package]]

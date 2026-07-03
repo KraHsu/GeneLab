@@ -6,14 +6,20 @@ real-hand 0%-success bug):
 * **Encoder / hardware order** = ``JOINT_NAMES_20`` = ``REORIENT_JOINT_POS`` keys =
   ``wujihandpy``'s (5, 4) row-major flatten: **finger-major** (finger1_joint1..4,
   finger2_joint1..4, ...). This is what ``read_encoders`` / ``write_target`` speak.
-* **Policy / Genesis articulation order** = ``POLICY_JOINT_NAMES``: **joint-major**
-  (finger1..5_joint1, then finger1..5_joint2, ...). Genesis orders the articulation
-  this way regardless of the MJCF element order, so the trained policy's obs and
-  action are joint-major.
+* **Policy order** = ``POLICY_JOINT_NAMES``: **joint-major** (finger1..5_joint1,
+  then finger1..5_joint2, ...). Genesis 1.0.x enumerated the articulation
+  breadth-first — joint-major for this hand — and the shipped checkpoint was
+  trained under that order, so its obs and action layouts are joint-major.
 
 ``DeployController`` remaps encoder->policy on read and policy->encoder on write via
-``ENC_TO_POLICY`` / its inverse. ``tests/test_examples_wuji_deploy_joint_order.py``
-pins ``POLICY_JOINT_NAMES`` against the actual built env so the constant can't drift.
+``ENC_TO_POLICY`` / its inverse.
+
+Genesis 1.2+ parses kinematic trees depth-first, so a *live* articulation now
+enumerates finger-major (identical to the encoder order). ``POLICY_JOINT_NAMES``
+tracks the trained artifact, not the live env; a policy retrained under Genesis
+1.2 has finger-major layouts and needs ``ENC_TO_POLICY`` updated to the identity.
+``tests/test_examples_wuji_deploy_joint_order.py`` pins the env's depth-first
+enumeration so any future Genesis ordering change is caught there.
 """
 
 from __future__ import annotations

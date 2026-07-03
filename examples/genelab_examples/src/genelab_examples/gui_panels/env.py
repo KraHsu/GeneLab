@@ -45,7 +45,7 @@ class GuiPanelsDemoEnv:
                     camera_pos=(2.6, 0.0, 1.6),
                     camera_lookat=(0.0, 0.0, 0.4),
                     camera_fov=40,
-                    max_FPS=sim.render_fps or 60,
+                    refresh_rate=sim.render_fps or 60,
                     enable_gui=True,  # the ImGui overlay that hosts our panels
                 ),
                 show_viewer=True,

@@ -90,7 +90,7 @@ class RubiksPlayEnv:
                         camera_pos=(0.45, -0.55, 0.35),
                         camera_lookat=(0.0, 0.0, 0.08),
                         camera_fov=35,
-                        max_FPS=60,
+                        refresh_rate=60,
                     ),
                     show_viewer=cfg.simulation.vis,
                 ),

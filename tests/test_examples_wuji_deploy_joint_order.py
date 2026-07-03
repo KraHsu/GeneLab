@@ -1,9 +1,17 @@
 """Pin the deploy joint-order remap against the real Genesis articulation order.
 
-The encoder / wujihandpy order (``JOINT_NAMES_20``) is finger-major; the policy /
-Genesis articulation order (``POLICY_JOINT_NAMES``) is joint-major. ``DeployController``
-remaps between them. If they drift, the real hand gets scrambled joint obs + actions and
-twitches without manipulating the cube (the real-hand 0%-success bug).
+The encoder / wujihandpy order (``JOINT_NAMES_20``) is finger-major; the shipped
+policy's order (``POLICY_JOINT_NAMES``) is joint-major — Genesis 1.0.x enumerated
+the articulation breadth-first, and the deployed checkpoint was trained under that
+order. ``DeployController`` remaps between them. If they drift, the real hand gets
+scrambled joint obs + actions and twitches without manipulating the cube (the
+real-hand 0%-success bug).
+
+Genesis 1.2 parses kinematic trees depth-first, so the live articulation now
+enumerates finger-major (identical to the encoder order). ``POLICY_JOINT_NAMES``
+deliberately stays the *trained artifact's* order; the env-order drift guard below
+pins the new depth-first enumeration instead, so any future Genesis ordering change
+is caught again.
 """
 
 import numpy as np
@@ -35,15 +43,24 @@ def test_default_policy_is_default_reordered() -> None:
     assert np.allclose(dp[np.argsort(ENC_TO_POLICY)], d)
 
 
-def test_policy_joint_order_matches_env() -> None:
-    """Drift guard: POLICY_JOINT_NAMES must equal the built env's articulation order."""
+def test_env_joint_order_is_depth_first() -> None:
+    """Drift guard: the built env must enumerate joints depth-first (finger-major).
+
+    Genesis 1.2 parses kinematic trees depth-first, which for the hand coincides
+    with the encoder order ``JOINT_NAMES_20``. A policy trained under Genesis 1.2
+    therefore has finger-major obs/action layouts, while the shipped checkpoint
+    (trained under 1.0.x, breadth-first) keeps the joint-major ``POLICY_JOINT_NAMES``
+    — sim2sim replay of that checkpoint needs the name-based remap, and a retrained
+    policy needs an updated ``ENC_TO_POLICY``. This assert exists so any future
+    Genesis enumeration change is caught here instead of as scrambled joints.
+    """
     pytest.importorskip("genesis")
     from genelab_wuji.deploy.scripts._env import build_reorient_env
 
     env = None
     try:
         env = build_reorient_env(num_envs=1)
-        assert list(env.scene["robot"].joint_names) == list(POLICY_JOINT_NAMES)
+        assert list(env.scene["robot"].joint_names) == list(JOINT_NAMES_20)
     except Exception as exc:  # asset download / GPU / display unavailable in minimal CI
         if env is None:
             pytest.skip(f"reorient env unavailable: {exc}")

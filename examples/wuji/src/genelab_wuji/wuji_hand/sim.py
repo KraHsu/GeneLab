@@ -216,7 +216,7 @@ def run_wuji_hand(config: WujiHandRunConfig) -> None:
                     camera_pos=(0.35, -0.45, 0.32),
                     camera_lookat=(0.0, 0.0, 0.08),
                     camera_fov=35,
-                    max_FPS=60,
+                    refresh_rate=60,
                 ),
                 vis_options=gs.options.VisOptions(
                     ambient_light=(0.35, 0.35, 0.35),
