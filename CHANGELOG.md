@@ -4,6 +4,20 @@ All notable changes to GeneLab are recorded here.
 
 ## [Unreleased]
 
+### Changed
+
+- **Genesis 1.2:** the simulator floor moves to `genesis-world>=1.2.0,<1.3.0`
+  (from the 1.0.x pin). GeneLab-side adaptations: `SimulationCfg.render_fps` now
+  maps to `ViewerOptions.refresh_rate` (Genesis split the old `max_FPS` into
+  `refresh_rate` for repaints and `realtime_factor` for sim pacing; `render_fps=None`
+  disables the pacer to keep the documented "uncapped" contract), and the ImGui
+  panel host is discovered through the public `viewer.plugins` property (the
+  private `_viewer_plugins` attribute was renamed upstream; kept as a fallback).
+  Note for pre-trained checkpoints: Genesis 1.2 parses kinematic trees depth-first,
+  so joint/link enumeration order changes on branched robots — GeneLab resolves
+  joints by name and stays self-consistent, but policies trained on 1.0.x whose
+  observation/action layouts baked the old order must be re-mapped or re-trained.
+
 ## [0.3.3] — 2026-06-05
 
 > Git history was rewritten in this release to purge ~24 MB of accidentally-committed vendored
