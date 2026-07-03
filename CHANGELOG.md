@@ -4,6 +4,8 @@ All notable changes to GeneLab are recorded here.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-03
+
 ### Changed
 
 - **Genesis 1.2:** the simulator floor moves to `genesis-world>=1.2.0,<1.3.0`

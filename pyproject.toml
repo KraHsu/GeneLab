@@ -1,6 +1,6 @@
 [project]
 name = "genelab"
-version = "0.3.3"
+version = "0.4.0"
 description = "Isaac Lab API for RL and robotics research powered by Genesis."
 readme = "README.md"
 license = "Apache-2.0"
