@@ -42,8 +42,17 @@ def _viewer_option_kwargs(sim_cfg: "SimulationCfg", *, enable_gui: bool) -> dict
     Camera framing is only forwarded when set so an unconfigured scene keeps Genesis' own
     default camera; ``camera_lookat`` doubles as the trackball pivot, so framing the subject
     is what makes the mouse-wheel zoom close in on it.
+
+    Genesis 1.1+ split the old ``max_FPS`` (one knob that throttled both repaints and the
+    stepping loop) into ``refresh_rate`` (repaint cap) and ``realtime_factor`` (sim pacing,
+    1.0 = wall-clock real time). ``render_fps`` maps onto ``refresh_rate``; ``render_fps=None``
+    keeps the documented "uncapped" contract by disabling the real-time pacer instead.
     """
-    kwargs: dict[str, Any] = {"max_FPS": sim_cfg.render_fps, "enable_gui": enable_gui}
+    kwargs: dict[str, Any] = {"enable_gui": enable_gui}
+    if sim_cfg.render_fps is not None:
+        kwargs["refresh_rate"] = sim_cfg.render_fps
+    else:
+        kwargs["realtime_factor"] = None
     if sim_cfg.camera_pos is not None:
         kwargs["camera_pos"] = sim_cfg.camera_pos
     if sim_cfg.camera_lookat is not None:
@@ -64,12 +73,17 @@ _viewer_title_patch_applied = False
 def find_imgui_panel_host(viewer: Any) -> Any | None:
     """Return the viewer plugin exposing ``register_panel`` (Genesis's ImGui overlay), or None.
 
-    Genesis appends an ``ImGuiOverlayPlugin`` to ``viewer._viewer_plugins`` when the scene is
-    built with ``ViewerOptions(enable_gui=True)``. We duck-type rather than import the plugin
-    class so this stays robust across Genesis point releases — any plugin that exposes a
-    ``register_panel`` callable is a valid host.
+    Genesis registers an ``ImGuiOverlayPlugin`` on the viewer when the scene is built with
+    ``ViewerOptions(enable_gui=True)``. Genesis 1.2 exposes the registered plugins through the
+    public ``viewer.plugins`` property (the old ``_viewer_plugins`` attribute was renamed);
+    we read the public property and keep the legacy attribute as a fallback. We duck-type
+    rather than import the plugin class so this stays robust across Genesis point releases —
+    any plugin that exposes a ``register_panel`` callable is a valid host.
     """
-    for plugin in getattr(viewer, "_viewer_plugins", None) or []:
+    plugins = getattr(viewer, "plugins", None)
+    if plugins is None:
+        plugins = getattr(viewer, "_viewer_plugins", None) or []
+    for plugin in plugins:
         if callable(getattr(plugin, "register_panel", None)):
             return plugin
     return None
@@ -576,10 +590,9 @@ class InteractiveScene:
             if getattr(self._scene_cfg, "batch_render", False)
             else None
         )
-        # Render rate is configured separately from the physics rate: Genesis throttles
-        # ``_visualizer.update`` via ``ViewerOptions.max_FPS``. We only construct
-        # ``ViewerOptions`` when the viewer is enabled so headless training stays
-        # untouched.
+        # Render rate is configured separately from the physics rate: Genesis caps viewer
+        # repaints via ``ViewerOptions.refresh_rate``. We only construct ``ViewerOptions``
+        # when the viewer is enabled so headless training stays untouched.
         # A non-empty ``panels`` list implies the ImGui overlay even if ``viewer_imgui`` was
         # left False, so "add a panel" is a one-liner that just works.
         enable_gui = bool(self._sim_cfg.viewer_imgui) or bool(
