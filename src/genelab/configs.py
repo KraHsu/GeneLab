@@ -38,13 +38,13 @@ class SimulationCfg:
     dt: float = 0.01
     substeps: int = 4
     num_envs: int = 1
-    # Viewer FPS cap, decoupled from the physics rate (``1/dt``). Forwarded to
-    # ``gs.options.ViewerOptions(max_FPS=...)`` when ``vis=True``. ``None`` runs the
-    # viewer uncapped. ``ManagerBasedRlEnv`` only refreshes the viewer on the last tick
-    # of its decimation loop, so the effective render rate is
-    # ``min(render_fps, 1/(dt*decimation))``; if the control rate exceeds ``render_fps``,
-    # the viewer's rate-limit will throttle the env step itself — lower ``render_fps`` or
-    # raise ``decimation`` if that's not what you want.
+    # Viewer repaint rate, decoupled from the physics rate (``1/dt``). Forwarded to
+    # ``gs.options.ViewerOptions(refresh_rate=...)`` when ``vis=True``. Genesis paces a
+    # viewer-enabled sim to wall-clock real time (``realtime_factor=1.0``) by default;
+    # ``None`` disables that pacer (``realtime_factor=None``) so the sim runs uncapped,
+    # with repaints at Genesis's default rate. ``ManagerBasedRlEnv`` only refreshes the
+    # viewer on the last tick of its decimation loop, so the real-time pacer sleeps once
+    # per control step rather than once per physics tick.
     render_fps: int | None = 60
     # Initial viewer camera framing, forwarded to ``gs.options.ViewerOptions(camera_pos=...,
     # camera_lookat=...)`` when ``vis=True``. ``camera_lookat`` is also the trackball pivot,
