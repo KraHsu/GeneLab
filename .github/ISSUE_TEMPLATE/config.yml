@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GeneLab documentation
+    url: https://krahsu.github.io/GeneLab/
+    about: Guides, how-tos, and API reference — check here before filing a question.
+  - name: Genesis upstream issue tracker
+    url: https://github.com/Genesis-Embodied-AI/Genesis/issues
+    about: Bugs that reproduce in a pure Genesis script without GeneLab belong upstream.

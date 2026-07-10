@@ -1,0 +1,96 @@
+name: Bug report
+description: Something in GeneLab is broken or misbehaving.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please read the
+        [reporting guidelines](https://github.com/KraHsu/GeneLab/blob/main/CONTRIBUTING.md#reporting-issues)
+        first — the **Troubleshooting** section of the [README](https://github.com/KraHsu/GeneLab#readme)
+        already covers several known pitfalls (idle GPU with the default CPU sim backend,
+        Hopper/SM 90 fatbin errors, Wayland viewer failures).
+        Issues are welcome in English or 中文.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I searched existing issues (open and closed) and found no duplicate.
+          required: true
+        - label: I checked the README Troubleshooting section — this is not one of the documented pitfalls.
+          required: true
+        - label: The bug does not reproduce in a pure Genesis script without GeneLab. (If unsure, leave unchecked and say so below — simulator bugs belong on the Genesis tracker.)
+          required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What went wrong, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: >
+        Exact commands and, if relevant, a minimal config or extension snippet.
+        A single `genelab …` invocation against a registered task is ideal.
+      placeholder: |
+        uv sync --extra torch-cu128
+        genelab train GeneLab-Inverted-Pendulum-v0 --max_iterations 10
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        Paste the output of
+
+        `python -c "import genelab, genesis, torch; print('genelab', genelab.__version__); print('genesis', genesis.__version__); print('torch', torch.__version__, 'cuda', torch.version.cuda)"`
+
+        plus your OS, GPU model, NVIDIA driver version, and the `torch-*` extra you synced.
+      render: shell
+      placeholder: |
+        genelab 0.4.0
+        genesis 1.2.0
+        torch 2.8.0 cuda 12.8
+        OS: Ubuntu 24.04 · GPU: RTX 4090 · driver 570.xx · extra: torch-cu128
+    validations:
+      required: true
+  - type: dropdown
+    id: rl-backend
+    attributes:
+      label: RL backend
+      description: The backend dispatched by the task's agent config, if the bug involves training/eval.
+      options:
+        - Not applicable
+        - rsl_rl
+        - skrl
+        - stable_baselines3
+    validations:
+      required: true
+  - type: dropdown
+    id: sim-backend
+    attributes:
+      label: Simulation backend
+      description: "`SimulationCfg.gpu` in the task's config (defaults to `False`, the CPU backend)."
+      options:
+        - Not applicable / unknown
+        - CPU (gpu=False, the default)
+        - GPU (gpu=True)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traceback
+      description: Full, untruncated traceback or relevant log output.
+      render: shell
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Workarounds tried, regression window (worked on version X), related issues, …

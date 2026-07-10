@@ -1,5 +1,28 @@
 # Contributing to GeneLab
 
+## Reporting issues
+
+Bug reports, feature requests, docs fixes, and questions all go through the
+[issue forms](https://github.com/KraHsu/GeneLab/issues/new/choose) — blank issues are disabled.
+English is preferred; 中文 is fine too.
+
+- **Search first.** Check open *and closed* issues for a duplicate before filing.
+- **One problem per issue.** Two bugs means two issues, even if they were found together.
+- **Check the README Troubleshooting section.** The idle-GPU default (`SimulationCfg.gpu=False`),
+  the Hopper/SM 90 fatbin error, and the Wayland viewer failure are documented pitfalls, not bugs.
+- **Route simulator bugs upstream.** A problem that reproduces in a pure Genesis script without
+  GeneLab belongs on the [Genesis tracker](https://github.com/Genesis-Embodied-AI/Genesis/issues);
+  a cross-link here is welcome if GeneLab is affected too.
+- **Make bugs reproducible.** Include the exact command (ideally a single `genelab …` invocation
+  against a registered task), the full untruncated traceback, and the environment block the bug
+  form asks for — GeneLab / Genesis / torch versions, OS, GPU, driver, and the `torch-*` extra.
+- **Reproduce on the latest release or `main`** when possible — fixes only land there.
+
+The forms apply the primary label (`bug`, `enhancement`, `documentation`, `question`)
+automatically; maintainers add the rest (`duplicate`, `wontfix`, `good first issue`, …) during
+triage. An issue that goes stale waiting for requested information may be closed and can be
+reopened once the information arrives.
+
 ## Development setup
 
 GeneLab uses [uv](https://github.com/astral-sh/uv) and requires Python `>=3.12`. Pick exactly one `torch-*` extra — they are mutually exclusive:
