@@ -14,6 +14,7 @@ import torch
 
 from genelab.actuator import ActuatorBase
 from genelab.entity._torch import to_tensor
+from genelab.entity.root_velocity import write_root_velocity
 
 
 class ArticulationWriter:
@@ -77,13 +78,12 @@ class ArticulationWriter:
         for fn_name, value in (
             ("set_pos", root_pos),
             ("set_quat", root_quat),
-            ("set_vel", root_lin_vel_w),
-            ("set_ang", root_ang_vel_w),
         ):
             fn = getattr(robot, fn_name, None)
             if fn is None:
                 continue
             fn(value, envs_idx=env_ids)
+        write_root_velocity(robot, root_lin_vel_w, root_ang_vel_w, env_ids)
 
     def reset(self, env_ids: torch.Tensor) -> None:
         """Reset actuated joints to default pose + zero velocity for ``env_ids``."""

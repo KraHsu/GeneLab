@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.entity import write_root_velocity
 from genelab.entity._torch import to_tensor
 
 from genelab_franka.constants import (
@@ -171,14 +172,7 @@ def reset_cube_uniform(
         except TypeError:
             set_pos(new_pos)
     zeros = torch.zeros(n, 3, device=env.device)
-    for fn_name in ("set_vel", "set_ang"):
-        fn = getattr(handle, fn_name, None)
-        if fn is None:
-            continue
-        try:
-            fn(zeros, envs_idx=env_ids)
-        except TypeError:
-            fn(zeros)
+    write_root_velocity(handle, zeros, zeros, env_ids)
 
 
 def resample_goal_uniform(
