@@ -17,6 +17,13 @@ All notable changes to GeneLab are recorded here.
   in `examples/` had the same dead idiom and now use the shared helper. Policies previously
   trained with push events effectively had those disturbances disabled; retraining may be
   needed where push robustness matters.
+- **Teleop HUD text never displayed under Genesis 1.2** (same bug class as #242, found by
+  auditing every `getattr`-guarded Genesis call): the outer `Viewer` forwards
+  `register_keybinds` but not `set_message_text`, so the keyboard bridge's HUD write
+  silently no-opped. The bridge now falls back to the inner pyrender viewer. A new
+  `tests/test_genesis_api_contract.py` pins every `getattr`-guarded Genesis method name
+  against the installed Genesis so future upstream renames fail tests instead of silently
+  disabling physics or UI.
 
 ## [0.4.0] — 2026-07-03
 

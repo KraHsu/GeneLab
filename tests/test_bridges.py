@@ -195,3 +195,42 @@ def test_keyboard_bridge_no_viewer_is_a_noop() -> None:
 
     bridge.on_build(_HeadlessEnv())  # type: ignore[arg-type]
     bridge.pre_step(_HeadlessEnv())  # type: ignore[arg-type]
+
+
+def test_keyboard_hud_falls_back_to_inner_pyrender_viewer() -> None:
+    """Genesis 1.2's outer Viewer forwards register_keybinds but not set_message_text,
+    so the HUD write must reach the inner ``_pyrender_viewer`` (same wrapper gap as
+    the ``viewer.plugins`` / ``_viewer_plugins`` fallback in scene)."""
+    bridge = KeyboardTwistBridge(KeyboardTwistBridgeCfg())
+
+    class _InnerViewer:
+        def __init__(self) -> None:
+            self.messages: list[str] = []
+
+        def set_message_text(self, text: str) -> None:
+            self.messages.append(text)
+
+    class _OuterViewer:
+        def __init__(self) -> None:
+            self._pyrender_viewer = _InnerViewer()
+
+    viewer = _OuterViewer()
+    bridge._broadcast_hud(viewer)
+    assert viewer._pyrender_viewer.messages
+    assert viewer._pyrender_viewer.messages[0].startswith("teleop")
+
+
+def test_keyboard_hud_prefers_direct_setter() -> None:
+    """A viewer exposing set_message_text directly (older Genesis, fakes) is used as-is."""
+    bridge = KeyboardTwistBridge(KeyboardTwistBridgeCfg())
+
+    class _DirectViewer:
+        def __init__(self) -> None:
+            self.messages: list[str] = []
+
+        def set_message_text(self, text: str) -> None:
+            self.messages.append(text)
+
+    viewer = _DirectViewer()
+    bridge._broadcast_hud(viewer)
+    assert viewer.messages and viewer.messages[0].startswith("teleop")
