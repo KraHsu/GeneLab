@@ -1,0 +1,55 @@
+name: Feature request
+description: Propose a new capability or an improvement to an existing one.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I searched existing issues (open and closed) and found no duplicate.
+          required: true
+        - label: This belongs in GeneLab — it is not a simulator feature that should go to the Genesis tracker.
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI (train / play / eval / export / benchmark / project)
+        - Registry, configs & extension API
+        - Environments & managers (actions / observations / rewards / events / terminations)
+        - Robots & asset zoo
+        - RL backends (rsl_rl / skrl / stable_baselines3)
+        - Scene, terrains & sensors
+        - Documentation & examples
+        - Other / unsure
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do that GeneLab currently makes hard or impossible? Concrete use cases beat abstract wishes.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should the API / CLI / behavior look like? A sketch of the config or command line is enough.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use today, or designs you rejected and why.
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to open a PR implementing this (see CONTRIBUTING.md for the workflow).
+          required: false
