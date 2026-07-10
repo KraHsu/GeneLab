@@ -1,0 +1,27 @@
+name: Question / help
+description: A usage question the docs and README don't answer.
+title: "question: "
+labels: ["question"]
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I checked the [documentation](https://krahsu.github.io/GeneLab/) and the README (including Troubleshooting) and didn't find an answer.
+          required: true
+        - label: I searched existing issues for the same question.
+          required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What are you trying to achieve, and where did you get stuck? Include the commands or config you tried.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment (if relevant)
+      description: GeneLab / Genesis / torch versions, OS, GPU — see the bug form for the one-liner.
+      render: shell

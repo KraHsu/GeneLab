@@ -1,0 +1,41 @@
+name: Documentation
+description: Report an error, gap, or unclear passage in the docs.
+title: "docs: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The rendered site lives at <https://krahsu.github.io/GeneLab/> (English at `/`, 中文 at `/zh/`).
+        Every page exists in both languages and they are kept in lockstep — if only one variant is wrong,
+        say which one.
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: URL on the docs site, or the source path under `docs/`.
+      placeholder: https://krahsu.github.io/GeneLab/… or docs/…/page.en.md
+    validations:
+      required: true
+  - type: dropdown
+    id: language
+    attributes:
+      label: Affected language variant
+      options:
+        - Both (content problem)
+        - English page only
+        - 中文 page only
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing
+      description: Quote the passage if possible. For commands/config paths that don't work, include the error you got.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix
+      description: Optional — proposed wording, or what information the page should add.
