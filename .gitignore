@@ -50,3 +50,9 @@ docs/agents/
 
 # mkdocs build output
 /site/
+
+# genelab export artifacts (policy checkpoints)
+*.onnx
+*.onnx.metadata.json
+policy.ts
+policy.ts.metadata.json
