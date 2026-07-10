@@ -187,6 +187,12 @@ class KeyboardTwistBridge:
         if not self.cfg.show_hud:
             return
         msg = f"teleop  vx={self._vx:+.2f}  vy={self._vy:+.2f}  wz={self._wz:+.2f}"
+        # Genesis 1.2's outer Viewer forwards register_keybinds but not set_message_text —
+        # the HUD line lives on the inner pyrender viewer (same wrapper gap as the
+        # viewer.plugins / _viewer_plugins fallback in scene).
         set_text = getattr(viewer, "set_message_text", None)
+        if set_text is None:
+            inner = getattr(viewer, "_pyrender_viewer", None)
+            set_text = getattr(inner, "set_message_text", None)
         if set_text is not None:
             set_text(msg)

@@ -4,6 +4,27 @@ All notable changes to GeneLab are recorded here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Root-velocity writes were silent no-ops on rigid articulations** (#242): Genesis's
+  `RigidEntity` has `get_vel` / `get_ang` but no `set_vel` / `set_ang` (those setters exist
+  only on FEM / tool entities), so `push_by_setting_velocity`, the velocity half of
+  `reset_root_state_uniform`, and `Articulation.write_root_state` wrote nothing — push-based
+  domain randomization never reached the simulator. Root velocity now routes through the new
+  `genelab.entity.write_root_velocity`, which drives `set_dofs_velocity` on the base free
+  joint's 6 DoFs (0–2 world-frame linear, 3–5 angular) and falls back to direct setters for
+  entity types that have them. The wuji reorient cube kick / reset and the Franka cube reset
+  in `examples/` had the same dead idiom and now use the shared helper. Policies previously
+  trained with push events effectively had those disturbances disabled; retraining may be
+  needed where push robustness matters.
+- **Teleop HUD text never displayed under Genesis 1.2** (same bug class as #242, found by
+  auditing every `getattr`-guarded Genesis call): the outer `Viewer` forwards
+  `register_keybinds` but not `set_message_text`, so the keyboard bridge's HUD write
+  silently no-opped. The bridge now falls back to the inner pyrender viewer. A new
+  `tests/test_genesis_api_contract.py` pins every `getattr`-guarded Genesis method name
+  against the installed Genesis so future upstream renames fail tests instead of silently
+  disabling physics or UI.
+
 ## [0.4.0] — 2026-07-03
 
 ### Changed

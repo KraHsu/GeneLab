@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.entity.root_velocity import write_root_velocity
 from genelab.mdp._helpers import asset_articulation, asset_handle
 from genelab.utils.math import quat_from_euler_xyz, quat_mul
 
@@ -72,18 +73,7 @@ def reset_root_state_uniform(
         if axis in velocity_range:
             lo, hi = velocity_range[axis]
             ang[:, idx] = torch.empty(n, device=env.device).uniform_(lo, hi)
-    set_vel = getattr(handle, "set_vel", None)
-    set_ang = getattr(handle, "set_ang", None)
-    if set_vel is not None:
-        try:
-            set_vel(vel, envs_idx=env_ids)
-        except TypeError:
-            set_vel(vel)
-    if set_ang is not None:
-        try:
-            set_ang(ang, envs_idx=env_ids)
-        except TypeError:
-            set_ang(ang)
+    write_root_velocity(handle, vel, ang, env_ids)
 
 
 def reset_joints_to_default(
@@ -170,18 +160,7 @@ def push_by_setting_velocity(
         if axis in velocity_range:
             lo, hi = velocity_range[axis]
             ang[:, idx] = torch.empty(n, device=env.device).uniform_(lo, hi)
-    set_vel = getattr(handle, "set_vel", None)
-    set_ang = getattr(handle, "set_ang", None)
-    if set_vel is not None:
-        try:
-            set_vel(vel, envs_idx=env_ids)
-        except TypeError:
-            set_vel(vel)
-    if set_ang is not None:
-        try:
-            set_ang(ang, envs_idx=env_ids)
-        except TypeError:
-            set_ang(ang)
+    write_root_velocity(handle, vel, ang, env_ids)
 
 
 def randomize_terrain_params(
