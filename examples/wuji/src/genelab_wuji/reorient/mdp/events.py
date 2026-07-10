@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.entity import write_root_velocity
 from genelab_wuji.reorient.constants import REORIENT_CUBE_INIT_POS
 from genelab_wuji.reorient.mdp._state import cage_counter, disturbance_scale_value
 from genelab_wuji.reorient.mdp._math import random_quat
@@ -31,8 +32,6 @@ def reset_object_orientation(
     for setter, value in (
         ("set_pos", pos),
         ("set_quat", quat),
-        ("set_vel", zeros),
-        ("set_ang", zeros),
     ):
         fn = getattr(handle, setter, None)
         if fn is None:
@@ -41,6 +40,7 @@ def reset_object_orientation(
             fn(value, envs_idx=env_ids)
         except TypeError:
             fn(value)
+    write_root_velocity(handle, zeros, zeros, env_ids)
 
 
 def reset_cage_state(env: "EnvContext", env_ids: torch.Tensor | None) -> None:
@@ -89,32 +89,27 @@ def randomize_cube_physics(
             pass
 
 
-def _kick(
+def _kicked(
     handle: object,
     getter: str,
-    setter: str,
     env: "EnvContext",
     env_ids: torch.Tensor,
     n: int,
     lo: float,
     hi: float,
     scale: float,
-) -> None:
+) -> torch.Tensor | None:
+    """Current velocity (via ``getter``) plus a random-direction impulse, for ``env_ids``."""
     fn_get = getattr(handle, getter, None)
-    fn_set = getattr(handle, setter, None)
-    if fn_get is None or fn_set is None:
-        return
+    if fn_get is None:
+        return None
     cur = torch.as_tensor(fn_get(), device=env.device, dtype=torch.float)
     if cur.dim() == 1:
         cur = cur.unsqueeze(0).expand(env.num_envs, -1)
     direction = torch.randn(n, 3, device=env.device)
     direction = direction / direction.norm(dim=-1, keepdim=True).clamp_min(1e-6)
     mag = torch.empty(n, 1, device=env.device).uniform_(lo, lo + (hi - lo) * scale)
-    new = cur[env_ids] + direction * mag
-    try:
-        fn_set(new, envs_idx=env_ids)
-    except TypeError:
-        fn_set(new)
+    return cur[env_ids] + direction * mag
 
 
 def apply_velocity_disturbance(
@@ -137,5 +132,8 @@ def apply_velocity_disturbance(
     n = int(env_ids.numel())
     handle = env.scene[object_name].gs_handle  # type: ignore[index]
     scale = float(disturbance_scale_value(env)[0])
-    _kick(handle, "get_vel", "set_vel", env, env_ids, n, min_speed, max_speed, scale)
-    _kick(handle, "get_ang", "set_ang", env, env_ids, n, min_angular, max_angular, scale)
+    vel = _kicked(handle, "get_vel", env, env_ids, n, min_speed, max_speed, scale)
+    ang = _kicked(handle, "get_ang", env, env_ids, n, min_angular, max_angular, scale)
+    if vel is None or ang is None:
+        return
+    write_root_velocity(handle, vel, ang, env_ids)

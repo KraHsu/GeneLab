@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
+from genelab.entity import write_root_velocity
 from genelab.managers.command_manager import CommandTerm, CommandTermCfg
 from genelab.utils.math import quat_error_magnitude, quat_mul
 
@@ -217,12 +218,11 @@ class InHandReorientCommand(CommandTerm):
         for setter, value in (
             ("set_pos", pos),
             ("set_quat", self._goal_quat_w),
-            ("set_vel", zeros),
-            ("set_ang", zeros),
         ):
             fn = getattr(handle, setter, None)
             if fn is not None:
                 fn(value)
+        write_root_velocity(handle, zeros, zeros)
 
     @property
     def success_achieved(self) -> torch.Tensor:
